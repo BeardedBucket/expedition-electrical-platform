@@ -11,11 +11,12 @@ export function ElectricalConstraintsSection({ formState, onFieldChange }: Props
       <h2 id="electrical-heading">3. Electrical constraints</h2>
       <div className="form-grid">
         <label>
-          One-way conductor length (m)
+          One-way conductor length (m) (Deferred - not yet evaluated)
           <input
             type="number"
             min="0"
             step="any"
+            disabled
             value={formState.electricalConstraints.oneWayLengthM}
             onChange={(event) =>
               onFieldChange('electricalConstraints', {
@@ -26,12 +27,13 @@ export function ElectricalConstraintsSection({ formState, onFieldChange }: Props
           />
         </label>
         <label>
-          Maximum voltage drop (%)
+          Maximum voltage drop (%) (Deferred - not yet evaluated)
           <input
             type="number"
             min="0"
             max="100"
             step="any"
+            disabled
             value={formState.electricalConstraints.maxVoltageDropPercent}
             onChange={(event) =>
               onFieldChange('electricalConstraints', {
@@ -42,8 +44,9 @@ export function ElectricalConstraintsSection({ formState, onFieldChange }: Props
           />
         </label>
         <label>
-          Installation profile
+          Installation profile (Deferred - not yet evaluated)
           <select
+            disabled
             value={formState.electricalConstraints.installationProfile}
             onChange={(event) =>
               onFieldChange('electricalConstraints', {
@@ -63,6 +66,7 @@ export function ElectricalConstraintsSection({ formState, onFieldChange }: Props
       <label className="checkbox-inline">
         <input
           type="checkbox"
+          disabled
           checked={formState.electricalConstraints.roundTrip}
           onChange={(event) =>
             onFieldChange('electricalConstraints', {
@@ -71,8 +75,13 @@ export function ElectricalConstraintsSection({ formState, onFieldChange }: Props
             })
           }
         />
-        Treat the run as round-trip conductor length for checks.
+        Treat the run as round-trip conductor length for checks. (Deferred - not yet evaluated)
       </label>
+
+      <p className="microcopy">
+        Note: Conductor length, voltage drop, and installation profile evaluations are deferred to
+        future core phases.
+      </p>
     </section>
   );
 }
@@ -83,9 +92,10 @@ export function InstallationConstraintsSection({ formState, onFieldChange }: Pro
       <h2 id="installation-heading">4. Installation constraints</h2>
       <div className="form-grid">
         <label>
-          Max dimensions (mm)
+          Max dimensions (mm) (Deferred - not yet evaluated)
           <input
             type="text"
+            disabled
             value={formState.installationConstraints.maxDimensionsMm}
             onChange={(event) =>
               onFieldChange('installationConstraints', {
@@ -96,9 +106,10 @@ export function InstallationConstraintsSection({ formState, onFieldChange }: Pro
           />
         </label>
         <label>
-          Max weight (kg)
+          Max weight (kg) (Deferred - not yet evaluated)
           <input
             type="text"
+            disabled
             value={formState.installationConstraints.maxWeightKg}
             onChange={(event) =>
               onFieldChange('installationConstraints', {
@@ -109,9 +120,10 @@ export function InstallationConstraintsSection({ formState, onFieldChange }: Pro
           />
         </label>
         <label>
-          Required interfaces
+          Required interfaces (Deferred - not yet evaluated)
           <input
             type="text"
+            disabled
             value={formState.installationConstraints.requiredInterfaces}
             onChange={(event) =>
               onFieldChange('installationConstraints', {
@@ -122,9 +134,10 @@ export function InstallationConstraintsSection({ formState, onFieldChange }: Pro
           />
         </label>
         <label>
-          Required accessories
+          Required accessories (Deferred - not yet evaluated)
           <input
             type="text"
+            disabled
             value={formState.installationConstraints.requiredAccessories}
             onChange={(event) =>
               onFieldChange('installationConstraints', {
@@ -135,6 +148,11 @@ export function InstallationConstraintsSection({ formState, onFieldChange }: Pro
           />
         </label>
       </div>
+
+      <p className="microcopy">
+        Note: Physical dimension, weight, interface, and accessory constraint evaluations are
+        deferred to future core phases.
+      </p>
     </section>
   );
 }

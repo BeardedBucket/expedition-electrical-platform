@@ -52,18 +52,20 @@ export function LoadsSection({ formState, onLoadUpdate, onLoadRemove, onLoadAdd 
               />
             </label>
             <label>
-              Operating voltage (V)
+              Operating voltage (V) (Deferred - not yet evaluated)
               <input
                 type="number"
                 min="0"
                 step="any"
+                disabled
                 value={load.operatingVoltage}
                 onChange={(event) => onLoadUpdate(load.id, 'operatingVoltage', event.target.value)}
               />
             </label>
             <label>
-              Basis
+              Basis (Deferred - not yet evaluated)
               <select
+                disabled
                 value={load.basis}
                 onChange={(event) =>
                   onLoadUpdate(load.id, 'basis', event.target.value as LoadItem['basis'])
@@ -74,12 +76,13 @@ export function LoadsSection({ formState, onLoadUpdate, onLoadRemove, onLoadAdd 
               </select>
             </label>
             <label>
-              Conversion efficiency (%)
+              Conversion efficiency (%) (Deferred - not yet evaluated)
               <input
                 type="number"
                 min="0"
                 max="100"
                 step="any"
+                disabled
                 value={load.conversionEfficiency}
                 onChange={(event) =>
                   onLoadUpdate(load.id, 'conversionEfficiency', event.target.value)
@@ -97,6 +100,12 @@ export function LoadsSection({ formState, onLoadUpdate, onLoadRemove, onLoadAdd 
           </div>
         ))}
       </div>
+
+      <p className="microcopy">
+        Note: Operating voltage, load basis, and conversion efficiency calculations are deferred to
+        future core phases. Current Phase 6 core evaluates total power against system voltage
+        directly without assuming efficiency.
+      </p>
 
       <button type="button" className="secondary" onClick={onLoadAdd}>
         Add load

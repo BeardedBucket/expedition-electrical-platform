@@ -58,6 +58,7 @@ export interface CandidatePresentation {
   readonly advisorySeverity: string;
   readonly advisoryConfidence: string;
   readonly recommendationEligible: boolean;
+  readonly builderRecommendationEligible?: boolean;
   readonly reasons: readonly string[];
   readonly why: string;
   readonly builderState?: string;
@@ -291,6 +292,12 @@ const syntheticBuilders: readonly BuilderProfile[] = [
       { component_id: 'component.unknown.fit', availability: 'unknown', preference: 'standard' },
     ],
   },
+  {
+    builderId: 'builder.gap',
+    displayName: 'Gap Builder',
+    inventoryMode: 'allowlist',
+    catalog: [],
+  },
 ] as const;
 
 export const createSyntheticDemoData = (): DemoData => ({
@@ -316,8 +323,8 @@ const toLoadRequirementList = (loads: readonly LoadItem[]) =>
   loads.map((load) => ({
     id: load.id,
     name: load.name,
-    quantity: Number(load.quantity) || 1,
-    powerW: Number(load.powerW) || 0,
+    quantity: Number(load.quantity),
+    powerW: Number(load.powerW),
   }));
 
 const mapCandidateToBuilderInput = (candidate: CandidatePresentation): BuilderCatalogCandidate => ({
@@ -341,20 +348,28 @@ const buildResultGroups = (
   items: readonly CandidatePresentation[],
   builderOutcome?: BuilderOverlayOutcome | null,
 ): readonly ResultGroup[] => {
+  const recommendationAware = (item: CandidatePresentation): boolean => {
+    if (!builderOutcome || builderOutcome.status === 'generic') {
+      return item.recommendationEligible;
+    }
+
+    if (item.builderRecommendationEligible !== undefined) {
+      return item.builderRecommendationEligible;
+    }
+
+    return item.recommendationEligible;
+  };
+
   const baseGroups: readonly ResultGroup[] = [
     {
       id: 'recommended',
       title: 'Recommended / eligible',
-      items: items.filter(
-        (item) => item.recommendationEligible && item.advisoryAction !== 'caution',
-      ),
+      items: items.filter((item) => recommendationAware(item) && item.advisoryAction !== 'caution'),
     },
     {
       id: 'cautioned',
       title: 'Eligible but advisory-cautioned',
-      items: items.filter(
-        (item) => item.recommendationEligible && item.advisoryAction === 'caution',
-      ),
+      items: items.filter((item) => recommendationAware(item) && item.advisoryAction === 'caution'),
     },
     {
       id: 'unknown',
@@ -372,7 +387,7 @@ const buildResultGroups = (
       items: items.filter(
         (item) =>
           item.engineeringStatus === 'incompatible' ||
-          (!item.recommendationEligible &&
+          (!recommendationAware(item) &&
             item.advisoryAction !== 'suppress_recommendation' &&
             item.advisoryAction !== 'exclude' &&
             item.engineeringStatus !== 'unknown'),
@@ -385,10 +400,6 @@ const buildResultGroups = (
     },
   ];
 
-  if (!builderOutcome || builderOutcome.status !== 'inventory_gap') {
-    return baseGroups;
-  }
-
   const inventoryGapItems = items.filter(
     (item) =>
       item.builderState !== undefined &&
@@ -396,6 +407,13 @@ const buildResultGroups = (
         item.builderState,
       ),
   );
+
+  if (
+    !builderOutcome ||
+    (builderOutcome.status !== 'inventory_gap' && inventoryGapItems.length === 0)
+  ) {
+    return baseGroups;
+  }
 
   return [
     ...baseGroups,
@@ -416,9 +434,17 @@ export const validateConfig = (
     errors.push('Select a system voltage before evaluating the configuration.');
   }
 
-  const invalidLoad = formState.loads.find(
-    (load) => !load.name.trim() || Number(load.quantity) <= 0 || Number(load.powerW) <= 0,
-  );
+  if (formState.loads.length === 0) {
+    errors.push('At least one load is required.');
+  }
+
+  const invalidLoad = formState.loads.find((load) => {
+    const qty = Number(load.quantity);
+    const pwr = Number(load.powerW);
+    return (
+      !load.name.trim() || !Number.isFinite(qty) || qty <= 0 || !Number.isFinite(pwr) || pwr <= 0
+    );
+  });
   if (invalidLoad) {
     errors.push(
       'Each load must have a name, a quantity greater than zero, and power greater than zero.',
@@ -546,6 +572,7 @@ export const evaluateConfiguration = (
         builderState: entry.reason,
         builderAvailability: entry.availability,
         builderPreference: entry.preference,
+        builderRecommendationEligible: entry.status === 'eligible',
         unresolvedRequirements:
           (candidate.unresolvedRequirements ?? []).length > 0
             ? (candidate.unresolvedRequirements ?? [])
@@ -561,7 +588,7 @@ export const evaluateConfiguration = (
     return override ?? candidate;
   });
 
-  const groups = buildResultGroups(mergedCandidates);
+  const groups = buildResultGroups(mergedCandidates, builderOutcome);
 
   return {
     recommendationResult,

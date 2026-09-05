@@ -285,4 +285,67 @@ describe('configurator model', () => {
       'component.eligible.standard',
     ]);
   });
+
+  it('integrates builder mode through evaluateConfiguration without mutating global engineering status', () => {
+    const resultNorthwind = evaluateConfiguration({
+      ...createDefaultFormState(),
+      selectedVoltage: 24 as const,
+      builderMode: 'builder',
+      selectedBuilderId: 'builder.northwind',
+      loads: [
+        {
+          id: 'load-a',
+          name: 'Lights',
+          quantity: '2',
+          powerW: '150',
+          operatingVoltage: '',
+          basis: 'direct-source',
+          conversionEfficiency: '',
+        },
+      ],
+    });
+
+    expect(resultNorthwind).not.toBeNull();
+    const recommendedGroup = resultNorthwind?.groups.find((g) => g.id === 'recommended');
+    const inventoryGapGroup = resultNorthwind?.groups.find((g) => g.id === 'inventory-gap');
+
+    // 1. builder-supported recommendation
+    expect(recommendedGroup?.items.some((item) => item.id === 'component.eligible.standard')).toBe(
+      true,
+    );
+
+    // 2. builder-unsupported candidate absent from normal builder recommendations
+    expect(recommendedGroup?.items.some((item) => item.id === 'component.builder.gap')).toBe(false);
+
+    // 3. inventory gap item present in inventory-gap group
+    expect(inventoryGapGroup?.items.some((item) => item.id === 'component.builder.gap')).toBe(true);
+
+    // 4. builder filtering does not mutate global engineeringStatus
+    const gapCandidate = resultNorthwind?.globalCandidates.find(
+      (c) => c.id === 'component.builder.gap',
+    );
+    expect(gapCandidate?.engineeringStatus).toBe('compatible');
+    expect(gapCandidate?.recommendationEligible).toBe(true);
+
+    // 5. inventory_gap status through evaluateConfiguration path for empty catalog builder
+    const resultGapBuilder = evaluateConfiguration({
+      ...createDefaultFormState(),
+      selectedVoltage: 24 as const,
+      builderMode: 'builder',
+      selectedBuilderId: 'builder.gap',
+      loads: [
+        {
+          id: 'load-a',
+          name: 'Lights',
+          quantity: '2',
+          powerW: '150',
+          operatingVoltage: '',
+          basis: 'direct-source',
+          conversionEfficiency: '',
+        },
+      ],
+    });
+
+    expect(resultGapBuilder?.builderOutcome?.status).toBe('inventory_gap');
+  });
 });
