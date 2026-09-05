@@ -9,6 +9,22 @@
 5. Do not add third-party CAD/drawings unless redistribution permission is documented.
 6. Submit a pull request and identify which files contain human-verified engineering changes.
 
+## Local pre-PR validation
+
+Run the complete validation sequence before opening a pull request. In Windows PowerShell:
+
+```powershell
+npm.cmd run lint
+npm.cmd run format:check
+npm.cmd run validate:data
+npm.cmd run build
+npm.cmd run build:embed
+npm.cmd test -- --run
+```
+
+On macOS or Linux, use the equivalent commands without `.cmd` (for example, `npm run lint`).
+Build commands generate local output under ignored `dist/` directories; do not commit that output.
+
 ## Engineering-rule changes
 
 A rule PR should include:
