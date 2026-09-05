@@ -211,6 +211,81 @@ describe('deterministic electrical calculations', () => {
     expect(first.calculationSteps.every((step) => step.status === 'complete')).toBe(true);
   });
 
+  it('resolves standards data only for requested wire checks', () => {
+    const voltageInput = {
+      systemVoltageComparison: { powerW: 240, powerBasis: 'direct-source' as const },
+      systemVoltageCandidates: [{ id: '24v', voltageV: 24 }],
+      wireCandidates: [{ id: 'wire', gauge: 'synthetic', resistanceOhmPerM: 0.01 }],
+      wireConstraints: {
+        currentA: 10,
+        systemVoltageV: 24,
+        oneWayLengthM: 2,
+        maximumPercentVoltageDrop: 5,
+        requiredChecks: ['voltageDrop' as const],
+      },
+    };
+    const ampacityInput = {
+      ...voltageInput,
+      wireCandidates: [{ id: 'wire', gauge: 'synthetic' }],
+      wireConstraints: {
+        currentA: 10,
+        systemVoltageV: 24,
+        oneWayLengthM: 2,
+        requiredAmpacityA: 15,
+        requiredChecks: ['ampacity' as const],
+        installationConditionId: 'default',
+      },
+    };
+    const malformedProfile = {
+      id: 'synthetic',
+      version: '1.0.0',
+      status: 'synthetic' as const,
+      sources: [],
+      ampacityRecords: [
+        {
+          conductorGauge: 'synthetic',
+          installationConditionId: 'default',
+          baseAmpacityA: Number.NaN,
+          deratingInputs: [],
+          sourceReferences: [],
+        },
+      ],
+    };
+    expect(evaluateEngineeringRules(voltageInput, malformedProfile).results).toMatchObject({
+      wireCandidates: [{ ok: true, value: { eligible: true } }],
+    });
+    expect(
+      evaluateEngineeringRules(ampacityInput, {
+        ...malformedProfile,
+        ampacityRecords: [
+          {
+            conductorGauge: 'synthetic',
+            installationConditionId: 'default',
+            baseAmpacityA: 15,
+            deratingInputs: [],
+            sourceReferences: [],
+          },
+        ],
+      }).results,
+    ).toMatchObject({
+      wireCandidates: [{ ok: true, value: { eligible: true } }],
+    });
+    expect(
+      evaluateEngineeringRules(
+        {
+          ...voltageInput,
+          wireConstraints: { ...voltageInput.wireConstraints, requiredChecks: undefined },
+        },
+        {
+          ...malformedProfile,
+          ampacityRecords: [],
+        },
+      ).results,
+    ).toMatchObject({
+      wireCandidates: [{ ok: false, code: 'insufficient_data' }],
+    });
+  });
+
   it('reports non-complete trace status for missing or malformed calculation data', () => {
     const input = {
       systemVoltageComparison: { powerW: 240, powerBasis: 'direct-source' as const },

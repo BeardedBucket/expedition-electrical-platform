@@ -87,15 +87,19 @@ export const evaluateEngineeringRules = (
   input: EngineeringEvaluationInput,
   profile: StandardsDataProfile,
 ): DecisionTrace => {
-  const ampacityRecords = input.wireCandidates
-    .map((candidate) =>
-      profile.ampacityRecords?.find(
-        (record) =>
-          record.conductorGauge === candidate.gauge &&
-          record.installationConditionId === input.wireConstraints.installationConditionId,
-      ),
-    )
-    .filter((record): record is NonNullable<typeof record> => record !== undefined);
+  const requiredChecks = input.wireConstraints.requiredChecks ?? ['ampacity', 'voltageDrop'];
+  const ampacityRequired = requiredChecks.includes('ampacity');
+  const ampacityRecords = ampacityRequired
+    ? input.wireCandidates
+        .map((candidate) =>
+          profile.ampacityRecords?.find(
+            (record) =>
+              record.conductorGauge === candidate.gauge &&
+              record.installationConditionId === input.wireConstraints.installationConditionId,
+          ),
+        )
+        .filter((record): record is NonNullable<typeof record> => record !== undefined)
+    : [];
   const sources = deduplicateSources([
     ...profile.sources,
     ...ampacityRecords.flatMap((record) => [
@@ -108,9 +112,10 @@ export const evaluateEngineeringRules = (
     input.systemVoltageCandidates,
   );
   const wireResults = input.wireCandidates.map((candidate) => {
-    const record = ampacityRecords.find((entry) => entry.conductorGauge === candidate.gauge);
-    const ampacity = resolveAmpacity(record);
-    if (!ampacity.ok) return ampacity;
+    const ampacity = ampacityRequired
+      ? resolveAmpacity(ampacityRecords.find((entry) => entry.conductorGauge === candidate.gauge))
+      : undefined;
+    if (ampacity !== undefined && !ampacity.ok) return ampacity;
     return evaluateWireCandidate(
       {
         ...candidate,
@@ -118,7 +123,7 @@ export const evaluateEngineeringRules = (
           candidate.resistanceOhmPerM ?? profile.resistancePerLengthOhmPerM?.[candidate.gauge],
       },
       input.wireConstraints,
-      ampacity.value,
+      ampacity?.value,
     );
   });
   const insufficientDataReasons = [
