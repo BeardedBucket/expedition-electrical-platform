@@ -47,6 +47,7 @@ const evidenceIds = new Set();
 for (const dataFile of dataFiles) {
   const pathParts = relative(dataRoot, dataFile).split(sep);
   const collection = pathParts[0];
+  if (collection === 'ingestion') continue;
   const schemaName = schemaByCollection[collection];
   if (!schemaName) {
     throw new Error(`No schema mapping for data file: ${relative(process.cwd(), dataFile)}`);

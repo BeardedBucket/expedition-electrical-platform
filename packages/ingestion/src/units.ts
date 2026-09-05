@@ -8,7 +8,12 @@ export interface UnitDefinition {
 }
 
 const definitions: readonly UnitDefinition[] = [
-  { symbol: 'V', dimension: 'voltage', aliases: ['v', 'volt', 'volts'], toCanonical: (v) => v },
+  {
+    symbol: 'V',
+    dimension: 'voltage',
+    aliases: ['v', 'volt', 'volts', 'vac', 'vdc'],
+    toCanonical: (v) => v,
+  },
   { symbol: 'V', dimension: 'voltage', aliases: ['mv'], toCanonical: (v) => v / 1000 },
   {
     symbol: 'A',
@@ -62,7 +67,7 @@ export interface ParsedUnitValue {
   readonly unit: UnitDefinition;
 }
 
-const numberPattern = '[-+]?(?:\\d+(?:\\.\\d+)?|\\.\\d+)';
+const numberPattern = '[-+]?(?:(?:\\d{1,3}(?:,\\d{3})+)|(?:\\d+(?:\\.\\d+)?)|(?:\\.\\d+))';
 
 export const parseExactUnitValue = (
   rawValue: JsonValue,
@@ -79,5 +84,5 @@ export const parseExactUnitValue = (
   if (!match) return undefined;
   const unitText = rawUnit ?? match[2];
   const unit = resolveUnit(unitText);
-  return unit ? { value: Number(match[1]), unit } : undefined;
+  return unit ? { value: Number(match[1].replace(/,/g, '')), unit } : undefined;
 };

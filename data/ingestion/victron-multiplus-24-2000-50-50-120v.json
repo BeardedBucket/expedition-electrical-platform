@@ -1,0 +1,472 @@
+{
+  "schema_version": "1.0",
+  "captured_at": "2026-09-05T17:48:40.751Z",
+  "pilot_target_identity": {
+    "manufacturer": "Victron Energy",
+    "product_family": "MultiPlus",
+    "model": "24/2000/50-50 120V VE.Bus",
+    "manufacturer_part_number": "PMP242200100",
+    "regional_variant": "120V",
+    "voltage_variant": "24V DC input",
+    "lifecycle_status": "discontinued"
+  },
+  "source_identity_evidence": {
+    "source_id": "victron.multiplus-24-2000-50-50-120v.product-page",
+    "manufacturer_part_number": "PMP242200100",
+    "raw_value": "PMP242200100",
+    "locator": {
+      "fragment": "sku-PMP242200100",
+      "section": "Product identity"
+    },
+    "extraction_method": "structured",
+    "provenance_type": "source_observed"
+  },
+  "policy_metadata": {
+    "authority": "manufacturer_product",
+    "lifecycle_status": "discontinued",
+    "product_role": "inverter_charger"
+  },
+  "source": {
+    "schema_version": "1.0",
+    "id": "victron.multiplus-24-2000-50-50-120v.product-page",
+    "uri": "https://www.victronenergy.com/inverters-chargers/multiplus-2000-va",
+    "source_type": "manufacturer_product_page",
+    "authority": "manufacturer_product",
+    "publisher": "Victron Energy",
+    "retrieved_at": "2026-09-05T17:48:40.751Z",
+    "manufacturer": "Victron Energy",
+    "content_hash": "sha256:da9031001bdfecb6518c6902773b5031b89ca53c9523863333fc89350ad457a2",
+    "product_identity_claim": {
+      "manufacturer": "Victron Energy",
+      "manufacturer_part_number": "PMP242200100"
+    },
+    "redistribution_status": "link_only",
+    "notes": "Source-observed MPN is recorded separately from the pilot target identity."
+  },
+  "facts": [
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.6a4de9bfd1d6ee98",
+      "source_id": "victron.multiplus-24-2000-50-50-120v.product-page",
+      "field": "unmapped",
+      "raw_label": "Height",
+      "raw_value": "520 mm",
+      "raw_unit": "mm",
+      "source_locator": {
+        "fragment": "sku-PMP242200100-feature-bfe2eca40179",
+        "section": "Technical specifications",
+        "table": "sku-PMP242200100",
+        "row": "1"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.d88cb41e1f43d78c",
+      "source_id": "victron.multiplus-24-2000-50-50-120v.product-page",
+      "field": "unmapped",
+      "raw_label": "Weight",
+      "raw_value": "13 kg",
+      "raw_unit": "kg",
+      "source_locator": {
+        "fragment": "sku-PMP242200100-feature-81d27ef6d503",
+        "section": "Technical specifications",
+        "table": "sku-PMP242200100",
+        "row": "2"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.d152280c1b5cb20e",
+      "source_id": "victron.multiplus-24-2000-50-50-120v.product-page",
+      "field": "unmapped",
+      "raw_label": "Depth",
+      "raw_value": "125 mm",
+      "raw_unit": "mm",
+      "source_locator": {
+        "fragment": "sku-PMP242200100-feature-f1dbc33978a9",
+        "section": "Technical specifications",
+        "table": "sku-PMP242200100",
+        "row": "3"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.1a1f6f1162fd2eca",
+      "source_id": "victron.multiplus-24-2000-50-50-120v.product-page",
+      "field": "unmapped",
+      "raw_label": "Width",
+      "raw_value": "255 mm",
+      "raw_unit": "mm",
+      "source_locator": {
+        "fragment": "sku-PMP242200100-feature-3019947b6daf",
+        "section": "Technical specifications",
+        "table": "sku-PMP242200100",
+        "row": "4"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.6f847a9dcd1dffca",
+      "source_id": "victron.multiplus-24-2000-50-50-120v.product-page",
+      "field": "unmapped",
+      "raw_label": "Nominal battery voltage",
+      "raw_value": "24 V",
+      "raw_unit": "V",
+      "source_locator": {
+        "fragment": "sku-PMP242200100-feature-0bb00298493d",
+        "section": "Technical specifications",
+        "table": "sku-PMP242200100",
+        "row": "5"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.b46ad001a58909b6",
+      "source_id": "victron.multiplus-24-2000-50-50-120v.product-page",
+      "field": "unmapped",
+      "raw_label": "AC output voltage ±2% (adjustable)",
+      "raw_value": "120 VAC",
+      "raw_unit": "VAC",
+      "source_locator": {
+        "fragment": "sku-PMP242200100-feature-c846ca7c3f2b",
+        "section": "Technical specifications",
+        "table": "sku-PMP242200100",
+        "row": "6"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.cf2f617afd789de2",
+      "source_id": "victron.multiplus-24-2000-50-50-120v.product-page",
+      "field": "unmapped",
+      "raw_label": "AC output frequency ±0.1% (adjustable)",
+      "raw_value": "60 Hz",
+      "raw_unit": "Hz",
+      "source_locator": {
+        "fragment": "sku-PMP242200100-feature-9959b88d27ae",
+        "section": "Technical specifications",
+        "table": "sku-PMP242200100",
+        "row": "7"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.4f457350e6987777",
+      "source_id": "victron.multiplus-24-2000-50-50-120v.product-page",
+      "field": "unmapped",
+      "raw_label": "Maximum charge current (up to 25°C ambient)",
+      "raw_value": "50 A",
+      "raw_unit": "A",
+      "source_locator": {
+        "fragment": "sku-PMP242200100-feature-6b7c39f1cbf4",
+        "section": "Technical specifications",
+        "table": "sku-PMP242200100",
+        "row": "8"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.befdd19b091e3798",
+      "source_id": "victron.multiplus-24-2000-50-50-120v.product-page",
+      "field": "unmapped",
+      "raw_label": "Continuous inverter AC output power at 25°C",
+      "raw_value": "1,600 W",
+      "source_locator": {
+        "fragment": "sku-PMP242200100-feature-ee4f19bf9d3c",
+        "section": "Technical specifications",
+        "table": "sku-PMP242200100",
+        "row": "9"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional",
+      "raw_unit": "W"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.d7bf7421fa3a9cbf",
+      "source_id": "victron.multiplus-24-2000-50-50-120v.product-page",
+      "field": "unmapped",
+      "raw_label": "Continuous power at 25°C (Nonlinear load, crest factor 3:1)",
+      "raw_value": "2,000 VA",
+      "source_locator": {
+        "fragment": "sku-PMP242200100-feature-e2b858a805a7",
+        "section": "Technical specifications",
+        "table": "sku-PMP242200100",
+        "row": "10"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional",
+      "raw_unit": "VA"
+    }
+  ],
+  "candidate": {
+    "schema_version": "1.0",
+    "id": "victron.multiplus-24-2000-50-50-120v.pmp242200100",
+    "identity_status": "verified",
+    "identity": {
+      "manufacturer": "Victron Energy",
+      "product_family": "MultiPlus",
+      "model": "24/2000/50-50 120V VE.Bus",
+      "manufacturer_part_number": "PMP242200100",
+      "regional_variant": "120V",
+      "voltage_variant": "24V DC input",
+      "lifecycle_status": "discontinued"
+    },
+    "review_status": "pending",
+    "promotion_status": "review_required",
+    "source_ids": [
+      "victron.multiplus-24-2000-50-50-120v.product-page"
+    ],
+    "identity_source_ids": [
+      "victron.multiplus-24-2000-50-50-120v.product-page"
+    ],
+    "fact_ids": [
+      "extracted.fact.1a1f6f1162fd2eca",
+      "extracted.fact.4f457350e6987777",
+      "extracted.fact.6a4de9bfd1d6ee98",
+      "extracted.fact.6f847a9dcd1dffca",
+      "extracted.fact.b46ad001a58909b6",
+      "extracted.fact.befdd19b091e3798",
+      "extracted.fact.cf2f617afd789de2",
+      "extracted.fact.d152280c1b5cb20e",
+      "extracted.fact.d7bf7421fa3a9cbf",
+      "extracted.fact.d88cb41e1f43d78c"
+    ],
+    "component_data": {
+      "electrical": {
+        "ac_output_voltage_v": 120,
+        "apparent_power_va": 2000,
+        "continuous_charge_current_a": 50,
+        "continuous_power_w": 1600,
+        "frequency_hz": 60,
+        "nominal_voltage_v": 24
+      },
+      "weight_kg": 13
+    },
+    "field_evidence": {
+      "electrical.ac_output_voltage_v": [
+        "extracted.fact.b46ad001a58909b6"
+      ],
+      "electrical.apparent_power_va": [
+        "extracted.fact.d7bf7421fa3a9cbf"
+      ],
+      "electrical.continuous_charge_current_a": [
+        "extracted.fact.4f457350e6987777"
+      ],
+      "electrical.continuous_power_w": [
+        "extracted.fact.befdd19b091e3798"
+      ],
+      "electrical.frequency_hz": [
+        "extracted.fact.cf2f617afd789de2"
+      ],
+      "electrical.nominal_voltage_v": [
+        "extracted.fact.6f847a9dcd1dffca"
+      ],
+      "weight_kg": [
+        "extracted.fact.d88cb41e1f43d78c"
+      ]
+    },
+    "review_reasons": [
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required"
+    ]
+  },
+  "report": {
+    "identity": {
+      "manufacturer": "Victron Energy",
+      "product_family": "MultiPlus",
+      "model": "24/2000/50-50 120V VE.Bus",
+      "manufacturer_part_number": "PMP242200100",
+      "regional_variant": "120V",
+      "voltage_variant": "24V DC input",
+      "lifecycle_status": "discontinued"
+    },
+    "product_role": "inverter_charger",
+    "sources_used": [
+      "victron.multiplus-24-2000-50-50-120v.product-page"
+    ],
+    "normalized_fields": [
+      "electrical.ac_output_voltage_v",
+      "electrical.apparent_power_va",
+      "electrical.continuous_charge_current_a",
+      "electrical.continuous_power_w",
+      "electrical.frequency_hz",
+      "electrical.nominal_voltage_v",
+      "weight_kg"
+    ],
+    "unresolved_or_unmapped_facts": [
+      {
+        "id": "extracted.fact.6a4de9bfd1d6ee98",
+        "label": "Height",
+        "value": "520 mm"
+      },
+      {
+        "id": "extracted.fact.d152280c1b5cb20e",
+        "label": "Depth",
+        "value": "125 mm"
+      },
+      {
+        "id": "extracted.fact.1a1f6f1162fd2eca",
+        "label": "Width",
+        "value": "255 mm"
+      }
+    ],
+    "conflicts": [],
+    "unsupported_source_media": [],
+    "validation": {
+      "status": "unresolved",
+      "issues": [
+        {
+          "code": "fact_review_required",
+          "category": "unresolved",
+          "path": "facts[0].review_required",
+          "message": "fact is explicitly marked for review."
+        },
+        {
+          "code": "fact_review_required",
+          "category": "unresolved",
+          "path": "facts[1].review_required",
+          "message": "fact is explicitly marked for review."
+        },
+        {
+          "code": "fact_review_required",
+          "category": "unresolved",
+          "path": "facts[2].review_required",
+          "message": "fact is explicitly marked for review."
+        },
+        {
+          "code": "fact_review_required",
+          "category": "unresolved",
+          "path": "facts[3].review_required",
+          "message": "fact is explicitly marked for review."
+        },
+        {
+          "code": "fact_review_required",
+          "category": "unresolved",
+          "path": "facts[4].review_required",
+          "message": "fact is explicitly marked for review."
+        },
+        {
+          "code": "fact_review_required",
+          "category": "unresolved",
+          "path": "facts[5].review_required",
+          "message": "fact is explicitly marked for review."
+        },
+        {
+          "code": "fact_review_required",
+          "category": "unresolved",
+          "path": "facts[6].review_required",
+          "message": "fact is explicitly marked for review."
+        },
+        {
+          "code": "fact_review_required",
+          "category": "unresolved",
+          "path": "facts[7].review_required",
+          "message": "fact is explicitly marked for review."
+        },
+        {
+          "code": "fact_review_required",
+          "category": "unresolved",
+          "path": "facts[8].review_required",
+          "message": "fact is explicitly marked for review."
+        },
+        {
+          "code": "fact_review_required",
+          "category": "unresolved",
+          "path": "facts[9].review_required",
+          "message": "fact is explicitly marked for review."
+        },
+        {
+          "code": "fact_requires_review",
+          "category": "unresolved",
+          "path": "field_evidence.electrical.ac_output_voltage_v[0]",
+          "message": "fact 'extracted.fact.b46ad001a58909b6' requires review."
+        },
+        {
+          "code": "fact_requires_review",
+          "category": "unresolved",
+          "path": "field_evidence.electrical.apparent_power_va[0]",
+          "message": "fact 'extracted.fact.d7bf7421fa3a9cbf' requires review."
+        },
+        {
+          "code": "fact_requires_review",
+          "category": "unresolved",
+          "path": "field_evidence.electrical.continuous_charge_current_a[0]",
+          "message": "fact 'extracted.fact.4f457350e6987777' requires review."
+        },
+        {
+          "code": "fact_requires_review",
+          "category": "unresolved",
+          "path": "field_evidence.electrical.continuous_power_w[0]",
+          "message": "fact 'extracted.fact.befdd19b091e3798' requires review."
+        },
+        {
+          "code": "fact_requires_review",
+          "category": "unresolved",
+          "path": "field_evidence.electrical.frequency_hz[0]",
+          "message": "fact 'extracted.fact.cf2f617afd789de2' requires review."
+        },
+        {
+          "code": "fact_requires_review",
+          "category": "unresolved",
+          "path": "field_evidence.electrical.nominal_voltage_v[0]",
+          "message": "fact 'extracted.fact.6f847a9dcd1dffca' requires review."
+        },
+        {
+          "code": "fact_requires_review",
+          "category": "unresolved",
+          "path": "field_evidence.weight_kg[0]",
+          "message": "fact 'extracted.fact.d88cb41e1f43d78c' requires review."
+        }
+      ],
+      "ok": true
+    },
+    "review_state": "pending",
+    "promotion_state": "review_required",
+    "promotion_blocker": "Human review is required; this artifact never writes data/components/."
+  }
+}
