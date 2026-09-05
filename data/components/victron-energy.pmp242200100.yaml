@@ -1,0 +1,33 @@
+category: inverter_charger
+electrical:
+  ac_output_voltage_v: 120
+  apparent_power_va: 2000
+  continuous_charge_current_a: 50
+  continuous_power_w: 1600
+  frequency_hz: 60
+  nominal_voltage_v: 24
+id: victron-energy.pmp242200100
+manufacturer: Victron Energy
+model: 24/2000/50-50 120V VE.Bus
+part_number: PMP242200100
+product_family: MultiPlus
+product_role: inverter_charger
+source_refs:
+  - candidate_id: victron.multiplus-24-2000-50-50-120v.pmp242200100
+    content_hash: sha256:da9031001bdfecb6518c6902773b5031b89ca53c9523863333fc89350ad457a2
+    fact_ids:
+      - extracted.fact.4f457350e6987777
+      - extracted.fact.6f847a9dcd1dffca
+      - extracted.fact.b46ad001a58909b6
+      - extracted.fact.befdd19b091e3798
+      - extracted.fact.cf2f617afd789de2
+      - extracted.fact.d7bf7421fa3a9cbf
+      - extracted.fact.d88cb41e1f43d78c
+    id: victron.multiplus-24-2000-50-50-120v.product-page
+    publisher: Victron Energy
+    retrieved_at: 2026-09-05T17:48:40.751Z
+    review_id: review.human.pmp242200100
+    type: manufacturer_product_page
+    uri: https://www.victronenergy.com/inverters-chargers/multiplus-2000-va
+verification_status: unverified
+weight_kg: 13
