@@ -25,16 +25,46 @@ export const canonicalFieldMappings: readonly CanonicalFieldMapping[] = [
     aliases: ['continuous output current'],
   },
   {
+    canonical_field: 'electrical.continuous_charge_current_a',
+    dimension: 'current',
+    unit: 'A',
+    aliases: [
+      'maximum charge current',
+      'maximum battery charge current',
+      'maximum charge current (up to 25°c ambient)',
+    ],
+  },
+  {
     canonical_field: 'electrical.continuous_power_w',
     dimension: 'power',
     unit: 'W',
-    aliases: ['continuous power', 'continuous output power'],
+    aliases: [
+      'continuous power',
+      'continuous output power',
+      'continuous inverter ac output power at 25°c',
+    ],
   },
   {
     canonical_field: 'electrical.apparent_power_va',
     dimension: 'apparent_power',
     unit: 'VA',
-    aliases: ['apparent power', 'continuous apparent power'],
+    aliases: [
+      'apparent power',
+      'continuous apparent power',
+      'continuous power at 25°c (nonlinear load, crest factor 3:1)',
+    ],
+  },
+  {
+    canonical_field: 'electrical.ac_output_voltage_v',
+    dimension: 'voltage',
+    unit: 'V',
+    aliases: ['ac output voltage', 'ac output voltage ±2% (adjustable)'],
+  },
+  {
+    canonical_field: 'electrical.frequency_hz',
+    dimension: 'frequency',
+    unit: 'Hz',
+    aliases: ['ac output frequency', 'ac output frequency ±0.1% (adjustable)'],
   },
   {
     canonical_field: 'battery.nominal_capacity_ah',
