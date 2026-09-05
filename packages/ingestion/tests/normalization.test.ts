@@ -57,8 +57,11 @@ describe('product fact normalization', () => {
 
   it('keeps every explicit mapping destination backed by the component schema', () => {
     expect(
-      canonicalFieldMappings.every((mapping) => isSupportedCanonicalField(mapping.canonical_field)),
+      canonicalFieldMappings
+        .filter((mapping) => mapping.target_kind !== 'evidence')
+        .every((mapping) => isSupportedCanonicalField(mapping.canonical_field)),
     ).toBe(true);
+    expect(canonicalFieldMappings.some((mapping) => mapping.target_kind === 'evidence')).toBe(true);
   });
 
   it('leaves unknown labels unresolved without fuzzy matching', () => {
@@ -173,6 +176,134 @@ describe('product fact normalization', () => {
     expect(candidate.component_data).not.toHaveProperty('orientation_constraint');
   });
 
+  it('normalizes explicit mounting evidence without inferring a face or world orientation', () => {
+    const result = normalize({
+      id: 'acme.fact.mounting',
+      raw_label: 'Allowed mounting orientation',
+      raw_value: 'vertical mounting only',
+      raw_unit: undefined,
+    });
+    expect(result).toMatchObject({
+      status: 'normalized',
+      fact: {
+        canonical_field: 'mounting.allowed_orientation',
+        normalized_value: { vocabulary: 'vertical' },
+        fact: {
+          source_id: 'acme.manual',
+          id: 'acme.fact.mounting',
+          raw_label: 'Allowed mounting orientation',
+          raw_value: 'vertical mounting only',
+        },
+      },
+    });
+    const candidate = buildProductCandidate({
+      id: 'acme.mounting',
+      identity: source().product_identity_claim ?? {},
+      sources: [source()],
+      facts: [result.fact!.fact],
+      normalized_facts: [result.fact!],
+    });
+    expect(candidate.component_data).toEqual({});
+    expect(candidate.component_data).not.toHaveProperty('dimensions_mm');
+    expect(candidate.component_data).not.toHaveProperty('orientation_constraint');
+  });
+
+  it.each(['vertical', 'mount upright; do not mount upside down'])(
+    'leaves ambiguous mounting prose unresolved: %s',
+    (raw_value) => {
+      expect(
+        normalize({
+          raw_label: 'Allowed mounting orientation',
+          raw_value,
+          raw_unit: undefined,
+        }),
+      ).toMatchObject({
+        status: 'unresolved',
+        issues: [{ code: 'normalization_ambiguous_mounting' }],
+      });
+    },
+  );
+
+  it('keeps prohibited mounting evidence distinct from allowed evidence', () => {
+    expect(
+      normalize({
+        id: 'acme.fact.prohibited',
+        raw_label: 'Prohibited mounting orientation',
+        raw_value: 'do not mount upside down',
+        raw_unit: undefined,
+      }),
+    ).toMatchObject({
+      status: 'normalized',
+      fact: { normalized_value: { vocabulary: 'upside_down' } },
+    });
+  });
+
+  it('does not infer a mounting face from wall-mount evidence', () => {
+    const result = normalize({
+      raw_label: 'Mounting method',
+      raw_value: 'wall mount',
+    });
+    expect(result).toMatchObject({
+      status: 'normalized',
+      fact: { normalized_value: { vocabulary: 'wall_mount' } },
+    });
+    expect(result.fact?.canonical_field).toBe('mounting.method');
+  });
+
+  it('normalizes face-relative clearance evidence into separate categories', () => {
+    const service = normalize({
+      id: 'acme.fact.service',
+      raw_label: 'Service clearance x_min',
+      raw_value: '0 mm',
+      raw_unit: 'mm',
+    });
+    const ventilation = normalize({
+      id: 'acme.fact.ventilation',
+      raw_label: 'Ventilation clearance z_max',
+      raw_value: '25 cm',
+      raw_unit: 'cm',
+    });
+    const cable = normalize({
+      id: 'acme.fact.cable',
+      raw_label: 'Cable access clearance y_max',
+      raw_value: '10 mm',
+      raw_unit: 'mm',
+    });
+    expect(service.fact).toMatchObject({
+      canonical_field: 'clearance.service.x_min',
+      normalized_value: 0,
+    });
+    expect(ventilation.fact).toMatchObject({
+      canonical_field: 'clearance.ventilation.z_max',
+      normalized_value: 250,
+    });
+    const candidate = buildProductCandidate({
+      id: 'acme.clearances',
+      identity: source().product_identity_claim ?? {},
+      sources: [source()],
+      facts: [service.fact!.fact, ventilation.fact!.fact, cable.fact!.fact],
+      normalized_facts: [service.fact!, ventilation.fact!, cable.fact!],
+    });
+    expect(candidate.component_data).toEqual({});
+    expect(candidate.component_data).not.toHaveProperty('dimensions_mm');
+    expect(candidate.component_data).not.toHaveProperty('required_installation_envelope');
+  });
+
+  it('keeps vague directional clearance unresolved and does not treat missing as zero', () => {
+    expect(
+      normalize({ raw_label: 'Service clearance', raw_value: '25 mm', raw_unit: 'mm' }),
+    ).toMatchObject({
+      status: 'unresolved',
+      issues: [{ code: 'normalization_unmapped_field' }],
+    });
+    expect(
+      normalize({ raw_label: 'Service clearance front', raw_value: '0 mm', raw_unit: 'mm' }),
+    ).toMatchObject({
+      status: 'unresolved',
+      issues: [{ code: 'normalization_unmapped_field' }],
+    });
+  });
+
   it('rejects unsupported units and cross-dimension conversion', () => {
     expect(normalize({ raw_unit: 'XYZ', raw_value: '50 XYZ' })).toMatchObject({
       status: 'unresolved',
@@ -249,6 +380,7 @@ describe('product reconciliation and candidates', () => {
       uri: 'https://example.invalid/distributor',
       authority: 'authorized_distributor',
     });
+
     const distributor = normalize(
       {
         id: 'acme.fact.distributor',
@@ -271,6 +403,109 @@ describe('product reconciliation and candidates', () => {
         source_ids: ['acme.distributor', 'acme.manual'],
       }),
     ]);
+  });
+
+  it('allows distinct allowed and prohibited orientation evidence to coexist', () => {
+    const allowed = normalize({
+      id: 'acme.fact.allowed',
+      raw_label: 'Allowed mounting orientation',
+      raw_value: 'vertical mounting only',
+    });
+    const prohibited = normalize({
+      id: 'acme.fact.prohibited',
+      raw_label: 'Prohibited mounting orientation',
+      raw_value: 'do not mount upside down',
+    });
+    const result = reconcileProductFacts({
+      candidate_id: 'acme.candidate',
+      identity: source().product_identity_claim ?? {},
+      sources: [source()],
+      facts: [allowed.fact!.fact, prohibited.fact!.fact],
+      normalized_facts: [allowed.fact!, prohibited.fact!],
+    });
+    expect(result.conflicts).toEqual([]);
+    expect(result.fields.map((field) => field.field)).toEqual([
+      'mounting.allowed_orientation',
+      'mounting.prohibited_orientation',
+    ]);
+  });
+
+  it('conflicts when the same clearance semantic target has incompatible values', () => {
+    const first = normalize({
+      id: 'acme.fact.service.first',
+      raw_label: 'Service clearance x_min',
+      raw_value: '25 mm',
+      raw_unit: 'mm',
+    });
+    const second = normalize({
+      id: 'acme.fact.service.second',
+      raw_label: 'Service clearance x_min',
+      raw_value: '50 mm',
+      raw_unit: 'mm',
+    });
+    const result = reconcileProductFacts({
+      candidate_id: 'acme.candidate',
+      identity: source().product_identity_claim ?? {},
+      sources: [source()],
+      facts: [first.fact!.fact, second.fact!.fact],
+      normalized_facts: [first.fact!, second.fact!],
+    });
+    expect(result.conflicts).toEqual([
+      expect.objectContaining({
+        code: 'reconciliation_value_conflict',
+        field: 'clearance.service.x_min',
+      }),
+    ]);
+  });
+
+  it('keeps canonical and evidence targets separate even when field strings collide', () => {
+    const canonical = normalize({
+      id: 'acme.fact.canonical-collision',
+      raw_label: 'Width',
+      raw_value: '255 mm',
+      raw_unit: 'mm',
+    });
+    const evidence = {
+      ...canonical.fact!,
+      target_kind: 'evidence' as const,
+      canonical_field: 'dimensions_mm.x',
+      fact: {
+        ...canonical.fact!.fact,
+        id: 'acme.fact.evidence-collision',
+        field: 'dimensions_mm.x',
+      },
+    };
+    const result = reconcileProductFacts({
+      candidate_id: 'acme.candidate',
+      identity: source().product_identity_claim ?? {},
+      sources: [source()],
+      facts: [canonical.fact!.fact, evidence.fact],
+      normalized_facts: [canonical.fact!, evidence],
+    });
+    expect(result.conflicts).toEqual([]);
+    expect(result.fields).toEqual([
+      expect.objectContaining({
+        field: 'dimensions_mm.x',
+        target_kind: 'canonical',
+        value: 255,
+      }),
+      expect.objectContaining({
+        field: 'dimensions_mm.x',
+        target_kind: 'evidence',
+        value: 255,
+      }),
+    ]);
+    const candidate = buildProductCandidate({
+      id: 'acme.candidate',
+      identity: source().product_identity_claim ?? {},
+      sources: [source()],
+      facts: [canonical.fact!.fact, evidence.fact],
+      normalized_facts: [canonical.fact!, evidence],
+    });
+    expect(candidate.component_data).toEqual({ dimensions_mm: { x: 255 } });
+    expect(candidate.field_evidence).toEqual({
+      'dimensions_mm.x': ['acme.fact.canonical-collision'],
+    });
   });
 
   it('deduplicates repeated normalized evidence IDs deterministically', () => {

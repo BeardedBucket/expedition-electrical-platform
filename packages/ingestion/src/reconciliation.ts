@@ -152,9 +152,16 @@ export const reconcileProductFacts = (
   }
 
   const fields: ReconciledField[] = [];
-  const fieldNames = [...new Set(normalized.map((item) => item.canonical_field))].sort();
-  for (const field of fieldNames) {
-    const facts = normalized.filter((item) => item.canonical_field === field);
+  const targetKeys = [
+    ...new Set(normalized.map((item) => `${item.target_kind}::${item.canonical_field}`)),
+  ].sort();
+  for (const targetKey of targetKeys) {
+    const separator = targetKey.indexOf('::');
+    const targetKind = targetKey.slice(0, separator) as NormalizedProductFact['target_kind'];
+    const field = targetKey.slice(separator + 2);
+    const facts = normalized.filter(
+      (item) => item.target_kind === targetKind && item.canonical_field === field,
+    );
     const values = [
       ...new Map(facts.map((item) => [stableJson(item.normalized_value), item])).values(),
     ];
@@ -183,6 +190,7 @@ export const reconcileProductFacts = (
       fact_ids: facts.map((item) => item.fact.id).sort(),
       source_ids: [...new Set(facts.map((item) => item.source.id))].sort(),
       states: [...new Set(facts.map((item) => item.fact.fact_state))].sort(),
+      target_kind: targetKind,
     });
   }
   return {

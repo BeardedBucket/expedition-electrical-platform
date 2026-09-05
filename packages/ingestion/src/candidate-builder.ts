@@ -46,8 +46,10 @@ export const buildProductCandidate = (input: ProductCandidateBuildInput): Produc
   const componentData: JsonObject = {};
   const fieldEvidence: Record<string, readonly string[]> = {};
   reconciliation.fields.forEach((field) => {
-    setPath(componentData as MutableJsonObject, field.field, field.value);
-    fieldEvidence[field.field] = field.fact_ids;
+    if (field.target_kind === 'canonical') {
+      setPath(componentData as MutableJsonObject, field.field, field.value);
+      fieldEvidence[field.field] = field.fact_ids;
+    }
   });
   const identitySources = input.sources
     .filter(
