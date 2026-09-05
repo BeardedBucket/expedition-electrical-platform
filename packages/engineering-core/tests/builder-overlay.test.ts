@@ -220,6 +220,35 @@ describe('builder overlay rules', () => {
     expect(result.rankedCandidates[0]?.status).toBe('unknown');
   });
 
+  it('mixed ineligible and unknown upstream candidates remain per-candidate classification', () => {
+    const profile = makeProfile({
+      catalog: [
+        { component_id: 'component.a', availability: 'unavailable', preference: 'standard' },
+        { component_id: 'component.b', availability: 'unknown', preference: 'standard' },
+      ],
+    });
+
+    const result = evaluateBuilderCatalogMode(
+      profile,
+      [
+        makeCandidate('component.a', { engineeringEligible: false }),
+        makeCandidate('component.b', { status: 'unknown' }),
+      ],
+      { kind: 'resolved', builderId: profile.builderId },
+    );
+
+    expect(result.status).toBe('unknown');
+    expect(
+      result.candidates.find((candidate) => candidate.componentId === 'component.a')?.status,
+    ).toBe('ineligible');
+    expect(
+      result.candidates.find((candidate) => candidate.componentId === 'component.b')?.status,
+    ).toBe('unknown');
+    expect(result.rankedCandidates.map((candidate) => candidate.componentId)).toEqual([
+      'component.b',
+    ]);
+  });
+
   it('unknown availability stays visible and returns unknown rather than an inventory gap', () => {
     const profile = makeProfile({
       catalog: [{ component_id: 'component.a', availability: 'unknown', preference: 'standard' }],

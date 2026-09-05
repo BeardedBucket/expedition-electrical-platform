@@ -339,22 +339,30 @@ export const evaluateBuilderCatalogMode = (
 
   if (globalEligible.length === 0) {
     if (globalUnknown.length > 0) {
-      return {
-        status: 'unknown',
-        attribution,
-        candidates: candidates.map((candidate) => ({
-          componentId: candidate.id,
-          status: 'unknown' as const,
-          reason: 'upstream.unknown',
-          explanation: `The upstream engineering data for ${candidate.id} is unknown, so builder compatibility remains uncertain.`,
-        })),
-        rankedCandidates: sortCatalogResults(
-          candidates.map((candidate) => ({
+      const classified = candidates.map((candidate) => {
+        const status = classifyGlobalCandidate(candidate);
+        if (status === 'unknown') {
+          return {
             componentId: candidate.id,
             status: 'unknown' as const,
             reason: 'upstream.unknown',
             explanation: `The upstream engineering data for ${candidate.id} is unknown, so builder compatibility remains uncertain.`,
-          })),
+          };
+        }
+        return {
+          componentId: candidate.id,
+          status: 'ineligible' as const,
+          reason: 'upstream.ineligible',
+          explanation: `The upstream engineering data excludes ${candidate.id} from global eligibility.`,
+        };
+      });
+
+      return {
+        status: 'unknown',
+        attribution,
+        candidates: classified,
+        rankedCandidates: sortCatalogResults(
+          classified.filter((candidate) => candidate.status === 'unknown'),
         ),
         builderId: attribution.builderId,
       };
