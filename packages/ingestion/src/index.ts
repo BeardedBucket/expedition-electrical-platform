@@ -7,6 +7,7 @@ export * from './fact-extraction.js';
 export * from './normalization-types.js';
 export * from './field-mapping.js';
 export * from './units.js';
+export * from './source-aware-measurement.js';
 export * from './normalize-fact.js';
 export * from './reconciliation.js';
 export * from './candidate-builder.js';

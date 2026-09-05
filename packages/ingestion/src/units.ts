@@ -5,52 +5,45 @@ export interface UnitDefinition {
   readonly dimension: string;
   readonly aliases: readonly string[];
   readonly toCanonical: (value: number) => number;
+  readonly fromCanonical: (value: number) => number;
 }
 
+const linear = (
+  symbol: string,
+  dimension: string,
+  aliases: readonly string[],
+  factor: number,
+): UnitDefinition => ({
+  symbol,
+  dimension,
+  aliases,
+  toCanonical: (value) => value * factor,
+  fromCanonical: (value) => value / factor,
+});
+
 const definitions: readonly UnitDefinition[] = [
-  {
-    symbol: 'V',
-    dimension: 'voltage',
-    aliases: ['v', 'volt', 'volts', 'vac', 'vdc'],
-    toCanonical: (v) => v,
-  },
-  { symbol: 'V', dimension: 'voltage', aliases: ['mv'], toCanonical: (v) => v / 1000 },
-  {
-    symbol: 'A',
-    dimension: 'current',
-    aliases: ['a', 'amp', 'amps', 'ampere', 'amperes'],
-    toCanonical: (v) => v,
-  },
-  { symbol: 'W', dimension: 'power', aliases: ['w', 'watt', 'watts'], toCanonical: (v) => v },
-  { symbol: 'W', dimension: 'power', aliases: ['kw'], toCanonical: (v) => v * 1000 },
-  { symbol: 'VA', dimension: 'apparent_power', aliases: ['va'], toCanonical: (v) => v },
-  { symbol: 'VA', dimension: 'apparent_power', aliases: ['kva'], toCanonical: (v) => v * 1000 },
-  { symbol: 'Wh', dimension: 'energy', aliases: ['wh'], toCanonical: (v) => v },
-  { symbol: 'Wh', dimension: 'energy', aliases: ['kwh'], toCanonical: (v) => v * 1000 },
-  { symbol: 'Ah', dimension: 'capacity', aliases: ['ah'], toCanonical: (v) => v },
-  {
-    symbol: 'ohm',
-    dimension: 'resistance',
-    aliases: ['ohm', 'ohms', 'ω', 'Ω'],
-    toCanonical: (v) => v,
-  },
-  { symbol: 'Hz', dimension: 'frequency', aliases: ['hz'], toCanonical: (v) => v },
-  {
-    symbol: 'kg',
-    dimension: 'mass',
-    aliases: ['kg', 'kilogram', 'kilograms'],
-    toCanonical: (v) => v,
-  },
-  {
-    symbol: 'kg',
-    dimension: 'mass',
-    aliases: ['g', 'gram', 'grams'],
-    toCanonical: (v) => v / 1000,
-  },
-  { symbol: 'mm', dimension: 'length', aliases: ['mm'], toCanonical: (v) => v },
-  { symbol: 'mm', dimension: 'length', aliases: ['cm'], toCanonical: (v) => v * 10 },
-  { symbol: 'mm', dimension: 'length', aliases: ['m'], toCanonical: (v) => v * 1000 },
-  { symbol: '°C', dimension: 'temperature', aliases: ['c', '°c'], toCanonical: (v) => v },
+  linear('V', 'voltage', ['v', 'volt', 'volts', 'vac', 'vdc'], 1),
+  linear('V', 'voltage', ['mv'], 0.001),
+  linear('A', 'current', ['a', 'amp', 'amps', 'ampere', 'amperes'], 1),
+  linear('W', 'power', ['w', 'watt', 'watts'], 1),
+  linear('W', 'power', ['kw'], 1000),
+  linear('VA', 'apparent_power', ['va'], 1),
+  linear('VA', 'apparent_power', ['kva'], 1000),
+  linear('Wh', 'energy', ['wh'], 1),
+  linear('Wh', 'energy', ['kwh'], 1000),
+  linear('Ah', 'capacity', ['ah'], 1),
+  linear('ohm', 'resistance', ['ohm', 'ohms', 'ω', 'Ω'], 1),
+  linear('Hz', 'frequency', ['hz'], 1),
+  linear('kg', 'mass', ['kg', 'kilogram', 'kilograms'], 1),
+  linear('kg', 'mass', ['g', 'gram', 'grams'], 0.001),
+  linear('kg', 'mass', ['oz', 'ounce', 'ounces'], 0.45359237 / 16),
+  linear('kg', 'mass', ['lb', 'pound', 'pounds'], 0.45359237),
+  linear('mm', 'length', ['mm'], 1),
+  linear('mm', 'length', ['cm'], 10),
+  linear('mm', 'length', ['m'], 1000),
+  linear('mm', 'length', ['in', 'inch', 'inches'], 25.4),
+  linear('mm', 'length', ['ft', 'foot', 'feet'], 304.8),
+  linear('°C', 'temperature', ['c', '°c'], 1),
 ];
 
 const unitByAlias = new Map(
@@ -61,6 +54,18 @@ const unitByAlias = new Map(
 
 export const resolveUnit = (unit: string): UnitDefinition | undefined =>
   unitByAlias.get(unit.trim().toLowerCase());
+
+export const convertUnit = (value: number, fromUnit?: string, toUnit?: string): number => {
+  if (!fromUnit || !toUnit) throw new Error('Both source and target units are required.');
+  if (!Number.isFinite(value)) throw new Error('A finite numeric value is required.');
+  const from = resolveUnit(fromUnit);
+  const to = resolveUnit(toUnit);
+  if (!from || !to) throw new Error(`Unsupported unit conversion: ${fromUnit} to ${toUnit}.`);
+  if (from.dimension !== to.dimension) {
+    throw new Error(`Cannot convert between dimensions '${from.dimension}' and '${to.dimension}'.`);
+  }
+  return to.fromCanonical(from.toCanonical(value));
+};
 
 export interface ParsedUnitValue {
   readonly value: number;
