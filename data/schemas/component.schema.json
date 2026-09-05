@@ -24,6 +24,51 @@
     "verification_status": {
       "enum": ["unverified", "partially_verified", "verified"]
     },
+    "source_type": {
+      "type": ["string", "null"]
+    },
+    "required_accessories": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "label": { "type": ["string", "null"] },
+              "note": { "type": ["string", "null"] }
+            },
+            "additionalProperties": true
+          }
+        ]
+      },
+      "default": []
+    },
+    "required_converters": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "label": { "type": ["string", "null"] },
+              "note": { "type": ["string", "null"] }
+            },
+            "additionalProperties": true
+          }
+        ]
+      },
+      "default": []
+    },
     "electrical": {
       "type": "object",
       "properties": {
@@ -43,6 +88,24 @@
               "type": "null"
             }
           ]
+        },
+        "input_voltage_range_v": {
+          "type": ["object", "null"],
+          "properties": {
+            "min": { "type": "number" },
+            "max": { "type": "number" }
+          },
+          "required": ["min", "max"],
+          "additionalProperties": false
+        },
+        "output_voltage_range_v": {
+          "type": ["object", "null"],
+          "properties": {
+            "min": { "type": "number" },
+            "max": { "type": "number" }
+          },
+          "required": ["min", "max"],
+          "additionalProperties": false
         },
         "continuous_current_a": {
           "type": ["number", "null"]
@@ -86,6 +149,28 @@
               "type": "null"
             }
           ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "advisory_state": {
+      "type": ["object", "null"],
+      "properties": {
+        "status": {
+          "enum": ["none", "info", "watch", "advisory", "critical"]
+        },
+        "recommendation_effect": {
+          "enum": ["none", "warn", "suppress_default", "exclude"]
+        },
+        "summary": {
+          "type": ["string", "null"]
+        },
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
         }
       },
       "additionalProperties": true
@@ -164,6 +249,22 @@
       "type": "array",
       "items": {
         "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "advisory_refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": ["string", "null"] },
+          "type": { "type": ["string", "null"] },
+          "uri": { "type": ["string", "null"] },
+          "url": { "type": ["string", "null"] },
+          "source_type": { "type": ["string", "null"] },
+          "summary": { "type": ["string", "null"] }
+        },
         "additionalProperties": true
       }
     },
