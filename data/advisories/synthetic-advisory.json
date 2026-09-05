@@ -1,0 +1,35 @@
+{
+  "id": "advisory.synthetic.monitoring",
+  "status": "monitoring",
+  "severity": "low",
+  "confidence": "low",
+  "policy_action": "inform",
+  "title": "Synthetic monitoring record",
+  "summary": "Synthetic fixture only; no real-world safety claim.",
+  "rationale": "Used to exercise provenance and conservative assessment behavior.",
+  "affected_component_ids": ["component.synthetic.example"],
+  "evidence_ids": ["evidence.synthetic.community"],
+  "created_at": "2026-09-04T00:00:00Z",
+  "updated_at": "2026-09-04T00:00:00Z",
+  "next_review_at": "2026-10-04T00:00:00Z",
+  "evidence": [
+    {
+      "id": "evidence.synthetic.community",
+      "affected_component_ids": ["component.synthetic.example"],
+      "type": "community_report",
+      "sources": [
+        {
+          "id": "source.synthetic.community",
+          "type": "synthetic",
+          "title": "Synthetic community report",
+          "date_checked": "2026-09-04"
+        }
+      ],
+      "publication_date": "2026-09-03",
+      "date_checked": "2026-09-04",
+      "summary": "Synthetic report for tests.",
+      "verification_status": "unverified",
+      "status": "active"
+    }
+  ]
+}

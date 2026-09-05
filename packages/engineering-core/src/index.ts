@@ -4,4 +4,6 @@ export * from './component-library.js';
 export * from './builder-overlay.js';
 export { demoData } from './demo-data.js';
 export * from './evaluator.js';
+export * from './advisory.js';
+export * from './recommendation-boundary.js';
 export { orchestrateRecommendations } from './orchestrator.js';

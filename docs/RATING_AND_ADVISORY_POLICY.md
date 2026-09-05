@@ -31,3 +31,9 @@ Examples include regulator notices, manufacturer bulletins, independent engineer
 ## Human review
 
 AI may identify candidate patterns or summarize evidence. Publishing or changing an advisory severity requires a human-reviewed pull request with cited evidence and an explicit rationale.
+
+Evidence records preserve source provenance and verification state separately from the advisory assessment. Severity describes impact while confidence describes support; neither is an opaque score. Policy action is explicit, and an active warning can remain technically eligible while suppression or exclusion affects recommendation eligibility. Evidence freshness and review-due state are calculated from an explicit evaluation timestamp, not an implicit wall clock, and old evidence is flagged rather than treated as false.
+
+Automatic corroboration can raise confidence to `high` but does not mechanically publish `confirmed`; that state is reserved for an explicit reviewed decision in this phase. Non-confirming evidence is capped at automatic `caution`, while a reviewed decision may explicitly publish suppression or exclusion.
+
+Litigation, community/forum/social reports, and news coverage are evidence that may require review; they do not independently establish a confirmed technical finding. Builder inventory and preference are applied only after global engineering and advisory filtering and cannot override safety policy. Canonical component facts never embed authoritative advisory state.

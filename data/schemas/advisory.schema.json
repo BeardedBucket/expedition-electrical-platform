@@ -1,74 +1,95 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Product Advisory",
+  "$id": "urn:expedition-electrical-platform:schema:advisory",
+  "title": "Advisory and evidence record",
   "type": "object",
-  "required": [
-    "id",
-    "status",
-    "severity",
-    "title",
-    "affected",
-    "evidence",
-    "review",
-    "summary",
-    "recommendation_effect"
-  ],
+  "required": ["id"],
   "properties": {
-    "id": {
-      "type": "string"
-    },
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]+$" },
     "status": {
-      "enum": ["draft", "open", "resolved", "withdrawn"]
+      "enum": ["draft", "monitoring", "active", "resolved", "withdrawn", "superseded", "open"]
     },
     "severity": {
-      "enum": ["info", "watch", "advisory", "critical"]
+      "enum": ["informational", "low", "moderate", "high", "critical", "info", "watch", "advisory"]
     },
-    "title": {
-      "type": "string"
-    },
-    "summary": {
-      "type": "string"
-    },
-    "affected": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": true
-      }
+    "confidence": { "enum": ["low", "medium", "high", "confirmed"] },
+    "policy_action": {
+      "enum": ["none", "inform", "caution", "suppress_recommendation", "exclude"]
     },
     "recommendation_effect": {
       "enum": ["none", "warn", "suppress_default", "exclude"]
     },
-    "evidence": {
+    "title": { "type": "string" },
+    "summary": { "type": "string" },
+    "rationale": { "type": "string" },
+    "affected_component_ids": {
       "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": true
-      }
+      "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]+$" }
     },
-    "manufacturer_response": {
-      "type": ["object", "null"],
+    "affected": { "type": "array", "items": { "type": "object" } },
+    "evidence_ids": { "type": "array", "items": { "type": "string" } },
+    "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidence" } },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "review_after": { "type": "string", "format": "date-time" },
+    "next_review_at": { "type": "string", "format": "date-time" },
+    "supersedes": { "type": "string" },
+    "superseded_by": { "type": "string" },
+    "review": { "type": "object" },
+    "manufacturer_response": { "type": ["object", "null"] }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "required": ["id", "type", "date_checked"],
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "uri": { "type": "string", "format": "uri" },
+        "publisher": { "type": "string" },
+        "publication_date": { "type": "string", "format": "date" },
+        "date_checked": { "type": "string", "format": "date" },
+        "archived_uri": { "type": "string", "format": "uri" },
+        "notes": { "type": "string" }
+      },
       "additionalProperties": true
     },
-    "review": {
+    "evidence": {
       "type": "object",
-      "required": ["last_reviewed", "next_review_due"],
+      "required": [
+        "id",
+        "affected_component_ids",
+        "type",
+        "sources",
+        "date_checked",
+        "summary",
+        "verification_status",
+        "status"
+      ],
       "properties": {
-        "last_reviewed": {
-          "type": "string",
-          "format": "date"
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]+$" },
+        "affected_component_ids": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "type": { "type": "string" },
+        "sources": { "type": "array", "items": { "$ref": "#/$defs/source" }, "minItems": 1 },
+        "publication_date": { "type": "string", "format": "date" },
+        "observed_at": { "type": "string", "format": "date" },
+        "date_checked": { "type": "string", "format": "date" },
+        "summary": { "type": "string" },
+        "verification_status": {
+          "enum": ["unverified", "corroborated", "verified", "disputed", "retracted", "superseded"]
         },
-        "next_review_due": {
-          "type": "string",
-          "format": "date"
-        },
-        "reviewers": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        }
-      }
+        "status": { "enum": ["active", "retracted", "superseded", "disputed"] },
+        "affected_models": { "type": "array", "items": { "type": "string" } },
+        "serial_ranges": { "type": "array", "items": { "type": "string" } },
+        "batches": { "type": "array", "items": { "type": "string" } },
+        "jurisdictions": { "type": "array", "items": { "type": "string" } },
+        "technical_failure_mode": { "type": "string" },
+        "notes": { "type": "string" },
+        "duplicate_of": { "type": "string" }
+      },
+      "additionalProperties": true
     }
   },
   "additionalProperties": true

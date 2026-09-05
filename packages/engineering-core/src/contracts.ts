@@ -58,6 +58,8 @@ export interface Requirements {
 export interface ComponentRecord {
   readonly id: string;
   readonly verificationStatus: 'unverified' | 'partially_verified' | 'verified';
+  readonly engineeringStatus?: 'compatible' | 'incompatible' | 'unknown';
+  readonly advisoryRefs?: readonly string[];
 }
 
 export type BuilderInventoryMode = 'unrestricted' | 'allowlist' | 'denylist';
@@ -102,11 +104,6 @@ export interface BuilderProfile {
   readonly tracking?: BuilderTrackingMetadata;
 }
 
-export interface AdvisoryRecord {
-  readonly id: string;
-  readonly severity: 'info' | 'watch' | 'advisory' | 'critical';
-}
-
 export interface RuleSetMetadata extends DatasetVersion {
   readonly description: string;
 }
@@ -116,6 +113,7 @@ export interface DemoData {
   readonly components: readonly ComponentRecord[];
   readonly builders: readonly BuilderProfile[];
   readonly advisories: readonly AdvisoryRecord[];
+  readonly evidence?: readonly EvidenceRecord[];
   readonly ruleSet: RuleSetMetadata;
 }
 
@@ -290,9 +288,13 @@ export interface TraceMetadata {
 export interface Recommendation {
   readonly id: string;
   readonly why: string;
+  readonly engineeringStatus?: 'compatible' | 'incompatible' | 'unknown';
+  readonly advisory?: ComponentAdvisoryEvaluation;
 }
 
 export interface RecommendationResult {
   readonly recommendations: readonly Recommendation[];
+  readonly inspectableAdvisoryCandidates?: readonly Recommendation[];
   readonly trace: TraceMetadata;
 }
+import type { AdvisoryRecord, ComponentAdvisoryEvaluation, EvidenceRecord } from './advisory.js';
