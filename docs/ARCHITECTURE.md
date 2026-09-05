@@ -34,3 +34,7 @@ Eligibility flows in layers: engineering compatibility and safety/advisory check
 ## Domain profiles
 
 The engineering core should remain reusable across domains. The initial profile is mobile/off-grid vehicle installations. A future stationary-installation profile may add different standards, code requirements, grounding/bonding rules, utility/service assumptions, environmental constraints, and component categories without changing the fundamental component/provenance/advisory architecture.
+
+Advisory records are assessments over separately stored, source-attributed evidence. Severity and confidence remain independent, and policy actions (`inform`, `caution`, `suppress_recommendation`, or `exclude`) are not engineering compatibility results. Automatic assessment is conservative: litigation, community, forum, social, or news reports alone produce a review-needed result rather than a confirmed technical finding. Evaluation receives an explicit timestamp so stale and review-due states are deterministic. Human-reviewed decisions remain explicit and visible.
+
+Advisory evaluation runs once before recommendation and builder overlay processing. A builder catalog or preference can narrow globally eligible candidates but cannot re-enable a suppressed or excluded candidate, and canonical component facts and engineering compatibility remain unchanged.

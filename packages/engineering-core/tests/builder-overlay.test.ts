@@ -78,6 +78,18 @@ describe('builder overlay rules', () => {
     expect(result.status).toBe('ineligible');
   });
 
+  it('builder preference cannot re-enable a suppressed recommendation', () => {
+    const profile = makeProfile({
+      catalog: [{ component_id: 'component.a', availability: 'stocked', preference: 'preferred' }],
+    });
+    const result = evaluateBuilderCatalogMode(
+      profile,
+      [makeCandidate('component.a', { recommendationEligible: false })],
+      { kind: 'resolved', builderId: profile.builderId },
+    );
+    expect(result.status).toBe('ineligible');
+  });
+
   it('builder filtering occurs after global eligibility', () => {
     const profile = makeProfile({
       catalog: [{ component_id: 'component.a', availability: 'stocked', preference: 'preferred' }],

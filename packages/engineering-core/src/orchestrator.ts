@@ -5,6 +5,7 @@ import type {
   TraceMetadata,
   TraceStep,
 } from './contracts.js';
+import { evaluateAdvisoryRecommendationBoundary } from './recommendation-boundary.js';
 
 const stableSerialize = (value: unknown): string => {
   if (Array.isArray(value)) {
@@ -37,8 +38,29 @@ const validateRequirements = (requirements: Requirements): void => {
 export const orchestrateRecommendations = (
   requirements: Requirements,
   data: DemoData,
+  options: {
+    readonly evaluatedAt?: string;
+  } = {},
 ): RecommendationResult => {
   validateRequirements(requirements);
+  const evidence = data.evidence ?? [];
+  const hasAdvisoryEvaluation = data.advisories.length > 0 || evidence.length > 0;
+  if (hasAdvisoryEvaluation && !options.evaluatedAt) {
+    throw new Error(
+      'An explicit evaluation timestamp is required when advisory or evidence records are loaded.',
+    );
+  }
+  const boundary = hasAdvisoryEvaluation
+    ? evaluateAdvisoryRecommendationBoundary(
+        data.components.map((component) => ({
+          component,
+          engineeringStatus: component.engineeringStatus ?? 'compatible',
+        })),
+        data.advisories,
+        evidence,
+        options.evaluatedAt!,
+      )
+    : { recommendations: [], inspectableAdvisoryCandidates: [] };
 
   const steps: readonly TraceStep[] = [
     { id: 'requirements', status: 'complete', summary: 'Requirements accepted.' },
@@ -85,7 +107,8 @@ export const orchestrateRecommendations = (
   };
 
   return {
-    recommendations: [],
+    recommendations: boundary.recommendations,
+    inspectableAdvisoryCandidates: boundary.inspectableAdvisoryCandidates,
     trace,
   };
 };

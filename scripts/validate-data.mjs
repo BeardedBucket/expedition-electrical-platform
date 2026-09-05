@@ -41,6 +41,8 @@ for (const schemaFile of schemaFiles) {
 
 const dataFiles = (await jsonFiles(dataRoot)).filter((file) => !file.startsWith(schemaRoot));
 let validated = 0;
+const advisoryIds = new Set();
+const evidenceIds = new Set();
 
 for (const dataFile of dataFiles) {
   const pathParts = relative(dataRoot, dataFile).split(sep);
@@ -57,6 +59,81 @@ for (const dataFile of dataFiles) {
     throw new Error(
       `${relative(process.cwd(), dataFile)} failed validation:\n${ajv.errorsText(validate.errors)}`,
     );
+  }
+  if (collection === 'advisories') {
+    const records = Array.isArray(document) ? document : [document];
+    for (const record of records) {
+      if (advisoryIds.has(record.id))
+        throw new Error(
+          `${relative(process.cwd(), dataFile)} has duplicate advisory ID '${record.id}'.`,
+        );
+      advisoryIds.add(record.id);
+      if (
+        record.created_at &&
+        record.updated_at &&
+        Date.parse(record.updated_at) < Date.parse(record.created_at)
+      ) {
+        throw new Error(
+          `${relative(process.cwd(), dataFile)} has updated_at earlier than created_at.`,
+        );
+      }
+      for (const evidence of record.evidence ?? []) {
+        if (evidenceIds.has(evidence.id))
+          throw new Error(
+            `${relative(process.cwd(), dataFile)} has duplicate evidence ID '${evidence.id}'.`,
+          );
+        evidenceIds.add(evidence.id);
+        if (!Array.isArray(evidence.sources) || evidence.sources.length === 0) {
+          throw new Error(
+            `${relative(process.cwd(), dataFile)} evidence '${evidence.id}' is missing provenance.`,
+          );
+        }
+      }
+      for (const evidenceId of record.evidence_ids ?? []) {
+        if (!(record.evidence ?? []).some((evidence) => evidence.id === evidenceId)) {
+          throw new Error(
+            `${relative(process.cwd(), dataFile)} advisory '${record.id}' references missing evidence '${evidenceId}'.`,
+          );
+        }
+      }
+      if (record.supersedes === record.id || record.superseded_by === record.id) {
+        throw new Error(
+          `${relative(process.cwd(), dataFile)} advisory '${record.id}' self-references supersession.`,
+        );
+      }
+      // Modern (Phase 5) authoritative advisories carry policy_action; legacy fixtures use
+      // recommendation_effect instead and are intentionally exempt from this check.
+      if (
+        record.policy_action !== undefined &&
+        record.policy_action !== 'none' &&
+        (!Array.isArray(record.evidence_ids) || record.evidence_ids.length === 0)
+      ) {
+        throw new Error(
+          `${relative(process.cwd(), dataFile)} advisory '${record.id}' has an influential policy_action without evidence_ids.`,
+        );
+      }
+      if (record.reviewed_decision) {
+        const decision = record.reviewed_decision;
+        if (
+          decision.reviewed_at &&
+          record.created_at &&
+          Date.parse(decision.reviewed_at) < Date.parse(record.created_at)
+        ) {
+          throw new Error(
+            `${relative(process.cwd(), dataFile)} advisory '${record.id}' reviewed_decision.reviewed_at is earlier than created_at.`,
+          );
+        }
+        if (
+          decision.reviewed_at &&
+          record.updated_at &&
+          Date.parse(record.updated_at) < Date.parse(decision.reviewed_at)
+        ) {
+          throw new Error(
+            `${relative(process.cwd(), dataFile)} advisory '${record.id}' updated_at is earlier than reviewed_decision.reviewed_at.`,
+          );
+        }
+      }
+    }
   }
   validated += 1;
   console.log(`data ok: ${relative(process.cwd(), dataFile)}`);

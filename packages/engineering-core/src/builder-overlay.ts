@@ -191,6 +191,7 @@ export interface BuilderCatalogCandidate {
   readonly engineeringEligible?: boolean;
   readonly safetyEligible?: boolean;
   readonly advisoryEligible?: boolean;
+  readonly recommendationEligible?: boolean;
   readonly status?: 'eligible' | 'ineligible' | 'unknown';
 }
 
@@ -221,6 +222,7 @@ const classifyGlobalCandidate = (
   if (candidate.engineeringEligible === false) return 'ineligible';
   if (candidate.safetyEligible === false) return 'ineligible';
   if (candidate.advisoryEligible === false) return 'ineligible';
+  if (candidate.recommendationEligible === false) return 'ineligible';
   return 'eligible';
 };
 
