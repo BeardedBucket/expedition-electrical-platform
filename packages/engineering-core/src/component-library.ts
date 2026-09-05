@@ -2,6 +2,12 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import { parse as parseYaml } from 'yaml';
 import componentSchema from '../../../data/schemas/component.schema.json' with { type: 'json' };
+import {
+  validateOrientationConstraint,
+  type BodyEnvelopeMm,
+  type OrientationConstraintSpec,
+  type RequiredEnvelopeMm,
+} from './geometry.js';
 
 export type ComponentVerificationStatus = 'unverified' | 'partially_verified' | 'verified';
 export type CompatibilityStatus = 'compatible' | 'incompatible' | 'unknown';
@@ -73,7 +79,8 @@ export type TerminalFunction =
 export type TerminalPolarity =
   'positive' | 'negative' | 'neutral' | 'ground' | 'bidirectional' | 'n/a' | 'other';
 
-export type OrientationConstraint = 'unrestricted' | 'manufacturer_defined' | 'unknown';
+export type OrientationConstraint =
+  'unrestricted' | 'manufacturer_defined' | 'unknown' | OrientationConstraintSpec;
 
 export interface ComponentLibraryElectrical {
   readonly nominal_voltage_v?: number | number[] | null;
@@ -114,12 +121,19 @@ export interface ComponentLibraryTerminal {
 }
 
 export interface ComponentLibraryServiceClearancesMm {
+  /** Legacy directional keys are retained for compatibility; geometry uses local face keys. */
   readonly front?: number | null;
   readonly rear?: number | null;
   readonly left?: number | null;
   readonly right?: number | null;
   readonly top?: number | null;
   readonly bottom?: number | null;
+  readonly x_min?: number | null;
+  readonly x_max?: number | null;
+  readonly y_min?: number | null;
+  readonly y_max?: number | null;
+  readonly z_min?: number | null;
+  readonly z_max?: number | null;
   readonly [key: string]: unknown;
 }
 
@@ -200,6 +214,8 @@ export interface ComponentCompatibilityEvaluationInput {
     readonly y?: number;
     readonly z?: number;
   } | null;
+  /** Available installation space; it is not a component-derived envelope. */
+  readonly installedEnvelopeMm?: BodyEnvelopeMm | RequiredEnvelopeMm | null;
   readonly maxWeightKg?: number;
   readonly requiredChecks?: readonly CompatibilityCheckName[];
   readonly advisoryEvaluation?: ComponentLibraryAdvisoryState | null;
@@ -539,6 +555,16 @@ const validateEngineeringConstraints = (input: unknown): readonly string[] => {
     addMessage(
       'orientation_constraint',
       'must be one of unrestricted, manufacturer_defined, or unknown',
+    );
+  }
+  if (
+    record.orientation_constraint !== null &&
+    record.orientation_constraint !== undefined &&
+    typeof record.orientation_constraint === 'object'
+  ) {
+    const constraint = record.orientation_constraint as Record<string, unknown>;
+    validateOrientationConstraint(constraint).forEach((constraintIssue) =>
+      addMessage(constraintIssue.path, constraintIssue.message),
     );
   }
 
@@ -1268,9 +1294,20 @@ const evaluateFitCheck = (
     };
   }
 
+  const installedEnvelope = context.installedEnvelopeMm ?? null;
+  if (installedEnvelope === null) {
+    return {
+      status: 'unknown',
+      required: true,
+      reasons: ['fit.missing_installed_envelope'],
+      explanation:
+        'Fit cannot be evaluated from intrinsic component dimensions alone; provide a derived installed envelope for a chosen permitted orientation.',
+    };
+  }
+
   const axes = ['x', 'y', 'z'] as const;
   const axisResults = axes.map((axis) => {
-    const componentValue = dimensions[axis];
+    const componentValue = installedEnvelope[`world_${axis}` as 'world_x' | 'world_y' | 'world_z'];
     const envelopeValue = envelope[axis];
     if (typeof componentValue !== 'number' || !Number.isFinite(componentValue)) {
       return { axis, resolved: false as const };
