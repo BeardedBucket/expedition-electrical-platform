@@ -3,6 +3,7 @@
 Every factual component record should identify where its values came from.
 
 Preferred source order:
+
 1. manufacturer datasheet/manual/drawing
 2. manufacturer support response or official product page
 3. independent certified test data

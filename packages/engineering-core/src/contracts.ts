@@ -60,8 +60,46 @@ export interface ComponentRecord {
   readonly verificationStatus: 'unverified' | 'partially_verified' | 'verified';
 }
 
+export type BuilderInventoryMode = 'unrestricted' | 'allowlist' | 'denylist';
+
+export interface BuilderTrackingMetadata {
+  readonly sourceKey?: string;
+  readonly campaignDefault?: string | null;
+  readonly [key: string]: unknown;
+}
+
+export type BuilderCatalogAvailability =
+  'stocked' | 'special_order' | 'unavailable' | 'discontinued' | 'unknown';
+
+export type BuilderPreference = 'preferred' | 'standard' | 'discouraged';
+
+export interface BuilderCatalogEntry {
+  readonly component_id: string;
+  readonly availability: BuilderCatalogAvailability;
+  readonly preference: BuilderPreference;
+  readonly builder_price?: number | null;
+  readonly currency?: string | null;
+  readonly lead_time_days?: number | null;
+  readonly lead_time_text?: string | null;
+  readonly sku?: string | null;
+  readonly last_checked_at?: string | null;
+  readonly notes?: string | null;
+}
+
 export interface BuilderProfile {
   readonly builderId: string;
+  readonly displayName: string;
+  readonly website?: string | null;
+  readonly inquiryUrl?: string | null;
+  readonly regions?: readonly string[];
+  readonly services?: readonly string[];
+  readonly inventoryMode: BuilderInventoryMode;
+  readonly inventoryComponentIds?: readonly string[];
+  readonly preferredComponentIds?: readonly string[];
+  readonly preferredManufacturers?: readonly string[];
+  readonly supportedSystemVoltagesV?: readonly number[];
+  readonly catalog?: readonly BuilderCatalogEntry[];
+  readonly tracking?: BuilderTrackingMetadata;
 }
 
 export interface AdvisoryRecord {

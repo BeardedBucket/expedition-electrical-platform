@@ -25,6 +25,12 @@ Safety exclusion / mandatory constraint
 
 A product may score highly for engineering fit while carrying an active advisory. The advisory state is never hidden inside a single weighted score.
 
+## Builder overlay catalog model
+
+The builder overlay uses a canonical component catalog keyed by stable component IDs rather than manufacturer names, labels, or SKUs. Builder-owned commercial metadata such as price, currency, lead time, and notes stays in the overlay and is never treated as canonical engineering truth.
+
+Eligibility flows in layers: engineering compatibility and safety/advisory checks happen first, then builder catalog availability and preference are applied. Generic mode returns all globally eligible candidates without builder restrictions, while a resolved builder only operates on globally eligible candidates and may return an `inventory_gap` when eligible products exist but none are currently supported by that builder.
+
 ## Domain profiles
 
 The engineering core should remain reusable across domains. The initial profile is mobile/off-grid vehicle installations. A future stationary-installation profile may add different standards, code requirements, grounding/bonding rules, utility/service assumptions, environmental constraints, and component categories without changing the fundamental component/provenance/advisory architecture.
