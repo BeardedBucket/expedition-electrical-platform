@@ -104,6 +104,7 @@ export interface ComponentLibraryBattery {
 }
 
 export interface ComponentLibraryTerminal {
+  readonly id?: string;
   readonly function: TerminalFunction;
   readonly type?: string | null;
   readonly designation?: string | null;
@@ -581,12 +582,24 @@ const validateEngineeringConstraints = (input: unknown): readonly string[] => {
 
   const terminals = record.terminals;
   if (Array.isArray(terminals)) {
+    const terminalIds = new Set<string>();
     terminals.forEach((terminal, index) => {
       if (terminal === null || typeof terminal !== 'object') {
         addMessage(`terminals[${index}]`, 'must be an object');
         return;
       }
       const terminalRecord = terminal as Record<string, unknown>;
+      if (
+        terminalRecord.id !== undefined &&
+        (typeof terminalRecord.id !== 'string' || terminalRecord.id.length === 0)
+      ) {
+        addMessage(`terminals[${index}].id`, 'must be a non-empty string when provided');
+      } else if (typeof terminalRecord.id === 'string') {
+        if (terminalIds.has(terminalRecord.id)) {
+          addMessage(`terminals[${index}].id`, `duplicates terminal ID '${terminalRecord.id}'`);
+        }
+        terminalIds.add(terminalRecord.id);
+      }
       const functionValue = terminalRecord.function;
       if (
         typeof functionValue !== 'string' ||
