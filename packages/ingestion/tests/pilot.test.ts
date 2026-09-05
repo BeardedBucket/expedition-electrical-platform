@@ -73,6 +73,21 @@ describe('Victron MultiPlus ingestion pilot artifact', () => {
     expect(pilot.facts.every((fact) => fact.fact_state === 'provisional')).toBe(true);
   });
 
+  it('does not preserve legacy dimensions for a structurally similar nonlegacy artifact', () => {
+    const lookalike = clone();
+    lookalike.candidate.id = `${lookalike.candidate.id}.lookalike`;
+    expect(validatePersistedArtifact(lookalike).ok).toBe(false);
+    expect(() => replayArtifact(lookalike)).toThrow();
+  });
+
+  it('does not preserve legacy dimensions for the same product from another source snapshot', () => {
+    const lookalike = clone();
+    lookalike.source.content_hash =
+      'sha256:0000000000000000000000000000000000000000000000000000000000000000';
+    expect(validatePersistedArtifact(lookalike).ok).toBe(false);
+    expect(() => replayArtifact(lookalike)).toThrow();
+  });
+
   it.each([
     ['candidate.field_evidence', (artifact) => delete artifact.candidate.field_evidence],
     ['candidate.source_ids', (artifact) => artifact.candidate.source_ids.pop()],
