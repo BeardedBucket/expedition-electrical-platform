@@ -603,3 +603,286 @@ describe('product reconciliation and candidates', () => {
     );
   });
 });
+
+describe('multi-source identity policy', () => {
+  it.each([
+    [
+      'same exact identity from two official sources',
+      {
+        manufacturer: 'Acme Power',
+        model: 'Model X24',
+        manufacturer_part_number: 'X24-001',
+      },
+      {
+        manufacturer: 'Acme Power',
+        model: 'Model X24',
+        manufacturer_part_number: 'X24-001',
+      },
+      'verified',
+    ],
+    [
+      'one source omits optional suffix, second specifies it',
+      {
+        manufacturer: 'Acme Power',
+        model: 'Model X24',
+        manufacturer_part_number: 'X24-001',
+      },
+      {
+        manufacturer: 'Acme Power',
+        model: 'Model X24',
+        manufacturer_part_number: 'X24-001',
+        voltage_variant: '24V',
+      },
+      'verified',
+    ],
+    [
+      'one source says V2 and another says V2-T',
+      {
+        manufacturer: 'Epoch',
+        model: '24V 100Ah',
+        manufacturer_part_number: 'E-24-100',
+        voltage_variant: 'V2',
+      },
+      {
+        manufacturer: 'Epoch',
+        model: '24V 100Ah',
+        manufacturer_part_number: 'E-24-100',
+        voltage_variant: 'V2-T',
+      },
+      'conflicting',
+    ],
+    [
+      'one source publishes exact SKU, another omits SKU',
+      {
+        manufacturer: 'Epoch',
+        model: '24V 100Ah',
+        manufacturer_part_number: 'E-24-100',
+      },
+      {
+        manufacturer: 'Epoch',
+        model: '24V 100Ah',
+      },
+      'verified',
+    ],
+    [
+      'two defined SKUs differ',
+      {
+        manufacturer: 'Epoch',
+        model: '24V 100Ah',
+        manufacturer_part_number: 'E-24-100',
+      },
+      {
+        manufacturer: 'Epoch',
+        model: '24V 100Ah',
+        manufacturer_part_number: 'E-24-101',
+      },
+      'conflicting',
+    ],
+  ])('handles identity claim comparison for %s', (_label, left, right, expected) => {
+    const result = reconcileProductFacts({
+      candidate_id: 'acme.candidate',
+      identity: left,
+      sources: [
+        source({
+          id: 'source.left',
+          authority: 'manufacturer_product',
+          product_identity_claim: left,
+        }),
+        source({
+          id: 'source.right',
+          authority: 'manufacturer_product',
+          product_identity_claim: right,
+        }),
+      ],
+      facts: [],
+      normalized_facts: [],
+    });
+    expect(result.identity_status).toBe(expected);
+  });
+
+  it('normalizes whitespace without creating a false conflict', () => {
+    const left = {
+      manufacturer: 'Acme Power',
+      model: 'Model   X24',
+      manufacturer_part_number: 'X24-001',
+    };
+    const right = {
+      manufacturer: 'acme power',
+      model: 'Model X24',
+      manufacturer_part_number: ' X24-001 ',
+    };
+    const result = reconcileProductFacts({
+      candidate_id: 'acme.candidate',
+      identity: left,
+      sources: [
+        source({ id: 'source.left', product_identity_claim: left }),
+        source({ id: 'source.right', product_identity_claim: right }),
+      ],
+      facts: [],
+      normalized_facts: [],
+    });
+    expect(result.identity_status).toBe('verified');
+  });
+
+  it('keeps raw source claims intact while comparing case-insensitive values', () => {
+    const left = {
+      manufacturer: 'ACME Power',
+      model: 'Model X24',
+      manufacturer_part_number: 'X24-001',
+    };
+    const right = {
+      manufacturer: 'acme power',
+      model: 'Model X24',
+      manufacturer_part_number: 'x24-001',
+    };
+    const leftSource = source({ id: 'source.left', product_identity_claim: left });
+    const rightSource = source({ id: 'source.right', product_identity_claim: right });
+    const result = reconcileProductFacts({
+      candidate_id: 'acme.candidate',
+      identity: left,
+      sources: [leftSource, rightSource],
+      facts: [],
+      normalized_facts: [],
+    });
+    expect(result.identity_status).toBe('verified');
+    expect(leftSource.product_identity_claim).toEqual(left);
+    expect(rightSource.product_identity_claim).toEqual(right);
+  });
+
+  it('does not silently discard punctuation or suffixes during comparison', () => {
+    const result = reconcileProductFacts({
+      candidate_id: 'acme.candidate',
+      identity: {
+        manufacturer: 'Epoch',
+        model: '24V 100Ah V2-T',
+        manufacturer_part_number: 'E-24-100',
+      },
+      sources: [
+        source({
+          id: 'source.left',
+          product_identity_claim: {
+            manufacturer: 'Epoch',
+            model: '24V 100Ah V2',
+            manufacturer_part_number: 'E-24-100',
+          },
+        }),
+        source({
+          id: 'source.right',
+          product_identity_claim: {
+            manufacturer: 'Epoch',
+            model: '24V 100Ah V2-T',
+            manufacturer_part_number: 'E-24-100',
+          },
+        }),
+      ],
+      facts: [],
+      normalized_facts: [],
+    });
+    expect(result.identity_status).toBe('conflicting');
+  });
+
+  it('keeps lower-authority contradictory evidence visible instead of overriding stronger facts', () => {
+    const technical = source({
+      id: 'source.technical',
+      authority: 'manufacturer_technical',
+      product_identity_claim: {
+        manufacturer: 'Epoch',
+        model: '24V 100Ah',
+        manufacturer_part_number: 'E-24-100',
+        voltage_variant: 'V2',
+      },
+    });
+    const distributor = source({
+      id: 'source.distributor',
+      authority: 'authorized_distributor',
+      product_identity_claim: {
+        manufacturer: 'Epoch',
+        model: '24V 100Ah',
+        manufacturer_part_number: 'E-24-100',
+        voltage_variant: 'V2-T',
+      },
+    });
+    const result = reconcileProductFacts({
+      candidate_id: 'acme.candidate',
+      identity: technical.product_identity_claim ?? {},
+      sources: [technical, distributor],
+      facts: [],
+      normalized_facts: [],
+    });
+    expect(result.identity_status).toBe('conflicting');
+    expect(result.conflicts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'reconciliation_variant_mismatch',
+          source_ids: ['source.distributor', 'source.technical'],
+        }),
+      ]),
+    );
+  });
+});
+
+describe('multi-source fact policy', () => {
+  it('treats equivalent mass and length units as the same normalized fact', () => {
+    const lb = normalize({
+      id: 'acme.fact.weight-lb',
+      raw_label: 'Weight',
+      raw_value: '5 lb',
+      raw_unit: 'lb',
+    });
+    const kg = normalize({
+      id: 'acme.fact.weight-kg',
+      raw_label: 'Weight',
+      raw_value: '2.26796185 kg',
+      raw_unit: 'kg',
+    });
+    const result = reconcileProductFacts({
+      candidate_id: 'acme.candidate',
+      identity: source().product_identity_claim ?? {},
+      sources: [
+        source(),
+        source({
+          id: 'acme.page',
+          authority: 'manufacturer_product',
+          uri: 'https://example.invalid/page',
+        }),
+      ],
+      facts: [lb.fact!.fact, kg.fact!.fact],
+      normalized_facts: [lb.fact!, kg.fact!],
+    });
+    expect(result.fields).toEqual(
+      expect.arrayContaining([expect.objectContaining({ field: 'weight_kg', value: 2.26796185 })]),
+    );
+  });
+
+  it('treats equivalent inch and millimeter measurements as the same normalized fact', () => {
+    const inches = normalize({
+      id: 'acme.fact.width-in',
+      raw_label: 'Width',
+      raw_value: '10 in',
+      raw_unit: 'in',
+    });
+    const millimeters = normalize({
+      id: 'acme.fact.width-mm',
+      raw_label: 'Width',
+      raw_value: '254 mm',
+      raw_unit: 'mm',
+    });
+    const result = reconcileProductFacts({
+      candidate_id: 'acme.candidate',
+      identity: source().product_identity_claim ?? {},
+      sources: [
+        source(),
+        source({
+          id: 'acme.page',
+          authority: 'manufacturer_product',
+          uri: 'https://example.invalid/page',
+        }),
+      ],
+      facts: [inches.fact!.fact, millimeters.fact!.fact],
+      normalized_facts: [inches.fact!, millimeters.fact!],
+    });
+    expect(result.fields).toEqual(
+      expect.arrayContaining([expect.objectContaining({ field: 'dimensions_mm.x', value: 254 })]),
+    );
+  });
+});
