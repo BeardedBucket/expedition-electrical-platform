@@ -13,6 +13,36 @@ export interface DatasetVersions {
   readonly ruleSet: DatasetVersion;
 }
 
+export interface SourceReference {
+  readonly id: string;
+  readonly title: string;
+  readonly uri?: string;
+  readonly note?: string;
+}
+
+export interface DeratingInput {
+  readonly id: string;
+  readonly factor: number;
+  readonly sourceReferences: readonly SourceReference[];
+}
+
+export interface AmpacityRecord {
+  readonly conductorGauge: string;
+  readonly installationConditionId: string;
+  readonly baseAmpacityA: number;
+  readonly deratingInputs: readonly DeratingInput[];
+  readonly sourceReferences: readonly SourceReference[];
+}
+
+export interface StandardsDataProfile {
+  readonly id: string;
+  readonly version: string;
+  readonly status: DatasetStatus;
+  readonly sources: readonly SourceReference[];
+  readonly resistancePerLengthOhmPerM?: Readonly<Record<string, number>>;
+  readonly ampacityRecords?: readonly AmpacityRecord[];
+}
+
 export interface LoadRequirement {
   readonly id: string;
   readonly name: string;
@@ -20,9 +50,6 @@ export interface LoadRequirement {
   readonly quantity?: number;
 }
 
-/**
- * Requirements deliberately require a caller-selected voltage. There is no platform default.
- */
 export interface Requirements {
   readonly systemVoltageV: number;
   readonly loads: readonly LoadRequirement[];
@@ -54,10 +81,164 @@ export interface DemoData {
   readonly ruleSet: RuleSetMetadata;
 }
 
+export type CalculationFailureCode = 'invalid_input' | 'insufficient_data';
+
+export interface CalculationFailure {
+  readonly ok: false;
+  readonly code: CalculationFailureCode;
+  readonly reasons: readonly string[];
+  readonly warnings: readonly string[];
+}
+
+export interface CalculationSuccess<T> {
+  readonly ok: true;
+  readonly value: T;
+  readonly warnings: readonly string[];
+}
+
+export type CalculationResult<T> = CalculationSuccess<T> | CalculationFailure;
+
+export interface DirectPowerCurrentInput {
+  readonly powerW: number;
+  readonly voltageV: number;
+}
+
+export interface DirectPowerCurrentResult {
+  readonly currentA: number;
+  readonly powerW: number;
+  readonly voltageV: number;
+}
+
+export interface ConversionPowerCurrentInput {
+  readonly powerW: number;
+  readonly voltageV: number;
+  readonly efficiency: number;
+}
+
+export interface ConversionPowerCurrentResult {
+  readonly currentA: number;
+  readonly inputPowerW: number;
+  readonly outputPowerW: number;
+  readonly voltageV: number;
+  readonly efficiency: number;
+}
+
+export interface DirectCurrentPowerInput {
+  readonly currentA: number;
+  readonly voltageV: number;
+}
+
+export interface DirectCurrentPowerResult {
+  readonly powerW: number;
+  readonly currentA: number;
+  readonly voltageV: number;
+}
+
+export interface ConversionCurrentPowerInput {
+  readonly currentA: number;
+  readonly voltageV: number;
+  readonly efficiency: number;
+}
+
+export interface ConversionCurrentPowerResult {
+  readonly inputPowerW: number;
+  readonly outputPowerW: number;
+  readonly currentA: number;
+  readonly voltageV: number;
+  readonly efficiency: number;
+}
+
+export interface RoundTripLengthInput {
+  readonly oneWayLengthM: number;
+  readonly roundTrip?: boolean;
+}
+
+export interface ConductorInput {
+  readonly currentA: number;
+  readonly nominalVoltageV: number;
+  readonly oneWayLengthM: number;
+  readonly resistanceOhmPerM: number;
+  readonly roundTrip?: boolean;
+}
+
+export interface ConductorResult {
+  readonly effectiveLengthM: number;
+  readonly resistanceOhm: number;
+  readonly voltageDropV: number;
+  readonly powerLossW: number;
+  readonly percentVoltageDrop: number;
+}
+
+export interface WireCandidate {
+  readonly id: string;
+  readonly gauge: string;
+  readonly resistanceOhmPerM?: number;
+}
+
+export interface WireConstraints {
+  readonly currentA: number;
+  readonly systemVoltageV: number;
+  readonly oneWayLengthM: number;
+  readonly installationConditionId?: string;
+  readonly maximumPercentVoltageDrop?: number;
+  readonly requiredAmpacityA?: number;
+  readonly requiredChecks?: readonly ('ampacity' | 'voltageDrop')[];
+  readonly roundTrip?: boolean;
+}
+
+export interface WireCandidateEvaluation {
+  readonly candidateId: string;
+  readonly gauge: string;
+  readonly eligible: boolean;
+  readonly ampacity: {
+    readonly required: boolean;
+    readonly passes: boolean;
+    readonly availableA?: number;
+  };
+  readonly voltageDrop: {
+    readonly required: boolean;
+    readonly passes: boolean;
+    readonly percent?: number;
+  };
+  readonly reasons: readonly string[];
+}
+
+export type SystemPowerBasis = 'direct-source' | 'converted-load';
+
+export interface SystemVoltageComparisonInput {
+  readonly powerW: number;
+  readonly powerBasis: SystemPowerBasis;
+  readonly conversionEfficiency?: number;
+}
+
+export interface VoltageCandidate {
+  readonly id: string;
+  readonly voltageV: number;
+}
+
+export interface VoltageCandidateComparison extends VoltageCandidate {
+  readonly sourcePowerW: number;
+  readonly currentA: number;
+}
+
 export interface TraceStep {
   readonly id: string;
-  readonly status: 'complete' | 'empty' | 'skipped';
+  readonly status: 'complete' | 'empty' | 'skipped' | 'failed';
   readonly summary: string;
+  readonly inputs?: Readonly<Record<string, unknown>>;
+  readonly result?: unknown;
+}
+
+export interface DecisionTrace {
+  readonly inputs: unknown;
+  readonly calculationSteps: readonly TraceStep[];
+  readonly ruleIds: readonly { id: string; version: string }[];
+  readonly standardsProfile?: DatasetVersion;
+  readonly results: unknown;
+  readonly warnings: readonly string[];
+  readonly insufficientDataReasons: readonly string[];
+  readonly sourceReferences: readonly SourceReference[];
+  readonly inputFingerprint: string;
 }
 
 export interface TraceMetadata {

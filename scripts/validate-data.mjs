@@ -10,6 +10,7 @@ const schemaByCollection = {
   builders: 'builder.schema.json',
   advisories: 'advisory.schema.json',
   rules: 'rule.schema.json',
+  engineering: 'engineering.schema.json',
 };
 
 async function jsonFiles(directory) {

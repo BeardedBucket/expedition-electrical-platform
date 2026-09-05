@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Engineering Data Profile",
+  "type": "object",
+  "required": ["id", "version", "status", "sources", "ampacityRecords"],
+  "properties": {
+    "id": { "type": "string" },
+    "version": { "type": "string" },
+    "status": { "enum": ["synthetic", "unverified", "reviewed"] },
+    "sources": {
+      "type": "array",
+      "items": { "type": "object", "required": ["id", "title"], "additionalProperties": true }
+    },
+    "resistancePerLengthOhmPerM": {
+      "type": "object",
+      "additionalProperties": { "type": "number", "minimum": 0 }
+    },
+    "ampacityRecords": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "conductorGauge",
+          "installationConditionId",
+          "baseAmpacityA",
+          "deratingInputs",
+          "sourceReferences"
+        ],
+        "properties": {
+          "conductorGauge": { "type": "string" },
+          "installationConditionId": { "type": "string" },
+          "baseAmpacityA": { "type": "number", "minimum": 0 },
+          "deratingInputs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "factor", "sourceReferences"],
+              "properties": {
+                "id": { "type": "string" },
+                "factor": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+                "sourceReferences": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["id", "title"],
+                    "additionalProperties": true
+                  }
+                }
+              },
+              "additionalProperties": true
+            }
+          },
+          "sourceReferences": {
+            "type": "array",
+            "items": { "type": "object", "required": ["id", "title"], "additionalProperties": true }
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}
