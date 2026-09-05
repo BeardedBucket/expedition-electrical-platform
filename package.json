@@ -1,0 +1,36 @@
+{
+  "name": "expedition-electrical-platform",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A voltage-agnostic engineering configurator monorepo.",
+  "license": "Apache-2.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace @expedition/engineering-core && npm run build --workspace @expedition/configurator",
+    "dev": "npm run dev --workspace @expedition/configurator",
+    "format": "prettier --write .",
+    "format:check": "prettier --check \"package.json\" \"tsconfig.json\" \".prettierrc.json\" \"eslint.config.js\" \"vitest.config.ts\" \"scripts/**/*.mjs\" \"data/rules/**/*.json\" \"apps/**/*.{json,ts,tsx,css,html}\" \"packages/**/*.{json,ts}\"",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "validate:data": "node scripts/validate-data.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@types/node": "^22.10.5",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "eslint": "^9.17.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.19.1",
+    "vite": "^6.0.7",
+    "vitest": "^2.1.8"
+  }
+}
