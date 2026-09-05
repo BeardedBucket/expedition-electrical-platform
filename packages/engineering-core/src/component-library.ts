@@ -42,15 +42,83 @@ export interface ComponentLibraryRange {
   readonly max: number;
 }
 
+export type ProductRole =
+  | 'battery'
+  | 'inverter_charger'
+  | 'inverter'
+  | 'charger'
+  | 'dc_dc_converter'
+  | 'solar_charge_controller'
+  | 'fuse'
+  | 'breaker'
+  | 'disconnect'
+  | 'busbar'
+  | 'distribution_panel'
+  | 'monitor'
+  | 'gateway'
+  | 'load'
+  | 'other';
+
+export type TerminalFunction =
+  | 'dc_input'
+  | 'dc_output'
+  | 'ac_input'
+  | 'ac_output'
+  | 'battery'
+  | 'pv_input'
+  | 'chassis_ground'
+  | 'communication'
+  | 'other';
+
+export type TerminalPolarity =
+  'positive' | 'negative' | 'neutral' | 'ground' | 'bidirectional' | 'n/a' | 'other';
+
+export type OrientationConstraint = 'unrestricted' | 'manufacturer_defined' | 'unknown';
+
 export interface ComponentLibraryElectrical {
   readonly nominal_voltage_v?: number | number[] | null;
   readonly continuous_current_a?: number | null;
+  readonly continuous_input_current_a?: number | null;
+  readonly continuous_output_current_a?: number | null;
+  readonly peak_input_current_a?: number | null;
+  readonly peak_output_current_a?: number | null;
+  readonly continuous_charge_current_a?: number | null;
+  readonly continuous_discharge_current_a?: number | null;
+  readonly peak_discharge_current_a?: number | null;
   readonly continuous_power_w?: number | null;
   readonly apparent_power_va?: number | null;
   readonly ac_output_voltage_v?: number | number[] | null;
   readonly input_voltage_range_v?: ComponentLibraryRange | null;
   readonly output_voltage_range_v?: ComponentLibraryRange | null;
   readonly frequency_hz?: number | number[] | null;
+  readonly [key: string]: unknown;
+}
+
+export interface ComponentLibraryBattery {
+  readonly nominal_capacity_ah?: number | null;
+  readonly usable_capacity_ah?: number | null;
+  readonly nominal_energy_wh?: number | null;
+  readonly allowed_series_count?: ComponentLibraryRange | null;
+  readonly allowed_parallel_count?: ComponentLibraryRange | null;
+  readonly [key: string]: unknown;
+}
+
+export interface ComponentLibraryTerminal {
+  readonly function: TerminalFunction;
+  readonly type?: string | null;
+  readonly designation?: string | null;
+  readonly polarity?: TerminalPolarity | null;
+  readonly notes?: string | null;
+  readonly [key: string]: unknown;
+}
+
+export interface ComponentLibraryServiceClearancesMm {
+  readonly front?: number | null;
+  readonly rear?: number | null;
+  readonly left?: number | null;
+  readonly right?: number | null;
+  readonly top?: number | null;
+  readonly bottom?: number | null;
   readonly [key: string]: unknown;
 }
 
@@ -77,17 +145,24 @@ export interface ComponentLibraryRecord {
   readonly manufacturer: string;
   readonly model: string;
   readonly part_number?: string | null;
+  readonly product_role?: ProductRole | null;
   readonly category: string;
+  readonly product_family?: string | null;
   readonly verification_status: ComponentVerificationStatus;
   readonly source_type?: string | null;
   readonly source_refs?: readonly ComponentLibrarySourceRef[];
   readonly electrical?: ComponentLibraryElectrical | null;
+  readonly battery?: ComponentLibraryBattery | null;
+  readonly efficiency_fraction?: number | null;
+  readonly terminals?: readonly ComponentLibraryTerminal[];
   readonly dimensions_mm?: {
     readonly x: number;
     readonly y: number;
     readonly z: number;
   } | null;
   readonly weight_kg?: number | null;
+  readonly service_clearances_mm?: ComponentLibraryServiceClearancesMm | null;
+  readonly orientation_constraint?: OrientationConstraint | null;
   readonly interfaces?: readonly string[];
   readonly required_accessories?: ReadonlyArray<string | ComponentRequirementRef>;
   readonly required_converters?: ReadonlyArray<string | ComponentRequirementRef>;
@@ -386,6 +461,208 @@ const validateEngineeringConstraints = (input: unknown): readonly string[] => {
   }
 
   validateFiniteNonNegative('weight_kg', record.weight_kg);
+
+  if (
+    typeof record.product_role === 'string' &&
+    ![
+      'battery',
+      'inverter_charger',
+      'inverter',
+      'charger',
+      'dc_dc_converter',
+      'solar_charge_controller',
+      'fuse',
+      'breaker',
+      'disconnect',
+      'busbar',
+      'distribution_panel',
+      'monitor',
+      'gateway',
+      'load',
+      'other',
+    ].includes(record.product_role)
+  ) {
+    addMessage('product_role', 'must be one of the supported product role values');
+  }
+
+  if (
+    record.product_family !== null &&
+    record.product_family !== undefined &&
+    typeof record.product_family !== 'string'
+  ) {
+    addMessage('product_family', 'must be a string or null');
+  }
+
+  if (record.efficiency_fraction !== null && record.efficiency_fraction !== undefined) {
+    if (
+      typeof record.efficiency_fraction !== 'number' ||
+      !Number.isFinite(record.efficiency_fraction) ||
+      record.efficiency_fraction <= 0 ||
+      record.efficiency_fraction > 1
+    ) {
+      addMessage(
+        'efficiency_fraction',
+        'must be a finite number greater than 0 and less than or equal to 1',
+      );
+    }
+  }
+
+  if ('clearances_mm' in record) {
+    addMessage('clearances_mm', 'legacy field removed; use service_clearances_mm');
+  }
+
+  const serviceClearances = record.service_clearances_mm;
+  if (
+    serviceClearances !== null &&
+    serviceClearances !== undefined &&
+    typeof serviceClearances === 'object'
+  ) {
+    const serviceRecord = serviceClearances as Record<string, unknown>;
+    for (const axis of ['front', 'rear', 'left', 'right', 'top', 'bottom'] as const) {
+      const value = serviceRecord[axis];
+      if (value !== undefined && value !== null) {
+        if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+          addMessage(
+            `service_clearances_mm.${axis}`,
+            'must be a finite number greater than or equal to 0',
+          );
+        }
+      }
+    }
+  }
+
+  if (
+    typeof record.orientation_constraint === 'string' &&
+    !['unrestricted', 'manufacturer_defined', 'unknown'].includes(record.orientation_constraint)
+  ) {
+    addMessage(
+      'orientation_constraint',
+      'must be one of unrestricted, manufacturer_defined, or unknown',
+    );
+  }
+
+  const battery = record.battery;
+  if (battery !== null && battery !== undefined && typeof battery === 'object') {
+    const batteryRecord = battery as Record<string, unknown>;
+    for (const key of ['nominal_capacity_ah', 'usable_capacity_ah', 'nominal_energy_wh'] as const) {
+      validateFiniteNonNegative(`battery.${key}`, batteryRecord[key]);
+    }
+    const validateCountRange = (path: string, value: unknown) => {
+      const range = value as Record<string, unknown> | null | undefined;
+      if (range === null || range === undefined) return;
+      if (typeof range !== 'object') {
+        addMessage(path, 'must be an object with min and max values');
+        return;
+      }
+      const minValue = range.min;
+      const maxValue = range.max;
+      if (typeof minValue !== 'number' || !Number.isInteger(minValue) || minValue < 1) {
+        addMessage(`${path}.min`, 'must be an integer greater than or equal to 1');
+      }
+      if (typeof maxValue !== 'number' || !Number.isInteger(maxValue) || maxValue < 1) {
+        addMessage(`${path}.max`, 'must be an integer greater than or equal to 1');
+      }
+      if (
+        typeof minValue === 'number' &&
+        typeof maxValue === 'number' &&
+        Number.isFinite(minValue) &&
+        Number.isFinite(maxValue) &&
+        minValue > maxValue
+      ) {
+        addMessage(path, 'min must be less than or equal to max');
+      }
+    };
+    validateCountRange('battery.allowed_series_count', batteryRecord.allowed_series_count);
+    validateCountRange('battery.allowed_parallel_count', batteryRecord.allowed_parallel_count);
+    if ('bms_limits' in batteryRecord) {
+      addMessage('battery.bms_limits', 'legacy field removed; use electrical current-limit fields');
+    }
+  }
+
+  const terminals = record.terminals;
+  if (Array.isArray(terminals)) {
+    terminals.forEach((terminal, index) => {
+      if (terminal === null || typeof terminal !== 'object') {
+        addMessage(`terminals[${index}]`, 'must be an object');
+        return;
+      }
+      const terminalRecord = terminal as Record<string, unknown>;
+      const functionValue = terminalRecord.function;
+      if (
+        typeof functionValue !== 'string' ||
+        ![
+          'dc_input',
+          'dc_output',
+          'ac_input',
+          'ac_output',
+          'battery',
+          'pv_input',
+          'chassis_ground',
+          'communication',
+          'other',
+        ].includes(functionValue)
+      ) {
+        addMessage(
+          `terminals[${index}].function`,
+          'must be one of dc_input, dc_output, ac_input, ac_output, battery, pv_input, chassis_ground, communication, or other',
+        );
+      }
+      if (
+        terminalRecord.type !== undefined &&
+        terminalRecord.type !== null &&
+        typeof terminalRecord.type !== 'string'
+      ) {
+        addMessage(`terminals[${index}].type`, 'must be a string or null');
+      }
+      if (
+        terminalRecord.designation !== undefined &&
+        terminalRecord.designation !== null &&
+        typeof terminalRecord.designation !== 'string'
+      ) {
+        addMessage(`terminals[${index}].designation`, 'must be a string or null');
+      }
+      if (
+        terminalRecord.polarity !== undefined &&
+        terminalRecord.polarity !== null &&
+        (typeof terminalRecord.polarity !== 'string' ||
+          !['positive', 'negative', 'neutral', 'ground', 'bidirectional', 'n/a', 'other'].includes(
+            terminalRecord.polarity,
+          ))
+      ) {
+        addMessage(
+          `terminals[${index}].polarity`,
+          'must be one of positive, negative, neutral, ground, bidirectional, n/a, or other',
+        );
+      }
+      if (
+        terminalRecord.notes !== undefined &&
+        terminalRecord.notes !== null &&
+        typeof terminalRecord.notes !== 'string'
+      ) {
+        addMessage(`terminals[${index}].notes`, 'must be a string or null');
+      }
+    });
+  }
+
+  if (
+    record.electrical !== null &&
+    record.electrical !== undefined &&
+    typeof record.electrical === 'object'
+  ) {
+    const electricalRecord = record.electrical as Record<string, unknown>;
+    for (const field of [
+      'continuous_input_current_a',
+      'continuous_output_current_a',
+      'peak_input_current_a',
+      'peak_output_current_a',
+      'continuous_charge_current_a',
+      'continuous_discharge_current_a',
+      'peak_discharge_current_a',
+    ] as const) {
+      validateFiniteNonNegative(`electrical.${field}`, electricalRecord[field]);
+    }
+  }
+
   return messages;
 };
 
@@ -420,6 +697,7 @@ export const normalizeComponentLibraryRecord = (input: unknown): ComponentLibrar
     ...record,
     source_refs: Array.isArray(record.source_refs) ? record.source_refs : [],
     interfaces: normalizeTextList(record.interfaces),
+    terminals: Array.isArray(record.terminals) ? record.terminals : [],
     required_accessories: Array.isArray(record.required_accessories)
       ? record.required_accessories
       : [],
@@ -439,6 +717,10 @@ export const normalizeComponentLibraryRecord = (input: unknown): ComponentLibrar
               (record.electrical as Record<string, unknown>).output_voltage_range_v,
             ),
           }
+        : null,
+    battery:
+      record.battery !== null && typeof record.battery === 'object' && record.battery !== undefined
+        ? (record.battery as Record<string, unknown>)
         : null,
   } as unknown as ComponentLibraryRecord;
 

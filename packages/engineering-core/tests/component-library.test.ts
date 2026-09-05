@@ -431,4 +431,197 @@ required_converters: []
       { id: 'accessory.fuse-block', label: 'Fuse block' },
     ]);
   });
+
+  it('accepts a typed product role and product family without affecting compatibility', () => {
+    const component = {
+      ...baseComponent,
+      product_role: 'battery',
+      product_family: 'house-bank',
+    } as ComponentLibraryRecord;
+
+    const validation = validateComponentLibraryRecord(component);
+    expect(validation.ok).toBe(true);
+
+    const result = evaluateComponentCompatibility(component, {
+      systemVoltageV: 24,
+      requiredChecks: ['voltage'],
+    });
+    expect(result.status).toBe('compatible');
+  });
+
+  it('retains distinct current fields, battery data, and metadata without changing legacy behavior', () => {
+    const component = {
+      ...baseComponent,
+      product_role: 'battery',
+      product_family: 'house-bank',
+      efficiency_fraction: 0.96,
+      electrical: {
+        ...baseComponent.electrical,
+        continuous_current_a: 80,
+        continuous_input_current_a: 35,
+        continuous_output_current_a: 30,
+        peak_input_current_a: 70,
+        peak_output_current_a: 60,
+        continuous_charge_current_a: 25,
+        continuous_discharge_current_a: 40,
+        peak_discharge_current_a: 80,
+        continuous_power_w: 960,
+        apparent_power_va: 1200,
+      },
+      battery: {
+        nominal_capacity_ah: 100,
+        usable_capacity_ah: 90,
+        nominal_energy_wh: 2400,
+        allowed_series_count: { min: 1, max: 2 },
+        allowed_parallel_count: { min: 1, max: 4 },
+      },
+      terminals: [
+        {
+          function: 'battery',
+          type: 'stud',
+          designation: 'M8',
+          polarity: 'positive',
+          notes: 'primary negative',
+        },
+      ],
+      service_clearances_mm: { front: 100, rear: 150, left: 80, right: 80, top: 160, bottom: 120 },
+      orientation_constraint: 'manufacturer_defined',
+    } as ComponentLibraryRecord;
+
+    const validation = validateComponentLibraryRecord(component);
+    expect(validation.ok).toBe(true);
+
+    if (validation.ok) {
+      expect(validation.value.electrical?.continuous_input_current_a).toBe(35);
+      expect(validation.value.electrical?.continuous_output_current_a).toBe(30);
+      expect(validation.value.electrical?.peak_input_current_a).toBe(70);
+      expect(validation.value.electrical?.peak_output_current_a).toBe(60);
+      expect(validation.value.electrical?.continuous_charge_current_a).toBe(25);
+      expect(validation.value.electrical?.continuous_discharge_current_a).toBe(40);
+      expect(validation.value.electrical?.peak_discharge_current_a).toBe(80);
+      expect(validation.value.battery?.nominal_capacity_ah).toBe(100);
+      expect(validation.value.battery?.allowed_parallel_count).toEqual({ min: 1, max: 4 });
+      expect(validation.value.efficiency_fraction).toBe(0.96);
+      expect(validation.value.terminals?.[0]?.function).toBe('battery');
+      expect(validation.value.service_clearances_mm?.front).toBe(100);
+      expect(validation.value.orientation_constraint).toBe('manufacturer_defined');
+    }
+  });
+
+  it('rejects legacy battery BMS metadata and legacy clearances fields', () => {
+    const legacyBms = validateComponentLibraryRecord({
+      ...baseComponent,
+      battery: {
+        ...baseComponent.battery,
+        bms_limits: { max_charge_current_a: 40 },
+      },
+    });
+    const legacyClearances = validateComponentLibraryRecord({
+      ...baseComponent,
+      clearances_mm: { front: 200, rear: 100 },
+    });
+
+    expect(legacyBms.ok).toBe(false);
+    expect(legacyClearances.ok).toBe(false);
+  });
+
+  it('rejects invalid efficiency values', () => {
+    const tooLow = validateComponentLibraryRecord({
+      ...baseComponent,
+      efficiency_fraction: 0,
+    });
+    const tooHigh = validateComponentLibraryRecord({
+      ...baseComponent,
+      efficiency_fraction: 1.5,
+    });
+
+    expect(tooLow.ok).toBe(false);
+    expect(tooHigh.ok).toBe(false);
+  });
+
+  it('validates battery ranges and rejects malformed ranges', () => {
+    const valid = validateComponentLibraryRecord({
+      ...baseComponent,
+      battery: {
+        nominal_capacity_ah: 100,
+        usable_capacity_ah: 90,
+        nominal_energy_wh: 2400,
+        allowed_series_count: { min: 1, max: 2 },
+        allowed_parallel_count: { min: 1, max: 3 },
+      },
+    });
+    const malformed = validateComponentLibraryRecord({
+      ...baseComponent,
+      battery: {
+        allowed_series_count: { min: 3, max: 2 },
+      },
+    });
+
+    expect(valid.ok).toBe(true);
+    expect(malformed.ok).toBe(false);
+  });
+
+  it('validates structured terminals and rejects malformed function or polarity', () => {
+    const valid = validateComponentLibraryRecord({
+      ...baseComponent,
+      terminals: [{ function: 'dc_input', type: 'stud', designation: 'M8', polarity: 'positive' }],
+    });
+    const badFunction = validateComponentLibraryRecord({
+      ...baseComponent,
+      terminals: [{ function: 'not_a_real_function' }],
+    });
+    const badPolarity = validateComponentLibraryRecord({
+      ...baseComponent,
+      terminals: [{ function: 'dc_output', polarity: 'left' }],
+    });
+
+    expect(valid.ok).toBe(true);
+    expect(badFunction.ok).toBe(false);
+    expect(badPolarity.ok).toBe(false);
+  });
+
+  it('validates service clearances and orientation constraints', () => {
+    const valid = validateComponentLibraryRecord({
+      ...baseComponent,
+      service_clearances_mm: { front: 200, rear: 100, left: 80, right: 80, top: 120, bottom: 80 },
+      orientation_constraint: 'manufacturer_defined',
+    });
+    const invalidClearance = validateComponentLibraryRecord({
+      ...baseComponent,
+      service_clearances_mm: { front: -10 },
+    });
+    const invalidOrientation = validateComponentLibraryRecord({
+      ...baseComponent,
+      orientation_constraint: 'diagonal',
+    });
+
+    expect(valid.ok).toBe(true);
+    expect(invalidClearance.ok).toBe(false);
+    expect(invalidOrientation.ok).toBe(false);
+  });
+
+  it('keeps W and VA independent even when the new fields are present', () => {
+    const component = {
+      ...baseComponent,
+      electrical: {
+        ...baseComponent.electrical,
+        continuous_power_w: 960,
+        apparent_power_va: 1200,
+      },
+    } as ComponentLibraryRecord;
+
+    const result = evaluateComponentCompatibility(component, {
+      requiredPowerW: 1000,
+      requiredApparentPowerVa: 1000,
+      requiredChecks: ['power'],
+    });
+
+    expect(result.checks.power.status).toBe('incompatible');
+    expect(result.checks.power.reasons).toContain('power.real_power.limit_exceeded');
+  });
+
+  it('preserves previous behavior when the new fields are omitted', () => {
+    const result = validateComponentLibraryRecord(baseComponent);
+    expect(result.ok).toBe(true);
+  });
 });
