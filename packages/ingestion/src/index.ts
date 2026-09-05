@@ -12,3 +12,4 @@ export * from './reconciliation.js';
 export * from './candidate-builder.js';
 export * from './victron-pilot.js';
 export * from './promotion.js';
+export * from './promotion-write.js';
