@@ -5,12 +5,12 @@ import { describe, expect, it } from 'vitest';
 import {
   evaluateAdvisoryState,
   evaluateComponentCompatibility,
-  loadComponentLibraryFile,
   normalizeComponentLibraryRecord,
   parseComponentLibraryText,
   validateComponentLibraryRecord,
   type ComponentLibraryRecord,
 } from '../src/index.js';
+import { loadComponentLibraryFile } from '../src/component-library-loader.js';
 
 const baseComponent = {
   id: 'synthetic.dc-distribution',
