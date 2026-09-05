@@ -3,13 +3,7 @@
   "$id": "urn:expedition-electrical-platform:schema:component",
   "title": "Component",
   "type": "object",
-  "required": [
-    "id",
-    "manufacturer",
-    "model",
-    "category",
-    "verification_status"
-  ],
+  "required": ["id", "manufacturer", "model", "category", "verification_status"],
   "properties": {
     "id": {
       "type": "string",
@@ -22,20 +16,13 @@
       "type": "string"
     },
     "part_number": {
-      "type": [
-        "string",
-        "null"
-      ]
+      "type": ["string", "null"]
     },
     "category": {
       "type": "string"
     },
     "verification_status": {
-      "enum": [
-        "unverified",
-        "partially_verified",
-        "verified"
-      ]
+      "enum": ["unverified", "partially_verified", "verified"]
     },
     "electrical": {
       "type": "object",
@@ -58,22 +45,13 @@
           ]
         },
         "continuous_current_a": {
-          "type": [
-            "number",
-            "null"
-          ]
+          "type": ["number", "null"]
         },
         "continuous_power_w": {
-          "type": [
-            "number",
-            "null"
-          ]
+          "type": ["number", "null"]
         },
         "apparent_power_va": {
-          "type": [
-            "number",
-            "null"
-          ]
+          "type": ["number", "null"]
         },
         "ac_output_voltage_v": {
           "oneOf": [
@@ -113,10 +91,7 @@
       "additionalProperties": true
     },
     "dimensions_mm": {
-      "type": [
-        "object",
-        "null"
-      ],
+      "type": ["object", "null"],
       "properties": {
         "x": {
           "type": "number"
@@ -128,31 +103,18 @@
           "type": "number"
         }
       },
-      "required": [
-        "x",
-        "y",
-        "z"
-      ],
+      "required": ["x", "y", "z"],
       "additionalProperties": false
     },
     "weight_kg": {
-      "type": [
-        "number",
-        "null"
-      ]
+      "type": ["number", "null"]
     },
     "mounting": {
-      "type": [
-        "object",
-        "null"
-      ],
+      "type": ["object", "null"],
       "additionalProperties": true
     },
     "clearances_mm": {
-      "type": [
-        "object",
-        "null"
-      ],
+      "type": ["object", "null"],
       "additionalProperties": true
     },
     "interfaces": {
@@ -166,11 +128,7 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": [
-          "format",
-          "url",
-          "redistribution_status"
-        ],
+        "required": ["format", "url", "redistribution_status"],
         "properties": {
           "format": {
             "type": "string"
@@ -180,17 +138,10 @@
             "format": "uri"
           },
           "redistribution_status": {
-            "enum": [
-              "unknown",
-              "link_only",
-              "permitted"
-            ]
+            "enum": ["unknown", "link_only", "permitted"]
           },
           "license": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           }
         }
       }

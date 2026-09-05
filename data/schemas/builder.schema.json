@@ -4,22 +4,22 @@
   "type": "object",
   "required": ["builder_id", "display_name", "inventory_mode"],
   "properties": {
-    "builder_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]+$"},
-    "display_name": {"type": "string"},
-    "website": {"type": ["string", "null"], "format": "uri"},
-    "inquiry_url": {"type": ["string", "null"], "format": "uri"},
-    "regions": {"type": "array", "items": {"type": "string"}},
-    "services": {"type": "array", "items": {"type": "string"}},
-    "inventory_mode": {"enum": ["unrestricted", "allowlist", "denylist"]},
-    "inventory_component_ids": {"type": "array", "items": {"type": "string"}},
-    "preferred_component_ids": {"type": "array", "items": {"type": "string"}},
-    "preferred_manufacturers": {"type": "array", "items": {"type": "string"}},
-    "supported_system_voltages_v": {"type": "array", "items": {"type": "number"}},
+    "builder_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]+$" },
+    "display_name": { "type": "string" },
+    "website": { "type": ["string", "null"], "format": "uri" },
+    "inquiry_url": { "type": ["string", "null"], "format": "uri" },
+    "regions": { "type": "array", "items": { "type": "string" } },
+    "services": { "type": "array", "items": { "type": "string" } },
+    "inventory_mode": { "enum": ["unrestricted", "allowlist", "denylist"] },
+    "inventory_component_ids": { "type": "array", "items": { "type": "string" } },
+    "preferred_component_ids": { "type": "array", "items": { "type": "string" } },
+    "preferred_manufacturers": { "type": "array", "items": { "type": "string" } },
+    "supported_system_voltages_v": { "type": "array", "items": { "type": "number" } },
     "tracking": {
       "type": "object",
       "properties": {
-        "source_key": {"type": "string"},
-        "campaign_default": {"type": ["string", "null"]}
+        "source_key": { "type": "string" },
+        "campaign_default": { "type": ["string", "null"] }
       },
       "additionalProperties": true
     }

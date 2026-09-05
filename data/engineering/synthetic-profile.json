@@ -1,0 +1,14 @@
+{
+  "id": "engineering.synthetic-fixtures",
+  "version": "0.1.0",
+  "status": "synthetic",
+  "sources": [
+    {
+      "id": "fixture.synthetic",
+      "title": "Project-authored synthetic fixture data",
+      "note": "Test-only values; not derived from a published standard."
+    }
+  ],
+  "resistancePerLengthOhmPerM": {},
+  "ampacityRecords": []
+}

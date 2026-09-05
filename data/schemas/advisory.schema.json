@@ -18,20 +18,10 @@
       "type": "string"
     },
     "status": {
-      "enum": [
-        "draft",
-        "open",
-        "resolved",
-        "withdrawn"
-      ]
+      "enum": ["draft", "open", "resolved", "withdrawn"]
     },
     "severity": {
-      "enum": [
-        "info",
-        "watch",
-        "advisory",
-        "critical"
-      ]
+      "enum": ["info", "watch", "advisory", "critical"]
     },
     "title": {
       "type": "string"
@@ -47,12 +37,7 @@
       }
     },
     "recommendation_effect": {
-      "enum": [
-        "none",
-        "warn",
-        "suppress_default",
-        "exclude"
-      ]
+      "enum": ["none", "warn", "suppress_default", "exclude"]
     },
     "evidence": {
       "type": "array",
@@ -62,18 +47,12 @@
       }
     },
     "manufacturer_response": {
-      "type": [
-        "object",
-        "null"
-      ],
+      "type": ["object", "null"],
       "additionalProperties": true
     },
     "review": {
       "type": "object",
-      "required": [
-        "last_reviewed",
-        "next_review_due"
-      ],
+      "required": ["last_reviewed", "next_review_due"],
       "properties": {
         "last_reviewed": {
           "type": "string",
