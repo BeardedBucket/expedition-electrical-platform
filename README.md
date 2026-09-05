@@ -34,6 +34,47 @@ The workspace keeps UI concerns in `apps/configurator` and engineering contracts
 `packages/engineering-core`. The bootstrap dataset is explicitly synthetic: component, builder,
 and advisory collections are empty, and its rule metadata is not an engineering specification.
 
+## Builder embed (Phase 7)
+
+The configurator exposes a browser-safe `mountConfiguratorEmbed(element, config)` entry point. The
+dedicated browser artifact is produced by `npm run build:embed` at
+`apps/configurator/dist/embed/`; it bundles the embed entry and React for drop-in browser use and
+does not include the demo entry. It mounts the same Phase 6 configurator model used by the
+standalone app; builder mode only narrows globally eligible candidates after engineering and
+advisory evaluation. An unresolved builder is explicit and never falls back to generic
+recommendations.
+
+```ts
+const embed = mountConfiguratorEmbed(document.querySelector('#configurator')!, {
+  mode: 'builder',
+  builderId: 'builder.northwind',
+  visibleSections: ['system-basics', 'loads', 'builder-context', 'results', 'inquiry'],
+  readOnly: false,
+  theme: { accent: 'blue', density: 'compact' },
+  initialConfiguration: { selectedVoltage: 24, loads: [] },
+  inquiryDestination: 'builder-inquiry-route',
+  onResult: (payload) => console.log(payload.evaluatedAt, payload.candidates),
+  onInquiry: (payload) => console.log(payload.inquiryDestination, payload.componentId),
+});
+```
+
+The returned controller provides `updateConfig(config)` and `dispose()`. Updating replaces the
+configuration and resets local form/result state. The embed owns the contents of the supplied
+container, so callers should provide a dedicated empty element; `dispose()` unmounts React and
+clears that container. The public evaluation payload is a compact candidate summary rather than
+the internal trace/orchestration model. Events include `embed_ready`, `evaluation_completed`,
+`inquiry_requested`, `builder_unresolved`, and `validation_error`.
+
+Host configuration controls presentation, visible sections, initial form values, and callbacks. The
+theme accepts only named accent, radius (`compact`, `rounded`, or `pill`), and density tokens;
+semantic status styles remain owned by the embed. Hosts cannot change engineering status, advisory
+policy, or recommendation eligibility.
+`inquiryDestination` is opaque routing metadata only; the embed does not navigate or send requests.
+Evaluation timestamps are generated once at the application boundary and can be deterministically
+injected with `clock`. Phase 7 uses bundled synthetic data only and performs no network or backend
+handoff. See `apps/configurator/embed-demo.html` for a small offline host example. The standalone
+configurator and embed share the same model and recommendation path.
+
 ## Licensing intent
 
 - Software: Apache-2.0.

@@ -5,9 +5,22 @@ interface Props {
   selectedVoltage: number | '';
   loadCount: number;
   builderMode: 'generic' | 'builder';
+  onInquiry?: (
+    componentId: string,
+    recommendationState: 'eligible' | 'not-eligible' | 'unknown',
+    inventoryState?: string,
+  ) => void;
+  showInquiry?: boolean;
 }
 
-export function ResultsPanel({ result, selectedVoltage, loadCount, builderMode }: Props) {
+export function ResultsPanel({
+  result,
+  selectedVoltage,
+  loadCount,
+  builderMode,
+  onInquiry,
+  showInquiry = false,
+}: Props) {
   return (
     <section className="card" aria-labelledby="results-heading">
       <h2 id="results-heading">6. Results</h2>
@@ -95,6 +108,25 @@ export function ResultsPanel({ result, selectedVoltage, loadCount, builderMode }
                   </dl>
 
                   <p className="why-text">Why? {candidate.why}</p>
+                  {showInquiry && onInquiry && (
+                    <button
+                      type="button"
+                      className="secondary inquiry-button"
+                      onClick={() =>
+                        onInquiry(
+                          candidate.id,
+                          candidate.engineeringStatus === 'unknown'
+                            ? 'unknown'
+                            : candidate.recommendationEligible
+                              ? 'eligible'
+                              : 'not-eligible',
+                          candidate.builderState,
+                        )
+                      }
+                    >
+                      Inquire about this candidate
+                    </button>
+                  )}
 
                   <details>
                     <summary>Why? details</summary>

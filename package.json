@@ -11,6 +11,7 @@
   ],
   "scripts": {
     "build": "npm run build --workspace @expedition/engineering-core && npm run build --workspace @expedition/configurator",
+    "build:embed": "npm run build:embed --workspace @expedition/configurator",
     "dev": "npm run dev --workspace @expedition/configurator",
     "format": "prettier --write .",
     "format:check": "prettier --check \"package.json\" \"tsconfig.json\" \".prettierrc.json\" \"eslint.config.js\" \"vitest.config.ts\" \"scripts/**/*.mjs\" \"data/rules/**/*.json\" \"data/engineering/**/*.json\" \"data/schemas/**/*.json\" \"apps/**/*.{json,ts,tsx,css,html}\" \"packages/**/*.{json,ts}\"",

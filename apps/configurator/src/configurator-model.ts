@@ -436,6 +436,8 @@ export const validateConfig = (
 
   if (!formState.selectedVoltage) {
     errors.push('Select a system voltage before evaluating the configuration.');
+  } else if (!voltageOptions.includes(formState.selectedVoltage as VoltageOption)) {
+    errors.push('The selected system voltage is not a supported evaluation option.');
   }
 
   if (formState.loads.length === 0) {

@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json && vite build",
+    "build:embed": "vite build --config vite.embed.config.ts",
     "dev": "vite",
     "preview": "vite preview"
   },
