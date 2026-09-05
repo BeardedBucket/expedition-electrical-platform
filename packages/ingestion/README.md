@@ -11,6 +11,28 @@ Unknown and conflicting values remain explicit. AI-assisted extraction is
 never verification by itself. Canonical promotion and design selection are
 outside this package and require a later reviewed pipeline.
 
+## Reviewed promotion boundary
+
+`promoteCandidate` is a pure, offline dry-run boundary from a
+`ProductCandidate` to a canonical component proposal. It requires an explicit
+approved `PromotionReview` with a reviewer, timestamp, approved fields,
+evidence acknowledgement, category, and product role. Pending, rejected,
+unresolved, or conflicting candidates never promote, and
+`promotion_status: eligible` by itself is not approval.
+
+The function validates the candidate using the existing ingestion validation,
+retains source and fact identifiers in `source_refs` and its audit result, and
+keeps promoted facts `unverified` unless a separate reviewed data process
+establishes verification. Reviewer resolutions must select an existing
+candidate fact and include rationale; dimensions remain omitted when their
+canonical axis semantics are unresolved. Supplied catalog context is checked
+for identity collisions and existing components are never overwritten.
+
+This phase intentionally provides no filesystem or network write path. The
+returned proposal is a dry-run value for manual repository review. Repository
+permissions and code review remain the operational authorization layer for any
+future write to `data/components/`.
+
 ## Source capture and extraction
 
 Capture and interpretation are separate boundaries. `HttpSourceCaptureAdapter`
