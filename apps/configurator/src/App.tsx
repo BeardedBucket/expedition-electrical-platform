@@ -1,102 +1,123 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import {
-  demoData,
-  orchestrateRecommendations,
-  type RecommendationResult,
-} from '@expedition/engineering-core';
+  createDefaultFormState,
+  evaluateConfiguration,
+  validateConfig,
+  type ConfigFormState,
+  type LoadItem,
+} from './configurator-model.js';
+import { BuilderContextSection } from './components/BuilderContextSection';
+import {
+  ElectricalConstraintsSection,
+  InstallationConstraintsSection,
+} from './components/ConstraintSections';
+import { LoadsSection, createLoadDefinition } from './components/LoadsSection';
+import { ResultsPanel } from './components/ResultsPanel';
+import { SystemBasicsSection } from './components/SystemBasicsSection';
 
 function App() {
-  const [voltage, setVoltage] = useState('');
-  const [result, setResult] = useState<RecommendationResult | null>(null);
+  const [formState, setFormState] = useState<ConfigFormState>(createDefaultFormState());
+  const [result, setResult] = useState<ReturnType<typeof evaluateConfiguration> | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const submitRequirements = (event: React.FormEvent<HTMLFormElement>) => {
+  const updateField = <K extends keyof ConfigFormState>(field: K, value: ConfigFormState[K]) => {
+    setFormState((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  };
+
+  const updateLoad = (id: string, field: keyof LoadItem, value: string) => {
+    setFormState((current) => ({
+      ...current,
+      loads: current.loads.map((load) =>
+        load.id === id
+          ? {
+              ...load,
+              [field]: value,
+            }
+          : load,
+      ),
+    }));
+  };
+
+  const removeLoad = (id: string) => {
+    setFormState((current) => ({
+      ...current,
+      loads: current.loads.filter((item) => item.id !== id),
+    }));
+  };
+
+  const addLoad = () => {
+    setFormState((current) => ({
+      ...current,
+      loads: [...current.loads, createLoadDefinition()],
+    }));
+  };
+
+  const submitRequirements = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const systemVoltageV = Number(voltage);
-    if (!voltage.trim() || !Number.isFinite(systemVoltageV) || systemVoltageV <= 0) {
-      setError('Enter a positive system voltage selected for this project.');
+    const validation = validateConfig(formState);
+    if (!validation.valid) {
+      setError(validation.errors[0] ?? 'The current form is incomplete or malformed.');
+      setResult(null);
+      return;
+    }
+
+    const nextResult = evaluateConfiguration(formState);
+    if (!nextResult) {
+      setError(
+        'The current form is incomplete or malformed. Complete the required fields before evaluation.',
+      );
       setResult(null);
       return;
     }
 
     setError(null);
-    setResult(orchestrateRecommendations({ systemVoltageV, loads: [] }, demoData));
+    setResult(nextResult);
   };
 
   return (
     <main className="page">
       <header>
-        <p className="eyebrow">Bootstrap configurator</p>
+        <p className="eyebrow">Engineering configurator</p>
         <h1>Start with requirements, not inventory.</h1>
         <p className="lede">
-          This synthetic demo keeps engineering logic in a framework-independent package. No
-          component, builder, or advisory records are loaded yet.
+          This UI consumes the deterministic engineering-core outputs, preserves unknown states, and
+          keeps builder preference behind engineering eligibility.
         </p>
       </header>
 
-      <section className="card" aria-labelledby="requirements-heading">
-        <h2 id="requirements-heading">Requirements</h2>
-        <form onSubmit={submitRequirements}>
-          <label htmlFor="system-voltage">
-            System voltage (V)
-            <input
-              id="system-voltage"
-              name="systemVoltageV"
-              type="number"
-              min="0"
-              step="any"
-              value={voltage}
-              onChange={(event) => setVoltage(event.target.value)}
-              placeholder="Select a project voltage"
-              required
-            />
-          </label>
-          <button type="submit">Evaluate requirements</button>
-        </form>
+      <form className="workflow-form" onSubmit={submitRequirements}>
+        <SystemBasicsSection formState={formState} onFieldChange={updateField} />
+        <LoadsSection
+          formState={formState}
+          onLoadUpdate={updateLoad}
+          onLoadRemove={removeLoad}
+          onLoadAdd={addLoad}
+        />
+        <ElectricalConstraintsSection formState={formState} onFieldChange={updateField} />
+        <InstallationConstraintsSection formState={formState} onFieldChange={updateField} />
+        <BuilderContextSection formState={formState} onFieldChange={updateField} />
+
+        <div className="toolbar">
+          <button type="submit">Evaluate configuration</button>
+        </div>
+
         {error && (
           <p className="error" role="alert">
             {error}
           </p>
         )}
-      </section>
+      </form>
 
       {result && (
-        <section className="card" aria-labelledby="results-heading">
-          <h2 id="results-heading">Recommendations</h2>
-          <p className="empty-result">
-            No recommendations are available because the synthetic component and builder collections
-            are empty.
-          </p>
-          <h3>Rule-set and dataset versions</h3>
-          <dl className="versions">
-            <div>
-              <dt>Rule set</dt>
-              <dd>
-                {result.trace.ruleSet.id} · {result.trace.ruleSet.version}
-              </dd>
-            </div>
-            <div>
-              <dt>Components</dt>
-              <dd>
-                {result.trace.datasets.components.id} · {result.trace.datasets.components.version}
-              </dd>
-            </div>
-            <div>
-              <dt>Builders</dt>
-              <dd>
-                {result.trace.datasets.builders.id} · {result.trace.datasets.builders.version}
-              </dd>
-            </div>
-            <div>
-              <dt>Advisories</dt>
-              <dd>
-                {result.trace.datasets.advisories.id} · {result.trace.datasets.advisories.version}
-              </dd>
-            </div>
-          </dl>
-          <h3>Trace/debug metadata</h3>
-          <pre>{JSON.stringify(result.trace, null, 2)}</pre>
-        </section>
+        <ResultsPanel
+          result={result}
+          selectedVoltage={formState.selectedVoltage}
+          loadCount={formState.loads.length}
+          builderMode={formState.builderMode}
+        />
       )}
     </main>
   );

@@ -23,6 +23,13 @@ From the repository root, install dependencies with `npm install`. Run the confi
 `npm run validate:data` for the focused verification commands. `npm run format:check` checks
 Prettier formatting.
 
+## Configurator proof of concept
+
+`apps/configurator` is the current React proof-of-concept configurator. It collects system
+requirements and renders deterministic core results without re-implementing the engineering
+calculation stack. Current data is synthetic/development data. Real catalog and live product
+integration remain future work.
+
 The workspace keeps UI concerns in `apps/configurator` and engineering contracts/orchestration in
 `packages/engineering-core`. The bootstrap dataset is explicitly synthetic: component, builder,
 and advisory collections are empty, and its rule metadata is not an engineering specification.
