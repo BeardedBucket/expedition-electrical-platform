@@ -1,0 +1,22 @@
+{
+  "id": "demo.bootstrap-rule",
+  "version": "0.1.0",
+  "status": "draft",
+  "kind": "recommendation",
+  "description": "Synthetic bootstrap rule metadata only; it contains no engineering specification.",
+  "inputs": [],
+  "expression": null,
+  "conditions": [],
+  "outputs": [],
+  "assumptions": ["This fixture exists only to exercise versioned rule metadata plumbing."],
+  "source_refs": [
+    {
+      "type": "project-assumption",
+      "title": "Bootstrap fixture",
+      "edition": "",
+      "section": "",
+      "url": null
+    }
+  ],
+  "tests": []
+}

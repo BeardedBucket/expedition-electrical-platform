@@ -10,10 +10,22 @@ The platform recommends architectures from engineering constraints rather than a
 
 - `data/` — human-reviewable component, builder, rule, and advisory data.
 - `standards/` — standards-derived tables and provenance notes. Do not copy copyrighted standards text unless redistribution is permitted.
-- `configurator/` — web application and rules engine.
+- `apps/configurator/` — React + Vite web application.
+- `packages/engineering-core/` — framework-independent typed contracts and deterministic orchestration.
 - `cad/` — project-created CAD plus manifests linking to manufacturer CAD. Do not redistribute third-party CAD unless its license explicitly permits it.
 - `docs/` — architecture, governance, rating/advisory policy, safety, and data provenance.
 - `examples/` — reference implementations such as the Tacoma popup proof of concept.
+
+## Local commands
+
+From the repository root, install dependencies with `npm install`. Run the configurator with
+`npm run dev`, then use `npm run test`, `npm run lint`, `npm run build`, and
+`npm run validate:data` for the focused verification commands. `npm run format:check` checks
+Prettier formatting.
+
+The workspace keeps UI concerns in `apps/configurator` and engineering contracts/orchestration in
+`packages/engineering-core`. The bootstrap dataset is explicitly synthetic: component, builder,
+and advisory collections are empty, and its rule metadata is not an engineering specification.
 
 ## Licensing intent
 
