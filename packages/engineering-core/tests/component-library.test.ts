@@ -354,7 +354,25 @@ required_converters: []
     });
 
     expect(result.checks.fit.status).toBe('unknown');
-    expect(result.checks.fit.reasons).toContain('fit.partial_envelope');
+    expect(result.checks.fit.reasons).toContain('fit.missing_installed_envelope');
+  });
+
+  it('does not assume identity orientation when evaluating fit', () => {
+    const result = evaluateComponentCompatibility(baseComponent, {
+      installationEnvelopeMm: { x: 200, y: 120, z: 50 },
+      requiredChecks: ['fit'],
+    });
+    expect(result.checks.fit.status).toBe('unknown');
+    expect(result.checks.fit.reasons).toContain('fit.missing_installed_envelope');
+  });
+
+  it('evaluates fit using an explicitly derived installed envelope', () => {
+    const result = evaluateComponentCompatibility(baseComponent, {
+      installationEnvelopeMm: { x: 200, y: 120, z: 50 },
+      installedEnvelopeMm: { world_x: 120, world_y: 80, world_z: 40 },
+      requiredChecks: ['fit'],
+    });
+    expect(result.checks.fit.status).toBe('compatible');
   });
 
   it('keeps advisory linkage separate from engineering compatibility results', () => {
@@ -616,10 +634,15 @@ required_converters: []
       ...baseComponent,
       orientation_constraint: 'diagonal',
     });
+    const negativeLegacyClearance = validateComponentLibraryRecord({
+      ...baseComponent,
+      service_clearances_mm: { front: -1 },
+    });
 
     expect(valid.ok).toBe(true);
     expect(invalidClearance.ok).toBe(false);
     expect(invalidOrientation.ok).toBe(false);
+    expect(negativeLegacyClearance.ok).toBe(false);
   });
 
   it('keeps W and VA independent even when the new fields are present', () => {

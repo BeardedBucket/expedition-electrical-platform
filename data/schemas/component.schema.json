@@ -278,18 +278,21 @@
     },
     "dimensions_mm": {
       "type": ["object", "null"],
-      "description": "Component-local enclosure/body dimensions in millimeters. x = width, y = depth, z = height. These are body dimensions only and are independent of vehicle/world axes and installation orientation.",
+      "description": "Physical body dimensions in the component-local frame, in millimeters. x = width, y = depth, z = height. These are not installed/world extents, wall distance, service clearance, or an implied mounting orientation. Installed envelopes are derived from a chosen permitted orientation.",
       "properties": {
         "x": {
           "type": "number",
+          "exclusiveMinimum": 0,
           "description": "Component-local width in millimeters."
         },
         "y": {
           "type": "number",
+          "exclusiveMinimum": 0,
           "description": "Component-local depth in millimeters."
         },
         "z": {
           "type": "number",
+          "exclusiveMinimum": 0,
           "description": "Component-local height in millimeters."
         }
       },
@@ -305,19 +308,93 @@
     },
     "service_clearances_mm": {
       "type": ["object", "null"],
+      "description": "Clearances are separate from physical body dimensions. Local face keys x_min/x_max/y_min/y_max/z_min/z_max are component-local; null or missing means unresolved, not zero. Legacy front/rear/left/right/top/bottom keys remain accepted for compatibility but do not define world axes.",
       "properties": {
-        "front": { "type": ["number", "null"] },
-        "rear": { "type": ["number", "null"] },
-        "left": { "type": ["number", "null"] },
-        "right": { "type": ["number", "null"] },
-        "top": { "type": ["number", "null"] },
-        "bottom": { "type": ["number", "null"] }
+        "front": { "type": ["number", "null"], "minimum": 0 },
+        "rear": { "type": ["number", "null"], "minimum": 0 },
+        "left": { "type": ["number", "null"], "minimum": 0 },
+        "right": { "type": ["number", "null"], "minimum": 0 },
+        "top": { "type": ["number", "null"], "minimum": 0 },
+        "bottom": { "type": ["number", "null"], "minimum": 0 },
+        "x_min": { "type": ["number", "null"], "minimum": 0 },
+        "x_max": { "type": ["number", "null"], "minimum": 0 },
+        "y_min": { "type": ["number", "null"], "minimum": 0 },
+        "y_max": { "type": ["number", "null"], "minimum": 0 },
+        "z_min": { "type": ["number", "null"], "minimum": 0 },
+        "z_max": { "type": ["number", "null"], "minimum": 0 }
       },
       "additionalProperties": true
     },
     "orientation_constraint": {
-      "type": ["string", "null"],
-      "enum": ["unrestricted", "manufacturer_defined", "unknown", null]
+      "description": "Legacy strings remain compatible. The structured form distinguishes unrestricted from unknown and may restrict local mounting faces or stable orientation IDs. Unknown is never permission.",
+      "oneOf": [
+        {
+          "type": ["string", "null"],
+          "enum": ["unrestricted", "manufacturer_defined", "unknown", null]
+        },
+        {
+          "type": "object",
+          "required": ["status"],
+          "properties": {
+            "status": { "enum": ["unrestricted", "restricted", "unknown"] },
+            "allowedMountingFaces": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "enum": ["x_min", "x_max", "y_min", "y_max", "z_min", "z_max"] },
+              "uniqueItems": true
+            },
+            "prohibitedMountingFaces": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "enum": ["x_min", "x_max", "y_min", "y_max", "z_min", "z_max"] },
+              "uniqueItems": true
+            },
+            "allowedOrientationIds": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "type": "string", "minLength": 1 },
+              "uniqueItems": true
+            }
+          },
+          "additionalProperties": false,
+          "allOf": [
+            {
+              "if": { "properties": { "status": { "const": "unrestricted" } } },
+              "then": {
+                "not": {
+                  "anyOf": [
+                    { "required": ["allowedMountingFaces"] },
+                    { "required": ["prohibitedMountingFaces"] },
+                    { "required": ["allowedOrientationIds"] }
+                  ]
+                }
+              }
+            },
+            {
+              "if": { "properties": { "status": { "const": "unknown" } } },
+              "then": {
+                "not": {
+                  "anyOf": [
+                    { "required": ["allowedMountingFaces"] },
+                    { "required": ["prohibitedMountingFaces"] },
+                    { "required": ["allowedOrientationIds"] }
+                  ]
+                }
+              }
+            },
+            {
+              "if": { "properties": { "status": { "const": "restricted" } } },
+              "then": {
+                "anyOf": [
+                  { "required": ["allowedMountingFaces"] },
+                  { "required": ["prohibitedMountingFaces"] },
+                  { "required": ["allowedOrientationIds"] }
+                ]
+              }
+            }
+          ]
+        }
+      ]
     },
     "interfaces": {
       "type": "array",
