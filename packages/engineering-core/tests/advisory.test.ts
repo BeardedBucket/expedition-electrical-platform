@@ -744,6 +744,137 @@ describe('advisory evidence and policy', () => {
     expect(result.effective_confidence).toBe('confirmed');
   });
 
+  it('applies resolved lifecycle policy based on a reviewed_decision status override', () => {
+    const item = evidence('evidence.reviewed-lifecycle-resolved', 'recall');
+    const reviewed = advisory('advisory.reviewed-lifecycle-resolved', [item.id], 'exclude', {
+      status: 'active',
+      created_at: '2026-09-01T00:00:00Z',
+      updated_at: '2026-09-05T00:00:00Z',
+      reviewed_decision: validReviewedDecision({
+        status: 'resolved',
+        reviewed_at: '2026-09-02T00:00:00Z',
+      }),
+    });
+    const result = evaluateComponentAdvisories(
+      'component.a',
+      [reviewed],
+      [item],
+      '2026-09-04T00:00:00Z',
+    );
+    // Default resolvedPolicyAction is 'none' when no configuration overrides it.
+    expect(result.effective_policy_action).toBe('none');
+  });
+
+  it('applies withdrawn lifecycle policy based on a reviewed_decision status override', () => {
+    const item = evidence('evidence.reviewed-lifecycle-withdrawn', 'recall');
+    const reviewed = advisory('advisory.reviewed-lifecycle-withdrawn', [item.id], 'exclude', {
+      status: 'active',
+      created_at: '2026-09-01T00:00:00Z',
+      updated_at: '2026-09-05T00:00:00Z',
+      reviewed_decision: validReviewedDecision({
+        status: 'withdrawn',
+        reviewed_at: '2026-09-02T00:00:00Z',
+      }),
+    });
+    const result = evaluateComponentAdvisories(
+      'component.a',
+      [reviewed],
+      [item],
+      '2026-09-04T00:00:00Z',
+    );
+    expect(result.effective_policy_action).toBe('none');
+  });
+
+  it('applies superseded lifecycle policy based on a reviewed_decision status override', () => {
+    const item = evidence('evidence.reviewed-lifecycle-superseded', 'recall');
+    const reviewed = advisory('advisory.reviewed-lifecycle-superseded', [item.id], 'exclude', {
+      status: 'active',
+      created_at: '2026-09-01T00:00:00Z',
+      updated_at: '2026-09-05T00:00:00Z',
+      reviewed_decision: validReviewedDecision({
+        status: 'superseded',
+        reviewed_at: '2026-09-02T00:00:00Z',
+      }),
+    });
+    const result = evaluateComponentAdvisories(
+      'component.a',
+      [reviewed],
+      [item],
+      '2026-09-04T00:00:00Z',
+    );
+    expect(result.effective_policy_action).toBe('none');
+  });
+
+  it('applies configured lifecycle policy action for a reviewed-resolved status', () => {
+    const item = evidence('evidence.reviewed-lifecycle-configured', 'recall');
+    const reviewed = advisory('advisory.reviewed-lifecycle-configured', [item.id], 'exclude', {
+      status: 'active',
+      created_at: '2026-09-01T00:00:00Z',
+      updated_at: '2026-09-05T00:00:00Z',
+      reviewed_decision: validReviewedDecision({
+        status: 'resolved',
+        reviewed_at: '2026-09-02T00:00:00Z',
+      }),
+    });
+    const result = evaluateComponentAdvisories(
+      'component.a',
+      [reviewed],
+      [item],
+      '2026-09-04T00:00:00Z',
+      { resolvedPolicyAction: 'inform' },
+    );
+    expect(result.effective_policy_action).toBe('inform');
+  });
+
+  it('lets a reviewed active status override a resolved base advisory status', () => {
+    const item = evidence('evidence.reviewed-lifecycle-reactivated', 'recall');
+    const reviewed = advisory('advisory.reviewed-lifecycle-reactivated', [item.id], 'caution', {
+      status: 'resolved',
+      created_at: '2026-09-01T00:00:00Z',
+      updated_at: '2026-09-05T00:00:00Z',
+      reviewed_decision: validReviewedDecision({
+        status: 'active',
+        policy_action: 'suppress_recommendation',
+        reviewed_at: '2026-09-02T00:00:00Z',
+      }),
+    });
+    const result = evaluateComponentAdvisories(
+      'component.a',
+      [reviewed],
+      [item],
+      '2026-09-04T00:00:00Z',
+      { resolvedPolicyAction: 'none' },
+    );
+    // Reviewed 'active' status is authoritative, so the resolved lifecycle policy does not
+    // apply and the reviewed policy_action is used instead.
+    expect(result.effective_policy_action).toBe('suppress_recommendation');
+  });
+
+  it('ignores a malformed reviewed_decision status and keeps the base advisory lifecycle authoritative', () => {
+    const item = evidence('evidence.reviewed-lifecycle-malformed', 'recall');
+    const malformed = advisory('advisory.reviewed-lifecycle-malformed', [item.id], 'exclude', {
+      status: 'active',
+      created_at: '2026-09-01T00:00:00Z',
+      updated_at: '2026-09-05T00:00:00Z',
+      reviewed_decision: validReviewedDecision({
+        status: 'resolved',
+        policy_action: 'not-a-real-action',
+      }) as never,
+    });
+    const validation = validateAdvisoryRecord(malformed);
+    expect(validation.ok).toBe(false);
+    const result = evaluateComponentAdvisories(
+      'component.a',
+      [malformed],
+      [item],
+      '2026-09-04T00:00:00Z',
+      { resolvedPolicyAction: 'inform' },
+    );
+    // Base advisory.status ('active') remains authoritative; the malformed reviewed status is
+    // ignored entirely, and the automatic assessment for the 'exclude' request applies.
+    expect(result.effective_policy_action).toBe('exclude');
+  });
+
   it('does not mark review due before the configured grace period elapses', () => {
     const result = evaluateComponentAdvisories(
       'component.a',

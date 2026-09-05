@@ -676,12 +676,13 @@ export const evaluateComponentAdvisories = (
         : undefined;
     const assessment = assessAdvisory(advisory, evidence);
     const reviewedAction = reviewedDecision?.policy_action ?? assessment.policy_action;
+    const effectiveLifecycleStatus = reviewedDecision?.status ?? advisory.status;
     const lifecycleAction =
-      advisory.status === 'resolved'
+      effectiveLifecycleStatus === 'resolved'
         ? (configuration.resolvedPolicyAction ?? 'none')
-        : advisory.status === 'withdrawn'
+        : effectiveLifecycleStatus === 'withdrawn'
           ? (configuration.withdrawnPolicyAction ?? 'none')
-          : advisory.status === 'superseded'
+          : effectiveLifecycleStatus === 'superseded'
             ? (configuration.supersededPolicyAction ?? 'none')
             : reviewedAction;
     if (policyRank[lifecycleAction] > policyRank[action]) action = lifecycleAction;
