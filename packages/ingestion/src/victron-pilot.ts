@@ -12,6 +12,7 @@ import {
 import type { ProductCandidate, ProductFact, ProductIdentity, ProductSource } from './contracts.js';
 import type { IngestionValidation } from './validation.js';
 import type { NormalizedProductFact } from './normalization-types.js';
+import type { PilotConfig } from './pilot-config.js';
 
 export const productUrl = 'https://www.victronenergy.com/inverters-chargers/multiplus-2000-va';
 export const sku = 'PMP242200100';
@@ -59,6 +60,48 @@ const unitByLabel = new Map<string, string>([
   ['Width', 'mm'],
   ['Depth', 'mm'],
 ]);
+
+export const victronPilotConfig: PilotConfig = {
+  pilot_id: 'victron.multiplus.identity-pilot',
+  candidate_id: candidateId,
+  manufacturer_target: 'Victron Energy',
+  target_identity: {
+    manufacturer: 'Victron Energy',
+    product_family: 'MultiPlus',
+    model: '24/2000/50-50 120V VE.Bus',
+    manufacturer_part_number: sku,
+    regional_variant: '120V',
+    voltage_variant: '24V DC input',
+    lifecycle_status: 'discontinued',
+  },
+  expected_product_role: 'inverter_charger',
+  expected_category: 'inverter_charger',
+  identity_requirements: ['manufacturer', 'model', 'manufacturer_part_number'],
+  sources: [
+    {
+      id: sourceId,
+      uri: productUrl,
+      source_type: 'manufacturer_product_page',
+      authority: 'manufacturer_product',
+      publisher: 'Victron Energy',
+      source_role: 'identity',
+      manufacturer: 'Victron Energy',
+      identity_claim: {
+        manufacturer: 'Victron Energy',
+        manufacturer_part_number: sku,
+      },
+      extraction_hints: {
+        focused_labels: Array.from(focusedLabels),
+      },
+    },
+  ],
+  replay_artifact_metadata: {
+    artifact_path: 'data/ingestion/victron-multiplus-24-2000-50-50-120v.json',
+    review_path: 'data/ingestion/victron-multiplus-24-2000-50-50-120v.review.json',
+  },
+  identity_first_stage: 'identity',
+  specification_stage: 'specification',
+};
 
 export interface PilotReport {
   readonly identity: ProductIdentity;

@@ -7,20 +7,55 @@ import type {
   NormalizedProductFact,
 } from './normalization-types.js';
 
-const authorityRank: Record<ProductSource['authority'], number> = {
-  manufacturer_technical: 0,
-  manufacturer_product: 1,
-  manufacturer_support: 2,
-  authorized_distributor: 3,
-  secondary_distributor: 4,
-  community_or_social: 5,
-  unknown: 6,
-};
+export const SOURCE_AUTHORITY_POLICY = {
+  order: {
+    manufacturer_technical: 0,
+    manufacturer_product: 1,
+    manufacturer_support: 2,
+    authorized_distributor: 3,
+    secondary_distributor: 4,
+    community_or_social: 5,
+    unknown: 6,
+  } as const,
+  description:
+    'manufacturer technical documentation > manufacturer product page > manufacturer support > authorized distributor > secondary reseller > community/social',
+  normalizeCase: true,
+  trimWhitespace: true,
+  collapseInternalWhitespace: true,
+  stripPunctuation: false,
+  stripSuffixes: false,
+} as const;
 
 export const sourceAuthorityOrder = (authority: ProductSource['authority']): number =>
-  authorityRank[authority];
+  SOURCE_AUTHORITY_POLICY.order[authority];
 
-const stableJson = (value: JsonValue): string => JSON.stringify(value);
+export const normalizeIdentityValueForComparison = (
+  field: keyof ProductIdentity | string | undefined,
+  value: string | undefined,
+): string | undefined => {
+  if (value === undefined) return undefined;
+  const normalized = value.trim().replace(/\s+/g, ' ');
+  const shouldLowerCase =
+    field === undefined ||
+    field === 'manufacturer' ||
+    field === 'product_family' ||
+    field === 'model' ||
+    field === 'manufacturer_part_number' ||
+    field === 'regional_variant' ||
+    field === 'voltage_variant' ||
+    field === 'hardware_revision' ||
+    field === 'lifecycle_status';
+  return shouldLowerCase ? normalized.toLocaleLowerCase() : normalized;
+};
+
+const canonicalNumericValue = (value: JsonValue): JsonValue => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Number(value.toFixed(12));
+  }
+  return value;
+};
+
+const stableJson = (value: JsonValue): string => JSON.stringify(canonicalNumericValue(value));
 const identityFields: readonly (keyof ProductIdentity)[] = [
   'manufacturer',
   'product_family',
@@ -32,10 +67,15 @@ const identityFields: readonly (keyof ProductIdentity)[] = [
   'lifecycle_status',
 ];
 const identitiesCompatible = (left: ProductIdentity, right: ProductIdentity): boolean =>
-  identityFields.every(
-    (field) =>
-      left[field] === undefined || right[field] === undefined || left[field] === right[field],
-  );
+  identityFields.every((field) => {
+    const leftValue = left[field];
+    const rightValue = right[field];
+    if (leftValue === undefined || rightValue === undefined) return true;
+    return (
+      normalizeIdentityValueForComparison(field, String(leftValue)) ===
+      normalizeIdentityValueForComparison(field, String(rightValue))
+    );
+  });
 
 const sortNormalized = (facts: readonly NormalizedProductFact[]): NormalizedProductFact[] =>
   [...new Map(facts.map((fact) => [fact.fact.id, fact])).values()].sort((left, right) => {
@@ -177,7 +217,7 @@ export const reconcileProductFacts = (
             : `No usable evidence exists for '${field}'.`,
           facts,
           field,
-          values.map((item) => item.normalized_value),
+          values.map((item) => canonicalNumericValue(item.normalized_value)),
         ),
       );
       continue;
@@ -185,7 +225,7 @@ export const reconcileProductFacts = (
     const representative = values[0];
     fields.push({
       field,
-      value: representative.normalized_value,
+      value: canonicalNumericValue(representative.normalized_value),
       unit: representative.normalized_unit,
       fact_ids: facts.map((item) => item.fact.id).sort(),
       source_ids: [...new Set(facts.map((item) => item.source.id))].sort(),
