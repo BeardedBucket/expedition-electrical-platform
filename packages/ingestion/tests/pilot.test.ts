@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import pilot from '../../../data/ingestion/victron-multiplus-24-2000-50-50-120v.json' with { type: 'json' };
-import { replayArtifact, validatePersistedArtifact } from '../scripts/victron-multiplus-pilot.mjs';
+import { replayArtifact, validatePersistedArtifact } from '../src/victron-pilot.js';
 
 const clone = () => JSON.parse(JSON.stringify(pilot));
 

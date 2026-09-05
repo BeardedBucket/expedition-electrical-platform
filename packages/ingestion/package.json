@@ -12,7 +12,7 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -b tsconfig.json --force",
     "test": "vitest run",
     "ingest:pilot": "npm run build && node scripts/victron-multiplus-pilot.mjs",
     "replay:pilot": "npm run build && node scripts/victron-multiplus-pilot.mjs --replay"
