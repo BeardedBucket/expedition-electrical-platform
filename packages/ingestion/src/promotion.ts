@@ -21,7 +21,10 @@ export type PromotionIssueCode =
   | 'promotion_evidence_missing'
   | 'promotion_dangling_resolution'
   | 'promotion_candidate_validation_failed'
-  | 'promotion_already_exists';
+  | 'promotion_already_exists'
+  | 'write_not_authorized'
+  | 'write_path_invalid'
+  | 'write_failed';
 
 export interface PromotionIssue {
   readonly code: PromotionIssueCode;
@@ -126,11 +129,38 @@ const slug = (value: string): string =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
 
-const canonicalIdFor = (candidate: ProductCandidate): string => {
+export const canonicalIdFor = (candidate: ProductCandidate): string => {
   const identity = candidate.identity;
   const key = identity.manufacturer_part_number ?? `${identity.manufacturer}-${identity.model}`;
   return `${slug(identity.manufacturer ?? 'component')}.${slug(key)}`;
 };
+
+export const canonicalProposalSchemaIssues = (proposal: JsonObject): PromotionIssue[] => {
+  componentValidator(proposal);
+  return (componentValidator.errors ?? []).map((error) =>
+    issue(
+      'promotion_invalid_component',
+      error.instancePath || '/',
+      error.message ?? 'canonical component does not match the schema.',
+    ),
+  );
+};
+
+export const canonicalProposalSchemaValid = (proposal: JsonObject): boolean =>
+  componentValidator(proposal);
+
+export const canonicalIdentityCollision = (
+  proposal: JsonObject,
+  components: readonly JsonObject[],
+): boolean =>
+  components.some(
+    (component) =>
+      component.id === proposal.id ||
+      (proposal.part_number !== null &&
+        proposal.part_number !== undefined &&
+        component.manufacturer === proposal.manufacturer &&
+        component.part_number === proposal.part_number),
+  );
 
 const schemaIssues = (): PromotionIssue[] =>
   (componentValidator.errors ?? []).map((error) =>
@@ -339,13 +369,12 @@ export const promoteCandidate = (
   const canonicalManufacturer = manufacturer ?? '';
   const canonicalModel = model ?? '';
   const canonicalId = canonicalIdFor(candidate);
-  const existing = catalogContext.components?.find(
-    (component) =>
-      component.id === canonicalId ||
-      (component.manufacturer === canonicalManufacturer &&
-        component.part_number === candidate.identity.manufacturer_part_number),
-  );
-  if (existing) {
+  const proposalIdentity: JsonObject = {
+    id: canonicalId,
+    manufacturer: canonicalManufacturer,
+    part_number: candidate.identity.manufacturer_part_number ?? null,
+  };
+  if (canonicalIdentityCollision(proposalIdentity, catalogContext.components ?? [])) {
     issues.push(
       issue(
         'promotion_already_exists',

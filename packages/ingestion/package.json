@@ -15,7 +15,8 @@
     "build": "tsc -b tsconfig.json --force",
     "test": "vitest run",
     "ingest:pilot": "npm run build && node scripts/victron-multiplus-pilot.mjs",
-    "replay:pilot": "npm run build && node scripts/victron-multiplus-pilot.mjs --replay"
+    "replay:pilot": "npm run build && node scripts/victron-multiplus-pilot.mjs --replay",
+    "promote:pilot": "npm run build && node scripts/promote-victron-pilot.mjs"
   },
   "dependencies": {
     "parse5": "8.0.1"

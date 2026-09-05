@@ -4,7 +4,7 @@ This package defines the Phase 9B-2B representation boundary for product
 source, extracted fact, and candidate component artifacts.
 
 Artifacts produced by ingestion are untrusted and reviewable. They are not
-canonical catalog records, and this package has no write path to
+canonical catalog records, and capture/normalization has no write path to
 `data/components`. The engineering core remains independent of ingestion.
 
 Unknown and conflicting values remain explicit. AI-assisted extraction is
@@ -28,10 +28,29 @@ candidate fact and include rationale; dimensions remain omitted when their
 canonical axis semantics are unresolved. Supplied catalog context is checked
 for identity collisions and existing components are never overwritten.
 
-This phase intentionally provides no filesystem or network write path. The
-returned proposal is a dry-run value for manual repository review. Repository
-permissions and code review remain the operational authorization layer for any
-future write to `data/components/`.
+The explicit write adapter is still dry-run by default. The offline pilot
+command requires an approved review JSON file:
+
+```text
+npm run promote:pilot --workspace @expedition/ingestion -- --review review.json
+npm run promote:pilot --workspace @expedition/ingestion -- --review review.json --write
+```
+
+Only the second command requests a write. The adapter validates the canonical
+proposal against `data/schemas/component.schema.json` immediately before an
+exclusive create-only write, rejects path traversal and absolute paths,
+checks both canonical identity/MPN collisions and existing filenames, and
+preserves the proposal's source provenance. Existing files are never
+overwritten. The review file must contain an explicitly approved
+`PromotionReview`; the pilot artifact never supplies or synthesizes approval.
+
+The command is offline and reads only the checked-in pilot artifact, review
+input, and canonical catalog. It does not capture source data, use live
+network access, or automate Git. Canonical file creation is not final trust
+approval: inspect `git diff`, run tests, and use the normal PR/code-review
+workflow afterward. Unit tests use temporary directories and never write the
+real `data/components/` catalog; CI and ordinary validation leave that catalog
+unchanged.
 
 ## Source capture and extraction
 
