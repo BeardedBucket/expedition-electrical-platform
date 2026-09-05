@@ -36,3 +36,23 @@ repository instructions. Authority is supplied by the caller when constructing
 The package has no canonical catalog write path. Tests use synthetic captured
 content, stubbed fetch responses, and deterministic clocks; they never access
 live websites.
+
+## Normalization and reconciliation
+
+Extraction preserves raw labels and values as provisional claims. Normalization
+uses only an explicit, human-editable label registry; unknown labels, qualified
+values, ranges, unsupported units, and dimension mismatches remain unresolved.
+The small unit registry performs only explicit, dimension-safe conversions
+(including mV/V, kW/W, kVA/VA, g/kg, and cm/m/mm).
+
+Reconciliation is a pure operation over explicit sources, facts, and one
+candidate identity. Manufacturer technical documentation, product pages,
+support documentation, authorized distributors, secondary distributors, then
+community/social sources are ordered for stable evidence processing, but
+authority never deletes contradictory evidence. Identity or variant mismatches
+remain visible and prevent a clean candidate. Candidate fields are built only
+from agreeing normalized facts and always retain fact IDs in `field_evidence`.
+Provisional evidence, conflicts, and incomplete identity require review;
+normalization never verifies, approves, promotes, writes `data/components`, or
+performs engineering or safety-advisory decisions. The same inputs produce the
+same output regardless of input ordering.
