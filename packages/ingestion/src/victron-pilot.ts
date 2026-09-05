@@ -149,6 +149,15 @@ const enrichUnits = (facts: readonly ProductFact[]): ProductFact[] =>
     },
   }));
 
+const legacyDimensionLabels = new Set(['Height', 'Width', 'Depth']);
+const legacyArtifactIdentity = {
+  schema_version: '1.0',
+  candidate_id: candidateId,
+  source_id: sourceId,
+  manufacturer_part_number: sku,
+  source_content_hash: 'sha256:da9031001bdfecb6518c6902773b5031b89ca53c9523863333fc89350ad457a2',
+} as const;
+
 const normalizeFacts = (
   facts: readonly ProductFact[],
   source: ProductSource,
@@ -160,6 +169,49 @@ const normalizeFacts = (
         result.status === 'normalized' && result.fact !== undefined,
     )
     .map((result) => result.fact);
+
+const shouldPreserveLegacyDimensionSemantics = (artifact: PilotArtifact): boolean => {
+  const matchesLegacyArtifactIdentity =
+    artifact.schema_version === legacyArtifactIdentity.schema_version &&
+    artifact.candidate.id === legacyArtifactIdentity.candidate_id &&
+    artifact.source.id === legacyArtifactIdentity.source_id &&
+    artifact.source_identity_evidence.source_id === legacyArtifactIdentity.source_id &&
+    artifact.source.content_hash === legacyArtifactIdentity.source_content_hash &&
+    artifact.pilot_target_identity.manufacturer_part_number ===
+      legacyArtifactIdentity.manufacturer_part_number &&
+    artifact.source_identity_evidence.manufacturer_part_number ===
+      legacyArtifactIdentity.manufacturer_part_number;
+  if (!matchesLegacyArtifactIdentity) return false;
+
+  const unresolvedLabels = new Set(
+    artifact.report.unresolved_or_unmapped_facts.map((fact) => fact.label),
+  );
+  const legacyDimensionsPresent = artifact.facts.some((fact) =>
+    legacyDimensionLabels.has(fact.raw_label),
+  );
+  const legacyDimensionsUnresolved = [...legacyDimensionLabels].every((label) =>
+    unresolvedLabels.has(label),
+  );
+  const componentData = artifact.candidate.component_data as Record<string, unknown> | undefined;
+  const hasDimensions =
+    !!componentData && typeof componentData === 'object' && 'dimensions_mm' in componentData;
+  return legacyDimensionsPresent && legacyDimensionsUnresolved && !hasDimensions;
+};
+
+const normalizeFactsForArtifact = (artifact: PilotArtifact): NormalizedProductFact[] => {
+  if (shouldPreserveLegacyDimensionSemantics(artifact)) {
+    const legacyDimensionIds = new Set(
+      artifact.facts
+        .filter((fact) => legacyDimensionLabels.has(fact.raw_label))
+        .map((fact) => fact.id),
+    );
+    return normalizeFacts(
+      artifact.facts.filter((fact) => !legacyDimensionIds.has(fact.id)),
+      artifact.source,
+    );
+  }
+  return normalizeFacts(artifact.facts, artifact.source);
+};
 
 const candidateFactsFor = (
   facts: readonly ProductFact[],
@@ -248,7 +300,7 @@ const canonical = (value: unknown): string =>
   );
 
 export const validatePersistedArtifact = (artifact: PilotArtifact): IngestionValidation => {
-  const normalizedFacts = normalizeFacts(artifact.facts, artifact.source);
+  const normalizedFacts = normalizeFactsForArtifact(artifact);
   const candidateFacts = candidateFactsFor(artifact.facts, normalizedFacts);
   const persistedCandidateValidation = safeCandidateValidation(
     artifact.candidate,

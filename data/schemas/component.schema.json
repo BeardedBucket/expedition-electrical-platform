@@ -278,15 +278,19 @@
     },
     "dimensions_mm": {
       "type": ["object", "null"],
+      "description": "Component-local enclosure/body dimensions in millimeters. x = width, y = depth, z = height. These are body dimensions only and are independent of vehicle/world axes and installation orientation.",
       "properties": {
         "x": {
-          "type": "number"
+          "type": "number",
+          "description": "Component-local width in millimeters."
         },
         "y": {
-          "type": "number"
+          "type": "number",
+          "description": "Component-local depth in millimeters."
         },
         "z": {
-          "type": "number"
+          "type": "number",
+          "description": "Component-local height in millimeters."
         }
       },
       "required": ["x", "y", "z"],

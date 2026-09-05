@@ -82,7 +82,19 @@ export const canonicalFieldMappings: readonly CanonicalFieldMapping[] = [
     canonical_field: 'dimensions_mm.x',
     dimension: 'length',
     unit: 'mm',
-    aliases: ['length'],
+    aliases: ['width'],
+  },
+  {
+    canonical_field: 'dimensions_mm.y',
+    dimension: 'length',
+    unit: 'mm',
+    aliases: ['depth'],
+  },
+  {
+    canonical_field: 'dimensions_mm.z',
+    dimension: 'length',
+    unit: 'mm',
+    aliases: ['height'],
   },
 ];
 

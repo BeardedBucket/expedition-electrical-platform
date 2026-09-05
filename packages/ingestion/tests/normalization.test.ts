@@ -99,7 +99,11 @@ describe('product fact normalization', () => {
     ['2 kW', 'Continuous output power', 'kW', 2000, 'electrical.continuous_power_w'],
     ['2 kVA', 'Apparent power', 'kVA', 2000, 'electrical.apparent_power_va'],
     ['2 kg', 'Weight', 'kg', 2, 'weight_kg'],
-    ['2 m', 'Length', 'm', 2000, 'dimensions_mm.x'],
+    ['255 mm', 'Width', 'mm', 255, 'dimensions_mm.x'],
+    ['520 mm', 'Height', 'mm', 520, 'dimensions_mm.z'],
+    ['125 mm', 'Depth', 'mm', 125, 'dimensions_mm.y'],
+    ['0.5 m', 'Width', 'm', 500, 'dimensions_mm.x'],
+    ['12 cm', 'Depth', 'cm', 120, 'dimensions_mm.y'],
   ])('normalizes exact %s values deterministically', (value, label, unit, expected, field) => {
     const result = normalize({ raw_label: label, raw_value: value, raw_unit: unit });
     expect(result).toMatchObject({
@@ -123,6 +127,50 @@ describe('product fact normalization', () => {
       status: 'unresolved',
       issues: [{ code: 'normalization_ambiguous_value' }],
     });
+  });
+
+  it.each([
+    ['520 x 255 x 125 mm', 'Dimensions'],
+    ['520 x 255 x 125 mm', 'Overall size'],
+    ['520 x 255 x 125 mm', 'Overall dimensions'],
+  ])('does not resolve unlabeled compound dimensions %s', (raw_value, raw_label) => {
+    expect(normalize({ raw_label, raw_value, raw_unit: undefined })).toMatchObject({
+      status: 'unresolved',
+      issues: [{ code: 'normalization_unmapped_field' }],
+    });
+  });
+
+  it('keeps reconciled dimension data separate from service clearances and orientation rules', () => {
+    const width = normalize({
+      id: 'acme.fact.width',
+      raw_label: 'Width',
+      raw_value: '255 mm',
+      raw_unit: 'mm',
+    });
+    const depth = normalize({
+      id: 'acme.fact.depth',
+      raw_label: 'Depth',
+      raw_value: '125 mm',
+      raw_unit: 'mm',
+    });
+    const height = normalize({
+      id: 'acme.fact.height',
+      raw_label: 'Height',
+      raw_value: '520 mm',
+      raw_unit: 'mm',
+    });
+    const candidate = buildProductCandidate({
+      id: 'acme.candidate',
+      identity: source().product_identity_claim ?? {},
+      sources: [source()],
+      facts: [width.fact!.fact, depth.fact!.fact, height.fact!.fact],
+      normalized_facts: [width.fact!, depth.fact!, height.fact!],
+    });
+    expect(candidate.component_data).toMatchObject({
+      dimensions_mm: { x: 255, y: 125, z: 520 },
+    });
+    expect(candidate.component_data).not.toHaveProperty('service_clearances_mm');
+    expect(candidate.component_data).not.toHaveProperty('orientation_constraint');
   });
 
   it('rejects unsupported units and cross-dimension conversion', () => {
