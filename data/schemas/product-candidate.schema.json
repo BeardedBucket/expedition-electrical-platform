@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:expedition-electrical-platform:schema:product-candidate",
+  "title": "Product candidate",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "identity_status",
+    "identity",
+    "review_status",
+    "promotion_status",
+    "source_ids",
+    "identity_source_ids",
+    "fact_ids",
+    "component_data",
+    "field_evidence"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "minLength": 1 },
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]+$" },
+    "identity_status": { "enum": ["verified", "provisional", "unresolved", "conflicting"] },
+    "identity": { "$ref": "#/$defs/identity" },
+    "review_status": { "enum": ["not_required", "pending", "approved", "rejected"] },
+    "promotion_status": { "enum": ["blocked", "review_required", "eligible"] },
+    "source_ids": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]+$" },
+      "uniqueItems": true,
+      "minItems": 1
+    },
+    "identity_source_ids": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]+$" },
+      "uniqueItems": true
+    },
+    "fact_ids": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]+$" },
+      "uniqueItems": true
+    },
+    "component_data": { "type": "object", "additionalProperties": true },
+    "field_evidence": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]+$" },
+        "uniqueItems": true,
+        "minItems": 1
+      }
+    },
+    "review_reasons": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "notes": { "type": "string" }
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "manufacturer": { "type": "string", "minLength": 1 },
+        "product_family": { "type": "string", "minLength": 1 },
+        "model": { "type": "string", "minLength": 1 },
+        "manufacturer_part_number": { "type": "string", "minLength": 1 },
+        "regional_variant": { "type": "string", "minLength": 1 },
+        "voltage_variant": { "type": "string", "minLength": 1 },
+        "hardware_revision": { "type": "string", "minLength": 1 },
+        "lifecycle_status": { "enum": ["active", "discontinued", "unknown", "replaced"] }
+      }
+    }
+  }
+}

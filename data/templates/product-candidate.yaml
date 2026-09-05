@@ -1,0 +1,26 @@
+schema_version: '1.0'
+id: example.candidate
+identity_status: provisional
+identity:
+  manufacturer: Example Manufacturer
+  product_family: Example family
+  model: Example model
+  manufacturer_part_number: EXAMPLE-SKU
+review_status: pending
+promotion_status: review_required
+source_ids:
+  - example.source-datasheet
+identity_source_ids:
+  - example.source-datasheet
+fact_ids:
+  - example.fact-output-power
+component_data:
+  manufacturer: Example Manufacturer
+  model: Example model
+  category: example
+  verification_status: unverified
+field_evidence:
+  electrical.continuous_power_w:
+    - example.fact-output-power
+review_reasons:
+  - Synthetic template requires review.

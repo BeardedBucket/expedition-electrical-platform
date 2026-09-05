@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:expedition-electrical-platform:schema:product-source",
+  "title": "Product source",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "uri",
+    "source_type",
+    "authority",
+    "publisher",
+    "retrieved_at"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "minLength": 1 },
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]+$" },
+    "uri": { "type": "string", "format": "uri", "minLength": 1 },
+    "source_type": {
+      "enum": [
+        "manufacturer_product_page",
+        "manufacturer_datasheet",
+        "manufacturer_manual",
+        "manufacturer_drawing",
+        "manufacturer_cad_metadata",
+        "manufacturer_support_article",
+        "manufacturer_api",
+        "manufacturer_feed",
+        "authorized_distributor",
+        "reseller",
+        "community",
+        "other"
+      ]
+    },
+    "authority": {
+      "enum": [
+        "manufacturer_technical",
+        "manufacturer_product",
+        "manufacturer_support",
+        "authorized_distributor",
+        "secondary_distributor",
+        "community_or_social",
+        "unknown"
+      ]
+    },
+    "publisher": { "type": "string", "minLength": 1 },
+    "retrieved_at": { "type": "string", "format": "date-time" },
+    "manufacturer": { "type": "string", "minLength": 1 },
+    "title": { "type": "string", "minLength": 1 },
+    "document_revision": { "type": "string", "minLength": 1 },
+    "publication_date": { "type": "string", "format": "date" },
+    "content_hash": { "type": "string", "minLength": 1 },
+    "product_identity_claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "manufacturer": { "type": "string", "minLength": 1 },
+        "product_family": { "type": "string", "minLength": 1 },
+        "model": { "type": "string", "minLength": 1 },
+        "manufacturer_part_number": { "type": "string", "minLength": 1 },
+        "regional_variant": { "type": "string", "minLength": 1 },
+        "voltage_variant": { "type": "string", "minLength": 1 },
+        "hardware_revision": { "type": "string", "minLength": 1 },
+        "lifecycle_status": { "enum": ["active", "discontinued", "unknown", "replaced"] }
+      }
+    },
+    "redistribution_status": { "enum": ["unknown", "link_only", "permitted"] },
+    "notes": { "type": "string" }
+  }
+}

@@ -1,0 +1,20 @@
+schema_version: '1.0'
+id: example.source-datasheet
+uri: https://example.invalid/products/example-datasheet.pdf
+source_type: manufacturer_datasheet
+authority: manufacturer_technical
+publisher: Example Manufacturer
+retrieved_at: '2026-01-15T12:00:00Z'
+manufacturer: Example Manufacturer
+title: Example technical datasheet
+document_revision: 'A'
+publication_date: '2026-01-01'
+content_hash: sha256:example
+product_identity_claim:
+  manufacturer: Example Manufacturer
+  product_family: Example family
+  model: Example model
+  manufacturer_part_number: EXAMPLE-SKU
+  lifecycle_status: active
+redistribution_status: link_only
+notes: Synthetic template only.
