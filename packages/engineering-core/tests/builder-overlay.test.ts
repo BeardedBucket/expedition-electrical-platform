@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  builderCompatibilityStatusFor,
   evaluateBuilderAttribution,
   evaluateBuilderCatalogMode,
   evaluateGenericBuilderMode,
@@ -190,7 +191,7 @@ describe('builder overlay rules', () => {
     expect(result.status).toBe('inventory_gap');
   });
 
-  it('no global eligible products is not inventory_gap', () => {
+  it('upstream ineligible only stays ineligible', () => {
     const profile = makeProfile({
       catalog: [{ component_id: 'component.a', availability: 'stocked', preference: 'preferred' }],
     });
@@ -204,7 +205,22 @@ describe('builder overlay rules', () => {
     expect(result.status).toBe('ineligible');
   });
 
-  it('unknown availability stays unknown', () => {
+  it('only upstream unknown candidates stay unknown', () => {
+    const profile = makeProfile({
+      catalog: [{ component_id: 'component.a', availability: 'stocked', preference: 'preferred' }],
+    });
+
+    const result = evaluateBuilderCatalogMode(
+      profile,
+      [makeCandidate('component.a', { status: 'unknown' })],
+      { kind: 'resolved', builderId: profile.builderId },
+    );
+
+    expect(result.status).toBe('unknown');
+    expect(result.rankedCandidates[0]?.status).toBe('unknown');
+  });
+
+  it('unknown availability stays visible and returns unknown rather than an inventory gap', () => {
     const profile = makeProfile({
       catalog: [{ component_id: 'component.a', availability: 'unknown', preference: 'standard' }],
     });
@@ -214,8 +230,33 @@ describe('builder overlay rules', () => {
       builderId: profile.builderId,
     });
 
-    expect(result.status).toBe('inventory_gap');
+    expect(result.status).toBe('unknown');
+    expect(result.rankedCandidates.map((candidate) => candidate.componentId)).toEqual([
+      'component.a',
+    ]);
     expect(result.candidates[0]?.status).toBe('unknown');
+  });
+
+  it('preserves stocked and unknown availability in ranked order', () => {
+    const profile = makeProfile({
+      catalog: [
+        { component_id: 'component.a', availability: 'stocked', preference: 'preferred' },
+        { component_id: 'component.b', availability: 'unknown', preference: 'standard' },
+      ],
+    });
+
+    const result = evaluateBuilderCatalogMode(
+      profile,
+      [makeCandidate('component.a'), makeCandidate('component.b')],
+      { kind: 'resolved', builderId: profile.builderId },
+    );
+
+    expect(result.status).toBe('eligible');
+    expect(result.rankedCandidates.map((candidate) => candidate.componentId)).toEqual([
+      'component.a',
+      'component.b',
+    ]);
+    expect(result.rankedCandidates[1]?.status).toBe('unknown');
   });
 
   it('unknown builder ID does not become generic', () => {
@@ -241,6 +282,59 @@ describe('builder overlay rules', () => {
     expect(result.rankedCandidates.map((candidate) => candidate.componentId)).toEqual([
       'component.a',
     ]);
+  });
+
+  it('canonical builder catalog with no inventory_mode validates successfully', () => {
+    const valid = validateBuilderProfileRecord({
+      builder_id: 'example-builder',
+      display_name: 'Example Builder',
+      catalog: [{ component_id: 'component.a', availability: 'stocked', preference: 'preferred' }],
+    });
+
+    expect(valid.ok).toBe(true);
+    if (valid.ok) {
+      expect(valid.value.inventoryMode).toBe('unrestricted');
+    }
+  });
+
+  it('missing availability is normalized to unknown', () => {
+    const valid = validateBuilderProfileRecord({
+      builder_id: 'example-builder',
+      display_name: 'Example Builder',
+      catalog: [{ component_id: 'component.a', preference: 'preferred' }],
+    });
+
+    expect(valid.ok).toBe(true);
+    if (valid.ok) {
+      expect(valid.value.catalog?.[0]?.availability).toBe('unknown');
+    }
+  });
+
+  it('missing preference is normalized to standard', () => {
+    const valid = validateBuilderProfileRecord({
+      builder_id: 'example-builder',
+      display_name: 'Example Builder',
+      catalog: [{ component_id: 'component.a', availability: 'stocked' }],
+    });
+
+    expect(valid.ok).toBe(true);
+    if (valid.ok) {
+      expect(valid.value.catalog?.[0]?.preference).toBe('standard');
+    }
+  });
+
+  it('malformed availability and preference values fail validation', () => {
+    const invalid = validateBuilderProfileRecord({
+      builder_id: 'example-builder',
+      display_name: 'Example Builder',
+      catalog: [{ component_id: 'component.a', availability: 'mystery', preference: 'maybe' }],
+    });
+
+    expect(invalid.ok).toBe(false);
+    if (!invalid.ok) {
+      expect(invalid.errors.join(' ')).toContain('availability');
+      expect(invalid.errors.join(' ')).toContain('preference');
+    }
   });
 
   it('duplicate builder catalog IDs fail validation', () => {
@@ -346,5 +440,27 @@ catalog:
     expect(
       evaluateBuilderAttribution({ kind: 'unresolved', builderId: 'builder-missing' }).status,
     ).toBe('unresolved');
+  });
+
+  it('builderCompatibilityStatusFor distinguishes eligible, ineligible, and unknown states', () => {
+    const profile = makeProfile({
+      catalog: [{ component_id: 'component.a', availability: 'stocked', preference: 'preferred' }],
+    });
+
+    expect(builderCompatibilityStatusFor(profile, { id: 'component.a' })).toBe('eligible');
+
+    const ineligibleProfile = makeProfile({
+      catalog: [
+        { component_id: 'component.a', availability: 'unavailable', preference: 'standard' },
+      ],
+    });
+    expect(builderCompatibilityStatusFor(ineligibleProfile, { id: 'component.a' })).toBe(
+      'ineligible',
+    );
+
+    const unknownProfile = makeProfile({
+      catalog: [{ component_id: 'component.a', availability: 'unknown', preference: 'standard' }],
+    });
+    expect(builderCompatibilityStatusFor(unknownProfile, { id: 'component.a' })).toBe('unknown');
   });
 });

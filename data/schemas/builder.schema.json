@@ -27,7 +27,7 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["component_id", "availability", "preference"],
+        "required": ["component_id"],
         "properties": {
           "component_id": { "type": "string", "minLength": 1 },
           "componentId": { "type": "string", "minLength": 1 },

@@ -59,6 +59,19 @@ const normalizeAvailability = (value: unknown): BuilderCatalogAvailability => {
   }
 };
 
+const isValidAvailabilityValue = (value: unknown): boolean => {
+  if (typeof value !== 'string') return false;
+  const normalized = value.trim().toLowerCase();
+  return [
+    'stocked',
+    'special_order',
+    'special-order',
+    'unavailable',
+    'discontinued',
+    'unknown',
+  ].includes(normalized);
+};
+
 const normalizePreference = (value: unknown): BuilderPreference => {
   switch (typeof value === 'string' ? value.trim().toLowerCase() : '') {
     case 'preferred':
@@ -70,6 +83,12 @@ const normalizePreference = (value: unknown): BuilderPreference => {
     default:
       return 'standard';
   }
+};
+
+const isValidPreferenceValue = (value: unknown): boolean => {
+  if (typeof value !== 'string') return false;
+  const normalized = value.trim().toLowerCase();
+  return ['preferred', 'standard', 'discouraged'].includes(normalized);
 };
 
 const normalizeCurrency = (value: unknown): string | null | undefined => {
@@ -92,12 +111,23 @@ const normalizeCatalogEntry = (entry: unknown, index: number): BuilderCatalogEnt
     throw new Error(`catalog[${index}].component_id: must be a non-empty string.`);
   }
 
-  const availability = normalizeAvailability(
-    record.availability ?? record.availabilityStatus ?? record.status,
-  );
-  const preference = normalizePreference(
-    record.preference ?? record.preferenceLevel ?? record.priority,
-  );
+  const availabilityValue = record.availability ?? record.availabilityStatus ?? record.status;
+  if (availabilityValue !== undefined && !isValidAvailabilityValue(availabilityValue)) {
+    throw new Error(
+      `catalog[${index}].availability: must be one of stocked, special_order, unavailable, discontinued, or unknown.`,
+    );
+  }
+  const availability =
+    availabilityValue === undefined ? 'unknown' : normalizeAvailability(availabilityValue);
+
+  const preferenceValue = record.preference ?? record.preferenceLevel ?? record.priority;
+  if (preferenceValue !== undefined && !isValidPreferenceValue(preferenceValue)) {
+    throw new Error(
+      `catalog[${index}].preference: must be one of preferred, standard, or discouraged.`,
+    );
+  }
+  const preference =
+    preferenceValue === undefined ? 'standard' : normalizePreference(preferenceValue);
 
   const rawPrice =
     typeof record.builder_price === 'number'
@@ -182,15 +212,23 @@ export interface BuilderOverlayOutcome {
   readonly builderId?: string;
 }
 
-const isGlobalCandidateEligible = (candidate: BuilderCatalogCandidate): boolean => {
-  if (candidate.eligible === false) return false;
-  if (candidate.engineeringEligible === false) return false;
-  if (candidate.safetyEligible === false) return false;
-  if (candidate.advisoryEligible === false) return false;
-  if (candidate.status === 'ineligible') return false;
-  if (candidate.status === 'unknown') return false;
-  return true;
+const classifyGlobalCandidate = (
+  candidate: BuilderCatalogCandidate,
+): 'eligible' | 'ineligible' | 'unknown' => {
+  if (candidate.status === 'ineligible') return 'ineligible';
+  if (candidate.status === 'unknown') return 'unknown';
+  if (candidate.eligible === false) return 'ineligible';
+  if (candidate.engineeringEligible === false) return 'ineligible';
+  if (candidate.safetyEligible === false) return 'ineligible';
+  if (candidate.advisoryEligible === false) return 'ineligible';
+  return 'eligible';
 };
+
+const isGlobalCandidateEligible = (candidate: BuilderCatalogCandidate): boolean =>
+  classifyGlobalCandidate(candidate) === 'eligible';
+
+const isGlobalCandidateUnknown = (candidate: BuilderCatalogCandidate): boolean =>
+  classifyGlobalCandidate(candidate) === 'unknown';
 
 const rankCandidate = (item: BuilderCatalogOutcomeItem): number => {
   if (item.status !== 'eligible') return 999;
@@ -297,11 +335,40 @@ export const evaluateBuilderCatalogMode = (
   }
 
   const globalEligible = candidates.filter(isGlobalCandidateEligible);
+  const globalUnknown = candidates.filter(isGlobalCandidateUnknown);
+
   if (globalEligible.length === 0) {
+    if (globalUnknown.length > 0) {
+      return {
+        status: 'unknown',
+        attribution,
+        candidates: candidates.map((candidate) => ({
+          componentId: candidate.id,
+          status: 'unknown' as const,
+          reason: 'upstream.unknown',
+          explanation: `The upstream engineering data for ${candidate.id} is unknown, so builder compatibility remains uncertain.`,
+        })),
+        rankedCandidates: sortCatalogResults(
+          candidates.map((candidate) => ({
+            componentId: candidate.id,
+            status: 'unknown' as const,
+            reason: 'upstream.unknown',
+            explanation: `The upstream engineering data for ${candidate.id} is unknown, so builder compatibility remains uncertain.`,
+          })),
+        ),
+        builderId: attribution.builderId,
+      };
+    }
+
     return {
       status: 'ineligible',
       attribution,
-      candidates: [],
+      candidates: candidates.map((candidate) => ({
+        componentId: candidate.id,
+        status: 'ineligible' as const,
+        reason: 'upstream.ineligible',
+        explanation: `The upstream engineering data excludes ${candidate.id} from global eligibility.`,
+      })),
       rankedCandidates: [],
       builderId: attribution.builderId,
     };
@@ -315,7 +382,7 @@ export const evaluateBuilderCatalogMode = (
     if (!catalogEntry) {
       return {
         componentId: candidate.id,
-        status: 'unknown' as const,
+        status: 'ineligible' as const,
         reason: 'builder.catalog_missing',
         explanation: `Builder ${profile.builderId} has no catalog entry for ${candidate.id}.`,
       };
@@ -371,18 +438,31 @@ export const evaluateBuilderCatalogMode = (
     }
   });
 
-  const eligibleCatalog = evaluated.filter((item) => item.status === 'eligible');
-  if (eligibleCatalog.length === 0) {
+  const knownEligible = evaluated.filter((item) => item.status === 'eligible');
+  const rankedCandidates = sortCatalogResults(
+    evaluated.filter((item) => item.status !== 'ineligible'),
+  );
+
+  if (knownEligible.length === 0) {
+    if (evaluated.some((item) => item.status === 'unknown')) {
+      return {
+        status: 'unknown',
+        attribution,
+        candidates: evaluated,
+        rankedCandidates,
+        builderId: attribution.builderId,
+      };
+    }
+
     return {
       status: 'inventory_gap',
       attribution,
       candidates: evaluated,
-      rankedCandidates: sortCatalogResults(evaluated),
+      rankedCandidates,
       builderId: attribution.builderId,
     };
   }
 
-  const rankedCandidates = sortCatalogResults(eligibleCatalog);
   return {
     status: 'eligible',
     attribution,
@@ -414,15 +494,16 @@ export const validateBuilderProfileRecord = (
   if (!builderId) return { ok: false, errors: ['builder_id: must be a non-empty string.'] };
   if (!displayName) return { ok: false, errors: ['display_name: must be a non-empty string.'] };
 
-  const requestedMode = (record.inventory_mode ?? record.inventoryMode) as
-    BuilderInventoryMode | undefined;
+  const requestedModeValue = record.inventory_mode ?? record.inventoryMode;
   if (
-    requestedMode !== 'unrestricted' &&
-    requestedMode !== 'allowlist' &&
-    requestedMode !== 'denylist'
+    requestedModeValue !== undefined &&
+    requestedModeValue !== null &&
+    (typeof requestedModeValue !== 'string' ||
+      !['unrestricted', 'allowlist', 'denylist'].includes(requestedModeValue))
   ) {
     return { ok: false, errors: ['inventory_mode: must be unrestricted, allowlist, or denylist.'] };
   }
+  const requestedMode = (requestedModeValue as BuilderInventoryMode | undefined) ?? 'unrestricted';
 
   const catalogValues: BuilderCatalogEntry[] = [];
   const seenComponentIds = new Set<string>();
@@ -538,9 +619,20 @@ export const builderCompatibilityStatusFor = (
   component: { readonly id: string },
   _context: { readonly systemVoltageV?: number } = {},
 ): 'eligible' | 'ineligible' | 'unknown' => {
-  const result = evaluateBuilderCatalogMode(profile, [{ id: component.id, eligible: true }], {
-    kind: 'resolved',
-    builderId: profile.builderId,
-  });
-  return result.status === 'eligible' || result.status === 'generic' ? 'eligible' : 'ineligible';
+  const catalogEntry = profile.catalog?.find((entry) => entry.component_id === component.id);
+  if (!catalogEntry) {
+    return 'unknown';
+  }
+
+  switch (catalogEntry.availability) {
+    case 'stocked':
+    case 'special_order':
+      return 'eligible';
+    case 'unavailable':
+    case 'discontinued':
+      return 'ineligible';
+    case 'unknown':
+    default:
+      return 'unknown';
+  }
 };
