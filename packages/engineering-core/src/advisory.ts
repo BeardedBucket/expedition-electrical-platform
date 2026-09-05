@@ -232,6 +232,85 @@ const technicalEvidenceSourceKeys = (evidence: readonly EvidenceRecord[]): Set<s
   );
 };
 
+const validateReviewedDecision = (
+  reviewedDecision: unknown,
+  createdAt: unknown,
+  updatedAt: unknown,
+): readonly AdvisoryValidationProblem[] => {
+  const errors: AdvisoryValidationProblem[] = [];
+  const add = (code: string, path: string, message: string) => errors.push({ code, path, message });
+  if (reviewedDecision === undefined) return errors;
+  if (!reviewedDecision || typeof reviewedDecision !== 'object') {
+    add('invalid_reviewed_decision', 'reviewed_decision', 'must be an object.');
+    return errors;
+  }
+  const decision = reviewedDecision as Record<string, unknown>;
+  if (!advisoryStatuses.has(decision.status as AdvisoryLifecycleStatus))
+    add(
+      'invalid_reviewed_decision_status',
+      'reviewed_decision.status',
+      'must be a supported advisory lifecycle status.',
+    );
+  if (!advisorySeverities.has(decision.severity as AdvisorySeverity))
+    add(
+      'invalid_reviewed_decision_severity',
+      'reviewed_decision.severity',
+      'must be a supported severity.',
+    );
+  if (!advisoryConfidences.has(decision.confidence as AdvisoryConfidence))
+    add(
+      'invalid_reviewed_decision_confidence',
+      'reviewed_decision.confidence',
+      'must be a supported confidence.',
+    );
+  if (!policyActions.has(decision.policy_action as AdvisoryPolicyAction))
+    add(
+      'invalid_reviewed_decision_policy_action',
+      'reviewed_decision.policy_action',
+      'must be a supported policy action.',
+    );
+  if (typeof decision.rationale !== 'string' || decision.rationale.trim() === '')
+    add('missing_reviewed_decision_rationale', 'reviewed_decision.rationale', 'is required.');
+  if (typeof decision.reviewer !== 'string' || decision.reviewer.trim() === '')
+    add('missing_reviewed_decision_reviewer', 'reviewed_decision.reviewer', 'is required.');
+  if (!isDate(decision.reviewed_at))
+    add(
+      'invalid_reviewed_decision_timestamp',
+      'reviewed_decision.reviewed_at',
+      'must be a parseable timestamp.',
+    );
+  if (
+    isDate(decision.reviewed_at) &&
+    isDate(createdAt) &&
+    Date.parse(decision.reviewed_at as string) < Date.parse(createdAt as string)
+  )
+    add(
+      'reviewed_decision_before_created_at',
+      'reviewed_decision.reviewed_at',
+      'must not be earlier than advisory created_at.',
+    );
+  if (
+    isDate(decision.reviewed_at) &&
+    isDate(updatedAt) &&
+    Date.parse(updatedAt as string) < Date.parse(decision.reviewed_at as string)
+  )
+    add(
+      'reviewed_decision_after_updated_at',
+      'reviewed_decision.reviewed_at',
+      'advisory updated_at must not be earlier than reviewed_decision.reviewed_at.',
+    );
+  return errors;
+};
+
+/**
+ * Malformed reviewed_decision data must never become effective policy. Callers that need to
+ * apply reviewed_decision precedence (e.g. evaluateComponentAdvisories) must gate on this check
+ * rather than trusting the field's presence alone.
+ */
+export const isReviewedDecisionValid = (advisory: AdvisoryRecord): boolean =>
+  validateReviewedDecision(advisory.reviewed_decision, advisory.created_at, advisory.updated_at)
+    .length === 0;
+
 export const validateEvidenceRecord = (
   input: unknown,
 ):
@@ -414,6 +493,9 @@ export const validateAdvisoryRecord = (
       'evidence_ids',
       'influential advisories require evidence.',
     );
+  errors.push(
+    ...validateReviewedDecision(record.reviewed_decision, record.created_at, record.updated_at),
+  );
   return errors.length > 0
     ? { ok: false, errors }
     : { ok: true, value: record as unknown as AdvisoryRecord };
@@ -567,6 +649,14 @@ export const evaluateComponentAdvisories = (
   const applicable = advisories.filter((advisory) =>
     advisory.affected_component_ids.includes(componentId),
   );
+  // Negative or non-finite grace periods are normalized to 0 (no grace) rather than rejected,
+  // so a malformed configuration value cannot silently mask an overdue review.
+  const reviewDueGraceDays =
+    typeof configuration.reviewDueGraceDays === 'number' &&
+    Number.isFinite(configuration.reviewDueGraceDays) &&
+    configuration.reviewDueGraceDays > 0
+      ? configuration.reviewDueGraceDays
+      : 0;
   let action: AdvisoryPolicyAction = 'none';
   let severity: AdvisorySeverity = 'informational';
   let confidence: AdvisoryConfidence = 'low';
@@ -578,8 +668,14 @@ export const evaluateComponentAdvisories = (
   for (const advisory of applicable) {
     const validation = validateAdvisoryRecord(advisory, new Set(evidence.map((item) => item.id)));
     if (!validation.ok) problems.push(...validation.errors);
+    // A malformed reviewed_decision must never become effective policy; fall back to the
+    // automatic assessment when validation fails.
+    const reviewedDecision =
+      advisory.reviewed_decision !== undefined && isReviewedDecisionValid(advisory)
+        ? advisory.reviewed_decision
+        : undefined;
     const assessment = assessAdvisory(advisory, evidence);
-    const reviewedAction = advisory.reviewed_decision?.policy_action ?? assessment.policy_action;
+    const reviewedAction = reviewedDecision?.policy_action ?? assessment.policy_action;
     const lifecycleAction =
       advisory.status === 'resolved'
         ? (configuration.resolvedPolicyAction ?? 'none')
@@ -589,8 +685,8 @@ export const evaluateComponentAdvisories = (
             ? (configuration.supersededPolicyAction ?? 'none')
             : reviewedAction;
     if (policyRank[lifecycleAction] > policyRank[action]) action = lifecycleAction;
-    const effectiveSeverity = advisory.reviewed_decision?.severity ?? advisory.severity;
-    const effectiveConfidence = advisory.reviewed_decision?.confidence ?? assessment.confidence;
+    const effectiveSeverity = reviewedDecision?.severity ?? advisory.severity;
+    const effectiveConfidence = reviewedDecision?.confidence ?? assessment.confidence;
     if (severityRank[effectiveSeverity] > severityRank[severity]) severity = effectiveSeverity;
     if (confidenceRank[effectiveConfidence] > confidenceRank[confidence])
       confidence = effectiveConfidence;
@@ -613,7 +709,7 @@ export const evaluateComponentAdvisories = (
       warnings.push(`${advisory.id}:evidence_stale`);
     }
     const dueAt = advisory.next_review_at ?? advisory.review_after;
-    if (dueAt && Date.parse(dueAt) <= Date.parse(evaluatedAt)) {
+    if (dueAt && isDate(dueAt) && daysBetween(dueAt, evaluatedAt) >= reviewDueGraceDays) {
       reviewDue = true;
       warnings.push(`${advisory.id}:review_due`);
     }

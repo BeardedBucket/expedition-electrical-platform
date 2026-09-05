@@ -266,6 +266,7 @@ describe('advisory evidence and policy', () => {
   it('uses reviewed action and confidence without overwriting automatic assessment', () => {
     const item = evidence('evidence.reviewed', 'community_report', 'unverified');
     const record = advisory('advisory.reviewed', [item.id], 'caution', {
+      updated_at: '2026-09-05T00:00:00Z',
       reviewed_decision: {
         status: 'active',
         severity: 'high',
@@ -602,4 +603,202 @@ describe('advisory evidence and policy', () => {
       result.problems.some((problem) => problem.code === 'unresolved_component_reference'),
     ).toBe(true);
   });
+
+  const validReviewedDecision = (
+    overrides: Partial<AdvisoryRecord['reviewed_decision'] & Record<string, unknown>> = {},
+  ) => ({
+    status: 'active' as const,
+    severity: 'high' as const,
+    confidence: 'confirmed' as const,
+    policy_action: 'exclude' as const,
+    rationale: 'Reviewed against manufacturer recall notice.',
+    reviewer: 'safety-reviewer@example.com',
+    reviewed_at: '2026-09-03T00:00:00Z',
+    ...overrides,
+  });
+
+  it('accepts a fully valid reviewed_decision', () => {
+    const result = validateAdvisoryRecord(
+      advisory('advisory.reviewed-valid', ['evidence.reviewed-valid'], 'inform', {
+        updated_at: '2026-09-05T00:00:00Z',
+        reviewed_decision: validReviewedDecision(),
+      }),
+    );
+    expect(result.ok).toBe(true);
+  });
+
+  it.each([
+    ['not an object', 'invalid_reviewed_decision', 'not-an-object'],
+    [
+      'invalid status',
+      'invalid_reviewed_decision_status',
+      validReviewedDecision({ status: 'bogus' }),
+    ],
+    [
+      'invalid severity',
+      'invalid_reviewed_decision_severity',
+      validReviewedDecision({ severity: 'extreme' }),
+    ],
+    [
+      'invalid confidence',
+      'invalid_reviewed_decision_confidence',
+      validReviewedDecision({ confidence: 'certain' }),
+    ],
+    [
+      'invalid policy_action',
+      'invalid_reviewed_decision_policy_action',
+      validReviewedDecision({ policy_action: 'ignore' }),
+    ],
+    [
+      'missing rationale',
+      'missing_reviewed_decision_rationale',
+      validReviewedDecision({ rationale: '   ' }),
+    ],
+    [
+      'missing reviewer',
+      'missing_reviewed_decision_reviewer',
+      validReviewedDecision({ reviewer: '' }),
+    ],
+    [
+      'invalid reviewed_at',
+      'invalid_reviewed_decision_timestamp',
+      validReviewedDecision({ reviewed_at: 'not-a-date' }),
+    ],
+  ])('rejects a malformed reviewed_decision: %s', (_label, expectedCode, reviewedDecision) => {
+    const result = validateAdvisoryRecord(
+      advisory('advisory.reviewed-invalid', [], 'inform', {
+        reviewed_decision: reviewedDecision as never,
+      }),
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors.map((error) => error.code)).toContain(expectedCode);
+    }
+  });
+
+  it('rejects a reviewed_decision reviewed_at earlier than created_at', () => {
+    const result = validateAdvisoryRecord(
+      advisory('advisory.reviewed-too-early', [], 'inform', {
+        created_at: '2026-09-05T00:00:00Z',
+        updated_at: '2026-09-06T00:00:00Z',
+        reviewed_decision: validReviewedDecision({ reviewed_at: '2026-09-01T00:00:00Z' }),
+      }),
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors.map((error) => error.code)).toContain(
+        'reviewed_decision_before_created_at',
+      );
+    }
+  });
+
+  it('rejects a reviewed_decision reviewed_at later than updated_at', () => {
+    const result = validateAdvisoryRecord(
+      advisory('advisory.reviewed-too-late', [], 'inform', {
+        created_at: '2026-09-01T00:00:00Z',
+        updated_at: '2026-09-02T00:00:00Z',
+        reviewed_decision: validReviewedDecision({ reviewed_at: '2026-09-05T00:00:00Z' }),
+      }),
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors.map((error) => error.code)).toContain(
+        'reviewed_decision_after_updated_at',
+      );
+    }
+  });
+
+  it('never lets a malformed reviewed_decision become effective policy or severity', () => {
+    const item = evidence('evidence.reviewed-malformed', 'recall');
+    const malformed = advisory('advisory.reviewed-malformed', [item.id], 'inform', {
+      severity: 'low',
+      reviewed_decision: validReviewedDecision({ policy_action: 'not-a-real-action' }) as never,
+    });
+    const result = evaluateComponentAdvisories(
+      'component.a',
+      [malformed],
+      [item],
+      '2026-09-04T00:00:00Z',
+    );
+    // Falls back to the automatic assessment (inform) rather than the malformed decision's exclude.
+    expect(result.effective_policy_action).not.toBe('exclude');
+    expect(result.effective_severity).toBe('low');
+  });
+
+  it('applies a valid reviewed_decision as effective policy, severity, and confidence', () => {
+    const item = evidence('evidence.reviewed-valid-effect', 'community_report', 'unverified');
+    const reviewed = advisory('advisory.reviewed-valid-effect', [item.id], 'caution', {
+      severity: 'low',
+      created_at: '2026-09-01T00:00:00Z',
+      updated_at: '2026-09-05T00:00:00Z',
+      reviewed_decision: validReviewedDecision({ reviewed_at: '2026-09-02T00:00:00Z' }),
+    });
+    const result = evaluateComponentAdvisories(
+      'component.a',
+      [reviewed],
+      [item],
+      '2026-09-04T00:00:00Z',
+    );
+    expect(result.effective_policy_action).toBe('exclude');
+    expect(result.effective_severity).toBe('high');
+    expect(result.effective_confidence).toBe('confirmed');
+  });
+
+  it('does not mark review due before the configured grace period elapses', () => {
+    const result = evaluateComponentAdvisories(
+      'component.a',
+      [
+        advisory('advisory.grace-not-due', [], 'inform', {
+          next_review_at: '2026-09-01T00:00:00Z',
+        }),
+      ],
+      [],
+      '2026-09-05T00:00:00Z',
+      { reviewDueGraceDays: 10 },
+    );
+    expect(result.review_due).toBe(false);
+  });
+
+  it('marks review due once the configured grace period has elapsed', () => {
+    const result = evaluateComponentAdvisories(
+      'component.a',
+      [advisory('advisory.grace-due', [], 'inform', { next_review_at: '2026-09-01T00:00:00Z' })],
+      [],
+      '2026-09-12T00:00:00Z',
+      { reviewDueGraceDays: 10 },
+    );
+    expect(result.review_due).toBe(true);
+  });
+
+  it('defaults reviewDueGraceDays to 0 when unset, preserving prior behavior', () => {
+    const result = evaluateComponentAdvisories(
+      'component.a',
+      [
+        advisory('advisory.grace-default', [], 'inform', {
+          next_review_at: '2026-09-01T00:00:00Z',
+        }),
+      ],
+      [],
+      '2026-09-01T00:00:00Z',
+    );
+    expect(result.review_due).toBe(true);
+  });
+
+  it.each([-5, Number.NaN, Number.POSITIVE_INFINITY])(
+    'normalizes an invalid reviewDueGraceDays value (%s) to no grace',
+    (invalidGrace) => {
+      const result = evaluateComponentAdvisories(
+        'component.a',
+        [
+          advisory('advisory.grace-invalid', [], 'inform', {
+            next_review_at: '2026-09-01T00:00:00Z',
+          }),
+        ],
+        [],
+        '2026-09-01T00:00:00Z',
+        { reviewDueGraceDays: invalidGrace },
+      );
+      expect(result.review_due).toBe(true);
+    },
+  );
 });

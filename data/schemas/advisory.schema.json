@@ -2,43 +2,120 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:expedition-electrical-platform:schema:advisory",
   "title": "Advisory and evidence record",
-  "type": "object",
-  "required": ["id"],
-  "properties": {
-    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]+$" },
-    "status": {
-      "enum": ["draft", "monitoring", "active", "resolved", "withdrawn", "superseded", "open"]
-    },
-    "severity": {
-      "enum": ["informational", "low", "moderate", "high", "critical", "info", "watch", "advisory"]
-    },
-    "confidence": { "enum": ["low", "medium", "high", "confirmed"] },
-    "policy_action": {
-      "enum": ["none", "inform", "caution", "suppress_recommendation", "exclude"]
-    },
-    "recommendation_effect": {
-      "enum": ["none", "warn", "suppress_default", "exclude"]
-    },
-    "title": { "type": "string" },
-    "summary": { "type": "string" },
-    "rationale": { "type": "string" },
-    "affected_component_ids": {
-      "type": "array",
-      "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]+$" }
-    },
-    "affected": { "type": "array", "items": { "type": "object" } },
-    "evidence_ids": { "type": "array", "items": { "type": "string" } },
-    "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidence" } },
-    "created_at": { "type": "string", "format": "date-time" },
-    "updated_at": { "type": "string", "format": "date-time" },
-    "review_after": { "type": "string", "format": "date-time" },
-    "next_review_at": { "type": "string", "format": "date-time" },
-    "supersedes": { "type": "string" },
-    "superseded_by": { "type": "string" },
-    "review": { "type": "object" },
-    "manufacturer_response": { "type": ["object", "null"] }
-  },
+  "description": "An advisory record must satisfy either the strict modern Phase 5 shape or the explicit legacy-compatibility shape. These are the only two intentional advisory shapes; do not add ad-hoc optional fields to loosen either branch.",
+  "anyOf": [{ "$ref": "#/$defs/modernAdvisory" }, { "$ref": "#/$defs/legacyAdvisory" }],
   "$defs": {
+    "reviewedDecision": {
+      "type": "object",
+      "description": "A human-authored decision that takes precedence over the automatic assessment once it validates.",
+      "required": [
+        "status",
+        "severity",
+        "confidence",
+        "policy_action",
+        "rationale",
+        "reviewer",
+        "reviewed_at"
+      ],
+      "properties": {
+        "status": { "enum": ["monitoring", "active", "resolved", "withdrawn", "superseded"] },
+        "severity": { "enum": ["informational", "low", "moderate", "high", "critical"] },
+        "confidence": { "enum": ["low", "medium", "high", "confirmed"] },
+        "policy_action": {
+          "enum": ["none", "inform", "caution", "suppress_recommendation", "exclude"]
+        },
+        "rationale": { "type": "string", "minLength": 1 },
+        "reviewer": { "type": "string", "minLength": 1 },
+        "reviewed_at": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": true
+    },
+    "modernAdvisory": {
+      "type": "object",
+      "description": "Strict authoritative Phase 5 advisory shape.",
+      "required": [
+        "id",
+        "status",
+        "severity",
+        "confidence",
+        "policy_action",
+        "affected_component_ids",
+        "evidence_ids",
+        "created_at",
+        "updated_at",
+        "summary",
+        "rationale"
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]+$" },
+        "status": { "enum": ["monitoring", "active", "resolved", "withdrawn", "superseded"] },
+        "severity": { "enum": ["informational", "low", "moderate", "high", "critical"] },
+        "confidence": { "enum": ["low", "medium", "high", "confirmed"] },
+        "policy_action": {
+          "enum": ["none", "inform", "caution", "suppress_recommendation", "exclude"]
+        },
+        "title": { "type": "string" },
+        "summary": { "type": "string", "minLength": 1 },
+        "rationale": { "type": "string", "minLength": 1 },
+        "affected_component_ids": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]+$" },
+          "minItems": 1
+        },
+        "evidence_ids": { "type": "array", "items": { "type": "string" } },
+        "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidence" } },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" },
+        "review_after": { "type": "string", "format": "date-time" },
+        "next_review_at": { "type": "string", "format": "date-time" },
+        "supersedes": { "type": "string" },
+        "superseded_by": { "type": "string" },
+        "reviewed_decision": { "$ref": "#/$defs/reviewedDecision" },
+        "affected_models": { "type": "array", "items": { "type": "string" } },
+        "serial_ranges": { "type": "array", "items": { "type": "string" } },
+        "batches": { "type": "array", "items": { "type": "string" } },
+        "jurisdictions": { "type": "array", "items": { "type": "string" } },
+        "legacy": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    },
+    "legacyAdvisory": {
+      "type": "object",
+      "description": "Explicit legacy compatibility shape preserved for pre-Phase 5 advisory fixtures/templates. Do not extend this branch with modern-only fields; add new authoritative fields to modernAdvisory instead.",
+      "required": [
+        "id",
+        "status",
+        "severity",
+        "title",
+        "summary",
+        "affected",
+        "recommendation_effect",
+        "evidence",
+        "review"
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]+$" },
+        "status": { "enum": ["draft", "open", "resolved", "withdrawn"] },
+        "severity": { "enum": ["info", "watch", "advisory", "critical"] },
+        "title": { "type": "string" },
+        "summary": { "type": "string" },
+        "affected": { "type": "array", "items": { "type": "object" } },
+        "recommendation_effect": { "enum": ["none", "warn", "suppress_default", "exclude"] },
+        "evidence": { "type": "array", "items": { "type": "object" } },
+        "manufacturer_response": { "type": ["object", "null"] },
+        "review": {
+          "type": "object",
+          "required": ["last_reviewed", "next_review_due"],
+          "properties": {
+            "last_reviewed": { "type": "string", "format": "date" },
+            "next_review_due": { "type": "string", "format": "date" },
+            "reviewers": { "type": "array", "items": { "type": "string" } }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
     "source": {
       "type": "object",
       "required": ["id", "type", "date_checked"],

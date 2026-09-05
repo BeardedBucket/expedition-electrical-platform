@@ -101,6 +101,38 @@ for (const dataFile of dataFiles) {
           `${relative(process.cwd(), dataFile)} advisory '${record.id}' self-references supersession.`,
         );
       }
+      // Modern (Phase 5) authoritative advisories carry policy_action; legacy fixtures use
+      // recommendation_effect instead and are intentionally exempt from this check.
+      if (
+        record.policy_action !== undefined &&
+        record.policy_action !== 'none' &&
+        (!Array.isArray(record.evidence_ids) || record.evidence_ids.length === 0)
+      ) {
+        throw new Error(
+          `${relative(process.cwd(), dataFile)} advisory '${record.id}' has an influential policy_action without evidence_ids.`,
+        );
+      }
+      if (record.reviewed_decision) {
+        const decision = record.reviewed_decision;
+        if (
+          decision.reviewed_at &&
+          record.created_at &&
+          Date.parse(decision.reviewed_at) < Date.parse(record.created_at)
+        ) {
+          throw new Error(
+            `${relative(process.cwd(), dataFile)} advisory '${record.id}' reviewed_decision.reviewed_at is earlier than created_at.`,
+          );
+        }
+        if (
+          decision.reviewed_at &&
+          record.updated_at &&
+          Date.parse(record.updated_at) < Date.parse(decision.reviewed_at)
+        ) {
+          throw new Error(
+            `${relative(process.cwd(), dataFile)} advisory '${record.id}' updated_at is earlier than reviewed_decision.reviewed_at.`,
+          );
+        }
+      }
     }
   }
   validated += 1;
