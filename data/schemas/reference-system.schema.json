@@ -1,0 +1,190 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:expedition-electrical-platform:schema:reference-system",
+  "title": "Reference System Topology",
+  "type": "object",
+  "required": ["schema_version", "id", "name", "status"],
+  "properties": {
+    "schema_version": { "type": "string", "minLength": 1 },
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]+$" },
+    "name": { "type": "string", "minLength": 1 },
+    "status": { "$ref": "#/$defs/status" },
+    "nominal_system_voltage_v": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+    "locations": { "type": "array", "items": { "$ref": "#/$defs/location" } },
+    "component_instances": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/componentInstance" }
+    },
+    "nodes": { "type": "array", "items": { "$ref": "#/$defs/node" } },
+    "connections": { "type": "array", "items": { "$ref": "#/$defs/connection" } },
+    "conductors": { "type": "array", "items": { "$ref": "#/$defs/conductor" } },
+    "paths": { "type": "array", "items": { "$ref": "#/$defs/path" } },
+    "source_refs": { "type": "array", "items": { "$ref": "#/$defs/sourceRef" } },
+    "open_questions": { "type": "array", "items": { "$ref": "#/$defs/openQuestion" } }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "status": {
+      "enum": ["requirement", "candidate", "selected", "installed", "deferred"]
+    },
+    "factBasis": {
+      "enum": [
+        "measured",
+        "owner_supplied",
+        "design_assumption",
+        "manufacturer_requirement",
+        "calculated",
+        "reviewed_installation",
+        "unknown"
+      ]
+    },
+    "sourceRef": {
+      "type": "object",
+      "required": ["id", "title"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "uri": { "type": ["string", "null"], "format": "uri" },
+        "note": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "componentInstance": {
+      "type": "object",
+      "required": ["id", "component_id", "status"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "component_id": { "type": "string", "minLength": 1 },
+        "role": { "type": ["string", "null"] },
+        "label": { "type": ["string", "null"] },
+        "quantity": { "type": ["integer", "null"], "minimum": 1 },
+        "installation_location_id": { "type": ["string", "null"] },
+        "status": { "$ref": "#/$defs/status" },
+        "notes": { "type": ["string", "null"] },
+        "source_refs": { "type": "array", "items": { "$ref": "#/$defs/sourceRef" } }
+      },
+      "additionalProperties": false
+    },
+    "location": {
+      "type": "object",
+      "required": ["id", "label", "status"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "parent_id": { "type": ["string", "null"] },
+        "label": { "type": "string", "minLength": 1 },
+        "kind": { "type": ["string", "null"] },
+        "status": { "$ref": "#/$defs/status" },
+        "notes": { "type": ["string", "null"] },
+        "source_refs": { "type": "array", "items": { "$ref": "#/$defs/sourceRef" } }
+      },
+      "additionalProperties": false
+    },
+    "node": {
+      "type": "object",
+      "required": ["id", "kind", "domain", "status"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["node", "bus", "distribution", "source", "load_terminal"] },
+        "domain": { "enum": ["dc", "ac", "pv_dc"] },
+        "nominal_voltage_v": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+        "polarity": { "type": ["string", "null"] },
+        "phase": { "type": ["string", "null"] },
+        "label": { "type": ["string", "null"] },
+        "status": { "$ref": "#/$defs/status" },
+        "notes": { "type": ["string", "null"] },
+        "source_refs": { "type": "array", "items": { "$ref": "#/$defs/sourceRef" } }
+      },
+      "additionalProperties": false
+    },
+    "endpoint": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["instance_id", "terminal_id"],
+          "properties": {
+            "instance_id": { "type": "string", "minLength": 1 },
+            "terminal_id": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["node_id"],
+          "properties": {
+            "node_id": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "connection": {
+      "type": "object",
+      "required": ["id", "from", "to", "status"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "from": { "$ref": "#/$defs/endpoint" },
+        "to": { "$ref": "#/$defs/endpoint" },
+        "conductor_id": { "type": ["string", "null"] },
+        "protection_instance_ids": { "type": "array", "items": { "type": "string" } },
+        "disconnect_instance_ids": { "type": "array", "items": { "type": "string" } },
+        "domain": { "enum": ["dc", "ac", "pv_dc"] },
+        "nominal_voltage_v": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+        "phase": { "type": ["string", "null"] },
+        "status": { "$ref": "#/$defs/status" },
+        "notes": { "type": ["string", "null"] },
+        "source_refs": { "type": "array", "items": { "$ref": "#/$defs/sourceRef" } }
+      },
+      "additionalProperties": false
+    },
+    "conductor": {
+      "type": "object",
+      "required": ["id", "status"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "one_way_length_m": { "type": ["number", "null"], "minimum": 0 },
+        "conductor_material": { "type": ["string", "null"] },
+        "gauge": { "type": ["string", "null"] },
+        "cross_section_mm2": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+        "parallel_count": { "type": ["integer", "null"], "minimum": 1 },
+        "installation_condition_id": { "type": ["string", "null"] },
+        "expected_current_a": { "type": ["number", "null"], "minimum": 0 },
+        "nominal_voltage_v": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+        "maximum_voltage_drop_percent": { "type": ["number", "null"], "minimum": 0 },
+        "protection_instance_ids": { "type": "array", "items": { "type": "string" } },
+        "status": { "$ref": "#/$defs/status" },
+        "fact_basis": { "$ref": "#/$defs/factBasis" },
+        "notes": { "type": ["string", "null"] },
+        "source_refs": { "type": "array", "items": { "$ref": "#/$defs/sourceRef" } }
+      },
+      "additionalProperties": false
+    },
+    "path": {
+      "type": "object",
+      "required": ["id", "kind", "status"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "kind": { "type": "string", "minLength": 1 },
+        "label": { "type": ["string", "null"] },
+        "source_instance_ids": { "type": "array", "items": { "type": "string" } },
+        "disconnect_instance_ids": { "type": "array", "items": { "type": "string" } },
+        "controller_instance_ids": { "type": "array", "items": { "type": "string" } },
+        "destination_node_ids": { "type": "array", "items": { "type": "string" } },
+        "status": { "$ref": "#/$defs/status" },
+        "notes": { "type": ["string", "null"] },
+        "source_refs": { "type": "array", "items": { "$ref": "#/$defs/sourceRef" } }
+      },
+      "additionalProperties": false
+    },
+    "openQuestion": {
+      "type": "object",
+      "required": ["id", "question", "status"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "question": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["open", "resolved", "deferred"] },
+        "notes": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    }
+  }
+}

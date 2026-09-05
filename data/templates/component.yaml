@@ -28,6 +28,10 @@ battery:
   nominal_energy_wh: null
 efficiency_fraction: null
 terminals: []
+# Optional stable keys for topology references; unique only within this component.
+# - id: positive
+#   function: battery
+#   polarity: positive
 dimensions_mm: null
 weight_kg: null
 mounting: {}

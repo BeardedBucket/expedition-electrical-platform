@@ -566,6 +566,7 @@ required_converters: []
       ...baseComponent,
       terminals: [{ function: 'dc_input', type: 'stud', designation: 'M8', polarity: 'positive' }],
     });
+
     const badFunction = validateComponentLibraryRecord({
       ...baseComponent,
       terminals: [{ function: 'not_a_real_function' }],
@@ -578,6 +579,27 @@ required_converters: []
     expect(valid.ok).toBe(true);
     expect(badFunction.ok).toBe(false);
     expect(badPolarity.ok).toBe(false);
+  });
+
+  it('supports optional stable terminal IDs and rejects duplicates', () => {
+    const valid = validateComponentLibraryRecord({
+      ...baseComponent,
+      terminals: [
+        { id: 'positive', function: 'battery', polarity: 'positive' },
+        { id: 'negative', function: 'battery', polarity: 'negative' },
+      ],
+    });
+    const duplicate = validateComponentLibraryRecord({
+      ...baseComponent,
+      terminals: [
+        { id: 'battery', function: 'battery', polarity: 'positive' },
+        { id: 'battery', function: 'battery', polarity: 'negative' },
+      ],
+    });
+
+    expect(valid.ok).toBe(true);
+    expect(duplicate.ok).toBe(false);
+    if (!duplicate.ok) expect(duplicate.errors.join(' ')).toContain('duplicates terminal ID');
   });
 
   it('validates service clearances and orientation constraints', () => {
