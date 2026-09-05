@@ -18,8 +18,32 @@
     "part_number": {
       "type": ["string", "null"]
     },
+    "product_role": {
+      "type": ["string", "null"],
+      "enum": [
+        "battery",
+        "inverter_charger",
+        "inverter",
+        "charger",
+        "dc_dc_converter",
+        "solar_charge_controller",
+        "fuse",
+        "breaker",
+        "disconnect",
+        "busbar",
+        "distribution_panel",
+        "monitor",
+        "gateway",
+        "load",
+        "other",
+        null
+      ]
+    },
     "category": {
       "type": "string"
+    },
+    "product_family": {
+      "type": ["string", "null"]
     },
     "verification_status": {
       "enum": ["unverified", "partially_verified", "verified"]
@@ -112,6 +136,27 @@
         "continuous_current_a": {
           "type": ["number", "null"]
         },
+        "continuous_input_current_a": {
+          "type": ["number", "null"]
+        },
+        "continuous_output_current_a": {
+          "type": ["number", "null"]
+        },
+        "peak_input_current_a": {
+          "type": ["number", "null"]
+        },
+        "peak_output_current_a": {
+          "type": ["number", "null"]
+        },
+        "continuous_charge_current_a": {
+          "type": ["number", "null"]
+        },
+        "continuous_discharge_current_a": {
+          "type": ["number", "null"]
+        },
+        "peak_discharge_current_a": {
+          "type": ["number", "null"]
+        },
         "continuous_power_w": {
           "type": ["number", "null"]
         },
@@ -155,6 +200,78 @@
       },
       "additionalProperties": true
     },
+    "battery": {
+      "type": ["object", "null"],
+      "properties": {
+        "nominal_capacity_ah": { "type": ["number", "null"] },
+        "usable_capacity_ah": { "type": ["number", "null"] },
+        "nominal_energy_wh": { "type": ["number", "null"] },
+        "allowed_series_count": {
+          "type": ["object", "null"],
+          "properties": {
+            "min": { "type": "integer", "minimum": 1 },
+            "max": { "type": "integer", "minimum": 1 }
+          },
+          "required": ["min", "max"],
+          "additionalProperties": false
+        },
+        "allowed_parallel_count": {
+          "type": ["object", "null"],
+          "properties": {
+            "min": { "type": "integer", "minimum": 1 },
+            "max": { "type": "integer", "minimum": 1 }
+          },
+          "required": ["min", "max"],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": true
+    },
+    "efficiency_fraction": {
+      "type": ["number", "null"],
+      "exclusiveMinimum": 0,
+      "maximum": 1
+    },
+    "terminals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["function"],
+        "properties": {
+          "function": {
+            "enum": [
+              "dc_input",
+              "dc_output",
+              "ac_input",
+              "ac_output",
+              "battery",
+              "pv_input",
+              "chassis_ground",
+              "communication",
+              "other"
+            ]
+          },
+          "type": { "type": ["string", "null"] },
+          "designation": { "type": ["string", "null"] },
+          "polarity": {
+            "type": ["string", "null"],
+            "enum": [
+              "positive",
+              "negative",
+              "neutral",
+              "ground",
+              "bidirectional",
+              "n/a",
+              "other",
+              null
+            ]
+          },
+          "notes": { "type": ["string", "null"] }
+        },
+        "additionalProperties": true
+      },
+      "default": []
+    },
     "dimensions_mm": {
       "type": ["object", "null"],
       "properties": {
@@ -178,9 +295,21 @@
       "type": ["object", "null"],
       "additionalProperties": true
     },
-    "clearances_mm": {
+    "service_clearances_mm": {
       "type": ["object", "null"],
+      "properties": {
+        "front": { "type": ["number", "null"] },
+        "rear": { "type": ["number", "null"] },
+        "left": { "type": ["number", "null"] },
+        "right": { "type": ["number", "null"] },
+        "top": { "type": ["number", "null"] },
+        "bottom": { "type": ["number", "null"] }
+      },
       "additionalProperties": true
+    },
+    "orientation_constraint": {
+      "type": ["string", "null"],
+      "enum": ["unrestricted", "manufacturer_defined", "unknown", null]
     },
     "interfaces": {
       "type": "array",
