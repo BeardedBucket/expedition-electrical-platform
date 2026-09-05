@@ -14,5 +14,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run"
+  },
+  "dependencies": {
+    "parse5": "8.0.1"
   }
 }
