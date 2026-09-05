@@ -317,8 +317,10 @@ describe('configurator model', () => {
     // 2. builder-unsupported candidate absent from normal builder recommendations
     expect(recommendedGroup?.items.some((item) => item.id === 'component.builder.gap')).toBe(false);
 
-    // 3. inventory gap item present in inventory-gap group
+    // 3. inventory gap item present in inventory-gap group and absent from ineligible group
+    const ineligibleGroup = resultNorthwind?.groups.find((g) => g.id === 'ineligible');
     expect(inventoryGapGroup?.items.some((item) => item.id === 'component.builder.gap')).toBe(true);
+    expect(ineligibleGroup?.items.some((item) => item.id === 'component.builder.gap')).toBe(false);
 
     // 4. builder filtering does not mutate global engineeringStatus
     const gapCandidate = resultNorthwind?.globalCandidates.find(
@@ -347,5 +349,40 @@ describe('configurator model', () => {
     });
 
     expect(resultGapBuilder?.builderOutcome?.status).toBe('inventory_gap');
+  });
+
+  it('unresolved builder mode does not fall back to global recommendations', () => {
+    const resultUnresolved = evaluateConfiguration({
+      ...createDefaultFormState(),
+      selectedVoltage: 24 as const,
+      builderMode: 'builder',
+      selectedBuilderId: 'builder.unknown-id',
+      loads: [
+        {
+          id: 'load-a',
+          name: 'Lights',
+          quantity: '2',
+          powerW: '150',
+          operatingVoltage: '',
+          basis: 'direct-source',
+          conversionEfficiency: '',
+        },
+      ],
+    });
+
+    expect(resultUnresolved).not.toBeNull();
+    expect(resultUnresolved?.builderOutcome?.status).toBe('unresolved');
+
+    const recommendedGroup = resultUnresolved?.groups.find((g) => g.id === 'recommended');
+    const cautionedGroup = resultUnresolved?.groups.find((g) => g.id === 'cautioned');
+
+    expect(recommendedGroup?.items.length).toBe(0);
+    expect(cautionedGroup?.items.length).toBe(0);
+
+    const standardCandidate = resultUnresolved?.globalCandidates.find(
+      (c) => c.id === 'component.eligible.standard',
+    );
+    expect(standardCandidate?.engineeringStatus).toBe('compatible');
+    expect(standardCandidate?.recommendationEligible).toBe(true);
   });
 });

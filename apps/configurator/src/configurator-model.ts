@@ -353,11 +353,15 @@ const buildResultGroups = (
       return item.recommendationEligible;
     }
 
+    if (builderOutcome.status === 'unresolved') {
+      return false;
+    }
+
     if (item.builderRecommendationEligible !== undefined) {
       return item.builderRecommendationEligible;
     }
 
-    return item.recommendationEligible;
+    return false;
   };
 
   const baseGroups: readonly ResultGroup[] = [
@@ -387,7 +391,7 @@ const buildResultGroups = (
       items: items.filter(
         (item) =>
           item.engineeringStatus === 'incompatible' ||
-          (!recommendationAware(item) &&
+          (!item.recommendationEligible &&
             item.advisoryAction !== 'suppress_recommendation' &&
             item.advisoryAction !== 'exclude' &&
             item.engineeringStatus !== 'unknown'),
