@@ -36,8 +36,9 @@
           },
           {
             "type": "object",
+            "required": ["id"],
             "properties": {
-              "id": { "type": "string" },
+              "id": { "type": "string", "minLength": 1 },
               "name": { "type": "string" },
               "label": { "type": ["string", "null"] },
               "note": { "type": ["string", "null"] }
@@ -57,8 +58,9 @@
           },
           {
             "type": "object",
+            "required": ["id"],
             "properties": {
-              "id": { "type": "string" },
+              "id": { "type": "string", "minLength": 1 },
               "name": { "type": "string" },
               "label": { "type": ["string", "null"] },
               "note": { "type": ["string", "null"] }
@@ -149,28 +151,6 @@
               "type": "null"
             }
           ]
-        }
-      },
-      "additionalProperties": true
-    },
-    "advisory_state": {
-      "type": ["object", "null"],
-      "properties": {
-        "status": {
-          "enum": ["none", "info", "watch", "advisory", "critical"]
-        },
-        "recommendation_effect": {
-          "enum": ["none", "warn", "suppress_default", "exclude"]
-        },
-        "summary": {
-          "type": ["string", "null"]
-        },
-        "source_refs": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "additionalProperties": true
-          }
         }
       },
       "additionalProperties": true

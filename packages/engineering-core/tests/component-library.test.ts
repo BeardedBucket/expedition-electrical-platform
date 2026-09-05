@@ -44,10 +44,6 @@ const baseComponent = {
   required_accessories: [{ id: 'accessory.fuse-block', label: 'Fuse block' }],
   required_converters: [{ id: 'converter.dc-dc-boost', label: 'Boost converter' }],
   advisory_refs: [{ id: 'advisory-1', title: 'Synthetic advisory', type: 'policy_reference' }],
-  advisory_state: {
-    status: 'none',
-    recommendation_effect: 'none',
-  },
 } satisfies ComponentLibraryRecord;
 
 describe('component library ingestion and compatibility checks', () => {
@@ -110,6 +106,35 @@ required_converters: []
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.errors.join(' ')).toContain('manufacturer');
+    }
+  });
+
+  it('rejects reversed or malformed engineering values', () => {
+    const reversedRange = validateComponentLibraryRecord({
+      ...baseComponent,
+      electrical: {
+        ...baseComponent.electrical,
+        input_voltage_range_v: { min: 28, max: 20 },
+      },
+    });
+    const negativeLimit = validateComponentLibraryRecord({
+      ...baseComponent,
+      electrical: {
+        ...baseComponent.electrical,
+        continuous_power_w: -10,
+      },
+    });
+    const negativeDimension = validateComponentLibraryRecord({
+      ...baseComponent,
+      dimensions_mm: { x: -1, y: 80, z: 40 },
+    });
+
+    expect(reversedRange.ok).toBe(false);
+    expect(negativeLimit.ok).toBe(false);
+    expect(negativeDimension.ok).toBe(false);
+
+    if (!reversedRange.ok) {
+      expect(reversedRange.errors.join(' ')).toContain('min must be less than or equal to max');
     }
   });
 
@@ -252,8 +277,9 @@ required_converters: []
       requiredChecks: ['voltage'],
     });
 
-    expect(result.checks.voltage.status).toBe('compatible');
-    expect(result.checks.voltage.explanation).toContain('no confirmed operating range');
+    expect(result.checks.voltage.status).toBe('unknown');
+    expect(result.checks.voltage.reasons).toContain('voltage.system.nominal_only');
+    expect(result.checks.voltage.explanation).toContain('no verified operating range');
   });
 
   it('omits unrelated checks when requiredChecks is not supplied', () => {
@@ -309,6 +335,16 @@ required_converters: []
 
     expect(present.checks.accessory.status).toBe('compatible');
     expect(present.checks.converter.status).toBe('compatible');
+  });
+
+  it('does not match labels when stable IDs differ', () => {
+    const mismatched = evaluateComponentCompatibility(baseComponent, {
+      installedAccessories: [{ id: 'accessory.other-fuse', label: 'Fuse block' }],
+      requiredChecks: ['accessory'],
+    });
+
+    expect(mismatched.checks.accessory.status).toBe('incompatible');
+    expect(mismatched.checks.accessory.reasons).toContain('accessory.missing_required_accessory');
   });
 
   it('treats physical fit partial envelopes as unknown instead of incompatible', () => {

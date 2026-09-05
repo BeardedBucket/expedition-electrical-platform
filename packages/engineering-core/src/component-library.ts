@@ -92,7 +92,6 @@ export interface ComponentLibraryRecord {
   readonly required_accessories?: ReadonlyArray<string | ComponentRequirementRef>;
   readonly required_converters?: ReadonlyArray<string | ComponentRequirementRef>;
   readonly advisory_refs?: readonly ComponentLibraryAdvisoryReference[];
-  readonly advisory_state?: ComponentLibraryAdvisoryState | null;
   readonly [key: string]: unknown;
 }
 
@@ -127,6 +126,7 @@ export interface ComponentCompatibilityEvaluationInput {
   } | null;
   readonly maxWeightKg?: number;
   readonly requiredChecks?: readonly CompatibilityCheckName[];
+  readonly advisoryEvaluation?: ComponentLibraryAdvisoryState | null;
 }
 
 export interface ComponentCompatibilityResult {
@@ -193,12 +193,8 @@ const normalizeRequirementToken = (value: unknown): string => {
   if (typeof value === 'string') return normalizeToken(value);
   if (typeof value === 'object' && value !== null) {
     const candidate = value as Record<string, unknown>;
-    const preferred = [candidate.id, candidate.name, candidate.label, candidate.note].find(
-      (entry): entry is string => typeof entry === 'string' && entry.trim().length > 0,
-    );
-    if (preferred) {
-      return normalizeToken(preferred);
-    }
+    const idValue = typeof candidate.id === 'string' ? candidate.id : '';
+    return normalizeToken(idValue);
   }
   return '';
 };
@@ -289,6 +285,110 @@ const inferRequiredChecks = (
   return [...inferred];
 };
 
+const validateEngineeringConstraints = (input: unknown): readonly string[] => {
+  if (input === null || typeof input !== 'object') {
+    return [];
+  }
+
+  const record = input as Record<string, unknown>;
+  const messages: string[] = [];
+  const addMessage = (path: string, message: string) => {
+    messages.push(`${path}: ${message}`);
+  };
+
+  const validateFiniteNonNegative = (path: string, value: unknown) => {
+    if (value === null || value === undefined) return;
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+      addMessage(path, 'must be a finite number greater than or equal to 0');
+    }
+  };
+
+  const validatePositiveRange = (path: string, value: unknown) => {
+    const range = value as Record<string, unknown> | null | undefined;
+    if (range === null || range === undefined) return;
+    if (typeof range !== 'object') {
+      addMessage(path, 'must be an object with min and max values');
+      return;
+    }
+    const minValue = range.min;
+    const maxValue = range.max;
+    if (typeof minValue !== 'number' || !Number.isFinite(minValue) || minValue <= 0) {
+      addMessage(`${path}.min`, 'must be a finite positive number');
+    }
+    if (typeof maxValue !== 'number' || !Number.isFinite(maxValue) || maxValue <= 0) {
+      addMessage(`${path}.max`, 'must be a finite positive number');
+    }
+    if (
+      typeof minValue === 'number' &&
+      typeof maxValue === 'number' &&
+      Number.isFinite(minValue) &&
+      Number.isFinite(maxValue) &&
+      minValue > maxValue
+    ) {
+      addMessage(path, 'min must be less than or equal to max');
+    }
+  };
+
+  const electrical = record.electrical;
+  if (electrical !== null && electrical !== undefined && typeof electrical === 'object') {
+    const electricalRecord = electrical as Record<string, unknown>;
+    validatePositiveRange(
+      'electrical.input_voltage_range_v',
+      electricalRecord.input_voltage_range_v,
+    );
+    validatePositiveRange(
+      'electrical.output_voltage_range_v',
+      electricalRecord.output_voltage_range_v,
+    );
+    validateFiniteNonNegative(
+      'electrical.continuous_current_a',
+      electricalRecord.continuous_current_a,
+    );
+    validateFiniteNonNegative('electrical.continuous_power_w', electricalRecord.continuous_power_w);
+    validateFiniteNonNegative('electrical.apparent_power_va', electricalRecord.apparent_power_va);
+    const nominalVoltage = electricalRecord.nominal_voltage_v;
+    if (Array.isArray(nominalVoltage)) {
+      nominalVoltage.forEach((value, index) => {
+        if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+          addMessage(
+            `electrical.nominal_voltage_v[${index}]`,
+            'must be a finite number greater than or equal to 0',
+          );
+        }
+      });
+    } else {
+      validateFiniteNonNegative('electrical.nominal_voltage_v', nominalVoltage);
+    }
+    const outputVoltage = electricalRecord.ac_output_voltage_v;
+    if (Array.isArray(outputVoltage)) {
+      outputVoltage.forEach((value, index) => {
+        if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+          addMessage(
+            `electrical.ac_output_voltage_v[${index}]`,
+            'must be a finite number greater than or equal to 0',
+          );
+        }
+      });
+    } else {
+      validateFiniteNonNegative('electrical.ac_output_voltage_v', outputVoltage);
+    }
+  }
+
+  const dimensions = record.dimensions_mm;
+  if (dimensions !== null && dimensions !== undefined && typeof dimensions === 'object') {
+    const dimensionsRecord = dimensions as Record<string, unknown>;
+    for (const axis of ['x', 'y', 'z'] as const) {
+      const value = dimensionsRecord[axis];
+      if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+        addMessage(`dimensions_mm.${axis}`, 'must be a finite number greater than or equal to 0');
+      }
+    }
+  }
+
+  validateFiniteNonNegative('weight_kg', record.weight_kg);
+  return messages;
+};
+
 export const validateComponentLibraryRecord = (
   input: unknown,
 ): { ok: true; value: ComponentLibraryRecord } | { ok: false; errors: readonly string[] } => {
@@ -302,6 +402,12 @@ export const validateComponentLibraryRecord = (
     );
     return { ok: false, errors };
   }
+
+  const semanticErrors = validateEngineeringConstraints(input);
+  if (semanticErrors.length > 0) {
+    return { ok: false, errors: semanticErrors };
+  }
+
   return { ok: true, value: input as ComponentLibraryRecord };
 };
 
@@ -482,9 +588,9 @@ const evaluateVoltageCheck = (
 
     subchecks.push({
       label,
-      status: 'compatible',
-      reasons: [`voltage.${label}.nominal_match`],
-      explanation: `The ${label} voltage (${suppliedValue} V) matches the component's declared ${explicitLabel} value(s), though no confirmed operating range was provided.`,
+      status: 'unknown',
+      reasons: [`voltage.${label}.nominal_only`],
+      explanation: `The ${label} voltage (${suppliedValue} V) matches the component's declared ${explicitLabel} value(s), but no verified operating range was supplied, so compatibility remains uncertain.`,
     });
   };
 
@@ -998,10 +1104,10 @@ const evaluateWeightCheck = (
 };
 
 export const evaluateAdvisoryState = (
-  component: ComponentLibraryRecord,
+  _component: ComponentLibraryRecord,
   advisoryInput?: (ComponentLibraryAdvisoryState & { reasons?: readonly string[] }) | null,
 ): AdvisoryEvaluationResult => {
-  const advisoryState = advisoryInput ?? component.advisory_state ?? null;
+  const advisoryState = advisoryInput ?? null;
   const status = advisoryState?.status ?? 'none';
   const recommendationEffect = advisoryState?.recommendation_effect ?? 'none';
 
@@ -1102,7 +1208,7 @@ export const evaluateComponentCompatibility = (
     checks,
     reasons: allReasons,
     explanations,
-    advisory: evaluateAdvisoryState(component),
+    advisory: evaluateAdvisoryState(component, context.advisoryEvaluation ?? null),
   };
 };
 
