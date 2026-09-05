@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "id": "review.human.pmp242200100",
+  "candidate_id": "victron.multiplus-24-2000-50-50-120v.pmp242200100",
+  "decision": "approved",
+  "reviewer_id": "repository-review",
+  "reviewed_at": "2026-09-05T00:00:00.000Z",
+  "approved_fields": [
+    "electrical.ac_output_voltage_v",
+    "electrical.apparent_power_va",
+    "electrical.continuous_charge_current_a",
+    "electrical.continuous_power_w",
+    "electrical.frequency_hz",
+    "electrical.nominal_voltage_v",
+    "weight_kg"
+  ],
+  "evidence_acknowledged": true,
+  "product_role": "inverter_charger",
+  "category": "inverter_charger",
+  "notes": "Repository review of the Victron MultiPlus 24/2000/50-50 120V VE.Bus product page. The official source observed MPN PMP242200100 and the candidate's identity is supported. The full record remains unverified because the ingestion pilot marks provisional source facts as review-required. Height, width, and depth remain intentionally omitted because the canonical axis semantics are not defined in the repository and must not be guessed."
+}
