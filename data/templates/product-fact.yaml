@@ -1,0 +1,14 @@
+schema_version: '1.0'
+id: example.fact-output-power
+source_id: example.source-datasheet
+field: electrical.continuous_power_w
+raw_label: Continuous output power
+raw_value: 'Example value W'
+raw_unit: W
+source_locator:
+  page: 1
+  section: Electrical specifications
+extraction_method: table
+fact_state: provisional
+review_required: true
+transformation_notes: Synthetic template; no conversion performed.

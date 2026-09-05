@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:expedition-electrical-platform:schema:product-fact",
+  "title": "Extracted product fact",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "source_id",
+    "field",
+    "raw_label",
+    "raw_value",
+    "extraction_method",
+    "fact_state"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "minLength": 1 },
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]+$" },
+    "source_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]+$" },
+    "field": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)*$" },
+    "raw_label": { "type": "string", "minLength": 1 },
+    "raw_value": {},
+    "raw_unit": { "type": "string", "minLength": 1 },
+    "normalized_value": {},
+    "normalized_unit": { "type": "string", "minLength": 1 },
+    "source_locator": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "page": { "type": "integer", "minimum": 1 },
+        "section": { "type": "string", "minLength": 1 },
+        "table": { "type": "string", "minLength": 1 },
+        "row": { "type": "string", "minLength": 1 },
+        "paragraph": { "type": "string", "minLength": 1 },
+        "fragment": { "type": "string", "minLength": 1 }
+      },
+      "minProperties": 1
+    },
+    "extraction_method": {
+      "enum": ["structured", "table", "text", "manual", "ai_assisted", "other"]
+    },
+    "transformation_notes": { "type": "string" },
+    "review_required": { "type": "boolean" },
+    "notes": { "type": "string" },
+    "fact_state": { "enum": ["verified", "provisional", "unresolved", "conflicting"] }
+  }
+}
