@@ -1,0 +1,17 @@
+id: example.rule
+version: 0.1.0
+status: draft
+kind: calculation
+description: "Describe the deterministic engineering rule."
+inputs: []
+expression: null
+conditions: []
+outputs: []
+assumptions: []
+source_refs:
+  - type: standard-or-reference
+    title: ""
+    edition: ""
+    section: ""
+    url: null
+tests: []

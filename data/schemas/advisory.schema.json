@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Product Advisory",
+  "type": "object",
+  "required": [
+    "id",
+    "status",
+    "severity",
+    "title",
+    "affected",
+    "evidence",
+    "review",
+    "summary",
+    "recommendation_effect"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "draft",
+        "open",
+        "resolved",
+        "withdrawn"
+      ]
+    },
+    "severity": {
+      "enum": [
+        "info",
+        "watch",
+        "advisory",
+        "critical"
+      ]
+    },
+    "title": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "affected": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "recommendation_effect": {
+      "enum": [
+        "none",
+        "warn",
+        "suppress_default",
+        "exclude"
+      ]
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "manufacturer_response": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": true
+    },
+    "review": {
+      "type": "object",
+      "required": [
+        "last_reviewed",
+        "next_review_due"
+      ],
+      "properties": {
+        "last_reviewed": {
+          "type": "string",
+          "format": "date"
+        },
+        "next_review_due": {
+          "type": "string",
+          "format": "date"
+        },
+        "reviewers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,12 @@
+component_id: ""
+manufacturer: ""
+model: ""
+assets:
+  - format: STEP
+    source_url: ""
+    source_title: ""
+    retrieval_date: ""
+    license_or_terms: "unknown"
+    redistribution_status: link_only
+    local_file: null
+notes: ""

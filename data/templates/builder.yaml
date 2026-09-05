@@ -1,0 +1,17 @@
+builder_id: example-builder
+display_name: Example Builder
+website: https://example.com
+inquiry_url: https://example.com/contact
+regions: []
+services:
+  - design
+  - parts
+  - complete-build
+inventory_mode: allowlist
+inventory_component_ids: []
+preferred_component_ids: []
+preferred_manufacturers: []
+supported_system_voltages_v: [12, 24, 48]
+tracking:
+  source_key: example-builder
+  campaign_default: configurator

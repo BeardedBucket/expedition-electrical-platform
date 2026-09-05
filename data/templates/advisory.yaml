@@ -1,0 +1,16 @@
+id: EAB-YYYY-NNNN
+status: draft
+severity: watch
+title: ""
+summary: ""
+affected:
+  - component_id: ""
+    revisions: []
+    serial_ranges: []
+recommendation_effect: warn
+evidence: []
+manufacturer_response: null
+review:
+  last_reviewed: 2026-09-04
+  next_review_due: 2026-10-04
+  reviewers: []

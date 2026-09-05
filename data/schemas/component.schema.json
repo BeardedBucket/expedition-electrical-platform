@@ -1,0 +1,227 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:expedition-electrical-platform:schema:component",
+  "title": "Component",
+  "type": "object",
+  "required": [
+    "id",
+    "manufacturer",
+    "model",
+    "category",
+    "verification_status"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]+$"
+    },
+    "manufacturer": {
+      "type": "string"
+    },
+    "model": {
+      "type": "string"
+    },
+    "part_number": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "category": {
+      "type": "string"
+    },
+    "verification_status": {
+      "enum": [
+        "unverified",
+        "partially_verified",
+        "verified"
+      ]
+    },
+    "electrical": {
+      "type": "object",
+      "properties": {
+        "nominal_voltage_v": {
+          "oneOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "continuous_current_a": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "continuous_power_w": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "apparent_power_va": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "ac_output_voltage_v": {
+          "oneOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "frequency_hz": {
+          "oneOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "dimensions_mm": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "z": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "z"
+      ],
+      "additionalProperties": false
+    },
+    "weight_kg": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "mounting": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": true
+    },
+    "clearances_mm": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": true
+    },
+    "interfaces": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "cad": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "format",
+          "url",
+          "redistribution_status"
+        ],
+        "properties": {
+          "format": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "redistribution_status": {
+            "enum": [
+              "unknown",
+              "link_only",
+              "permitted"
+            ]
+          },
+          "license": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "documents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "price_observations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "source_refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": true
+}
