@@ -11,3 +11,4 @@ export * from './normalize-fact.js';
 export * from './reconciliation.js';
 export * from './candidate-builder.js';
 export * from './victron-pilot.js';
+export * from './promotion.js';
