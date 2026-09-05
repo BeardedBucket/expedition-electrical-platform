@@ -31,6 +31,28 @@ for identity collisions and existing components are never overwritten.
 The explicit write adapter is still dry-run by default. The offline pilot
 command requires an approved review JSON file:
 
+## Reviewed canonical amendment
+
+The package also exposes a tested, dry-run-safe amendment flow for existing
+canonical components. `proposeCanonicalAmendment` accepts the current canonical
+record, the reviewed candidate delta, and a reviewed amendment contract that
+includes the canonical component ID, approval metadata, allowed field actions,
+field-level evidence, and an explicit expected snapshot identity. It applies
+only explicitly approved `add` and `replace` fields, protects identity and
+verification fields, rejects stale or replayed reviews, and refuses unresolved
+evidence. The result includes a deterministic field change summary and additive
+amendment history while preserving existing `source_refs`.
+`writeCanonicalAmendment` requires an existing `<component-id>.yaml` target,
+rechecks the parsed on-disk snapshot immediately before writing, validates the
+proposal again, and uses a temporary sibling plus rename/rollback replacement
+boundary. After the original is moved to a backup, replacement failure first
+attempts restoration. If restoration succeeds, the temporary file is cleaned
+and the backup is removed; if restoration fails, the backup is preserved and
+its recovery path is reported. On Windows this prevents intentional deletion
+of the only known-good record during cleanup; the short rename window is the
+supported cross-platform guarantee. Without explicit authorization it emits a
+dry-run proposal without mutating the catalog.
+
 ```text
 npm run promote:pilot --workspace @expedition/ingestion -- --review review.json
 npm run promote:pilot --workspace @expedition/ingestion -- --review review.json --write

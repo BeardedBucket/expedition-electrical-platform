@@ -13,3 +13,4 @@ export * from './candidate-builder.js';
 export * from './victron-pilot.js';
 export * from './promotion.js';
 export * from './promotion-write.js';
+export * from './canonical-amendment.js';
