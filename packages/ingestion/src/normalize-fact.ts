@@ -24,7 +24,7 @@ export const normalizeProductFact = (
       ],
     };
   }
-  if (!isSupportedCanonicalField(mapping.canonical_field)) {
+  if (mapping.target_kind !== 'evidence' && !isSupportedCanonicalField(mapping.canonical_field)) {
     return {
       status: 'invalid',
       issues: [
@@ -33,6 +33,48 @@ export const normalizeProductFact = (
           `Canonical field '${mapping.canonical_field}' is not supported.`,
         ),
       ],
+    };
+  }
+  if (mapping.value_kind === 'structured') {
+    const normalizedValue = mapping.normalize_value?.(
+      typeof fact.raw_value === 'string' ? fact.raw_value : String(fact.raw_value),
+    );
+    if (!normalizedValue) {
+      return {
+        status: 'unresolved',
+        issues: [
+          issue(
+            'normalization_ambiguous_mounting',
+            `Mounting statement '${String(fact.raw_value)}' is not deterministic.`,
+          ),
+        ],
+      };
+    }
+    const normalizedFact: ProductFact = {
+      ...fact,
+      field: mapping.canonical_field,
+      normalized_value: normalizedValue,
+      normalized_unit: mapping.unit,
+      transformation_notes: [
+        fact.transformation_notes,
+        `Explicit mapping '${fact.raw_label}' -> '${mapping.canonical_field}'.`,
+      ]
+        .filter(Boolean)
+        .join(' '),
+    };
+    return {
+      status: 'normalized',
+      fact: {
+        fact: normalizedFact,
+        source,
+        canonical_field: mapping.canonical_field,
+        normalized_value: normalizedValue,
+        normalized_unit: mapping.unit,
+        dimension: mapping.dimension,
+        source_authority: source.authority,
+        target_kind: mapping.target_kind ?? 'canonical',
+      },
+      issues: [],
     };
   }
   const parsed = parseExactUnitValue(fact.raw_value, fact.raw_unit);
@@ -107,6 +149,7 @@ export const normalizeProductFact = (
       normalized_unit: mapping.unit,
       dimension: mapping.dimension,
       source_authority: source.authority,
+      target_kind: mapping.target_kind ?? 'canonical',
     },
     issues: [],
   };

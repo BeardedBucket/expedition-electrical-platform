@@ -14,7 +14,8 @@ export type NormalizationIssueCode =
   | 'normalization_unsupported_unit'
   | 'normalization_invalid_number'
   | 'normalization_dimension_mismatch'
-  | 'normalization_canonical_field_unsupported';
+  | 'normalization_canonical_field_unsupported'
+  | 'normalization_ambiguous_mounting';
 
 export interface NormalizationIssue {
   readonly code: NormalizationIssueCode;
@@ -29,6 +30,7 @@ export interface NormalizedProductFact {
   readonly normalized_unit: string;
   readonly dimension: string;
   readonly source_authority: ProductSource['authority'];
+  readonly target_kind: 'canonical' | 'evidence';
 }
 
 export interface ProductFactNormalizationResult {
@@ -59,6 +61,7 @@ export interface ReconciledField {
   readonly fact_ids: readonly string[];
   readonly source_ids: readonly string[];
   readonly states: readonly ProductFact['fact_state'][];
+  readonly target_kind: 'canonical' | 'evidence';
 }
 
 export interface ProductReconciliationInput {

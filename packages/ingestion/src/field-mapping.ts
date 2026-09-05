@@ -1,11 +1,39 @@
+import type { JsonObject } from './contracts.js';
+
 export interface CanonicalFieldMapping {
   readonly canonical_field: string;
   readonly dimension: string;
   readonly unit: string;
   readonly aliases: readonly string[];
+  readonly target_kind?: 'canonical' | 'evidence';
+  readonly value_kind?: 'measurement' | 'structured';
+  readonly normalize_value?: (value: string) => JsonObject | undefined;
 }
 
-export const canonicalFieldMappings: readonly CanonicalFieldMapping[] = [
+const mountingEvidence = (
+  concept: 'allowed_orientation' | 'prohibited_orientation' | 'method',
+  value: string,
+): JsonObject | undefined => {
+  const normalized = value.trim().toLowerCase().replace(/\s+/g, ' ');
+  if (
+    concept === 'allowed_orientation' &&
+    (normalized === 'vertical mounting only' || normalized === 'mount vertically')
+  ) {
+    return { vocabulary: 'vertical' };
+  }
+  if (
+    concept === 'prohibited_orientation' &&
+    (normalized === 'do not mount upside down' || normalized === 'upside-down prohibited')
+  ) {
+    return { vocabulary: 'upside_down' };
+  }
+  if (concept === 'method' && (normalized === 'wall mounting' || normalized === 'wall mount')) {
+    return { vocabulary: 'wall_mount' };
+  }
+  return undefined;
+};
+
+const baseCanonicalFieldMappings: readonly CanonicalFieldMapping[] = [
   {
     canonical_field: 'electrical.nominal_voltage_v',
     dimension: 'voltage',
@@ -96,6 +124,51 @@ export const canonicalFieldMappings: readonly CanonicalFieldMapping[] = [
     unit: 'mm',
     aliases: ['height'],
   },
+  {
+    canonical_field: 'mounting.allowed_orientation',
+    dimension: 'mounting',
+    unit: 'structured',
+    aliases: ['allowed mounting orientation'],
+    target_kind: 'evidence',
+    value_kind: 'structured',
+    normalize_value: (value) => mountingEvidence('allowed_orientation', value),
+  },
+  {
+    canonical_field: 'mounting.prohibited_orientation',
+    dimension: 'mounting',
+    unit: 'structured',
+    aliases: ['prohibited mounting orientation'],
+    target_kind: 'evidence',
+    value_kind: 'structured',
+    normalize_value: (value) => mountingEvidence('prohibited_orientation', value),
+  },
+  {
+    canonical_field: 'mounting.method',
+    dimension: 'mounting',
+    unit: 'structured',
+    aliases: ['mounting method'],
+    target_kind: 'evidence',
+    value_kind: 'structured',
+    normalize_value: (value) => mountingEvidence('method', value),
+  },
+];
+
+const clearanceCategories = ['service', 'ventilation', 'cable_access', 'safety'] as const;
+const localFaces = ['x_min', 'x_max', 'y_min', 'y_max', 'z_min', 'z_max'] as const;
+const clearanceMappings: CanonicalFieldMapping[] = clearanceCategories.flatMap((category) =>
+  localFaces.map((face) => ({
+    canonical_field: `clearance.${category}.${face}`,
+    dimension: 'length',
+    unit: 'mm',
+    aliases: [`${category.replace('_', ' ')} clearance ${face}`],
+    target_kind: 'evidence' as const,
+    value_kind: 'measurement' as const,
+  })),
+);
+
+export const canonicalFieldMappings: readonly CanonicalFieldMapping[] = [
+  ...baseCanonicalFieldMappings,
+  ...clearanceMappings,
 ];
 
 const cleanLabel = (label: string): string => label.trim().replace(/\s+/g, ' ').toLowerCase();
