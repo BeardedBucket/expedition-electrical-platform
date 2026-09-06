@@ -92,6 +92,7 @@ export interface ComponentLibraryElectrical {
   readonly continuous_charge_current_a?: number | null;
   readonly continuous_discharge_current_a?: number | null;
   readonly peak_discharge_current_a?: number | null;
+  readonly peak_discharge_duration_s?: number | null;
   readonly continuous_power_w?: number | null;
   readonly apparent_power_va?: number | null;
   readonly ac_output_voltage_v?: number | number[] | null;
@@ -103,8 +104,18 @@ export interface ComponentLibraryElectrical {
 
 export interface ComponentLibraryBattery {
   readonly nominal_capacity_ah?: number | null;
+  /**
+   * Legacy product-supplied usable Ah. It is not a calculated design-usable
+   * energy result and is not consumed by battery sizing primitives.
+   */
   readonly usable_capacity_ah?: number | null;
   readonly nominal_energy_wh?: number | null;
+  readonly chemistry?: 'flooded_lead_acid' | 'agm' | 'gel' | 'lifepo4' | 'other' | null;
+  readonly charge_current?: {
+    readonly recommended_a?: number | null;
+    readonly maximum_continuous_a?: number | null;
+    readonly protection_limit_a?: number | null;
+  } | null;
   readonly allowed_series_count?: ComponentLibraryRange | null;
   readonly allowed_parallel_count?: ComponentLibraryRange | null;
   readonly [key: string]: unknown;
@@ -601,6 +612,25 @@ const validateEngineeringConstraints = (input: unknown): readonly string[] => {
     };
     validateCountRange('battery.allowed_series_count', batteryRecord.allowed_series_count);
     validateCountRange('battery.allowed_parallel_count', batteryRecord.allowed_parallel_count);
+    if (
+      batteryRecord.chemistry !== undefined &&
+      batteryRecord.chemistry !== null &&
+      !['flooded_lead_acid', 'agm', 'gel', 'lifepo4', 'other'].includes(
+        batteryRecord.chemistry as string,
+      )
+    ) {
+      addMessage('battery.chemistry', 'must use the supported chemistry vocabulary');
+    }
+    if (batteryRecord.charge_current !== undefined && batteryRecord.charge_current !== null) {
+      if (typeof batteryRecord.charge_current !== 'object') {
+        addMessage('battery.charge_current', 'must be an object or null');
+      } else {
+        const chargeCurrent = batteryRecord.charge_current as Record<string, unknown>;
+        for (const field of ['recommended_a', 'maximum_continuous_a', 'protection_limit_a']) {
+          validateFiniteNonNegative(`battery.charge_current.${field}`, chargeCurrent[field]);
+        }
+      }
+    }
     if ('bms_limits' in batteryRecord) {
       addMessage('battery.bms_limits', 'legacy field removed; use electrical current-limit fields');
     }
@@ -697,6 +727,7 @@ const validateEngineeringConstraints = (input: unknown): readonly string[] => {
       'continuous_charge_current_a',
       'continuous_discharge_current_a',
       'peak_discharge_current_a',
+      'peak_discharge_duration_s',
     ] as const) {
       validateFiniteNonNegative(`electrical.${field}`, electricalRecord[field]);
     }

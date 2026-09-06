@@ -9,3 +9,4 @@ export * from './recommendation-boundary.js';
 export { orchestrateRecommendations } from './orchestrator.js';
 export * from './reference-system.js';
 export * from './geometry.js';
+export * from './battery-power.js';
