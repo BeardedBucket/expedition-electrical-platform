@@ -17,3 +17,4 @@ export * from './battery-charge-acceptance.js';
 export * from './operating-power-balance.js';
 export * from './operating-power-envelope.js';
 export * from './usage-profile-energy.js';
+export * from './energy-storage-requirement.js';
