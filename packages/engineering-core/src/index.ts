@@ -25,3 +25,4 @@ export * from './recharge-window-feasibility.js';
 export * from './soc-reserve-state.js';
 export * from './variable-source-energy.js';
 export * from './mixed-voltage-domains.js';
+export * from './load-state-energy.js';
