@@ -1,3 +1,6 @@
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import persistedArtifact from '../../../data/ingestion/epoch-24v-100ah-b24100a-c.json' with { type: 'json' };
 import { buildProductCandidate } from '../src/candidate-builder.js';
@@ -19,6 +22,9 @@ import {
 import { evaluatePilotIdentityGate } from '../src/pilot-config.js';
 import { normalizeProductFact } from '../src/normalize-fact.js';
 import { reconcileProductFacts } from '../src/reconciliation.js';
+import epochReview from '../../../data/ingestion/epoch-24v-100ah-b24100a-c.review.json' with { type: 'json' };
+import { promoteCandidate } from '../src/promotion.js';
+import { writeCanonicalComponent } from '../src/promotion-write.js';
 
 describe('Epoch 24V 100Ah replay migration', () => {
   it('builds and replays a persisted noncanonical captured source artifact', () => {
@@ -249,5 +255,58 @@ describe('Epoch 24V 100Ah replay migration', () => {
     expect(candidate.promotion_status).toBe('review_required');
     expect(candidate.fact_ids.length).toBeGreaterThan(0);
     expect(reconcileEpochSpecifications().conflicts).toEqual([]);
+  });
+
+  it('promotes the bound Epoch subset in a schema-valid dry run', async () => {
+    const artifact = replayEpochArtifact(persistedArtifact);
+    const promotion = promoteCandidate(
+      artifact.candidate,
+      [persistedArtifact.source],
+      persistedArtifact.facts,
+      epochReview,
+    );
+    expect(promotion.status).toBe('success');
+    const destinationRoot = await mkdtemp(join(tmpdir(), 'epoch-promotion-'));
+    try {
+      const result = await writeCanonicalComponent({
+        promotion,
+        destinationRoot,
+        write: false,
+      });
+      expect(result.status).toBe('dry_run');
+      expect(result.path).toMatch(/epoch-batteries\.b24100a-c\.yaml$/);
+      expect(result.schema_valid).toBe(true);
+      expect(result.proposal).toMatchObject({
+        battery: {
+          allowed_parallel_count: { min: 1, max: 4 },
+          allowed_series_count: { min: 1, max: 2 },
+          charge_current: { recommended_a: 50 },
+          nominal_capacity_ah: 100,
+          nominal_energy_wh: 2560,
+          chemistry: 'lifepo4',
+        },
+        electrical: {
+          nominal_voltage_v: 25.6,
+          continuous_discharge_current_a: 120,
+          peak_discharge_current_a: 200,
+          peak_discharge_duration_s: 60,
+        },
+        weight_kg: 21.999229945,
+      });
+      expect(result.proposal).not.toHaveProperty('dimensions_mm');
+      expect(result.proposal).not.toHaveProperty('battery.charge_current.maximum_continuous_a');
+      expect(result.proposal).not.toHaveProperty('electrical.operating_voltage_range_v');
+      expect(result.proposal).not.toHaveProperty('battery.nominal_energy_wh', 2400);
+      expect(result.audit?.omitted_fields).toEqual([
+        'battery.allowed_parallel_count.max',
+        'battery.allowed_parallel_count.min',
+        'battery.allowed_series_count.max',
+        'battery.allowed_series_count.min',
+        'dimensions_mm.x',
+        'dimensions_mm.z',
+      ]);
+    } finally {
+      await rm(destinationRoot, { recursive: true });
+    }
   });
 });

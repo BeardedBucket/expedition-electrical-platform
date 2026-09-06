@@ -1,5 +1,6 @@
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
+import { createHash } from 'node:crypto';
 import componentSchema from '../../../data/schemas/component.schema.json' with { type: 'json' };
 import type {
   JsonObject,
@@ -21,6 +22,8 @@ export type PromotionIssueCode =
   | 'promotion_evidence_missing'
   | 'promotion_dangling_resolution'
   | 'promotion_candidate_validation_failed'
+  | 'promotion_snapshot_missing'
+  | 'promotion_snapshot_mismatch'
   | 'promotion_already_exists'
   | 'write_not_authorized'
   | 'write_path_invalid'
@@ -41,10 +44,13 @@ export interface PromotionReview {
   readonly schema_version: string;
   readonly id: string;
   readonly candidate_id: string;
+  readonly candidate_snapshot?: string;
   readonly decision: 'approved' | 'rejected';
   readonly reviewer_id: string;
   readonly reviewed_at: string;
   readonly approved_fields: readonly string[];
+  readonly excluded_fields?: readonly string[];
+  readonly excluded_fact_ids?: readonly string[];
   readonly field_resolutions?: Readonly<Record<string, PromotionFieldResolution>>;
   readonly evidence_acknowledged: boolean;
   readonly product_role: string;
@@ -54,6 +60,10 @@ export interface PromotionReview {
 
 export interface PromotionCatalogContext {
   readonly components?: readonly JsonObject[];
+}
+
+export interface PromotionOptions {
+  readonly allowLegacyReview?: boolean;
 }
 
 export interface PromotionAudit {
@@ -123,6 +133,60 @@ const setPath = (root: JsonObject, path: string, value: JsonValue): void => {
   cursor[segments[segments.length - 1]] = value;
 };
 
+const stableValue = (value: unknown): unknown => {
+  if (Array.isArray(value)) return value.map(stableValue);
+  if (value !== null && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, child]) => [key, stableValue(child)]),
+    );
+  }
+  return value;
+};
+
+export const promotionCandidateSnapshot = (
+  candidate: ProductCandidate,
+  sources: readonly ProductSource[],
+  facts: readonly ProductFact[],
+): string => {
+  const relevantFactIds = new Set(Object.values(candidate.field_evidence).flat());
+  const snapshot = {
+    candidate: {
+      id: candidate.id,
+      identity: candidate.identity,
+      identity_status: candidate.identity_status,
+      review_status: candidate.review_status,
+      promotion_status: candidate.promotion_status,
+      component_data: candidate.component_data,
+      fact_ids: candidate.fact_ids,
+      field_evidence: candidate.field_evidence,
+    },
+    facts: facts
+      .filter((fact) => relevantFactIds.has(fact.id))
+      .map((fact) => ({
+        id: fact.id,
+        source_id: fact.source_id,
+        field: fact.field,
+        raw_value: fact.raw_value,
+        normalized_value: fact.normalized_value ?? null,
+        normalized_unit: fact.normalized_unit ?? null,
+        fact_state: fact.fact_state,
+        review_required: fact.review_required ?? false,
+      })),
+    sources: sources
+      .filter((source) => candidate.source_ids.includes(source.id))
+      .map((source) => ({
+        id: source.id,
+        content_hash: source.content_hash ?? null,
+        applicability: source.applicability ?? null,
+      })),
+  };
+  return `sha256:${createHash('sha256')
+    .update(JSON.stringify(stableValue(snapshot)), 'utf8')
+    .digest('hex')}`;
+};
+
 const slug = (value: string): string =>
   value
     .toLowerCase()
@@ -175,6 +239,7 @@ const sourceRefsFor = (
   sources: readonly ProductSource[],
   candidate: ProductCandidate,
   review: PromotionReview,
+  selectedFieldEvidence: Readonly<Record<string, readonly string[]>>,
 ): JsonValue[] =>
   sources
     .filter((source) => candidate.source_ids.includes(source.id))
@@ -188,9 +253,9 @@ const sourceRefsFor = (
       ...(source.content_hash ? { content_hash: source.content_hash } : {}),
       candidate_id: candidate.id,
       review_id: review.id,
-      fact_ids: candidate.fact_ids.filter((factId) =>
-        Object.values(candidate.field_evidence).some((ids) => ids.includes(factId)),
-      ),
+      fact_ids: [...new Set(Object.values(selectedFieldEvidence).flat())]
+        .filter((factId) => candidate.fact_ids.includes(factId))
+        .sort(),
     }));
 
 const factsForCandidateValidation = (
@@ -214,8 +279,29 @@ export const promoteCandidate = (
   facts: readonly ProductFact[],
   review: PromotionReview,
   catalogContext: PromotionCatalogContext = {},
+  options: PromotionOptions = {},
 ): PromotionResult => {
   const issues: PromotionIssue[] = [];
+  const snapshot = promotionCandidateSnapshot(candidate, sources, facts);
+  if (!review.candidate_snapshot) {
+    if (!options.allowLegacyReview) {
+      issues.push(
+        issue(
+          'promotion_snapshot_missing',
+          'review.candidate_snapshot',
+          'New promotion reviews must bind the exact reviewed candidate snapshot.',
+        ),
+      );
+    }
+  } else if (review.candidate_snapshot !== snapshot) {
+    issues.push(
+      issue(
+        'promotion_snapshot_mismatch',
+        'review.candidate_snapshot',
+        'The candidate or promotion-relevant evidence changed after review.',
+      ),
+    );
+  }
   const candidateValidation = validateProductCandidate(
     candidate,
     sources,
@@ -284,7 +370,14 @@ export const promoteCandidate = (
     );
   }
 
-  const candidateFields = populatedFields(candidate.component_data);
+  const candidateFields = [
+    ...new Set([
+      ...populatedFields(candidate.component_data),
+      ...Object.keys(candidate.field_evidence).filter(
+        (field) => getPath(candidate.component_data, field) !== undefined,
+      ),
+    ]),
+  ];
   const approvedFields = new Set(review.approved_fields);
   const resolutions = review.field_resolutions ?? {};
   const factById = new Map(facts.map((fact) => [fact.id, fact]));
@@ -401,7 +494,7 @@ export const promoteCandidate = (
     category: review.category,
     product_family: candidate.identity.product_family ?? null,
     verification_status: 'unverified',
-    source_refs: sourceRefsFor(sources, candidate, review),
+    source_refs: sourceRefsFor(sources, candidate, review, selectedFieldEvidence),
     ...proposalData,
   };
   if (!componentValidator(proposal)) return { status: 'invalid', issues: schemaIssues() };

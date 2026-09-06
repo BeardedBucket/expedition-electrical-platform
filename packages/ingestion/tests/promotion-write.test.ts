@@ -5,7 +5,11 @@ import { parse as parseYaml } from 'yaml';
 import { afterEach, describe, expect, it } from 'vitest';
 import pilot from '../../../data/ingestion/victron-multiplus-24-2000-50-50-120v.json' with { type: 'json' };
 import type { ProductCandidate } from '../src/contracts.js';
-import { promoteCandidate, type PromotionReview } from '../src/promotion.js';
+import {
+  promotionCandidateSnapshot,
+  promoteCandidate,
+  type PromotionReview,
+} from '../src/promotion.js';
 import { serializeCanonicalComponent, writeCanonicalComponent } from '../src/promotion-write.js';
 
 const temporaryRoots: string[] = [];
@@ -17,6 +21,7 @@ const review = (overrides: Partial<PromotionReview> = {}): PromotionReview => ({
   schema_version: '1.0',
   id: 'review.human.pmp242200100',
   candidate_id: pilot.candidate.id,
+  candidate_snapshot: promotionCandidateSnapshot(pilot.candidate, [pilot.source], pilot.facts),
   decision: 'approved',
   reviewer_id: 'reviewer.human',
   reviewed_at: '2026-09-06T12:00:00.000Z',
