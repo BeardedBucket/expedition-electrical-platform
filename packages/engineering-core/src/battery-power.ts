@@ -707,7 +707,7 @@ const energyAlternatives = (
 export const evaluateBatteryNominalEnergy = (
   input: BatteryNominalEnergyRequirementInput,
 ): BatteryNominalEnergyEvaluationResult => {
-  if (!validPositive(input.requiredEnergyWh)) {
+  if (!validNonNegative(input.requiredEnergyWh)) {
     return {
       severity: 'CONDITIONAL',
       code: 'battery.bank.energy_requirement_invalid',
