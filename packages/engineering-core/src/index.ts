@@ -23,3 +23,4 @@ export * from './ordered-energy-trajectory.js';
 export * from './stored-energy-state-trajectory.js';
 export * from './recharge-window-feasibility.js';
 export * from './soc-reserve-state.js';
+export * from './variable-source-energy.js';
