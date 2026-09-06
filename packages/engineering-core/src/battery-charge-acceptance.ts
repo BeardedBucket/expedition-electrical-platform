@@ -29,6 +29,8 @@ export interface BatteryChargeAcceptanceResult {
   readonly bankMaximumContinuousChargeA?: number;
   readonly bankProtectionLimitA?: number;
   readonly usableContinuousChargeA?: number;
+  readonly usableContinuousChargePowerW?: number;
+  readonly selectedBankVoltageV?: number;
   readonly hardAcceptanceResolved: boolean;
   readonly guidanceExceeded: boolean;
   readonly limitingBasis: BatteryChargeAcceptanceLimitingBasis;
@@ -235,6 +237,10 @@ export const evaluateBatteryChargeAcceptance = (
     sourceAvailableA !== undefined &&
     scenario.availableCapability.totalResolved &&
     unresolvedFacts.length === 0;
+  const usableContinuousChargePowerW =
+    usableContinuousChargeA !== undefined
+      ? usableContinuousChargeA * bank.value.nominalVoltageV
+      : undefined;
   return result(input, {
     severity,
     code,
@@ -245,6 +251,8 @@ export const evaluateBatteryChargeAcceptance = (
     bankMaximumContinuousChargeA,
     bankProtectionLimitA,
     usableContinuousChargeA,
+    usableContinuousChargePowerW,
+    selectedBankVoltageV: bank.value.nominalVoltageV,
     hardAcceptanceResolved,
     guidanceExceeded,
     limitingBasis,
