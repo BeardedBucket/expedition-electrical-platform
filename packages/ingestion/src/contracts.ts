@@ -28,6 +28,8 @@ export type SourceAuthority =
   | 'unknown';
 
 export type ProductLifecycleStatus = 'active' | 'discontinued' | 'unknown' | 'replaced';
+export type SourceApplicability =
+  'direct_identity' | 'explicitly_reviewed' | 'not_applicable' | 'unresolved';
 
 export interface ProductIdentityClaim {
   readonly manufacturer?: string;
@@ -53,6 +55,9 @@ export interface ProductSource {
   readonly document_revision?: string;
   readonly publication_date?: string;
   readonly content_hash?: string;
+  readonly applicability?: SourceApplicability;
+  readonly applicability_reason?: string;
+  readonly applies_to?: readonly string[];
   readonly product_identity_claim?: ProductIdentityClaim;
   readonly redistribution_status?: 'unknown' | 'link_only' | 'permitted';
   readonly notes?: string;
@@ -109,3 +114,18 @@ export interface ProductCandidate {
   readonly review_reasons?: readonly string[];
   readonly notes?: string;
 }
+
+export const isSourceApplicable = (
+  source: Pick<ProductSource, 'applicability'> | undefined,
+  options: { readonly legacy_undefined_applicability?: boolean } = {
+    legacy_undefined_applicability: false,
+  },
+): boolean => {
+  if (!source) return false;
+  if (source.applicability === undefined) {
+    return options.legacy_undefined_applicability === true;
+  }
+  return (
+    source.applicability === 'direct_identity' || source.applicability === 'explicitly_reviewed'
+  );
+};

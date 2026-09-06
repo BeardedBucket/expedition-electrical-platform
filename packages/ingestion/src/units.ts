@@ -325,6 +325,12 @@ const definitions: readonly UnitDefinition[] = [
     'imperial',
   ),
 
+  // Time (s)
+  linear('s', 's', 'time', ['s', 'sec', 'secs', 'second', 'seconds'], 1, 'si'),
+  linear('ms', 'ms', 'time', ['ms', 'millisecond', 'milliseconds'], 0.001, 'si'),
+  linear('min', 'min', 'time', ['min', 'minute', 'minutes'], 60, 'si'),
+  linear('h', 'h', 'time', ['h', 'hour', 'hours'], 3600, 'si'),
+
   // Temperature (°C) - Affine
   affine(
     'deg_c',
@@ -456,16 +462,23 @@ export const parseExactUnitValue = (
   const embeddedUnitText = match[2]?.trim();
 
   if (embeddedUnitText) {
-    const embeddedUnitDef = resolveUnit(embeddedUnitText);
-    if (embeddedUnitDef) {
+    const tokens = embeddedUnitText.split(/\s+/).filter(Boolean);
+    const leadingUnitToken = tokens[0];
+    const leadingUnitDef = leadingUnitToken ? resolveUnit(leadingUnitToken) : undefined;
+    const trailingText = tokens.slice(1).join(' ').trim();
+    const allowedDescriptor = trailingText && ['nominal'].includes(trailingText.toLowerCase());
+
+    if (leadingUnitDef) {
+      if (trailingText && !allowedDescriptor) {
+        return undefined;
+      }
       if (rawUnit) {
-        if (!rawUnitDef || rawUnitDef.id !== embeddedUnitDef.id) {
-          // Contradiction between embedded unit and rawUnit
+        if (!rawUnitDef || rawUnitDef.id !== leadingUnitDef.id) {
           return undefined;
         }
         return { value: numVal, unit: rawUnitDef };
       }
-      return { value: numVal, unit: embeddedUnitDef };
+      return { value: numVal, unit: leadingUnitDef };
     }
 
     // Embedded text is not a fully resolved unit (e.g. ambiguous 'gal' or unsupported string)

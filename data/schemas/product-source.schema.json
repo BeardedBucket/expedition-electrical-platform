@@ -51,6 +51,11 @@
     "document_revision": { "type": "string", "minLength": 1 },
     "publication_date": { "type": "string", "format": "date" },
     "content_hash": { "type": "string", "minLength": 1 },
+    "applicability": {
+      "enum": ["direct_identity", "explicitly_reviewed", "not_applicable", "unresolved"]
+    },
+    "applicability_reason": { "type": "string", "minLength": 1 },
+    "applies_to": { "type": "array", "items": { "type": "string", "minLength": 1 } },
     "product_identity_claim": {
       "type": "object",
       "additionalProperties": false,

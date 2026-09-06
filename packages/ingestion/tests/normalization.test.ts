@@ -17,6 +17,7 @@ const source = (overrides: Partial<ProductSource> = {}): ProductSource => ({
   authority: 'manufacturer_technical',
   publisher: 'Acme Power',
   retrieved_at: '2026-09-05T12:00:00Z',
+  applicability: 'direct_identity',
   product_identity_claim: {
     manufacturer: 'Acme Power',
     product_family: 'Example Battery',
@@ -601,6 +602,57 @@ describe('product reconciliation and candidates', () => {
         normalized_facts: [...input.normalized_facts].reverse(),
       }),
     );
+  });
+
+  it('does not let a new source with undefined applicability enter selected data by default', () => {
+    const undefinedApplicabilitySource = source({
+      id: 'acme.undefined-applicability',
+      uri: 'https://example.invalid/undefined-applicability',
+      applicability: undefined,
+    });
+    const undefinedResult = normalize(
+      { id: 'acme.fact.undefined-applicability', source_id: 'acme.undefined-applicability' },
+      undefinedApplicabilitySource,
+    );
+    const strictReconciliation = reconcileProductFacts({
+      candidate_id: 'acme.candidate',
+      identity: source().product_identity_claim ?? {},
+      sources: [undefinedApplicabilitySource],
+      facts: [undefinedResult.fact!.fact],
+      normalized_facts: [undefinedResult.fact!],
+    });
+    expect(strictReconciliation.fields).toEqual([]);
+
+    const strictCandidate = buildProductCandidate({
+      id: 'acme.candidate.strict',
+      identity: source().product_identity_claim ?? {},
+      sources: [undefinedApplicabilitySource],
+      facts: [undefinedResult.fact!.fact],
+      normalized_facts: [undefinedResult.fact!],
+    });
+    expect(strictCandidate.component_data).not.toHaveProperty('electrical.nominal_voltage_v');
+
+    // An intentionally identified legacy caller may still opt into the old
+    // undefined-applicability-is-applicable behavior via an explicit flag.
+    const legacyReconciliation = reconcileProductFacts({
+      candidate_id: 'acme.candidate',
+      identity: source().product_identity_claim ?? {},
+      sources: [undefinedApplicabilitySource],
+      facts: [undefinedResult.fact!.fact],
+      normalized_facts: [undefinedResult.fact!],
+      legacy_undefined_applicability: true,
+    });
+    expect(legacyReconciliation.fields).toHaveLength(1);
+
+    const legacyCandidate = buildProductCandidate({
+      id: 'acme.candidate.legacy',
+      identity: source().product_identity_claim ?? {},
+      sources: [undefinedApplicabilitySource],
+      facts: [undefinedResult.fact!.fact],
+      normalized_facts: [undefinedResult.fact!],
+      legacy_undefined_applicability: true,
+    });
+    expect(legacyCandidate.component_data).toMatchObject({ electrical: { nominal_voltage_v: 24 } });
   });
 });
 

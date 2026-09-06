@@ -1,4 +1,4 @@
-import type { JsonObject } from './contracts.js';
+import type { JsonObject, JsonValue } from './contracts.js';
 
 export interface CanonicalFieldMapping {
   readonly canonical_field: string;
@@ -7,7 +7,7 @@ export interface CanonicalFieldMapping {
   readonly aliases: readonly string[];
   readonly target_kind?: 'canonical' | 'evidence';
   readonly value_kind?: 'measurement' | 'structured';
-  readonly normalize_value?: (value: string) => JsonObject | undefined;
+  readonly normalize_value?: (value: string) => JsonValue | undefined;
 }
 
 const mountingEvidence = (
@@ -33,6 +33,30 @@ const mountingEvidence = (
   return undefined;
 };
 
+const normalizeChemistryValue = (value: string): string | undefined => {
+  const normalized = value.trim().toLowerCase().replace(/\s+/g, ' ');
+  if (
+    normalized.includes('lithium iron phosphate') ||
+    normalized.includes('lifepo4') ||
+    normalized === 'lifepo4'
+  ) {
+    return 'lifepo4';
+  }
+  return undefined;
+};
+
+const normalizeRangeValue = (
+  value: string,
+  kind: 'series' | 'parallel',
+): JsonObject | undefined => {
+  const normalized = value.trim().toLowerCase().replace(/\s+/g, ' ');
+  const match = normalized.match(
+    new RegExp(`(?:up to\\s+)?(\\d+)\\s*(?:batteries?\\s*)?(?:in\\s+)?${kind}(?:\\s+.*)?$`),
+  );
+  if (!match) return undefined;
+  return { min: 1, max: Number(match[1]) };
+};
+
 const baseCanonicalFieldMappings: readonly CanonicalFieldMapping[] = [
   {
     canonical_field: 'electrical.nominal_voltage_v',
@@ -45,6 +69,24 @@ const baseCanonicalFieldMappings: readonly CanonicalFieldMapping[] = [
     dimension: 'current',
     unit: 'A',
     aliases: ['continuous current'],
+  },
+  {
+    canonical_field: 'electrical.continuous_discharge_current_a',
+    dimension: 'current',
+    unit: 'A',
+    aliases: ['max continuous discharge'],
+  },
+  {
+    canonical_field: 'electrical.peak_discharge_current_a',
+    dimension: 'current',
+    unit: 'A',
+    aliases: ['max discharge peak current', 'peak discharge current'],
+  },
+  {
+    canonical_field: 'electrical.peak_discharge_duration_s',
+    dimension: 'time',
+    unit: 's',
+    aliases: ['max discharge duration', 'peak discharge duration', 'discharge duration'],
   },
   {
     canonical_field: 'electrical.continuous_output_current_a',
@@ -99,6 +141,45 @@ const baseCanonicalFieldMappings: readonly CanonicalFieldMapping[] = [
     dimension: 'capacity',
     unit: 'Ah',
     aliases: ['nominal capacity', 'nominal battery capacity'],
+  },
+  {
+    canonical_field: 'battery.nominal_energy_wh',
+    dimension: 'energy',
+    unit: 'Wh',
+    aliases: ['nominal energy', 'nominal battery energy'],
+  },
+  {
+    canonical_field: 'battery.chemistry',
+    dimension: 'chemistry',
+    unit: 'string',
+    aliases: ['chemistry', 'lifepo4', 'lithium iron phosphate'],
+    target_kind: 'canonical',
+    value_kind: 'structured',
+    normalize_value: (value) => normalizeChemistryValue(value),
+  },
+  {
+    canonical_field: 'battery.charge_current.recommended_a',
+    dimension: 'current',
+    unit: 'A',
+    aliases: ['recommended charge current', 'recommended charge', 'recommended current'],
+  },
+  {
+    canonical_field: 'battery.allowed_series_count',
+    dimension: 'count',
+    unit: 'structured',
+    aliases: ['series connection', 'connection in series', 'maximum series count'],
+    target_kind: 'canonical',
+    value_kind: 'structured',
+    normalize_value: (value) => normalizeRangeValue(value, 'series'),
+  },
+  {
+    canonical_field: 'battery.allowed_parallel_count',
+    dimension: 'count',
+    unit: 'structured',
+    aliases: ['parallel connection', 'connection in parallel', 'maximum parallel count'],
+    target_kind: 'canonical',
+    value_kind: 'structured',
+    normalize_value: (value) => normalizeRangeValue(value, 'parallel'),
   },
   {
     canonical_field: 'weight_kg',

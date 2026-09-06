@@ -17,6 +17,13 @@ export interface ProductCandidateBuildInput {
   readonly sources: readonly ProductSource[];
   readonly facts: readonly ProductFact[];
   readonly normalized_facts: readonly NormalizedProductFact[];
+  /**
+   * Explicit legacy compatibility boundary passed through to
+   * reconcileProductFacts(). Strict by default (undefined applicability is
+   * not eligible). Only an intentionally identified legacy replay/caller
+   * should set this to `true`.
+   */
+  readonly legacy_undefined_applicability?: boolean;
 }
 
 type MutableJsonObject = { [key: string]: JsonValue };
@@ -42,6 +49,7 @@ export const buildProductCandidate = (input: ProductCandidateBuildInput): Produc
     sources: input.sources,
     facts: input.facts,
     normalized_facts: input.normalized_facts,
+    legacy_undefined_applicability: input.legacy_undefined_applicability,
   });
   const componentData: JsonObject = {};
   const fieldEvidence: Record<string, readonly string[]> = {};
