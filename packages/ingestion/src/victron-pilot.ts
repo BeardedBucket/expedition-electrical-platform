@@ -362,6 +362,11 @@ export const validatePersistedArtifact = (artifact: PilotArtifact): IngestionVal
     sources: [artifact.source],
     facts: artifact.facts,
     normalized_facts: normalizedFacts,
+    // Legacy replay caller: this artifact predates the applicability
+    // contract and never sets source.applicability. Intentionally opting
+    // into the old undefined-applicability-is-applicable behavior here,
+    // rather than making generic reconciliation permissive for everyone.
+    legacy_undefined_applicability: true,
   });
   const expectedReport = reviewReportFor(
     artifact,
@@ -437,6 +442,11 @@ export const makeArtifacts = (captured: CapturedSource): PilotArtifact => {
     sources: [source],
     facts,
     normalized_facts: normalizedFacts,
+    // Legacy replay caller: this source predates the applicability contract
+    // and never sets source.applicability. See the note above at the
+    // replayedCandidate call site for why this explicit opt-in is scoped
+    // here rather than made generic-reconciliation-wide.
+    legacy_undefined_applicability: true,
   });
   const validation = validateArtifacts(source, facts, candidate, normalizedFacts);
   const artifact = {

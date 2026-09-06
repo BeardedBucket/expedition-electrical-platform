@@ -70,6 +70,15 @@ export interface ProductReconciliationInput {
   readonly sources: readonly ProductSource[];
   readonly facts: readonly ProductFact[];
   readonly normalized_facts: readonly NormalizedProductFact[];
+  /**
+   * Explicit legacy compatibility boundary. Strict by default: a source with
+   * undefined applicability is NOT eligible for selection (source_id alone is
+   * not proof of applicability). Only an intentionally identified legacy
+   * replay/caller (e.g. a pre-applicability persisted artifact) should opt
+   * into the old "undefined applicability is applicable" behavior by setting
+   * this to `true`. Generic reconciliation must never enable this implicitly.
+   */
+  readonly legacy_undefined_applicability?: boolean;
 }
 
 export interface ProductReconciliationResult {

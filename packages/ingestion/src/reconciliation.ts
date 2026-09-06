@@ -1,4 +1,9 @@
-import type { JsonValue, ProductIdentity, ProductSource } from './contracts.js';
+import {
+  isSourceApplicable,
+  type JsonValue,
+  type ProductIdentity,
+  type ProductSource,
+} from './contracts.js';
 import type {
   ProductReconciliationInput,
   ProductReconciliationResult,
@@ -130,7 +135,12 @@ export const reconcileProductFacts = (
   const knownSourceIds = new Set(input.sources.map((source) => source.id));
   const normalized = sortNormalized(
     input.normalized_facts.filter(
-      (item) => knownFactIds.has(item.fact.id) && knownSourceIds.has(item.source.id),
+      (item) =>
+        knownFactIds.has(item.fact.id) &&
+        knownSourceIds.has(item.source.id) &&
+        isSourceApplicable(item.source, {
+          legacy_undefined_applicability: input.legacy_undefined_applicability === true,
+        }),
     ),
   );
   const issues: ReconciliationIssue[] = [];
