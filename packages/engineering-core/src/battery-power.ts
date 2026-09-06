@@ -118,6 +118,62 @@ export interface BatterySurgeInput {
   readonly topology: BatteryTopology;
 }
 
+export interface BatteryNominalVoltageRequirementInput {
+  readonly requiredVoltageV: number;
+  readonly voltageBasis: VoltageBasis;
+  readonly battery: BatteryEngineeringInput;
+  readonly selectedTopology: BatteryTopology;
+}
+
+export interface BatteryNominalVoltageEvaluationResult extends EngineeringIssue {
+  readonly selected: {
+    readonly topology: BatteryTopology;
+    readonly achievedVoltageV: number;
+    readonly passes: boolean;
+  };
+  readonly alternatives: readonly (BatteryTopology & {
+    readonly achievedVoltageV: number;
+    readonly passes: boolean;
+  })[];
+}
+
+export interface BatteryNominalEnergyRequirementInput {
+  readonly requiredEnergyWh: number;
+  readonly battery: BatteryEngineeringInput;
+  readonly selectedTopology: BatteryTopology;
+}
+
+export interface BatteryNominalEnergyEvaluationResult extends EngineeringIssue {
+  readonly selected: {
+    readonly topology: BatteryTopology;
+    readonly achievedEnergyWh: number;
+    readonly achievedEnergyBasis: 'manufacturer' | 'calculated';
+    readonly passes: boolean;
+  };
+  readonly alternatives: readonly (BatteryTopology & {
+    readonly achievedEnergyWh: number;
+    readonly achievedEnergyBasis: 'manufacturer' | 'calculated';
+    readonly passes: boolean;
+  })[];
+}
+
+export interface FeasibleBankAlternativesInput {
+  readonly battery: BatteryEngineeringInput;
+}
+
+export interface FeasibleBankAlternative {
+  readonly seriesCount: number;
+  readonly parallelCount: number;
+  readonly totalUnitCount: number;
+  readonly nominalVoltageV: number;
+  readonly nominalCapacityAh: number;
+  readonly nominalEnergyWh: number;
+  readonly nominalEnergyBasis: 'manufacturer' | 'calculated';
+  readonly continuousDischargeCurrentA?: number;
+  readonly peakDischargeCurrentA?: number;
+  readonly peakDischargeDurationS?: number;
+}
+
 export interface ChargeCurrentSemantics {
   readonly recommendedA?: number;
   readonly maximumContinuousA?: number;
@@ -489,6 +545,216 @@ export const evaluateBatterySurge = (input: BatterySurgeInput): EngineeringIssue
     code: 'battery.bank.surge_pass',
     message: 'Required surge current and duration are supported.',
   };
+};
+
+const voltageAlternatives = (
+  input: BatteryNominalVoltageRequirementInput,
+): readonly BatteryNominalVoltageEvaluationResult['alternatives'][number][] => {
+  const alternatives: BatteryNominalVoltageEvaluationResult['alternatives'][number][] = [];
+  const maxSeries = input.battery.allowedSeriesCount?.max;
+  const selectedSeries = input.selectedTopology.seriesCount;
+  if (maxSeries === undefined || maxSeries <= selectedSeries) return alternatives;
+
+  for (let seriesCount = selectedSeries + 1; seriesCount <= maxSeries; seriesCount += 1) {
+    const bank = deriveBatteryBank(input.battery, {
+      seriesCount,
+      parallelCount: input.selectedTopology.parallelCount,
+    });
+    if (bank.ok) {
+      alternatives.push({
+        seriesCount,
+        parallelCount: input.selectedTopology.parallelCount,
+        achievedVoltageV: bank.value.nominalVoltageV,
+        passes: bank.value.nominalVoltageV >= input.requiredVoltageV,
+      });
+    }
+  }
+  return alternatives;
+};
+
+export const evaluateBatteryNominalVoltage = (
+  input: BatteryNominalVoltageRequirementInput,
+): BatteryNominalVoltageEvaluationResult => {
+  if (!validPositive(input.requiredVoltageV)) {
+    return {
+      severity: 'CONDITIONAL',
+      code: 'battery.bank.voltage_requirement_invalid',
+      message: 'Required voltage is missing or invalid.',
+      selected: { topology: input.selectedTopology, achievedVoltageV: 0, passes: false },
+      alternatives: [],
+    };
+  }
+  const selected = deriveBatteryBank(input.battery, input.selectedTopology);
+  if (!selected.ok) {
+    return {
+      severity: selected.code === 'invalid_input' ? 'FAIL' : 'CONDITIONAL',
+      code: 'battery.bank.topology_not_permitted',
+      message: selected.reasons[0] ?? 'Selected topology cannot be evaluated.',
+      selected: { topology: input.selectedTopology, achievedVoltageV: 0, passes: false },
+      alternatives: [],
+    };
+  }
+  const achievedVoltageV = selected.value.nominalVoltageV;
+  const passes = achievedVoltageV >= input.requiredVoltageV;
+  const alternatives = passes ? [] : voltageAlternatives(input);
+
+  if (passes) {
+    return {
+      severity: 'PASS',
+      code: 'battery.bank.voltage_requirement_pass',
+      message: `Selected bank achieves ${achievedVoltageV}V, satisfying the ${input.requiredVoltageV}V requirement.`,
+      selected: { topology: input.selectedTopology, achievedVoltageV, passes },
+      alternatives,
+    };
+  }
+  const passingAlternative = alternatives.find((alt) => alt.passes);
+  const maxSeries = input.battery.allowedSeriesCount?.max ?? input.selectedTopology.seriesCount;
+  return {
+    severity: passingAlternative
+      ? 'FAIL'
+      : maxSeries <= input.selectedTopology.seriesCount
+        ? 'FAIL'
+        : 'FAIL',
+    code: passingAlternative
+      ? 'battery.bank.voltage_requirement_insufficient'
+      : maxSeries <= input.selectedTopology.seriesCount
+        ? 'battery.bank.series_not_permitted'
+        : 'battery.bank.max_series_insufficient',
+    message: passingAlternative
+      ? `Selected bank achieves ${achievedVoltageV}V; a larger series configuration may satisfy ${input.requiredVoltageV}V requirement.`
+      : maxSeries <= input.selectedTopology.seriesCount
+        ? `Selected bank achieves ${achievedVoltageV}V, but no larger permitted series bank exists.`
+        : `Maximum permitted series configuration remains insufficient for ${input.requiredVoltageV}V.`,
+    selected: { topology: input.selectedTopology, achievedVoltageV, passes },
+    alternatives,
+  };
+};
+
+const energyAlternatives = (
+  input: BatteryNominalEnergyRequirementInput,
+): readonly BatteryNominalEnergyEvaluationResult['alternatives'][number][] => {
+  const alternatives: BatteryNominalEnergyEvaluationResult['alternatives'][number][] = [];
+  const maxSeries = input.battery.allowedSeriesCount?.max ?? 1;
+  const maxParallel = input.battery.allowedParallelCount?.max ?? 1;
+  const selectedSeries = input.selectedTopology.seriesCount;
+  const selectedParallel = input.selectedTopology.parallelCount;
+
+  for (let seriesCount = 1; seriesCount <= maxSeries; seriesCount += 1) {
+    for (let parallelCount = 1; parallelCount <= maxParallel; parallelCount += 1) {
+      if (seriesCount === selectedSeries && parallelCount === selectedParallel) continue;
+
+      const bank = deriveBatteryBank(input.battery, { seriesCount, parallelCount });
+      if (bank.ok) {
+        const achievedEnergyWh = bank.value.nominalEnergyWh;
+        alternatives.push({
+          seriesCount,
+          parallelCount,
+          achievedEnergyWh,
+          achievedEnergyBasis: bank.value.nominalEnergyBasis,
+          passes: achievedEnergyWh >= input.requiredEnergyWh,
+        });
+      }
+    }
+  }
+
+  alternatives.sort((a, b) => {
+    const aCount = a.seriesCount * a.parallelCount;
+    const bCount = b.seriesCount * b.parallelCount;
+    if (aCount !== bCount) return aCount - bCount;
+    if (a.seriesCount !== b.seriesCount) return a.seriesCount - b.seriesCount;
+    return a.parallelCount - b.parallelCount;
+  });
+
+  return alternatives;
+};
+
+export const evaluateBatteryNominalEnergy = (
+  input: BatteryNominalEnergyRequirementInput,
+): BatteryNominalEnergyEvaluationResult => {
+  if (!validPositive(input.requiredEnergyWh)) {
+    return {
+      severity: 'CONDITIONAL',
+      code: 'battery.bank.energy_requirement_invalid',
+      message: 'Required energy is missing or invalid.',
+      selected: {
+        topology: input.selectedTopology,
+        achievedEnergyWh: 0,
+        achievedEnergyBasis: 'calculated',
+        passes: false,
+      },
+      alternatives: [],
+    };
+  }
+  const selected = deriveBatteryBank(input.battery, input.selectedTopology);
+  if (!selected.ok) {
+    return {
+      severity: selected.code === 'invalid_input' ? 'FAIL' : 'CONDITIONAL',
+      code: 'battery.bank.topology_not_permitted',
+      message: selected.reasons[0] ?? 'Selected topology cannot be evaluated.',
+      selected: {
+        topology: input.selectedTopology,
+        achievedEnergyWh: 0,
+        achievedEnergyBasis: 'calculated',
+        passes: false,
+      },
+      alternatives: [],
+    };
+  }
+  const achievedEnergyWh = selected.value.nominalEnergyWh;
+  const achievedEnergyBasis = selected.value.nominalEnergyBasis;
+  const passes = achievedEnergyWh >= input.requiredEnergyWh;
+  const alternatives = energyAlternatives(input);
+
+  if (passes) {
+    return {
+      severity: 'PASS',
+      code: 'battery.bank.energy_requirement_pass',
+      message: `Selected bank provides ${achievedEnergyWh}Wh, satisfying the ${input.requiredEnergyWh}Wh requirement.`,
+      selected: { topology: input.selectedTopology, achievedEnergyWh, achievedEnergyBasis, passes },
+      alternatives,
+    };
+  }
+  const passingAlternative = alternatives.find((alt) => alt.passes);
+  return {
+    severity: passingAlternative ? 'FAIL' : 'FAIL',
+    code: passingAlternative
+      ? 'battery.bank.energy_requirement_insufficient'
+      : 'battery.bank.no_feasible_topology',
+    message: passingAlternative
+      ? `Selected bank provides ${achievedEnergyWh}Wh; feasible alternatives satisfy ${input.requiredEnergyWh}Wh.`
+      : `No feasible topology within manufacturer limits provides ${input.requiredEnergyWh}Wh.`,
+    selected: { topology: input.selectedTopology, achievedEnergyWh, achievedEnergyBasis, passes },
+    alternatives,
+  };
+};
+
+export const enumerateFeasibleBankConfigurations = (
+  input: FeasibleBankAlternativesInput,
+): readonly FeasibleBankAlternative[] => {
+  const alternatives: FeasibleBankAlternative[] = [];
+  const maxSeries = input.battery.allowedSeriesCount?.max;
+  const maxParallel = input.battery.allowedParallelCount?.max;
+
+  if (maxSeries === undefined || maxParallel === undefined) return alternatives;
+
+  for (let seriesCount = 1; seriesCount <= maxSeries; seriesCount += 1) {
+    for (let parallelCount = 1; parallelCount <= maxParallel; parallelCount += 1) {
+      const bank = deriveBatteryBank(input.battery, { seriesCount, parallelCount });
+      if (bank.ok) {
+        alternatives.push(bank.value);
+      }
+    }
+  }
+
+  alternatives.sort((a, b) => {
+    const aTotalCount = a.totalUnitCount;
+    const bTotalCount = b.totalUnitCount;
+    if (aTotalCount !== bTotalCount) return aTotalCount - bTotalCount;
+    if (a.seriesCount !== b.seriesCount) return a.seriesCount - b.seriesCount;
+    return a.parallelCount - b.parallelCount;
+  });
+
+  return alternatives;
 };
 
 export const evaluateChargeRate = (input: {
