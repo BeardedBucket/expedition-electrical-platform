@@ -13,3 +13,4 @@ export * from './battery-power.js';
 export * from './load-demand.js';
 export * from './operating-scenarios.js';
 export * from './charging-sources.js';
+export * from './battery-charge-acceptance.js';

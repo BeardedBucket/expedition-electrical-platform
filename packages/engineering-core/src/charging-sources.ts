@@ -57,6 +57,8 @@ export interface ChargingSourceIssue extends ChargingSourceContribution {
 
 export interface ChargingSourceScenarioResult {
   readonly scenarioId?: string;
+  readonly batteryVoltageV?: number;
+  readonly designVoltageV?: number;
   readonly severity: EngineeringSeverity;
   readonly code: string;
   readonly message: string;
@@ -345,6 +347,8 @@ export const evaluateChargingSourceScenario = (
 
   return {
     scenarioId: input.scenarioId,
+    batteryVoltageV: input.batteryVoltageV,
+    designVoltageV: input.designVoltageV,
     severity,
     code:
       severity === 'FAIL'

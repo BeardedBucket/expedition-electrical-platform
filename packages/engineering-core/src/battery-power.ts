@@ -70,6 +70,7 @@ export interface BatteryEngineeringInput {
   readonly nominalVoltageV: number;
   readonly nominalCapacityAh: number;
   readonly nominalEnergyWh?: number;
+  readonly chargeCurrent?: ChargeCurrentSemantics;
   readonly continuousDischargeCurrentA?: number;
   readonly peakDischargeCurrentA?: number;
   readonly peakDischargeDurationS?: number;
