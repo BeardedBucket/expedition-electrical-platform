@@ -1,9 +1,9 @@
 id: manufacturer.model-slug
-manufacturer: ""
-model: ""
+manufacturer: ''
+model: ''
 part_number: null
 product_role: null
-category: ""
+category: ''
 product_family: null
 verification_status: unverified
 
@@ -17,6 +17,7 @@ electrical:
   continuous_charge_current_a: null
   continuous_discharge_current_a: null
   peak_discharge_current_a: null
+  peak_discharge_duration_s: null
   continuous_power_w: null
   apparent_power_va: null
   ac_output_voltage_v: null
@@ -26,6 +27,17 @@ battery:
   nominal_capacity_ah: null
   usable_capacity_ah: null
   nominal_energy_wh: null
+  chemistry: null
+  charge_current:
+    recommended_a: null
+    maximum_continuous_a: null
+    protection_limit_a: null
+  # Manufacturer-permitted identical battery units in series per series string.
+  # This is not total battery count, arbitrary bank size, or parallel-string count.
+  allowed_series_count: null
+  # Manufacturer-permitted identical series strings connected in parallel.
+  # This is not total battery count, per-string unit count, or arbitrary bank size.
+  allowed_parallel_count: null
 efficiency_fraction: null
 terminals: []
 # Optional stable keys for topology references; unique only within this component.

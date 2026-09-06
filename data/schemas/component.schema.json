@@ -157,6 +157,10 @@
         "peak_discharge_current_a": {
           "type": ["number", "null"]
         },
+        "peak_discharge_duration_s": {
+          "type": ["number", "null"],
+          "minimum": 0
+        },
         "continuous_power_w": {
           "type": ["number", "null"]
         },
@@ -204,9 +208,26 @@
       "type": ["object", "null"],
       "properties": {
         "nominal_capacity_ah": { "type": ["number", "null"] },
-        "usable_capacity_ah": { "type": ["number", "null"] },
+        "usable_capacity_ah": {
+          "type": ["number", "null"],
+          "description": "Legacy product-supplied usable Ah; not calculated design-usable energy."
+        },
         "nominal_energy_wh": { "type": ["number", "null"] },
+        "chemistry": {
+          "type": ["string", "null"],
+          "enum": ["flooded_lead_acid", "agm", "gel", "lifepo4", "other", null]
+        },
+        "charge_current": {
+          "type": ["object", "null"],
+          "properties": {
+            "recommended_a": { "type": ["number", "null"], "minimum": 0 },
+            "maximum_continuous_a": { "type": ["number", "null"], "minimum": 0 },
+            "protection_limit_a": { "type": ["number", "null"], "minimum": 0 }
+          },
+          "additionalProperties": false
+        },
         "allowed_series_count": {
+          "description": "Manufacturer-permitted count of identical battery units in series per series string; this is not a total battery count, arbitrary bank size, or parallel-string count.",
           "type": ["object", "null"],
           "properties": {
             "min": { "type": "integer", "minimum": 1 },
@@ -216,6 +237,7 @@
           "additionalProperties": false
         },
         "allowed_parallel_count": {
+          "description": "Manufacturer-permitted number of identical series strings connected in parallel; this is not a total battery count, per-string unit count, or arbitrary bank size.",
           "type": ["object", "null"],
           "properties": {
             "min": { "type": "integer", "minimum": 1 },
