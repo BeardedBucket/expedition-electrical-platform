@@ -20,3 +20,4 @@ export * from './usage-profile-energy.js';
 export * from './energy-storage-requirement.js';
 export * from './battery-bank-feasibility.js';
 export * from './ordered-energy-trajectory.js';
+export * from './stored-energy-state-trajectory.js';
