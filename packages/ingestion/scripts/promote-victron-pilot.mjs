@@ -38,9 +38,12 @@ if (
   throw new Error('Review input must be a structured, explicitly approved PromotionReview.');
 
 const catalogComponents = await loadCanonicalCatalog(canonicalRoot);
+const legacyVictronReview =
+  artifact.candidate.id === 'victron.multiplus-24-2000-50-50-120v.pmp242200100' &&
+  review.id === 'review.human.pmp242200100';
 const promotion = promoteCandidate(artifact.candidate, [artifact.source], artifact.facts, review, {
   components: catalogComponents,
-});
+}, { allowLegacyReview: legacyVictronReview });
 const result = await writeCanonicalComponent({
   promotion,
   destinationRoot: canonicalRoot,

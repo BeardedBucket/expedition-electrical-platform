@@ -21,7 +21,9 @@ unresolved, or conflicting candidates never promote, and
 `promotion_status: eligible` by itself is not approval.
 
 The function validates the candidate using the existing ingestion validation,
-retains source and fact identifiers in `source_refs` and its audit result, and
+retains source and the fact identifiers supporting approved canonical fields in
+`source_refs` and its audit result, while omitted/evidence-only fact identifiers
+remain available in the ingestion artifact, and
 keeps promoted facts `unverified` unless a separate reviewed data process
 establishes verification. Reviewer resolutions must select an existing
 candidate fact and include rationale; dimensions remain omitted when their

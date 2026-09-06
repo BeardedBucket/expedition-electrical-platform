@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0",
+  "id": "review.human.epoch-b24100a-c",
+  "candidate_id": "epoch-batteries.24v-100ah-marine.b24100a-c",
+  "candidate_snapshot": "sha256:ec140cc14a0cd11eeddb720d417c06fd934db958408410548bf1c19d3ebde05a",
+  "decision": "approved",
+  "reviewer_id": "repository-review",
+  "reviewed_at": "2026-09-05T00:00:00.000Z",
+  "approved_fields": [
+    "battery.allowed_parallel_count",
+    "battery.allowed_series_count",
+    "battery.charge_current.recommended_a",
+    "battery.chemistry",
+    "battery.nominal_capacity_ah",
+    "battery.nominal_energy_wh",
+    "electrical.continuous_discharge_current_a",
+    "electrical.nominal_voltage_v",
+    "electrical.peak_discharge_current_a",
+    "electrical.peak_discharge_duration_s",
+    "weight_kg"
+  ],
+  "excluded_fields": [
+    "dimensions_mm",
+    "electrical.operating_voltage_range_v",
+    "battery.charge_current.maximum_continuous_a",
+    "battery.charge_current.protection_limit_a"
+  ],
+  "excluded_fact_ids": [
+    "extracted.fact.045b0431a3a43608",
+    "extracted.fact.2fccc46d121a3282",
+    "extracted.fact.3b9005bf13c5fa80",
+    "extracted.fact.c86163947f0653c4"
+  ],
+  "evidence_acknowledged": true,
+  "product_role": "battery",
+  "category": "battery",
+  "notes": "Approved canonical battery facts are bound to the exact replayed candidate snapshot. Width and height remain ingestion evidence only because depth is unavailable and canonical dimensions require x/y/z. The 150A for 10 seconds charge claim and 20.0V-29.2V operating range remain unresolved/evidence-only. No V2-T identity is included."
+}

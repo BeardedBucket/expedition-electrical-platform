@@ -1,0 +1,47 @@
+battery:
+  allowed_parallel_count:
+    max: 4
+    min: 1
+  allowed_series_count:
+    max: 2
+    min: 1
+  charge_current:
+    recommended_a: 50
+  chemistry: lifepo4
+  nominal_capacity_ah: 100
+  nominal_energy_wh: 2560
+category: battery
+electrical:
+  continuous_discharge_current_a: 120
+  nominal_voltage_v: 25.6
+  peak_discharge_current_a: 200
+  peak_discharge_duration_s: 60
+id: epoch-batteries.b24100a-c
+manufacturer: Epoch Batteries
+model: 24V 100Ah LiFePO4 Battery (2.56kWh)
+part_number: B24100A-C
+product_family: 24V Lithium Batteries
+product_role: battery
+source_refs:
+  - candidate_id: epoch-batteries.24v-100ah-marine.b24100a-c
+    content_hash: sha256:2ae204529a2dba11c8d70657abbdd6612a4c1a3dc59a92d4bb21f479a71378ae
+    fact_ids:
+      - extracted.fact.432682d70f01b77d
+      - extracted.fact.5b9bc881b62ec443
+      - extracted.fact.710a8e7b0ff83592
+      - extracted.fact.7ad6a7372e182c2d
+      - extracted.fact.810778558329f81c
+      - extracted.fact.8549431b65921600
+      - extracted.fact.8864e5c73b31e88c
+      - extracted.fact.9200d17163e0a4d8
+      - extracted.fact.961e39a50cd9ff64
+      - extracted.fact.9c71033383ac26f3
+      - extracted.fact.decd79bfd495eae2
+    id: epoch-batteries.24v-100ah.product-page
+    publisher: Epoch Batteries
+    retrieved_at: 2026-09-05T23:39:38.821Z
+    review_id: review.human.epoch-b24100a-c
+    type: manufacturer_product_page
+    uri: https://www.epochbatteries.com/products/24v-100ah-marine-lithium-battery
+verification_status: unverified
+weight_kg: 21.999229945
