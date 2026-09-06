@@ -7,6 +7,8 @@ import {
   calculateNominalEnergy,
   deriveBatteryBank,
   enumerateFeasibleBankConfigurations,
+  enumerateFeasibleBankConfigurationsForRequirements,
+  evaluateBatteryBankConfiguration,
   evaluateBatteryContinuousDischarge,
   evaluateBatterySurge,
   evaluateBatteryNominalEnergy,
@@ -29,6 +31,29 @@ const battery = {
   peakDischargeDurationS: 10,
   allowedSeriesCount: { min: 1, max: 2 },
   allowedParallelCount: { min: 1, max: 4 },
+};
+
+const loadEpochBattery = async (): Promise<BatteryEngineeringInput> => {
+  const result = await loadComponentLibraryFile(
+    path.resolve('data/components/epoch-batteries.b24100a-c.yaml'),
+  );
+  if (!result.ok) throw new Error(result.errors.join('; '));
+  const component = result.value;
+  const scalar = (value: number | number[] | null | undefined): number => {
+    if (typeof value !== 'number') throw new Error('Expected a scalar numeric component field.');
+    return value;
+  };
+  return {
+    id: component.id,
+    nominalVoltageV: scalar(component.electrical?.nominal_voltage_v),
+    nominalCapacityAh: scalar(component.battery?.nominal_capacity_ah),
+    nominalEnergyWh: scalar(component.battery?.nominal_energy_wh),
+    continuousDischargeCurrentA: scalar(component.electrical?.continuous_discharge_current_a),
+    peakDischargeCurrentA: scalar(component.electrical?.peak_discharge_current_a),
+    peakDischargeDurationS: scalar(component.electrical?.peak_discharge_duration_s),
+    allowedSeriesCount: component.battery?.allowed_series_count ?? undefined,
+    allowedParallelCount: component.battery?.allowed_parallel_count ?? undefined,
+  };
 };
 
 describe('battery and power-flow primitives', () => {
@@ -519,6 +544,224 @@ describe('feasible bank configuration enumeration', () => {
   });
 });
 
+describe('battery bank requirement aggregation', () => {
+  it('tracks selected-topology legality and aggregate status across all known requirements', () => {
+    const result = evaluateBatteryBankConfiguration({
+      battery,
+      selectedTopology: { seriesCount: 1, parallelCount: 1 },
+      requirements: {
+        nominalVoltageV: 24,
+        nominalEnergyWh: 5000,
+        continuousDischargeCurrentA: 145,
+        peakDischargeCurrentA: 250,
+        peakDischargeDurationS: 5,
+      },
+    });
+
+    expect(result.topologyLegal).toBe(true);
+    expect(result.status).toBe('FAIL');
+    expect(result.requirementResults.nominalVoltage?.severity).toBe('PASS');
+    expect(result.requirementResults.nominalEnergy?.severity).toBe('FAIL');
+    expect(result.requirementResults.continuousDischarge?.severity).toBe('FAIL');
+    expect(result.requirementResults.peakDischarge?.severity).toBe('PASS');
+    expect(result.reasons.some((reason) => reason.includes('5000Wh'))).toBe(true);
+    expect(
+      result.feasibleAlternatives.some((alt) => alt.seriesCount === 1 && alt.parallelCount === 3),
+    ).toBe(true);
+  });
+
+  it('returns pass when all required checks pass and conditional when required data is missing', () => {
+    const pass = evaluateBatteryBankConfiguration({
+      battery,
+      selectedTopology: { seriesCount: 1, parallelCount: 1 },
+      requirements: {
+        nominalVoltageV: 24,
+        nominalEnergyWh: 2400,
+        continuousDischargeCurrentA: 120,
+        peakDischargeCurrentA: 250,
+        peakDischargeDurationS: 5,
+      },
+    });
+    expect(pass.status).toBe('PASS');
+
+    const unresolved = evaluateBatteryBankConfiguration({
+      battery,
+      selectedTopology: { seriesCount: 1, parallelCount: 1 },
+      requirements: {
+        nominalVoltageV: 24,
+        nominalEnergyWh: 2400,
+        continuousDischargeCurrentA: 120,
+        peakDischargeCurrentA: 250,
+      },
+    });
+    expect(unresolved.status).toBe('CONDITIONAL');
+    expect(unresolved.unresolvedReasons.length).toBeGreaterThan(0);
+  });
+
+  it('distinguishes an illegal topology from a legal-but-failing bank', () => {
+    const illegal = evaluateBatteryBankConfiguration({
+      battery,
+      selectedTopology: { seriesCount: 3, parallelCount: 1 },
+      requirements: {
+        nominalVoltageV: 48,
+      },
+    });
+    expect(illegal.topologyLegal).toBe(false);
+    expect(illegal.status).toBe('FAIL');
+
+    const legalFail = evaluateBatteryBankConfiguration({
+      battery,
+      selectedTopology: { seriesCount: 1, parallelCount: 1 },
+      requirements: {
+        nominalVoltageV: 48,
+      },
+    });
+    expect(legalFail.topologyLegal).toBe(true);
+    expect(legalFail.status).toBe('FAIL');
+  });
+
+  it('keeps the selected result separate from the standalone feasible enumeration', () => {
+    const input = {
+      battery,
+      selectedTopology: { seriesCount: 1, parallelCount: 1 },
+      requirements: { nominalEnergyWh: 5000 },
+    };
+    const result = evaluateBatteryBankConfiguration(input);
+    expect(result).not.toHaveProperty('alternatives');
+    expect(result).not.toHaveProperty('validAlternatives');
+    expect(result).not.toHaveProperty('alternativeTopologies');
+    expect(result.feasibleAlternatives).toEqual([
+      { seriesCount: 1, parallelCount: 3 },
+      { seriesCount: 1, parallelCount: 4 },
+      { seriesCount: 2, parallelCount: 2 },
+      { seriesCount: 2, parallelCount: 3 },
+      { seriesCount: 2, parallelCount: 4 },
+    ]);
+    expect(enumerateFeasibleBankConfigurationsForRequirements(input)).toEqual(
+      result.feasibleAlternatives,
+    );
+  });
+
+  it('retains unresolved details when another required check hard-fails', () => {
+    const result = evaluateBatteryBankConfiguration({
+      battery: { ...battery, peakDischargeCurrentA: undefined },
+      selectedTopology: { seriesCount: 1, parallelCount: 1 },
+      requirements: {
+        nominalEnergyWh: 5000,
+        peakDischargeCurrentA: 250,
+        peakDischargeDurationS: 5,
+      },
+    });
+
+    expect(result.status).toBe('FAIL');
+    expect(result.requirementResults.nominalEnergy?.severity).toBe('FAIL');
+    expect(result.requirementResults.peakDischarge?.severity).toBe('CONDITIONAL');
+    expect(result.unresolvedReasons).toEqual(
+      expect.arrayContaining([expect.stringContaining('Peak discharge current is unavailable')]),
+    );
+  });
+
+  it('evaluates every canonical Epoch aggregate scenario without ranking topologies', async () => {
+    const epoch = await loadEpochBattery();
+    const scenarioA = evaluateBatteryBankConfiguration({
+      battery: epoch,
+      selectedTopology: { seriesCount: 1, parallelCount: 1 },
+      requirements: {
+        nominalVoltageV: 25.6,
+        nominalEnergyWh: 5000,
+        continuousDischargeCurrentA: 145,
+      },
+    });
+    expect(scenarioA.status).toBe('FAIL');
+    expect(scenarioA.requirementResults.nominalVoltage?.severity).toBe('PASS');
+    expect(scenarioA.requirementResults.nominalEnergy?.severity).toBe('FAIL');
+    expect(scenarioA.requirementResults.continuousDischarge?.severity).toBe('FAIL');
+    expect(scenarioA.feasibleAlternatives).toEqual([
+      { seriesCount: 1, parallelCount: 2 },
+      { seriesCount: 1, parallelCount: 3 },
+      { seriesCount: 1, parallelCount: 4 },
+    ]);
+
+    const scenarioB = evaluateBatteryBankConfiguration({
+      battery: epoch,
+      selectedTopology: { seriesCount: 2, parallelCount: 1 },
+      requirements: {
+        nominalVoltageV: 51.2,
+        nominalEnergyWh: 5000,
+        continuousDischargeCurrentA: 100,
+      },
+    });
+    expect(scenarioB.status).toBe('PASS');
+
+    const scenarioC = evaluateBatteryBankConfiguration({
+      battery: epoch,
+      selectedTopology: { seriesCount: 2, parallelCount: 1 },
+      requirements: {
+        nominalVoltageV: 51.2,
+        nominalEnergyWh: 10000,
+        continuousDischargeCurrentA: 200,
+      },
+    });
+    expect(scenarioC.feasibleAlternatives).toEqual([
+      { seriesCount: 2, parallelCount: 2 },
+      { seriesCount: 2, parallelCount: 3 },
+      { seriesCount: 2, parallelCount: 4 },
+    ]);
+
+    expect(
+      evaluateBatteryBankConfiguration({
+        battery: epoch,
+        selectedTopology: { seriesCount: 1, parallelCount: 1 },
+        requirements: {
+          nominalVoltageV: 25.6,
+          peakDischargeCurrentA: 180,
+          peakDischargeDurationS: 30,
+        },
+      }).status,
+    ).toBe('PASS');
+    expect(
+      evaluateBatteryBankConfiguration({
+        battery: epoch,
+        selectedTopology: { seriesCount: 1, parallelCount: 1 },
+        requirements: {
+          nominalVoltageV: 25.6,
+          peakDischargeCurrentA: 180,
+          peakDischargeDurationS: 90,
+        },
+      }).requirementResults.peakDischarge?.code,
+    ).toBe('battery.bank.surge_duration_insufficient');
+
+    const noVoltageMatch = evaluateBatteryBankConfiguration({
+      battery: epoch,
+      selectedTopology: { seriesCount: 1, parallelCount: 1 },
+      requirements: { nominalVoltageV: 76.8 },
+    });
+    expect(noVoltageMatch.status).toBe('FAIL');
+    expect(noVoltageMatch.feasibleAlternatives).toEqual([]);
+
+    const noCurrentMatch = evaluateBatteryBankConfiguration({
+      battery: epoch,
+      selectedTopology: { seriesCount: 1, parallelCount: 1 },
+      requirements: { nominalVoltageV: 25.6, continuousDischargeCurrentA: 500 },
+    });
+    expect(noCurrentMatch.feasibleAlternatives).toEqual([]);
+
+    const unresolved = evaluateBatteryBankConfiguration({
+      battery: { ...epoch, continuousDischargeCurrentA: undefined },
+      selectedTopology: { seriesCount: 1, parallelCount: 1 },
+      requirements: { nominalVoltageV: 25.6, continuousDischargeCurrentA: 145 },
+    });
+    expect(unresolved.status).toBe('CONDITIONAL');
+    expect(unresolved.feasibleAlternatives).toEqual([]);
+
+    const noRequirements = evaluateBatteryBankConfiguration({
+      battery: epoch,
+      selectedTopology: { seriesCount: 1, parallelCount: 1 },
+    });
+    expect(noRequirements.status).toBe('PASS');
+  });
+});
+
 describe('real epoch battery canonical integration', () => {
   it('supports Epoch B24100A-C canonical facts: 25.6V, 100Ah, 2560Wh', () => {
     const epoch: BatteryEngineeringInput = {
@@ -734,7 +977,7 @@ describe('real epoch battery canonical integration', () => {
     );
   });
 
-  it('requirement example: 48V requires 2S', () => {
+  it('requirement example: exact 51.2V requires 2S', () => {
     const epoch: BatteryEngineeringInput = {
       nominalVoltageV: 25.6,
       nominalCapacityAh: 100,
@@ -747,7 +990,7 @@ describe('real epoch battery canonical integration', () => {
     };
 
     const result = evaluateBatteryNominalVoltage({
-      requiredVoltageV: 48,
+      requiredVoltageV: 51.2,
       voltageBasis: 'nominal',
       battery: epoch,
       selectedTopology: { seriesCount: 1, parallelCount: 1 },

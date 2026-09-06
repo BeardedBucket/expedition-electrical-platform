@@ -161,6 +161,41 @@ export interface FeasibleBankAlternativesInput {
   readonly battery: BatteryEngineeringInput;
 }
 
+export interface BatteryBankRequirements {
+  readonly nominalVoltageV?: number;
+  readonly nominalEnergyWh?: number;
+  readonly continuousDischargeCurrentA?: number;
+  readonly peakDischargeCurrentA?: number;
+  readonly peakDischargeDurationS?: number;
+}
+
+export interface BatteryBankConfigurationInput {
+  readonly battery: BatteryEngineeringInput;
+  readonly selectedTopology: BatteryTopology;
+  readonly requirements?: BatteryBankRequirements;
+}
+
+export interface BatteryBankRequirementResults {
+  nominalVoltage?: BatteryNominalVoltageEvaluationResult;
+  nominalEnergy?: BatteryNominalEnergyEvaluationResult;
+  continuousDischarge?: BatteryEvaluationResult;
+  peakDischarge?: EngineeringIssue;
+}
+
+export interface BatteryBankConfigurationResult {
+  readonly battery: BatteryEngineeringInput;
+  readonly requestedTopology: BatteryTopology;
+  readonly topologyLegal: boolean;
+  readonly bank?: BatteryBankResult;
+  readonly requirementResults: BatteryBankRequirementResults;
+  readonly status: EngineeringSeverity;
+  readonly severity: EngineeringSeverity;
+  readonly issues: readonly EngineeringIssue[];
+  readonly reasons: readonly string[];
+  readonly unresolvedReasons: readonly string[];
+  readonly feasibleAlternatives: readonly BatteryTopology[];
+}
+
 export interface FeasibleBankAlternative {
   readonly seriesCount: number;
   readonly parallelCount: number;
@@ -565,7 +600,7 @@ const voltageAlternatives = (
         seriesCount,
         parallelCount: input.selectedTopology.parallelCount,
         achievedVoltageV: bank.value.nominalVoltageV,
-        passes: bank.value.nominalVoltageV >= input.requiredVoltageV,
+        passes: bank.value.nominalVoltageV === input.requiredVoltageV,
       });
     }
   }
@@ -595,7 +630,7 @@ export const evaluateBatteryNominalVoltage = (
     };
   }
   const achievedVoltageV = selected.value.nominalVoltageV;
-  const passes = achievedVoltageV >= input.requiredVoltageV;
+  const passes = achievedVoltageV === input.requiredVoltageV;
   const alternatives = passes ? [] : voltageAlternatives(input);
 
   if (passes) {
@@ -755,6 +790,249 @@ export const enumerateFeasibleBankConfigurations = (
   });
 
   return alternatives;
+};
+
+const evaluateRequiredPeakDischarge = (
+  battery: BatteryEngineeringInput,
+  topology: BatteryTopology,
+  requirement: BatteryBankRequirements,
+): EngineeringIssue => {
+  const hasCurrent = requirement.peakDischargeCurrentA !== undefined;
+  const hasDuration = requirement.peakDischargeDurationS !== undefined;
+
+  if (!hasCurrent && !hasDuration) {
+    return {
+      severity: 'PASS',
+      code: 'battery.bank.peak_requirement_not_requested',
+      message: 'No peak discharge requirement was requested.',
+    };
+  }
+
+  if (!hasCurrent || !hasDuration) {
+    return {
+      severity: 'CONDITIONAL',
+      code: 'battery.bank.peak_requirement_incomplete',
+      message: 'Peak discharge requirement is incomplete: both current and duration are required.',
+    };
+  }
+
+  return evaluateBatterySurge({
+    requiredCurrentA: requirement.peakDischargeCurrentA,
+    requiredDurationS: requirement.peakDischargeDurationS,
+    battery,
+    topology,
+  });
+};
+
+const evaluateBatteryBankConfigurationInternal = (
+  input: BatteryBankConfigurationInput,
+): Omit<BatteryBankConfigurationResult, 'feasibleAlternatives'> => {
+  const requirements = input.requirements ?? {};
+  const selectedBank = deriveBatteryBank(input.battery, input.selectedTopology);
+  const requirementResults: BatteryBankRequirementResults = {};
+
+  const issues: EngineeringIssue[] = [];
+  const unresolvedReasons: string[] = [];
+  const reasons: string[] = [];
+
+  if (!selectedBank.ok) {
+    const topologyIssue: EngineeringIssue = {
+      severity: selectedBank.code === 'invalid_input' ? 'FAIL' : 'CONDITIONAL',
+      code: 'battery.bank.topology_not_permitted',
+      message: selectedBank.reasons[0] ?? 'Selected topology cannot be evaluated.',
+    };
+    issues.push(topologyIssue);
+    reasons.push(topologyIssue.message);
+    if (topologyIssue.severity === 'CONDITIONAL') {
+      unresolvedReasons.push(topologyIssue.message);
+    }
+    return {
+      battery: input.battery,
+      requestedTopology: input.selectedTopology,
+      topologyLegal: false,
+      bank: undefined,
+      requirementResults,
+      status: topologyIssue.severity,
+      severity: topologyIssue.severity,
+      issues,
+      reasons,
+      unresolvedReasons,
+    };
+  }
+
+  if (requirements.nominalVoltageV !== undefined) {
+    const nominalVoltageResult = evaluateBatteryNominalVoltage({
+      requiredVoltageV: requirements.nominalVoltageV,
+      voltageBasis: 'nominal',
+      battery: input.battery,
+      selectedTopology: input.selectedTopology,
+    });
+    requirementResults.nominalVoltage = nominalVoltageResult;
+    issues.push({
+      severity: nominalVoltageResult.severity,
+      code: nominalVoltageResult.code,
+      message: nominalVoltageResult.message,
+    });
+    if (
+      nominalVoltageResult.severity === 'FAIL' ||
+      nominalVoltageResult.severity === 'CONDITIONAL'
+    ) {
+      reasons.push(nominalVoltageResult.message);
+    }
+    if (nominalVoltageResult.severity === 'CONDITIONAL') {
+      unresolvedReasons.push(nominalVoltageResult.message);
+    }
+  }
+
+  if (requirements.nominalEnergyWh !== undefined) {
+    const nominalEnergyResult = evaluateBatteryNominalEnergy({
+      requiredEnergyWh: requirements.nominalEnergyWh,
+      battery: input.battery,
+      selectedTopology: input.selectedTopology,
+    });
+    requirementResults.nominalEnergy = nominalEnergyResult;
+    issues.push({
+      severity: nominalEnergyResult.severity,
+      code: nominalEnergyResult.code,
+      message: nominalEnergyResult.message,
+    });
+    if (nominalEnergyResult.severity === 'FAIL' || nominalEnergyResult.severity === 'CONDITIONAL') {
+      reasons.push(nominalEnergyResult.message);
+    }
+    if (nominalEnergyResult.severity === 'CONDITIONAL') {
+      unresolvedReasons.push(nominalEnergyResult.message);
+    }
+  }
+
+  if (requirements.continuousDischargeCurrentA !== undefined) {
+    const continuousDischargeResult = evaluateBatteryContinuousDischarge({
+      requiredCurrentA: requirements.continuousDischargeCurrentA,
+      battery: input.battery,
+      selectedTopology: input.selectedTopology,
+    });
+    requirementResults.continuousDischarge = continuousDischargeResult;
+    issues.push({
+      severity: continuousDischargeResult.severity,
+      code: continuousDischargeResult.code,
+      message: continuousDischargeResult.message,
+    });
+    if (
+      continuousDischargeResult.severity === 'FAIL' ||
+      continuousDischargeResult.severity === 'CONDITIONAL'
+    ) {
+      reasons.push(continuousDischargeResult.message);
+    }
+    if (continuousDischargeResult.severity === 'CONDITIONAL') {
+      unresolvedReasons.push(continuousDischargeResult.message);
+    }
+  }
+
+  const peakDischargeIssue = evaluateRequiredPeakDischarge(
+    input.battery,
+    input.selectedTopology,
+    requirements,
+  );
+  if (
+    requirements.peakDischargeCurrentA !== undefined ||
+    requirements.peakDischargeDurationS !== undefined
+  ) {
+    requirementResults.peakDischarge = peakDischargeIssue;
+    issues.push(peakDischargeIssue);
+    if (peakDischargeIssue.severity === 'FAIL' || peakDischargeIssue.severity === 'CONDITIONAL') {
+      reasons.push(peakDischargeIssue.message);
+    }
+    if (peakDischargeIssue.severity === 'CONDITIONAL') {
+      unresolvedReasons.push(peakDischargeIssue.message);
+    }
+  }
+
+  const knownChecks = issues.filter(
+    (issue) => issue.code !== 'battery.bank.peak_requirement_not_requested',
+  );
+  const status: EngineeringSeverity =
+    knownChecks.length === 0
+      ? 'PASS'
+      : knownChecks.some((issue) => issue.severity === 'FAIL')
+        ? 'FAIL'
+        : knownChecks.some((issue) => issue.severity === 'CONDITIONAL')
+          ? 'CONDITIONAL'
+          : 'PASS';
+
+  return {
+    battery: input.battery,
+    requestedTopology: input.selectedTopology,
+    topologyLegal: true,
+    bank: selectedBank.value,
+    requirementResults,
+    status,
+    severity: status,
+    issues,
+    reasons,
+    unresolvedReasons,
+  };
+};
+
+export const evaluateBatteryBankConfiguration = (
+  input: BatteryBankConfigurationInput,
+): BatteryBankConfigurationResult => {
+  const baseResult = evaluateBatteryBankConfigurationInternal(input);
+  const feasibleAlternatives = enumerateFeasibleBankConfigurations({
+    battery: input.battery,
+  }).filter((candidate) => {
+    if (
+      candidate.seriesCount === input.selectedTopology.seriesCount &&
+      candidate.parallelCount === input.selectedTopology.parallelCount
+    ) {
+      return false;
+    }
+    const candidateResult = evaluateBatteryBankConfigurationInternal({
+      battery: input.battery,
+      selectedTopology: {
+        seriesCount: candidate.seriesCount,
+        parallelCount: candidate.parallelCount,
+      },
+      requirements: input.requirements,
+    });
+    return candidateResult.status === 'PASS';
+  });
+
+  const formattedAlternatives = feasibleAlternatives.map(({ seriesCount, parallelCount }) => ({
+    seriesCount,
+    parallelCount,
+  }));
+
+  return {
+    ...baseResult,
+    feasibleAlternatives: formattedAlternatives,
+  };
+};
+
+export const enumerateFeasibleBankConfigurationsForRequirements = (
+  input: BatteryBankConfigurationInput,
+): readonly BatteryTopology[] => {
+  const alternativeResults = enumerateFeasibleBankConfigurations({ battery: input.battery }).filter(
+    (candidate) => {
+      if (
+        candidate.seriesCount === input.selectedTopology.seriesCount &&
+        candidate.parallelCount === input.selectedTopology.parallelCount
+      ) {
+        return false;
+      }
+      const candidateResult = evaluateBatteryBankConfigurationInternal({
+        battery: input.battery,
+        selectedTopology: {
+          seriesCount: candidate.seriesCount,
+          parallelCount: candidate.parallelCount,
+        },
+        requirements: input.requirements,
+      });
+      return candidateResult.status === 'PASS';
+    },
+  );
+  return alternativeResults.map(({ seriesCount, parallelCount }) => ({
+    seriesCount,
+    parallelCount,
+  }));
 };
 
 export const evaluateChargeRate = (input: {
