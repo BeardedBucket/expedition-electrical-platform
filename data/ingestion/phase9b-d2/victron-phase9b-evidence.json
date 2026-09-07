@@ -1,0 +1,48 @@
+{
+  "source": {
+    "schema_version": "1.0",
+    "id": "victron.phase9b-d2.product-page",
+    "uri": "https://www.victronenergy.com/inverters-chargers/multiplus-2000-va",
+    "source_type": "manufacturer_product_page",
+    "authority": "manufacturer_product",
+    "publisher": "Victron Energy",
+    "retrieved_at": "2026-09-07T04:35:04.031Z",
+    "manufacturer": "Victron Energy",
+    "content_hash": "sha256:09a3807cb2e20fcc9651c4a1051022eff2f57fb7f66deb2290f62ccdb3ccd8d2"
+  },
+  "facts": [],
+  "normalized_facts": [],
+  "candidate": {
+    "schema_version": "1.0",
+    "id": "victron.phase9b-d2.pmp242200100",
+    "identity_status": "unresolved",
+    "identity": {
+      "manufacturer": "Victron Energy",
+      "product_family": "MultiPlus",
+      "model": "24/2000/50-50 120V VE.Bus",
+      "manufacturer_part_number": "PMP242200100",
+      "regional_variant": "120V",
+      "voltage_variant": "24V DC input",
+      "lifecycle_status": "discontinued"
+    },
+    "review_status": "pending",
+    "promotion_status": "blocked",
+    "source_ids": [
+      "victron.phase9b-d2.product-page"
+    ],
+    "identity_source_ids": [],
+    "fact_ids": [],
+    "component_data": {},
+    "field_evidence": {},
+    "review_reasons": [
+      "reconciliation_identity_unresolved"
+    ]
+  },
+  "source_summary": {
+    "uri": "https://www.victronenergy.com/inverters-chargers/multiplus-2000-va",
+    "direct_identity": false,
+    "source_type": "manufacturer_product_page",
+    "publisher": "Victron Energy",
+    "content_hash": "sha256:09a3807cb2e20fcc9651c4a1051022eff2f57fb7f66deb2290f62ccdb3ccd8d2"
+  }
+}

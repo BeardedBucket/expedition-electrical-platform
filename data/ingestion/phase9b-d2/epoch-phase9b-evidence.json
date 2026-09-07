@@ -1,0 +1,1069 @@
+{
+  "source": {
+    "schema_version": "1.0",
+    "id": "epoch-batteries.phase9b-d2.product-page",
+    "uri": "https://www.epochbatteries.com/products/24v-100ah-marine-lithium-battery",
+    "source_type": "manufacturer_product_page",
+    "authority": "manufacturer_product",
+    "publisher": "Epoch Batteries",
+    "retrieved_at": "2026-09-07T04:35:03.425Z",
+    "manufacturer": "Epoch Batteries",
+    "content_hash": "sha256:6a868d57577f1af79a782cbcffc3cca9d16c7d8abf175ec6a8ab894127e8cebc"
+  },
+  "facts": [
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.5291234566583bdc",
+      "source_id": "epoch-batteries.phase9b-d2.product-page",
+      "field": "unmapped",
+      "raw_label": "Brand",
+      "raw_value": "Epoch Batteries",
+      "source_locator": {
+        "fragment": "table-1",
+        "table": "table-1",
+        "section": "Technical Specifications & Dimensions",
+        "row": "1"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.ba3212be82b3325d",
+      "source_id": "epoch-batteries.phase9b-d2.product-page",
+      "field": "unmapped",
+      "raw_label": "Product name",
+      "raw_value": "24V 100Ah LiFePO4 Battery (2.56kWh)",
+      "source_locator": {
+        "fragment": "table-1",
+        "table": "table-1",
+        "section": "Technical Specifications & Dimensions",
+        "row": "2"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.b9b05422a0efc614",
+      "source_id": "epoch-batteries.phase9b-d2.product-page",
+      "field": "unmapped",
+      "raw_label": "Model / SKU",
+      "raw_value": "B24100A-C",
+      "source_locator": {
+        "fragment": "table-1",
+        "table": "table-1",
+        "section": "Technical Specifications & Dimensions",
+        "row": "3"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.9b30502f44424de8",
+      "source_id": "epoch-batteries.phase9b-d2.product-page",
+      "field": "unmapped",
+      "raw_label": "Battery type",
+      "raw_value": "Heated Bluetooth deep-cycle LiFePO4 battery",
+      "source_locator": {
+        "fragment": "table-1",
+        "table": "table-1",
+        "section": "Technical Specifications & Dimensions",
+        "row": "4"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.cd892fefab218a35",
+      "source_id": "epoch-batteries.phase9b-d2.product-page",
+      "field": "unmapped",
+      "raw_label": "Chemistry",
+      "raw_value": "LiFePO4 / lithium iron phosphate",
+      "source_locator": {
+        "fragment": "table-1",
+        "table": "table-1",
+        "section": "Technical Specifications & Dimensions",
+        "row": "5"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.9e885847c9fc0f2d",
+      "source_id": "epoch-batteries.phase9b-d2.product-page",
+      "field": "unmapped",
+      "raw_label": "Cell configuration",
+      "raw_value": "8S",
+      "source_locator": {
+        "fragment": "table-1",
+        "table": "table-1",
+        "section": "Technical Specifications & Dimensions",
+        "row": "6"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.ad94634feb9dae1f",
+      "source_id": "epoch-batteries.phase9b-d2.product-page",
+      "field": "unmapped",
+      "raw_label": "Bluetooth",
+      "raw_value": "Yes — compatible with Epoch Li-Ion app for iOS and Android",
+      "source_locator": {
+        "fragment": "table-1",
+        "table": "table-1",
+        "section": "Technical Specifications & Dimensions",
+        "row": "7"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.b254d65c9e95aa59",
+      "source_id": "epoch-batteries.phase9b-d2.product-page",
+      "field": "unmapped",
+      "raw_label": "Internal heating",
+      "raw_value": "Yes",
+      "source_locator": {
+        "fragment": "table-1",
+        "table": "table-1",
+        "section": "Technical Specifications & Dimensions",
+        "row": "8"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.9e3e59affcf8fc04",
+      "source_id": "epoch-batteries.phase9b-d2.product-page",
+      "field": "unmapped",
+      "raw_label": "Cycle life",
+      "raw_value": "3,500+ cycles",
+      "source_locator": {
+        "fragment": "table-1",
+        "table": "table-1",
+        "section": "Technical Specifications & Dimensions",
+        "row": "9"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.36922a16f3d0bf1a",
+      "source_id": "epoch-batteries.phase9b-d2.product-page",
+      "field": "unmapped",
+      "raw_label": "Warranty",
+      "raw_value": "11-year manufacturer warranty; recertified units may differ",
+      "source_locator": {
+        "fragment": "table-1",
+        "table": "table-1",
+        "section": "Technical Specifications & Dimensions",
+        "row": "10"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.03c684454dbb5e48",
+      "source_id": "epoch-batteries.phase9b-d2.product-page",
+      "field": "unmapped",
+      "raw_label": "Nominal voltage",
+      "raw_value": "24V system class / 25.6V nominal",
+      "source_locator": {
+        "fragment": "table-1",
+        "table": "table-1",
+        "section": "Technical Specifications & Dimensions",
+        "row": "11"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.5c38cc4619d3d737",
+      "source_id": "epoch-batteries.phase9b-d2.product-page",
+      "field": "unmapped",
+      "raw_label": "Nominal capacity",
+      "raw_value": "100Ah",
+      "source_locator": {
+        "fragment": "table-1",
+        "table": "table-1",
+        "section": "Technical Specifications & Dimensions",
+        "row": "12"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.7625ae48f8525c08",
+      "source_id": "epoch-batteries.phase9b-d2.product-page",
+      "field": "unmapped",
+      "raw_label": "Energy stored",
+      "raw_value": "2.56kWh",
+      "source_locator": {
+        "fragment": "table-1",
+        "table": "table-1",
+        "section": "Technical Specifications & Dimensions",
+        "row": "13"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.043ca064f1bdd888",
+      "source_id": "epoch-batteries.phase9b-d2.product-page",
+      "field": "unmapped",
+      "raw_label": "Operating voltage range",
+      "raw_value": "20.0V – 29.2V",
+      "source_locator": {
+        "fragment": "table-1",
+        "table": "table-1",
+        "section": "Technical Specifications & Dimensions",
+        "row": "14"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.a87ea6c927fd4c4e",
+      "source_id": "epoch-batteries.phase9b-d2.product-page",
+      "field": "unmapped",
+      "raw_label": "Maximum charge voltage",
+      "raw_value": "29.2V",
+      "source_locator": {
+        "fragment": "table-1",
+        "table": "table-1",
+        "section": "Technical Specifications & Dimensions",
+        "row": "15"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.946671d3994664f9",
+      "source_id": "epoch-batteries.phase9b-d2.product-page",
+      "field": "unmapped",
+      "raw_label": "Max continuous discharge",
+      "raw_value": "120A",
+      "source_locator": {
+        "fragment": "table-1",
+        "table": "table-1",
+        "section": "Technical Specifications & Dimensions",
+        "row": "16"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.ba260c393fb9c813",
+      "source_id": "epoch-batteries.phase9b-d2.product-page",
+      "field": "unmapped",
+      "raw_label": "Continuous charge current",
+      "raw_value": "50A recommended / 50% charge-rate guidance",
+      "source_locator": {
+        "fragment": "table-1",
+        "table": "table-1",
+        "section": "Technical Specifications & Dimensions",
+        "row": "17"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.98c13ea6ca63931c",
+      "source_id": "epoch-batteries.phase9b-d2.product-page",
+      "field": "unmapped",
+      "raw_label": "Max charge current",
+      "raw_value": "150A for 10 seconds",
+      "source_locator": {
+        "fragment": "table-1",
+        "table": "table-1",
+        "section": "Technical Specifications & Dimensions",
+        "row": "18"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.80c3a550297e81cf",
+      "source_id": "epoch-batteries.phase9b-d2.product-page",
+      "field": "unmapped",
+      "raw_label": "Max discharge peak current",
+      "raw_value": "200A for 60 seconds",
+      "source_locator": {
+        "fragment": "table-1",
+        "table": "table-1",
+        "section": "Technical Specifications & Dimensions",
+        "row": "19"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.9cc6b377771b41dc",
+      "source_id": "epoch-batteries.phase9b-d2.product-page",
+      "field": "unmapped",
+      "raw_label": "Series connections",
+      "raw_value": "Max 2 batteries in series, up to 48V",
+      "source_locator": {
+        "fragment": "table-1",
+        "table": "table-1",
+        "section": "Technical Specifications & Dimensions",
+        "row": "20"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.fdbb8dd600dc615b",
+      "source_id": "epoch-batteries.phase9b-d2.product-page",
+      "field": "unmapped",
+      "raw_label": "Parallel connections",
+      "raw_value": "Max 4 batteries in parallel, up to 400Ah at 24V",
+      "source_locator": {
+        "fragment": "table-1",
+        "table": "table-1",
+        "section": "Technical Specifications & Dimensions",
+        "row": "21"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.2573d1a19d9640d8",
+      "source_id": "epoch-batteries.phase9b-d2.product-page",
+      "field": "unmapped",
+      "raw_label": "Bank matching",
+      "raw_value": "Use matched batteries of the same model, age, capacity, and state of charge",
+      "source_locator": {
+        "fragment": "table-1",
+        "table": "table-1",
+        "section": "Technical Specifications & Dimensions",
+        "row": "22"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.3fa25ef07381b3b1",
+      "source_id": "epoch-batteries.phase9b-d2.product-page",
+      "field": "unmapped",
+      "raw_label": "Charge temperature range",
+      "raw_value": "-20°C to 55°C / -4°F to 131°F with heating",
+      "source_locator": {
+        "fragment": "table-1",
+        "table": "table-1",
+        "section": "Technical Specifications & Dimensions",
+        "row": "23"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.1d9ff57ef411c874",
+      "source_id": "epoch-batteries.phase9b-d2.product-page",
+      "field": "unmapped",
+      "raw_label": "Battery / cell charge range",
+      "raw_value": "0°C to 55°C / 32°F to 131°F after heating",
+      "source_locator": {
+        "fragment": "table-1",
+        "table": "table-1",
+        "section": "Technical Specifications & Dimensions",
+        "row": "24"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.69e8880ed70b021a",
+      "source_id": "epoch-batteries.phase9b-d2.product-page",
+      "field": "unmapped",
+      "raw_label": "Discharge temperature range",
+      "raw_value": "-20°C to 60°C / -4°F to 140°F",
+      "source_locator": {
+        "fragment": "table-1",
+        "table": "table-1",
+        "section": "Technical Specifications & Dimensions",
+        "row": "25"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.18313ec6f4824f97",
+      "source_id": "epoch-batteries.phase9b-d2.product-page",
+      "field": "unmapped",
+      "raw_label": "Storage temperature",
+      "raw_value": "0°C to 35°C / 32°F to 95°F, max 12 months",
+      "source_locator": {
+        "fragment": "table-1",
+        "table": "table-1",
+        "section": "Technical Specifications & Dimensions",
+        "row": "26"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.359adbb8f95375dd",
+      "source_id": "epoch-batteries.phase9b-d2.product-page",
+      "field": "unmapped",
+      "raw_label": "Length",
+      "raw_value": "13 in",
+      "raw_unit": "in",
+      "source_locator": {
+        "fragment": "table-1",
+        "table": "table-1",
+        "section": "Technical Specifications & Dimensions",
+        "row": "27"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.29c85b7199de1bad",
+      "source_id": "epoch-batteries.phase9b-d2.product-page",
+      "field": "unmapped",
+      "raw_label": "Width",
+      "raw_value": "10.25 in",
+      "raw_unit": "in",
+      "source_locator": {
+        "fragment": "table-1",
+        "table": "table-1",
+        "section": "Technical Specifications & Dimensions",
+        "row": "28"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.8fe2d88c27ea46b8",
+      "source_id": "epoch-batteries.phase9b-d2.product-page",
+      "field": "unmapped",
+      "raw_label": "Height",
+      "raw_value": "11 in",
+      "raw_unit": "in",
+      "source_locator": {
+        "fragment": "table-1",
+        "table": "table-1",
+        "section": "Technical Specifications & Dimensions",
+        "row": "29"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.ed1dc3516a528e53",
+      "source_id": "epoch-batteries.phase9b-d2.product-page",
+      "field": "unmapped",
+      "raw_label": "Weight",
+      "raw_value": "48.5 lb",
+      "raw_unit": "lb",
+      "source_locator": {
+        "fragment": "table-1",
+        "table": "table-1",
+        "section": "Technical Specifications & Dimensions",
+        "row": "30"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.6c18c9fb33c4b20e",
+      "source_id": "epoch-batteries.phase9b-d2.product-page",
+      "field": "unmapped",
+      "raw_label": "IP rating",
+      "raw_value": "IP67 waterproof and dustproof",
+      "source_locator": {
+        "fragment": "table-1",
+        "table": "table-1",
+        "section": "Technical Specifications & Dimensions",
+        "row": "31"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.e478847dd77f5c24",
+      "source_id": "epoch-batteries.phase9b-d2.product-page",
+      "field": "unmapped",
+      "raw_label": "Smart BMS",
+      "raw_value": "Overcharge, over-discharge, over-current, short circuit, high and low temperature disconnects",
+      "source_locator": {
+        "fragment": "table-1",
+        "table": "table-1",
+        "section": "Technical Specifications & Dimensions",
+        "row": "32"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.778757112f3dbb5e",
+      "source_id": "epoch-batteries.phase9b-d2.product-page",
+      "field": "unmapped",
+      "raw_label": "Maintenance",
+      "raw_value": "Maintenance-free LiFePO4 design",
+      "source_locator": {
+        "fragment": "table-1",
+        "table": "table-1",
+        "section": "Technical Specifications & Dimensions",
+        "row": "33"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.f6a165af5e0f6839",
+      "source_id": "epoch-batteries.phase9b-d2.product-page",
+      "field": "unmapped",
+      "raw_label": "Required charger type",
+      "raw_value": "24V LiFePO4-compatible marine charger, RV converter, inverter charger, solar charge controller, or DC-to-DC charger",
+      "source_locator": {
+        "fragment": "table-1",
+        "table": "table-1",
+        "section": "Technical Specifications & Dimensions",
+        "row": "34"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.a51dfa9f6026dc0a",
+      "source_id": "epoch-batteries.phase9b-d2.product-page",
+      "field": "unmapped",
+      "raw_label": "Bulk / absorption voltage",
+      "raw_value": "28.4V – 29.2V; do not exceed 29.2V max charge voltage",
+      "source_locator": {
+        "fragment": "table-1",
+        "table": "table-1",
+        "section": "Technical Specifications & Dimensions",
+        "row": "35"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.cf61a764703f0662",
+      "source_id": "epoch-batteries.phase9b-d2.product-page",
+      "field": "unmapped",
+      "raw_label": "Float voltage",
+      "raw_value": "Lithium-compatible float or disabled, depending on charger system",
+      "source_locator": {
+        "fragment": "table-1",
+        "table": "table-1",
+        "section": "Technical Specifications & Dimensions",
+        "row": "36"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.01566c4b7bce4e3b",
+      "source_id": "epoch-batteries.phase9b-d2.product-page",
+      "field": "unmapped",
+      "raw_label": "Equalization",
+      "raw_value": "Disabled",
+      "source_locator": {
+        "fragment": "table-1",
+        "table": "table-1",
+        "section": "Technical Specifications & Dimensions",
+        "row": "37"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.bf6b0b2957ff86bc",
+      "source_id": "epoch-batteries.phase9b-d2.product-page",
+      "field": "unmapped",
+      "raw_label": "Temperature compensation",
+      "raw_value": "Disabled / 0",
+      "source_locator": {
+        "fragment": "table-1",
+        "table": "table-1",
+        "section": "Technical Specifications & Dimensions",
+        "row": "38"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.c764208a6da14530",
+      "source_id": "epoch-batteries.phase9b-d2.product-page",
+      "field": "unmapped",
+      "raw_label": "Charge profile note",
+      "raw_value": "Avoid 12V chargers and non-programmable lead-acid chargers",
+      "source_locator": {
+        "fragment": "table-1",
+        "table": "table-1",
+        "section": "Technical Specifications & Dimensions",
+        "row": "39"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed.",
+      "fact_state": "provisional"
+    }
+  ],
+  "normalized_facts": [
+    {
+      "fact": {
+        "schema_version": "1.0",
+        "id": "extracted.fact.cd892fefab218a35",
+        "source_id": "epoch-batteries.phase9b-d2.product-page",
+        "field": "battery.chemistry",
+        "raw_label": "Chemistry",
+        "raw_value": "LiFePO4 / lithium iron phosphate",
+        "source_locator": {
+          "fragment": "table-1",
+          "table": "table-1",
+          "section": "Technical Specifications & Dimensions",
+          "row": "5"
+        },
+        "extraction_method": "structured",
+        "review_required": true,
+        "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed. Explicit mapping 'Chemistry' -> 'battery.chemistry'.",
+        "fact_state": "provisional",
+        "normalized_value": "lifepo4",
+        "normalized_unit": "string"
+      },
+      "source": {
+        "schema_version": "1.0",
+        "id": "epoch-batteries.phase9b-d2.product-page",
+        "uri": "https://www.epochbatteries.com/products/24v-100ah-marine-lithium-battery",
+        "source_type": "manufacturer_product_page",
+        "authority": "manufacturer_product",
+        "publisher": "Epoch Batteries",
+        "retrieved_at": "2026-09-07T04:35:03.425Z",
+        "manufacturer": "Epoch Batteries",
+        "content_hash": "sha256:6a868d57577f1af79a782cbcffc3cca9d16c7d8abf175ec6a8ab894127e8cebc"
+      },
+      "canonical_field": "battery.chemistry",
+      "normalized_value": "lifepo4",
+      "normalized_unit": "string",
+      "dimension": "chemistry",
+      "source_authority": "manufacturer_product",
+      "target_kind": "canonical"
+    },
+    {
+      "fact": {
+        "schema_version": "1.0",
+        "id": "extracted.fact.5c38cc4619d3d737",
+        "source_id": "epoch-batteries.phase9b-d2.product-page",
+        "field": "battery.nominal_capacity_ah",
+        "raw_label": "Nominal capacity",
+        "raw_value": "100Ah",
+        "source_locator": {
+          "fragment": "table-1",
+          "table": "table-1",
+          "section": "Technical Specifications & Dimensions",
+          "row": "12"
+        },
+        "extraction_method": "structured",
+        "review_required": true,
+        "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed. Explicit mapping 'Nominal capacity' -> 'battery.nominal_capacity_ah'.",
+        "fact_state": "provisional",
+        "normalized_value": 100,
+        "normalized_unit": "Ah"
+      },
+      "source": {
+        "schema_version": "1.0",
+        "id": "epoch-batteries.phase9b-d2.product-page",
+        "uri": "https://www.epochbatteries.com/products/24v-100ah-marine-lithium-battery",
+        "source_type": "manufacturer_product_page",
+        "authority": "manufacturer_product",
+        "publisher": "Epoch Batteries",
+        "retrieved_at": "2026-09-07T04:35:03.425Z",
+        "manufacturer": "Epoch Batteries",
+        "content_hash": "sha256:6a868d57577f1af79a782cbcffc3cca9d16c7d8abf175ec6a8ab894127e8cebc"
+      },
+      "canonical_field": "battery.nominal_capacity_ah",
+      "normalized_value": 100,
+      "normalized_unit": "Ah",
+      "dimension": "capacity",
+      "source_authority": "manufacturer_product",
+      "target_kind": "canonical"
+    },
+    {
+      "fact": {
+        "schema_version": "1.0",
+        "id": "extracted.fact.946671d3994664f9",
+        "source_id": "epoch-batteries.phase9b-d2.product-page",
+        "field": "electrical.continuous_discharge_current_a",
+        "raw_label": "Max continuous discharge",
+        "raw_value": "120A",
+        "source_locator": {
+          "fragment": "table-1",
+          "table": "table-1",
+          "section": "Technical Specifications & Dimensions",
+          "row": "16"
+        },
+        "extraction_method": "structured",
+        "review_required": true,
+        "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed. Explicit mapping 'Max continuous discharge' -> 'electrical.continuous_discharge_current_a'.",
+        "fact_state": "provisional",
+        "normalized_value": 120,
+        "normalized_unit": "A"
+      },
+      "source": {
+        "schema_version": "1.0",
+        "id": "epoch-batteries.phase9b-d2.product-page",
+        "uri": "https://www.epochbatteries.com/products/24v-100ah-marine-lithium-battery",
+        "source_type": "manufacturer_product_page",
+        "authority": "manufacturer_product",
+        "publisher": "Epoch Batteries",
+        "retrieved_at": "2026-09-07T04:35:03.425Z",
+        "manufacturer": "Epoch Batteries",
+        "content_hash": "sha256:6a868d57577f1af79a782cbcffc3cca9d16c7d8abf175ec6a8ab894127e8cebc"
+      },
+      "canonical_field": "electrical.continuous_discharge_current_a",
+      "normalized_value": 120,
+      "normalized_unit": "A",
+      "dimension": "current",
+      "source_authority": "manufacturer_product",
+      "target_kind": "canonical"
+    },
+    {
+      "fact": {
+        "schema_version": "1.0",
+        "id": "extracted.fact.29c85b7199de1bad",
+        "source_id": "epoch-batteries.phase9b-d2.product-page",
+        "field": "dimensions_mm.x",
+        "raw_label": "Width",
+        "raw_value": "10.25 in",
+        "raw_unit": "in",
+        "source_locator": {
+          "fragment": "table-1",
+          "table": "table-1",
+          "section": "Technical Specifications & Dimensions",
+          "row": "28"
+        },
+        "extraction_method": "structured",
+        "review_required": true,
+        "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed. Explicit mapping 'Width' -> 'dimensions_mm.x'. Converted in to mm.",
+        "fact_state": "provisional",
+        "normalized_value": 260.34999999999997,
+        "normalized_unit": "mm"
+      },
+      "source": {
+        "schema_version": "1.0",
+        "id": "epoch-batteries.phase9b-d2.product-page",
+        "uri": "https://www.epochbatteries.com/products/24v-100ah-marine-lithium-battery",
+        "source_type": "manufacturer_product_page",
+        "authority": "manufacturer_product",
+        "publisher": "Epoch Batteries",
+        "retrieved_at": "2026-09-07T04:35:03.425Z",
+        "manufacturer": "Epoch Batteries",
+        "content_hash": "sha256:6a868d57577f1af79a782cbcffc3cca9d16c7d8abf175ec6a8ab894127e8cebc"
+      },
+      "canonical_field": "dimensions_mm.x",
+      "normalized_value": 260.34999999999997,
+      "normalized_unit": "mm",
+      "dimension": "length",
+      "source_authority": "manufacturer_product",
+      "target_kind": "canonical"
+    },
+    {
+      "fact": {
+        "schema_version": "1.0",
+        "id": "extracted.fact.8fe2d88c27ea46b8",
+        "source_id": "epoch-batteries.phase9b-d2.product-page",
+        "field": "dimensions_mm.z",
+        "raw_label": "Height",
+        "raw_value": "11 in",
+        "raw_unit": "in",
+        "source_locator": {
+          "fragment": "table-1",
+          "table": "table-1",
+          "section": "Technical Specifications & Dimensions",
+          "row": "29"
+        },
+        "extraction_method": "structured",
+        "review_required": true,
+        "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed. Explicit mapping 'Height' -> 'dimensions_mm.z'. Converted in to mm.",
+        "fact_state": "provisional",
+        "normalized_value": 279.4,
+        "normalized_unit": "mm"
+      },
+      "source": {
+        "schema_version": "1.0",
+        "id": "epoch-batteries.phase9b-d2.product-page",
+        "uri": "https://www.epochbatteries.com/products/24v-100ah-marine-lithium-battery",
+        "source_type": "manufacturer_product_page",
+        "authority": "manufacturer_product",
+        "publisher": "Epoch Batteries",
+        "retrieved_at": "2026-09-07T04:35:03.425Z",
+        "manufacturer": "Epoch Batteries",
+        "content_hash": "sha256:6a868d57577f1af79a782cbcffc3cca9d16c7d8abf175ec6a8ab894127e8cebc"
+      },
+      "canonical_field": "dimensions_mm.z",
+      "normalized_value": 279.4,
+      "normalized_unit": "mm",
+      "dimension": "length",
+      "source_authority": "manufacturer_product",
+      "target_kind": "canonical"
+    },
+    {
+      "fact": {
+        "schema_version": "1.0",
+        "id": "extracted.fact.ed1dc3516a528e53",
+        "source_id": "epoch-batteries.phase9b-d2.product-page",
+        "field": "weight_kg",
+        "raw_label": "Weight",
+        "raw_value": "48.5 lb",
+        "raw_unit": "lb",
+        "source_locator": {
+          "fragment": "table-1",
+          "table": "table-1",
+          "section": "Technical Specifications & Dimensions",
+          "row": "30"
+        },
+        "extraction_method": "structured",
+        "review_required": true,
+        "transformation_notes": "Raw claim only; no semantic mapping or unit conversion performed. Explicit mapping 'Weight' -> 'weight_kg'. Converted lb to kg.",
+        "fact_state": "provisional",
+        "normalized_value": 21.999229945,
+        "normalized_unit": "kg"
+      },
+      "source": {
+        "schema_version": "1.0",
+        "id": "epoch-batteries.phase9b-d2.product-page",
+        "uri": "https://www.epochbatteries.com/products/24v-100ah-marine-lithium-battery",
+        "source_type": "manufacturer_product_page",
+        "authority": "manufacturer_product",
+        "publisher": "Epoch Batteries",
+        "retrieved_at": "2026-09-07T04:35:03.425Z",
+        "manufacturer": "Epoch Batteries",
+        "content_hash": "sha256:6a868d57577f1af79a782cbcffc3cca9d16c7d8abf175ec6a8ab894127e8cebc"
+      },
+      "canonical_field": "weight_kg",
+      "normalized_value": 21.999229945,
+      "normalized_unit": "kg",
+      "dimension": "mass",
+      "source_authority": "manufacturer_product",
+      "target_kind": "canonical"
+    }
+  ],
+  "candidate": {
+    "schema_version": "1.0",
+    "id": "epoch-batteries.phase9b-d2.b24100a-c",
+    "identity_status": "unresolved",
+    "identity": {
+      "manufacturer": "Epoch Batteries",
+      "model": "24V 100Ah LiFePO4 Battery (2.56kWh)",
+      "manufacturer_part_number": "B24100A-C",
+      "voltage_variant": "24V"
+    },
+    "review_status": "pending",
+    "promotion_status": "blocked",
+    "source_ids": [
+      "epoch-batteries.phase9b-d2.product-page"
+    ],
+    "identity_source_ids": [],
+    "fact_ids": [
+      "extracted.fact.01566c4b7bce4e3b",
+      "extracted.fact.03c684454dbb5e48",
+      "extracted.fact.043ca064f1bdd888",
+      "extracted.fact.18313ec6f4824f97",
+      "extracted.fact.1d9ff57ef411c874",
+      "extracted.fact.2573d1a19d9640d8",
+      "extracted.fact.29c85b7199de1bad",
+      "extracted.fact.359adbb8f95375dd",
+      "extracted.fact.36922a16f3d0bf1a",
+      "extracted.fact.3fa25ef07381b3b1",
+      "extracted.fact.5291234566583bdc",
+      "extracted.fact.5c38cc4619d3d737",
+      "extracted.fact.69e8880ed70b021a",
+      "extracted.fact.6c18c9fb33c4b20e",
+      "extracted.fact.7625ae48f8525c08",
+      "extracted.fact.778757112f3dbb5e",
+      "extracted.fact.80c3a550297e81cf",
+      "extracted.fact.8fe2d88c27ea46b8",
+      "extracted.fact.946671d3994664f9",
+      "extracted.fact.98c13ea6ca63931c",
+      "extracted.fact.9b30502f44424de8",
+      "extracted.fact.9cc6b377771b41dc",
+      "extracted.fact.9e3e59affcf8fc04",
+      "extracted.fact.9e885847c9fc0f2d",
+      "extracted.fact.a51dfa9f6026dc0a",
+      "extracted.fact.a87ea6c927fd4c4e",
+      "extracted.fact.ad94634feb9dae1f",
+      "extracted.fact.b254d65c9e95aa59",
+      "extracted.fact.b9b05422a0efc614",
+      "extracted.fact.ba260c393fb9c813",
+      "extracted.fact.ba3212be82b3325d",
+      "extracted.fact.bf6b0b2957ff86bc",
+      "extracted.fact.c764208a6da14530",
+      "extracted.fact.cd892fefab218a35",
+      "extracted.fact.cf61a764703f0662",
+      "extracted.fact.e478847dd77f5c24",
+      "extracted.fact.ed1dc3516a528e53",
+      "extracted.fact.f6a165af5e0f6839",
+      "extracted.fact.fdbb8dd600dc615b"
+    ],
+    "component_data": {},
+    "field_evidence": {},
+    "review_reasons": [
+      "reconciliation_identity_unresolved",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required",
+      "fact_review_required"
+    ]
+  },
+  "source_summary": {
+    "uri": "https://www.epochbatteries.com/products/24v-100ah-marine-lithium-battery",
+    "direct_identity": false,
+    "source_type": "manufacturer_product_page",
+    "publisher": "Epoch Batteries",
+    "content_hash": "sha256:6a868d57577f1af79a782cbcffc3cca9d16c7d8abf175ec6a8ab894127e8cebc"
+  }
+}

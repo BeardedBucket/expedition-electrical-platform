@@ -1,0 +1,195 @@
+{
+  "schema_version": "1.0",
+  "review_scope": "phase9b-3m-d2-victron-topology-only",
+  "target_identity": {
+    "manufacturer": "Victron Energy",
+    "manufacturer_part_number": "PMP242200100",
+    "model": "24/2000/50-50 120V VE.Bus"
+  },
+  "sources": [
+    {
+      "schema_version": "1.0",
+      "id": "victron.multiplus-24-2000-50-50-120v.product-page",
+      "uri": "https://www.victronenergy.com/inverters-chargers/multiplus-2000-va",
+      "source_type": "manufacturer_product_page",
+      "authority": "manufacturer_product",
+      "publisher": "Victron Energy",
+      "retrieved_at": "2026-09-05T17:48:40.751Z",
+      "content_hash": "sha256:da9031001bdfecb6518c6902773b5031b89ca53c9523863333fc89350ad457a2",
+      "applicability": "direct_identity",
+      "applies_to": [
+        "PMP242200100"
+      ],
+      "notes": "Existing captured exact-product source; the source-observed MPN is PMP242200100."
+    },
+    {
+      "schema_version": "1.0",
+      "id": "victron.multiplus-24-2000-50-50-120v.datasheet",
+      "uri": "https://www.victronenergy.com/upload/documents/Datasheet-MultiPlus-2000VA-120V-EN.pdf",
+      "source_type": "manufacturer_datasheet",
+      "authority": "manufacturer_technical",
+      "publisher": "Victron Energy",
+      "retrieved_at": "2026-09-07T05:21:24.417Z",
+      "title": "MultiPlus Inverter/Charger 2000VA 120V",
+      "content_hash": "sha256:26557ad64fc61bd3872e2dc49a4db4eed03e950e0bb3f4b5294d0939ffdb4b79",
+      "applicability": "explicitly_reviewed",
+      "applies_to": [
+        "PMP242200100"
+      ],
+      "notes": "Captured through the repository HTTP source adapter; the datasheet model table includes PMP242200100."
+    }
+  ],
+  "facts": [
+    {
+      "schema_version": "1.0",
+      "id": "fact.victron.inversion",
+      "source_id": "victron.multiplus-24-2000-50-50-120v.datasheet",
+      "field": "topology",
+      "raw_label": "Inverter function",
+      "raw_value": "The MultiPlus is a powerful true sine wave inverter.",
+      "source_locator": {
+        "section": "Multifunctional, with intelligent power management",
+        "fragment": "The MultiPlus is a powerful true sine wave inverter"
+      },
+      "extraction_method": "text",
+      "fact_state": "verified",
+      "topology_target": {
+        "kind": "capability",
+        "id": "inversion"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "id": "fact.victron.charging",
+      "source_id": "victron.multiplus-24-2000-50-50-120v.datasheet",
+      "field": "topology",
+      "raw_label": "Charger function",
+      "raw_value": "The MultiPlus is a sophisticated battery charger that features adaptive charge technology.",
+      "source_locator": {
+        "section": "Multifunctional, with intelligent power management",
+        "fragment": "a sophisticated battery charger that features adaptive charge technology"
+      },
+      "extraction_method": "text",
+      "fact_state": "verified",
+      "topology_target": {
+        "kind": "capability",
+        "id": "charging"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "id": "fact.victron.dc_port",
+      "source_id": "victron.multiplus-24-2000-50-50-120v.datasheet",
+      "field": "topology",
+      "raw_label": "Battery interface",
+      "raw_value": "Power from the battery; the spare power is used to recharge the battery.",
+      "source_locator": {
+        "section": "PowerAssist - Boosting the capacity of shore or generator power",
+        "fragment": "power from the battery; the spare power is used to recharge the battery"
+      },
+      "extraction_method": "text",
+      "fact_state": "verified",
+      "topology_target": {
+        "kind": "port",
+        "id": "dc_port"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "id": "fact.victron.ac_input",
+      "source_id": "victron.multiplus-24-2000-50-50-120v.datasheet",
+      "field": "topology",
+      "raw_label": "AC input",
+      "raw_value": "AC Input voltage range 95-140 VAC.",
+      "source_locator": {
+        "section": "CHARGER",
+        "table": "MultiPlus 24/2000/50-50",
+        "row": "AC Input voltage range"
+      },
+      "extraction_method": "table",
+      "fact_state": "verified",
+      "topology_target": {
+        "kind": "port",
+        "id": "ac_input"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "id": "fact.victron.ac_output",
+      "source_id": "victron.multiplus-24-2000-50-50-120v.datasheet",
+      "field": "topology",
+      "raw_label": "AC output",
+      "raw_value": "Output voltage: 120VAC.",
+      "source_locator": {
+        "section": "INVERTER",
+        "table": "MultiPlus 24/2000/50-50",
+        "row": "Output voltage"
+      },
+      "extraction_method": "table",
+      "fact_state": "verified",
+      "topology_target": {
+        "kind": "port",
+        "id": "ac_output"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "id": "fact.victron.inversion_path",
+      "source_id": "victron.multiplus-24-2000-50-50-120v.datasheet",
+      "field": "topology",
+      "raw_label": "Battery to AC output",
+      "raw_value": "Power from the battery feeds the inverter function, which provides the stated AC output.",
+      "source_locator": {
+        "section": "PowerAssist - Boosting the capacity of shore or generator power; INVERTER",
+        "fragment": "power from the battery; Output voltage: 120VAC"
+      },
+      "extraction_method": "text",
+      "fact_state": "verified",
+      "topology_target": {
+        "kind": "power_path",
+        "id": "inversion_path"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "id": "fact.victron.charging_path",
+      "source_id": "victron.multiplus-24-2000-50-50-120v.datasheet",
+      "field": "topology",
+      "raw_label": "AC input to battery",
+      "raw_value": "The MultiPlus uses whatever is extra from the AC source for charging and provides a powerful charge to the battery system.",
+      "source_locator": {
+        "section": "PowerControl - Dealing with limited generator, shore side or grid power; Four stage adaptive charger and dual bank battery charging",
+        "fragment": "use whatever is extra for charging; charge to the battery system"
+      },
+      "extraction_method": "text",
+      "fact_state": "verified",
+      "topology_target": {
+        "kind": "power_path",
+        "id": "charging_path"
+      }
+    }
+  ],
+  "topology_evidence": {
+    "capability:inversion": [
+      "fact.victron.inversion"
+    ],
+    "capability:charging": [
+      "fact.victron.charging"
+    ],
+    "port:dc_port": [
+      "fact.victron.dc_port"
+    ],
+    "port:ac_input": [
+      "fact.victron.ac_input"
+    ],
+    "port:ac_output": [
+      "fact.victron.ac_output"
+    ],
+    "power_path:inversion_path": [
+      "fact.victron.inversion_path"
+    ],
+    "power_path:charging_path": [
+      "fact.victron.charging_path"
+    ]
+  }
+}

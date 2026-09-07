@@ -1,3 +1,87 @@
+amendment_history:
+  - candidate_id: victron-pmp242200100-topology-d2
+    expected_snapshot: sha256:393067e6f0409c9c90c0542893e9565fab0fa7594c87ebd22dc90d1aab7019e4
+    fields: []
+    review_id: review.amendment.victron-pmp242200100-topology-d2
+    source_ids:
+      - victron.multiplus-24-2000-50-50-120v.product-page
+      - victron.multiplus-24-2000-50-50-120v.datasheet
+    topology_operations:
+      - fact_ids:
+          - fact.victron.inversion
+        id: inversion
+        kind: capability
+        operation: add
+        review_id: review.amendment.victron-pmp242200100-topology-d2
+        value:
+          id: inversion
+          type: inversion
+      - fact_ids:
+          - fact.victron.charging
+        id: charging
+        kind: capability
+        operation: add
+        review_id: review.amendment.victron-pmp242200100-topology-d2
+        value:
+          id: charging
+          type: charging
+      - fact_ids:
+          - fact.victron.dc_port
+        id: dc_port
+        kind: port
+        operation: add
+        review_id: review.amendment.victron-pmp242200100-topology-d2
+        value:
+          direction: bidirectional
+          domain: dc
+          id: dc_port
+      - fact_ids:
+          - fact.victron.ac_input
+        id: ac_input
+        kind: port
+        operation: add
+        review_id: review.amendment.victron-pmp242200100-topology-d2
+        value:
+          direction: input
+          domain: ac
+          id: ac_input
+      - fact_ids:
+          - fact.victron.ac_output
+        id: ac_output
+        kind: port
+        operation: add
+        review_id: review.amendment.victron-pmp242200100-topology-d2
+        value:
+          direction: output
+          domain: ac
+          id: ac_output
+      - fact_ids:
+          - fact.victron.inversion_path
+        id: inversion_path
+        kind: power_path
+        operation: add
+        review_id: review.amendment.victron-pmp242200100-topology-d2
+        value:
+          capability_id: inversion
+          from_port: dc_port
+          id: inversion_path
+          to_port: ac_output
+      - fact_ids:
+          - fact.victron.charging_path
+        id: charging_path
+        kind: power_path
+        operation: add
+        review_id: review.amendment.victron-pmp242200100-topology-d2
+        value:
+          capability_id: charging
+          from_port: ac_input
+          id: charging_path
+          to_port: dc_port
+capabilities:
+  - id: inversion
+    type: inversion
+  - id: charging
+    type: charging
 category: inverter_charger
 electrical:
   ac_output_voltage_v: 120
@@ -10,6 +94,25 @@ id: victron-energy.pmp242200100
 manufacturer: Victron Energy
 model: 24/2000/50-50 120V VE.Bus
 part_number: PMP242200100
+ports:
+  - direction: bidirectional
+    domain: dc
+    id: dc_port
+  - direction: input
+    domain: ac
+    id: ac_input
+  - direction: output
+    domain: ac
+    id: ac_output
+power_paths:
+  - capability_id: inversion
+    from_port: dc_port
+    id: inversion_path
+    to_port: ac_output
+  - capability_id: charging
+    from_port: ac_input
+    id: charging_path
+    to_port: dc_port
 product_family: MultiPlus
 product_role: inverter_charger
 source_refs:

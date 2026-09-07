@@ -1,0 +1,138 @@
+{
+  "schema_version": "1.0",
+  "review_scope": "phase9b-3m-d2-epoch-topology-only",
+  "target_identity": {
+    "manufacturer": "Epoch Batteries",
+    "manufacturer_part_number": "B24100A-C"
+  },
+  "sources": [
+    {
+      "schema_version": "1.0",
+      "id": "epoch.phase9b-d2.resources-page",
+      "uri": "https://www.epochbatteries.com/pages/resources",
+      "source_type": "manufacturer_product_page",
+      "authority": "manufacturer_product",
+      "publisher": "Epoch Batteries",
+      "retrieved_at": "2026-09-07T05:11:33.808Z",
+      "content_hash": "sha256:4f697d445531aecfe051f9bc1b74f53a8c8b15f57d7a293a5c0cee7f4f5921de",
+      "applicability": "explicitly_reviewed",
+      "applies_to": [
+        "B24100A-C"
+      ],
+      "notes": "The manufacturer Resources page lists SKU B24100A-C with the resource label User Manual."
+    },
+    {
+      "schema_version": "1.0",
+      "id": "epoch.phase9b-d2.b24100a-c.manual",
+      "uri": "https://cdn.shopify.com/s/files/1/0251/0484/2798/files/EB_ProductMaunal_221130.pdf?v=1669835549",
+      "source_type": "manufacturer_manual",
+      "authority": "manufacturer_technical",
+      "publisher": "Epoch Batteries",
+      "retrieved_at": "2026-09-07T05:11:10.282Z",
+      "title": "PRODUCT MANUAL - LI-ION BATTERY SYSTEMS",
+      "document_revision": "Updated: 11/30/22",
+      "content_hash": "sha256:f0957f0daaf41d319c7ffb3e4f34dc92a841a9a7429c08022a509d6c0755dc3d",
+      "applicability": "explicitly_reviewed",
+      "applies_to": [
+        "B24100A-C"
+      ],
+      "notes": "HTTP capture returned 200 application/pdf with no redirect. This is the same URL previously inspected."
+    }
+  ],
+  "applicability_fact": {
+    "schema_version": "1.0",
+    "id": "fact.epoch.b24100a-c.manual-applicability",
+    "source_id": "epoch.phase9b-d2.resources-page",
+    "field": "manual_applicability",
+    "raw_label": "User Manual",
+    "raw_value": "SKU: B24100A-C — 24V 100Ah LiFePO4 Lithium Battery (B24100A-C) — User Manual",
+    "source_locator": {
+      "section": "Resources",
+      "fragment": "resource-row-B24100A-C-user-manual"
+    },
+    "extraction_method": "manual",
+    "fact_state": "verified",
+    "notes": "Manufacturer resource association; not inferred from the PDF's internal model table."
+  },
+  "facts": [
+    {
+      "schema_version": "1.0",
+      "id": "fact.epoch.energy-storage",
+      "source_id": "epoch.phase9b-d2.b24100a-c.manual",
+      "field": "topology",
+      "raw_label": "Battery System / Lithium Iron Phosphate",
+      "raw_value": "Lithium Iron Phosphate (LiFePO4) battery system",
+      "source_locator": {
+        "page": 6,
+        "section": "PRODUCT OVERVIEW — BATTERY SYSTEM",
+        "fragment": "Lithium Iron Phosphate (LiFePO4) Chemistry"
+      },
+      "extraction_method": "text",
+      "fact_state": "verified",
+      "topology_target": {
+        "kind": "capability",
+        "id": "energy_storage"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "id": "fact.epoch.dc-discharge",
+      "source_id": "epoch.phase9b-d2.b24100a-c.manual",
+      "field": "topology",
+      "raw_label": "Main load connections",
+      "raw_value": "Connect the main positive (+) load cable to the positive (+) terminal and the main negative (-) load cable to the negative (-) terminal.",
+      "source_locator": {
+        "page": 9,
+        "section": "configuration — SERIES Configuration",
+        "fragment": "Connect the main positive (+) load cable"
+      },
+      "extraction_method": "text",
+      "fact_state": "verified",
+      "topology_target": {
+        "kind": "port",
+        "id": "dc_port"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "id": "fact.epoch.dc-charge",
+      "source_id": "epoch.phase9b-d2.b24100a-c.manual",
+      "field": "topology",
+      "raw_label": "Charger leads at battery terminals",
+      "raw_value": "Ensure that the positive (+) and negative (-) charger leads are securely connected to their respective battery terminals.",
+      "source_locator": {
+        "page": 11,
+        "section": "OPERATION INSTRUCTIONS — CHARGING",
+        "fragment": "positive (+) and negative (-) charger leads are securely connected to their respective battery terminals"
+      },
+      "extraction_method": "text",
+      "fact_state": "verified",
+      "topology_target": {
+        "kind": "port",
+        "id": "dc_port"
+      }
+    }
+  ],
+  "scalar_protection": {
+    "model_specific_table_rows_not_promoted": true,
+    "excluded_models": [
+      "B12100B",
+      "B1250B",
+      "B2450B",
+      "B24100B",
+      "B36100B",
+      "B3650B",
+      "V2",
+      "V2-T Elite"
+    ]
+  },
+  "topology_evidence": {
+    "capability:energy_storage": [
+      "fact.epoch.energy-storage"
+    ],
+    "port:dc_port": [
+      "fact.epoch.dc-discharge",
+      "fact.epoch.dc-charge"
+    ]
+  }
+}
