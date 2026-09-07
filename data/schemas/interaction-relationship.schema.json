@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:expedition-electrical-platform:schema:interaction-relationship",
+  "title": "Manufacturer-asserted interaction relationship",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "relationship_kind",
+    "participants",
+    "scope",
+    "evidence",
+    "state"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "minLength": 1 },
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]+$" },
+    "relationship_kind": {
+      "enum": [
+        "manufacturer_interoperability",
+        "required_intermediate",
+        "information_sharing",
+        "information_consumption",
+        "control_interaction"
+      ]
+    },
+    "participants": {
+      "type": "array",
+      "minItems": 2,
+      "items": { "$ref": "#/$defs/participant" }
+    },
+    "required_intermediates": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "scope": {
+      "enum": [
+        "exact_product",
+        "model",
+        "product_family",
+        "manufacturer_ecosystem",
+        "accessory_class",
+        "unknown"
+      ]
+    },
+    "information": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["direction", "participant_ref", "term"],
+        "properties": {
+          "direction": { "enum": ["exposes", "consumes"] },
+          "participant_ref": { "type": "string", "minLength": 1 },
+          "term": { "type": "string", "minLength": 1 },
+          "raw_wording": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "conditions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "value"],
+        "properties": {
+          "kind": {
+            "enum": [
+              "accessory_required",
+              "brand_dependent",
+              "firmware",
+              "hardware_revision",
+              "connection",
+              "configuration",
+              "other"
+            ]
+          },
+          "value": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "notes": { "type": "string" },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_ids", "fact_ids"],
+      "properties": {
+        "source_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "fact_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "state": {
+      "enum": ["verified", "provisional", "unresolved", "conflicting"]
+    }
+  },
+  "$defs": {
+    "participant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref", "kind", "role"],
+      "properties": {
+        "ref": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]+$" },
+        "kind": {
+          "enum": [
+            "interaction_endpoint",
+            "exact_product",
+            "product_model",
+            "product_family",
+            "manufacturer_ecosystem",
+            "accessory_class",
+            "unresolved_external"
+          ]
+        },
+        "role": { "type": "string", "minLength": 1 },
+        "endpoint_id": { "type": "string", "minLength": 1 },
+        "display_name": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}
