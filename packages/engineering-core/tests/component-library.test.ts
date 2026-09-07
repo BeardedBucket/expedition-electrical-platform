@@ -46,6 +46,107 @@ const baseComponent = {
   advisory_refs: [{ id: 'advisory-1', title: 'Synthetic advisory', type: 'policy_reference' }],
 } satisfies ComponentLibraryRecord;
 
+it('accepts legacy components that keep product_role without capabilities or ports', () => {
+  const legacy = {
+    ...baseComponent,
+    id: 'legacy.product-role-only',
+    product_role: 'battery',
+    capabilities: undefined,
+    ports: undefined,
+  };
+
+  expect(validateComponentLibraryRecord(legacy).ok).toBe(true);
+});
+
+it('accepts a single capability and multiple logical ports', () => {
+  const component = {
+    ...baseComponent,
+    id: 'synthetic.multifunction-controller',
+    capabilities: [{ id: 'cap.inversion', type: 'inversion' }],
+    ports: [
+      {
+        id: 'port.dc-in',
+        domain: 'dc',
+        direction: 'input',
+        voltage_v: { min: 20, max: 28 },
+        current_a: 120,
+      },
+      {
+        id: 'port.ac-out',
+        domain: 'ac',
+        direction: 'output',
+        voltage_v: { min: 110, max: 125 },
+        power_w: 2000,
+      },
+      {
+        id: 'port.dc-charge',
+        domain: 'dc',
+        direction: 'input',
+        voltage_v: 80,
+        current_a: { min: 20, max: 30 },
+      },
+    ],
+  } as ComponentLibraryRecord;
+
+  expect(validateComponentLibraryRecord(component).ok).toBe(true);
+});
+
+it('rejects malformed capability and port contracts', () => {
+  const duplicateCapability = validateComponentLibraryRecord({
+    ...baseComponent,
+    capabilities: [
+      { id: 'cap.dup', type: 'inversion' },
+      { id: 'cap.dup', type: 'charging' },
+    ],
+  });
+  const duplicatePort = validateComponentLibraryRecord({
+    ...baseComponent,
+    ports: [
+      { id: 'port.dup', domain: 'dc', direction: 'input' },
+      { id: 'port.dup', domain: 'ac', direction: 'output' },
+    ],
+  });
+  const invalidCapabilityType = validateComponentLibraryRecord({
+    ...baseComponent,
+    capabilities: [{ id: 'cap.bad', type: 'not-a-capability' }],
+  });
+  const invalidPortDirection = validateComponentLibraryRecord({
+    ...baseComponent,
+    ports: [{ id: 'port.direction', domain: 'dc', direction: 'sideways' }],
+  });
+  const invalidPortDomain = validateComponentLibraryRecord({
+    ...baseComponent,
+    ports: [{ id: 'port.domain', domain: 'data', direction: 'input' }],
+  });
+  const malformedConstraint = validateComponentLibraryRecord({
+    ...baseComponent,
+    ports: [{ id: 'port.current', domain: 'dc', direction: 'input', current_a: { min: 30, max: 10 } }],
+  });
+
+  expect(duplicateCapability.ok).toBe(false);
+  expect(duplicatePort.ok).toBe(false);
+  expect(invalidCapabilityType.ok).toBe(false);
+  expect(invalidPortDirection.ok).toBe(false);
+  expect(invalidPortDomain.ok).toBe(false);
+  expect(malformedConstraint.ok).toBe(false);
+});
+
+it('allows the same component-local capability ID on two different products', () => {
+  const first = validateComponentLibraryRecord({
+    ...baseComponent,
+    id: 'first.product',
+    capabilities: [{ id: 'cap.core', type: 'energy_storage' }],
+  });
+  const second = validateComponentLibraryRecord({
+    ...baseComponent,
+    id: 'second.product',
+    capabilities: [{ id: 'cap.core', type: 'energy_storage' }],
+  });
+
+  expect(first.ok).toBe(true);
+  expect(second.ok).toBe(true);
+});
+
 describe('component library ingestion and compatibility checks', () => {
   it('validates a JSON component record', () => {
     const result = validateComponentLibraryRecord(baseComponent);

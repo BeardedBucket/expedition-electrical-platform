@@ -39,6 +39,104 @@
         null
       ]
     },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "type"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]+$"
+          },
+          "type": {
+            "enum": [
+              "energy_storage",
+              "inversion",
+              "charging",
+              "dc_to_dc_conversion",
+              "solar_energy_conversion",
+              "monitoring",
+              "communication",
+              "control",
+              "distribution",
+              "load_consumption",
+              "other"
+            ]
+          },
+          "name": { "type": ["string", "null"] },
+          "label": { "type": ["string", "null"] },
+          "notes": { "type": ["string", "null"] }
+        },
+        "additionalProperties": false
+      }
+    },
+    "ports": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "domain", "direction"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]+$"
+          },
+          "domain": {
+            "enum": ["dc", "ac"]
+          },
+          "direction": {
+            "enum": ["input", "output", "bidirectional"]
+          },
+          "voltage_v": {
+            "oneOf": [
+              { "type": "number", "minimum": 0 },
+              {
+                "type": "object",
+                "required": ["min", "max"],
+                "properties": {
+                  "min": { "type": "number", "minimum": 0 },
+                  "max": { "type": "number", "minimum": 0 }
+                },
+                "additionalProperties": false
+              },
+              { "type": "null" }
+            ]
+          },
+          "current_a": {
+            "oneOf": [
+              { "type": "number", "minimum": 0 },
+              {
+                "type": "object",
+                "required": ["min", "max"],
+                "properties": {
+                  "min": { "type": "number", "minimum": 0 },
+                  "max": { "type": "number", "minimum": 0 }
+                },
+                "additionalProperties": false
+              },
+              { "type": "null" }
+            ]
+          },
+          "power_w": {
+            "oneOf": [
+              { "type": "number", "minimum": 0 },
+              {
+                "type": "object",
+                "required": ["min", "max"],
+                "properties": {
+                  "min": { "type": "number", "minimum": 0 },
+                  "max": { "type": "number", "minimum": 0 }
+                },
+                "additionalProperties": false
+              },
+              { "type": "null" }
+            ]
+          },
+          "notes": { "type": ["string", "null"] }
+        },
+        "additionalProperties": false
+      }
+    },
     "category": {
       "type": "string"
     },

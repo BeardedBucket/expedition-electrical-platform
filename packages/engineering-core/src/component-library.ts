@@ -65,6 +65,23 @@ export type ProductRole =
   | 'load'
   | 'other';
 
+export type CapabilityType =
+  | 'energy_storage'
+  | 'inversion'
+  | 'charging'
+  | 'dc_to_dc_conversion'
+  | 'solar_energy_conversion'
+  | 'monitoring'
+  | 'communication'
+  | 'control'
+  | 'distribution'
+  | 'load_consumption'
+  | 'other';
+
+export type LogicalPortDomain = 'dc' | 'ac';
+
+export type PortDirection = 'input' | 'output' | 'bidirectional';
+
 export type TerminalFunction =
   | 'dc_input'
   | 'dc_output'
@@ -121,6 +138,26 @@ export interface ComponentLibraryBattery {
   readonly [key: string]: unknown;
 }
 
+export interface ComponentCapability {
+  readonly id: string;
+  readonly type: CapabilityType;
+  readonly name?: string | null;
+  readonly label?: string | null;
+  readonly notes?: string | null;
+  readonly [key: string]: unknown;
+}
+
+export interface ComponentLogicalPort {
+  readonly id: string;
+  readonly domain: LogicalPortDomain;
+  readonly direction: PortDirection;
+  readonly voltage_v?: number | ComponentLibraryRange | null;
+  readonly current_a?: number | ComponentLibraryRange | null;
+  readonly power_w?: number | ComponentLibraryRange | null;
+  readonly notes?: string | null;
+  readonly [key: string]: unknown;
+}
+
 export interface ComponentLibraryTerminal {
   readonly id?: string;
   readonly function: TerminalFunction;
@@ -172,6 +209,8 @@ export interface ComponentLibraryRecord {
   readonly model: string;
   readonly part_number?: string | null;
   readonly product_role?: ProductRole | null;
+  readonly capabilities?: readonly ComponentCapability[];
+  readonly ports?: readonly ComponentLogicalPort[];
   readonly category: string;
   readonly product_family?: string | null;
   readonly verification_status: ComponentVerificationStatus;
@@ -314,6 +353,59 @@ const normalizeToken = (value: string): string =>
     .replace(/[^a-z0-9]+/g, '');
 
 const toNameList = (values: readonly string[] | undefined): readonly string[] => values ?? [];
+
+const componentCapabilityTypes: readonly CapabilityType[] = [
+  'energy_storage',
+  'inversion',
+  'charging',
+  'dc_to_dc_conversion',
+  'solar_energy_conversion',
+  'monitoring',
+  'communication',
+  'control',
+  'distribution',
+  'load_consumption',
+  'other',
+] as const;
+
+const componentElectricalDomains: readonly LogicalPortDomain[] = ['dc', 'ac'] as const;
+const componentPortDirections: readonly PortDirection[] = ['input', 'output', 'bidirectional'] as const;
+
+const validateOptionalRangeValue = (
+  path: string,
+  value: unknown,
+  messageSink: (path: string, message: string) => void,
+) => {
+  if (value === null || value === undefined) return;
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value) || value < 0) {
+      messageSink(path, 'must be a finite number greater than or equal to 0');
+    }
+    return;
+  }
+  if (typeof value === 'object') {
+    const range = value as Record<string, unknown>;
+    const minValue = range.min;
+    const maxValue = range.max;
+    if (typeof minValue !== 'number' || !Number.isFinite(minValue) || minValue < 0) {
+      messageSink(`${path}.min`, 'must be a finite number greater than or equal to 0');
+    }
+    if (typeof maxValue !== 'number' || !Number.isFinite(maxValue) || maxValue < 0) {
+      messageSink(`${path}.max`, 'must be a finite number greater than or equal to 0');
+    }
+    if (
+      typeof minValue === 'number' &&
+      typeof maxValue === 'number' &&
+      Number.isFinite(minValue) &&
+      Number.isFinite(maxValue) &&
+      minValue > maxValue
+    ) {
+      messageSink(path, 'min must be less than or equal to max');
+    }
+    return;
+  }
+  messageSink(path, 'must be a finite number, a {min,max} range, or null');
+};
 
 const inferRequiredChecks = (
   component: ComponentLibraryRecord,
@@ -511,6 +603,105 @@ const validateEngineeringConstraints = (input: unknown): readonly string[] => {
     ].includes(record.product_role)
   ) {
     addMessage('product_role', 'must be one of the supported product role values');
+  }
+
+  if (Array.isArray(record.capabilities)) {
+    const seenCapabilityIds = new Set<string>();
+    record.capabilities.forEach((capability, index) => {
+      if (capability === null || typeof capability !== 'object') {
+        addMessage(`capabilities[${index}]`, 'must be an object');
+        return;
+      }
+      const capRecord = capability as Record<string, unknown>;
+      const capabilityId = capRecord.id;
+      if (typeof capabilityId !== 'string' || capabilityId.length === 0) {
+        addMessage(`capabilities[${index}].id`, 'must be a non-empty string');
+      } else if (seenCapabilityIds.has(capabilityId)) {
+        addMessage(`capabilities[${index}].id`, `duplicate capability ID '${capabilityId}'`);
+      } else {
+        seenCapabilityIds.add(capabilityId);
+      }
+      const capabilityType = capRecord.type;
+      if (
+        typeof capabilityType !== 'string' ||
+        !componentCapabilityTypes.includes(capabilityType as CapabilityType)
+      ) {
+        addMessage(
+          `capabilities[${index}].type`,
+          'must be one of energy_storage, inversion, charging, dc_to_dc_conversion, solar_energy_conversion, monitoring, communication, control, distribution, load_consumption, or other',
+        );
+      }
+      if (
+        capRecord.name !== undefined &&
+        capRecord.name !== null &&
+        typeof capRecord.name !== 'string'
+      ) {
+        addMessage(`capabilities[${index}].name`, 'must be a string or null');
+      }
+      if (
+        capRecord.label !== undefined &&
+        capRecord.label !== null &&
+        typeof capRecord.label !== 'string'
+      ) {
+        addMessage(`capabilities[${index}].label`, 'must be a string or null');
+      }
+      if (
+        capRecord.notes !== undefined &&
+        capRecord.notes !== null &&
+        typeof capRecord.notes !== 'string'
+      ) {
+        addMessage(`capabilities[${index}].notes`, 'must be a string or null');
+      }
+    });
+  }
+
+  if (Array.isArray(record.ports)) {
+    const seenPortIds = new Set<string>();
+    record.ports.forEach((port, index) => {
+      if (port === null || typeof port !== 'object') {
+        addMessage(`ports[${index}]`, 'must be an object');
+        return;
+      }
+      const portRecord = port as Record<string, unknown>;
+      const portId = portRecord.id;
+      if (typeof portId !== 'string' || portId.length === 0) {
+        addMessage(`ports[${index}].id`, 'must be a non-empty string');
+      } else if (seenPortIds.has(portId)) {
+        addMessage(`ports[${index}].id`, `duplicate port ID '${portId}'`);
+      } else {
+        seenPortIds.add(portId);
+      }
+      const domain = portRecord.domain;
+      if (
+        typeof domain !== 'string' ||
+        !componentElectricalDomains.includes(domain as LogicalPortDomain)
+      ) {
+        addMessage(
+          `ports[${index}].domain`,
+          'must be one of dc or ac',
+        );
+      }
+      const direction = portRecord.direction;
+      if (
+        typeof direction !== 'string' ||
+        !componentPortDirections.includes(direction as PortDirection)
+      ) {
+        addMessage(
+          `ports[${index}].direction`,
+          'must be one of input, output, or bidirectional',
+        );
+      }
+      validateOptionalRangeValue(`ports[${index}].voltage_v`, portRecord.voltage_v, addMessage);
+      validateOptionalRangeValue(`ports[${index}].current_a`, portRecord.current_a, addMessage);
+      validateOptionalRangeValue(`ports[${index}].power_w`, portRecord.power_w, addMessage);
+      if (
+        portRecord.notes !== undefined &&
+        portRecord.notes !== null &&
+        typeof portRecord.notes !== 'string'
+      ) {
+        addMessage(`ports[${index}].notes`, 'must be a string or null');
+      }
+    });
   }
 
   if (
@@ -765,6 +956,8 @@ export const normalizeComponentLibraryRecord = (input: unknown): ComponentLibrar
   const record = input as Record<string, unknown>;
   const normalized = {
     ...record,
+    ...(Array.isArray(record.capabilities) ? { capabilities: record.capabilities } : {}),
+    ...(Array.isArray(record.ports) ? { ports: record.ports } : {}),
     source_refs: Array.isArray(record.source_refs) ? record.source_refs : [],
     interfaces: normalizeTextList(record.interfaces),
     terminals: Array.isArray(record.terminals) ? record.terminals : [],
