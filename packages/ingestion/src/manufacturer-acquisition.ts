@@ -38,7 +38,7 @@ export interface ManufacturerAcquisitionStrategy {
     readonly representation: EmbeddedJsonRepresentation;
     readonly script: {
       readonly id: string;
-      readonly media_type: 'application/json';
+      readonly media_type: 'application/json' | 'application/ld+json';
     };
     readonly json_path: string;
     readonly record_collection_path: string;
@@ -260,6 +260,20 @@ const isOfficialUriForDomains = (domains: readonly string[], uri: string): boole
   } catch {
     return false;
   }
+};
+
+const normalizeScriptMediaType = (value: string): string =>
+  value.trim().toLowerCase().split(';', 1)[0].trim();
+
+const matchesScriptMediaType = (expected: string, actual: string | undefined): boolean => {
+  const normalizedExpected = normalizeScriptMediaType(expected);
+  const normalizedActual = actual ? normalizeScriptMediaType(actual) : undefined;
+  if (!normalizedActual) return false;
+  if (normalizedActual === normalizedExpected) return true;
+  return (
+    (normalizedExpected === 'application/json' && normalizedActual === 'application/ld+json') ||
+    (normalizedExpected === 'application/ld+json' && normalizedActual === 'application/json')
+  );
 };
 
 export const normalizeManufacturerIdentity = (value: string): string =>
@@ -575,7 +589,7 @@ const embeddedPayload = (
     if (rawJson !== undefined || element.tagName !== 'script') return;
     if (
       attribute(element, 'id') === strategy.embedded_json.script.id &&
-      attribute(element, 'type')?.toLowerCase() === strategy.embedded_json.script.media_type
+      matchesScriptMediaType(strategy.embedded_json.script.media_type, attribute(element, 'type'))
     ) {
       rawJson = textOf(element);
     }

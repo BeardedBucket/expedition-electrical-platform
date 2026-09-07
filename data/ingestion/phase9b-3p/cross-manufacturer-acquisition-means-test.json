@@ -1,0 +1,130 @@
+{
+  "schema_version": "1.0",
+  "id": "phase9b-3p.cross-manufacturer-acquisition-means-test",
+  "phase": "9B-3P",
+  "verification_status": "unverified",
+  "purpose": "Generic acquisition mechanics against multiple official manufacturer patterns.",
+  "notes": "This is analyst-authored classification metadata for acquisition-architecture validation only. It does not promote product facts, canonical components, or engineering decisions.",
+  "manufacturers": [
+    {
+      "manufacturer": "Victron",
+      "requested_product_identity": "SCC075015060R",
+      "official_source_uri": "https://www.victronenergy.com/solar-charge-controllers/smartsolar-mppt-75-10-75-15-100-15-100-20",
+      "source_type": "official product-family page",
+      "representation_pattern": "HTML page with __NEXT_DATA__ application/json application-state payload",
+      "identity_location": "$.props.pageProps.products[*].sku",
+      "acquisition_classification": {
+        "result": "validated/reviewed acquisition baseline",
+        "profile_status": "reviewed",
+        "strategy_status": "reviewed",
+        "generic_web_mechanics": [
+          "HTML navigation",
+          "JSON script capture",
+          "safe declarative JSON path resolution",
+          "official document-link discovery"
+        ],
+        "manufacturer_level_knowledge": [
+          "official domain",
+          "catalog family path conventions",
+          "SKU-identity pattern"
+        ],
+        "strategy_level_knowledge": [
+          "path prefix matching",
+          "application-state script selection",
+          "record collection discovery",
+          "exact raw SKU match"
+        ]
+      }
+    },
+    {
+      "manufacturer": "Blue Sea Systems",
+      "requested_product_identity": "insufficient evidence / no exact product established",
+      "official_source_uri": "not established / no verified official source capture",
+      "source_type": "insufficient evidence",
+      "representation_pattern": "not established",
+      "identity_location": "not established",
+      "acquisition_classification": {
+        "result": "insufficient evidence; no persisted profile or strategy",
+        "profile_status": "none",
+        "strategy_status": "none",
+        "generic_web_mechanics": [],
+        "manufacturer_level_knowledge": [],
+        "strategy_level_knowledge": [],
+        "notes": [
+          "No real official Blue Sea Systems source was inspected in this phase.",
+          "No exact Blue Sea product identity was established.",
+          "No official source capture or hash exists for this manufacturer in the repo.",
+          "No acquisition mechanics were validated for Blue Sea Systems."
+        ]
+      }
+    },
+    {
+      "manufacturer": "REDARC",
+      "requested_product_identity": "BCDC Alpha50 R DC Battery Manager",
+      "official_source_uri": "https://www.redarcelectronics.com/au/bcdc-alpha50-r",
+      "source_type": "official product page",
+      "representation_pattern": "HTML page with JSON-LD product metadata and parameterized JSON-bearing script media types",
+      "identity_location": "official SKU field in product page metadata (BCDC12050R)",
+      "acquisition_classification": {
+        "result": "real official source observed; reviewed with provenance limitation retained",
+        "profile_status": "reviewed",
+        "strategy_status": "reviewed",
+        "generic_web_mechanics": [
+          "HTML navigation",
+          "product links",
+          "structured metadata blocks",
+          "raw script-type normalization"
+        ],
+        "manufacturer_level_knowledge": [
+          "official domain",
+          "REDARC product catalog layout",
+          "family naming and SKU metadata"
+        ],
+        "strategy_level_knowledge": [
+          "path prefix matching",
+          "JSON-bearing script extraction",
+          "media-type normalization for application/json and application/ld+json",
+          "exact raw MPN/SKU match only"
+        ],
+        "notes": [
+          "No persisted manufacturer-source capture/hash exists for this observed REDARC page.",
+          "Maintainer review approved the strategy without inventing capture provenance."
+        ]
+      }
+    },
+    {
+      "manufacturer": "Epoch Batteries",
+      "requested_product_identity": "B24100A-C",
+      "official_source_uri": "https://www.epochbatteries.com/products/24v-100ah-marine-lithium-battery",
+      "source_type": "official product page",
+      "representation_pattern": "HTML product page with structured table data and official source capture",
+      "identity_location": "Model / SKU row in official source table",
+      "acquisition_classification": {
+        "result": "real official persisted evidence; reviewed by maintainer",
+        "profile_status": "reviewed",
+        "strategy_status": "reviewed",
+        "generic_web_mechanics": [
+          "product links",
+          "HTML content discovery",
+          "table-based identity extraction",
+          "raw evidence preservation"
+        ],
+        "manufacturer_level_knowledge": [
+          "official domain",
+          "product family naming",
+          "resources and manuals distribution"
+        ],
+        "strategy_level_knowledge": [
+          "path prefix matching",
+          "structured HTML extraction",
+          "exact raw MPN match",
+          "reviewed by maintainer"
+        ],
+        "notes": [
+          "Official persisted evidence exists for the exact product B24100A-C.",
+          "Maintainer review approved this strategy without changing acquisition mechanics."
+        ]
+      }
+    }
+  ]
+}

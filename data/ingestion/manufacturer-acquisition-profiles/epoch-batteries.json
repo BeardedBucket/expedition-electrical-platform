@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0",
+  "id": "epoch-batteries.web.acquisition-profile",
+  "profile_status": "reviewed",
+  "manufacturer": "Epoch Batteries",
+  "publisher": "Epoch Batteries",
+  "official_domains": ["www.epochbatteries.com"],
+  "strategies": [
+    {
+      "id": "product-listing-json-script",
+      "status": "reviewed",
+      "reference_uri": "https://www.epochbatteries.com/products/24v-100ah-lifepo4-lithium-battery/",
+      "path_prefix": "/products/",
+      "embedded_json": {
+        "representation": "embedded_json",
+        "script": { "id": "__NEXT_DATA__", "media_type": "application/json" },
+        "json_path": "$.props.pageProps",
+        "record_collection_path": "$.products",
+        "identity_property": "sku"
+      },
+      "document_link_discovery": {
+        "link_attribute": "href",
+        "allowed_extensions": [".pdf"],
+        "path_prefix": "/resources/"
+      }
+    }
+  ],
+  "provenance": {
+    "source_artifact": "data/ingestion/epoch-24v-100ah-b24100a-c.json",
+    "observed_source_content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  }
+}

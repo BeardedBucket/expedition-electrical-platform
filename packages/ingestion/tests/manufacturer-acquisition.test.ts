@@ -320,6 +320,49 @@ describe('manufacturer acquisition profiles', () => {
         }),
       }).status,
     ).toBe('matched');
+    const jsonWithCharsetFixture = embeddedFixture.replace(
+      'type="application/json"',
+      'type="application/json; charset=utf-8"',
+    );
+    const jsonLdWithCharsetFixture = embeddedFixture.replace(
+      'type="application/json"',
+      'type="application/ld+json; charset=utf-8"',
+    );
+    expect(
+      acquireManufacturerRecord({
+        ...request('SCC075015060R'),
+        profile: embeddedProfile,
+        captured_source: captured({
+          body: {
+            bytes: new TextEncoder().encode(jsonWithCharsetFixture),
+            text: jsonWithCharsetFixture,
+          },
+        }),
+      }).status,
+    ).toBe('matched');
+    expect(
+      acquireManufacturerRecord({
+        ...request('SCC075015060R'),
+        profile: {
+          ...embeddedProfile,
+          strategies: [
+            {
+              ...embeddedProfile.strategies[0],
+              embedded_json: {
+                ...embeddedProfile.strategies[0].embedded_json,
+                script: { id: 'catalog-data', media_type: 'application/ld+json' },
+              },
+            },
+          ],
+        },
+        captured_source: captured({
+          body: {
+            bytes: new TextEncoder().encode(jsonLdWithCharsetFixture),
+            text: jsonLdWithCharsetFixture,
+          },
+        }),
+      }).status,
+    ).toBe('matched');
     const proposedProfile = { ...embeddedProfile, profile_status: 'proposed' as const };
     expect(buildProposedManufacturerAcquisitionProfile(proposedProfile)).toMatchObject({
       status: 'valid',
