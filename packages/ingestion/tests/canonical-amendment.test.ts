@@ -42,7 +42,8 @@ const topologyFact = (
     | 'conductive_relationship'
     | 'switching_configuration'
     | 'protection_instance'
-    | 'measurement_instance',
+    | 'measurement_instance'
+    | 'interaction_endpoint',
   targetId: string,
 ): ProductFact => ({
   schema_version: '1.0',
@@ -1070,6 +1071,33 @@ describe('canonical amendment workflow', () => {
       expect(result.issues.map((item) => item.code)).toContain('canonical_snapshot_mismatch');
     },
   );
+
+  it('promotes a reviewed interaction endpoint without creating compatibility semantics', () => {
+    const current = syntheticTopologyComponent();
+    const endpoint = topologyFact('fact.endpoint', 'interaction_endpoint', 'bms-link');
+    const result = proposeCanonicalAmendment({
+      current,
+      candidate: {
+        facts: [endpoint],
+        fact_ids: [endpoint.id],
+        topology_evidence: { 'interaction_endpoint:bms-link': [endpoint.id] },
+      },
+      review: topologyReviewFor(current, [
+        {
+          operation: 'add',
+          kind: 'interaction_endpoint',
+          id: 'bms-link',
+          value: { id: 'bms-link', kind: 'communication' },
+          evidence: [endpoint.id],
+        },
+      ]),
+    });
+
+    expect(result.status).toBe('proposed');
+    expect(result.proposal?.interaction_endpoints).toEqual([
+      { id: 'bms-link', kind: 'communication' },
+    ]);
+  });
 
   it('protects a successfully written topology amendment from replay', async () => {
     const current = syntheticTopologyComponent();

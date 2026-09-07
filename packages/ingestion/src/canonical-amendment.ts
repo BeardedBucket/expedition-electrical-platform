@@ -91,7 +91,8 @@ export type CanonicalTopologyKind =
   | 'conductive_relationship'
   | 'switching_configuration'
   | 'protection_instance'
-  | 'measurement_instance';
+  | 'measurement_instance'
+  | 'interaction_endpoint';
 
 export interface CanonicalTopologyAddOperation {
   readonly operation: 'add';
@@ -341,6 +342,7 @@ const topologyCollection = {
   switching_configuration: 'switching.configurations',
   protection_instance: 'protection.instances',
   measurement_instance: 'measurement.instances',
+  interaction_endpoint: 'interaction_endpoints',
 } as const;
 
 const topologyTargetKey = (kind: CanonicalTopologyKind, id: string): string => `${kind}:${id}`;

@@ -91,6 +91,28 @@ it('accepts a single capability and multiple logical ports', () => {
   expect(validateComponentLibraryRecord(component).ok).toBe(true);
 });
 
+it('accepts bounded interaction endpoints without inferring them from capabilities', () => {
+  const component = {
+    ...baseComponent,
+    id: 'synthetic.interaction-endpoints',
+    capabilities: [{ id: 'cap.communication', type: 'communication' }],
+    interaction_endpoints: [{ id: 'bms-link', kind: 'communication' }],
+  } as ComponentLibraryRecord;
+
+  expect(validateComponentLibraryRecord(component).ok).toBe(true);
+});
+
+it('does not synthesize interaction endpoints from communication capabilities', () => {
+  const component = {
+    ...baseComponent,
+    id: 'synthetic.capability-only',
+    capabilities: [{ id: 'cap.communication', type: 'communication' }],
+  };
+
+  const result = normalizeComponentLibraryRecord(component);
+  expect(result.interaction_endpoints).toBeUndefined();
+});
+
 it('represents optional conductive connectivity without changing logical port semantics', () => {
   const busbar = {
     ...baseComponent,

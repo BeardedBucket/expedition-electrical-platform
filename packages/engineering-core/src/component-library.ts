@@ -250,6 +250,14 @@ export interface ComponentLibraryTerminal {
   readonly [key: string]: unknown;
 }
 
+export type ComponentInteractionEndpointKind = 'communication' | 'control' | 'sensing';
+
+export interface ComponentInteractionEndpoint {
+  readonly id: string;
+  readonly kind: ComponentInteractionEndpointKind;
+  readonly notes?: string | null;
+}
+
 export interface ComponentLibraryServiceClearancesMm {
   /** Legacy directional keys are retained for compatibility; geometry uses local face keys. */
   readonly front?: number | null;
@@ -317,6 +325,7 @@ export interface ComponentLibraryRecord {
   readonly service_clearances_mm?: ComponentLibraryServiceClearancesMm | null;
   readonly orientation_constraint?: OrientationConstraint | null;
   readonly interfaces?: readonly string[];
+  readonly interaction_endpoints?: readonly ComponentInteractionEndpoint[];
   readonly required_accessories?: ReadonlyArray<string | ComponentRequirementRef>;
   readonly required_converters?: ReadonlyArray<string | ComponentRequirementRef>;
   readonly advisory_refs?: readonly ComponentLibraryAdvisoryReference[];
@@ -1505,6 +1514,43 @@ const validateEngineeringConstraints = (input: unknown): readonly string[] => {
     ] as const) {
       validateFiniteNonNegative(`electrical.${field}`, electricalRecord[field]);
     }
+
+    if (record.interaction_endpoints !== undefined) {
+      if (!Array.isArray(record.interaction_endpoints)) {
+        addMessage('interaction_endpoints', 'must be an array');
+      } else {
+        const endpointIds = new Set<string>();
+        record.interaction_endpoints.forEach((endpoint, index) => {
+          if (!endpoint || typeof endpoint !== 'object' || Array.isArray(endpoint)) {
+            addMessage(`interaction_endpoints[${index}]`, 'must be an object');
+            return;
+          }
+          if (typeof endpoint.id !== 'string' || !/^[a-z0-9][a-z0-9._-]+$/i.test(endpoint.id)) {
+            addMessage(
+              `interaction_endpoints[${index}].id`,
+              'must be a stable component-local identifier',
+            );
+          } else if (endpointIds.has(endpoint.id)) {
+            addMessage(
+              `interaction_endpoints[${index}].id`,
+              `duplicates interaction endpoint ID '${endpoint.id}'`,
+            );
+          } else {
+            endpointIds.add(endpoint.id);
+          }
+          if (
+            endpoint.kind !== 'communication' &&
+            endpoint.kind !== 'control' &&
+            endpoint.kind !== 'sensing'
+          ) {
+            addMessage(
+              `interaction_endpoints[${index}].kind`,
+              'must be communication, control, or sensing',
+            );
+          }
+        });
+      }
+    }
   }
 
   return messages;
@@ -1552,6 +1598,9 @@ export const normalizeComponentLibraryRecord = (input: unknown): ComponentLibrar
     ...(record.measurement !== undefined ? { measurement: record.measurement } : {}),
     source_refs: Array.isArray(record.source_refs) ? record.source_refs : [],
     interfaces: normalizeTextList(record.interfaces),
+    ...(Array.isArray(record.interaction_endpoints)
+      ? { interaction_endpoints: record.interaction_endpoints }
+      : {}),
     terminals: Array.isArray(record.terminals) ? record.terminals : [],
     required_accessories: Array.isArray(record.required_accessories)
       ? record.required_accessories

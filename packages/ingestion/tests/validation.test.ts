@@ -349,6 +349,35 @@ describe('topology evidence contracts', () => {
     });
   });
 
+  it('accepts stable interaction endpoint targets without protocol or compatibility claims', () => {
+    const endpointFact = fact({
+      id: 'example.interaction.endpoint',
+      field: 'interaction_endpoints',
+      topology_target: { kind: 'interaction_endpoint', id: 'bms-link' },
+    });
+    const endpointCandidate = candidate({
+      component_data: {
+        interaction_endpoints: [{ id: 'bms-link', kind: 'communication' }],
+      },
+      topology_evidence: {
+        'interaction_endpoint:bms-link': ['example.interaction.endpoint'],
+      },
+      fact_ids: ['example.interaction.endpoint'],
+      field_evidence: {},
+      promotion_status: 'review_required',
+      review_status: 'pending',
+    });
+
+    expect(validateProductFacts([endpointFact], [source()])).toMatchObject({
+      status: 'valid',
+      ok: true,
+    });
+    expect(validateProductCandidate(endpointCandidate, [source()], [endpointFact])).toMatchObject({
+      status: 'valid',
+      ok: true,
+    });
+  });
+
   it('rejects unknown topology ids, wrong kinds, and array-index identity', () => {
     const invalidFact = fact({
       id: 'example.invalid.target',

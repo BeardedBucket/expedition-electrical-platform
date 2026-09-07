@@ -732,6 +732,25 @@
       },
       "default": []
     },
+    "interaction_endpoints": {
+      "type": "array",
+      "description": "Stable logical non-power interaction boundaries. Endpoint presence does not assert protocol compatibility, interoperability, installed relationships, information availability, or runtime state.",
+      "items": {
+        "type": "object",
+        "required": ["id", "kind"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]+$"
+          },
+          "kind": {
+            "enum": ["communication", "control", "sensing"]
+          },
+          "notes": { "type": ["string", "null"] }
+        },
+        "additionalProperties": false
+      }
+    },
     "cad": {
       "type": "array",
       "items": {
