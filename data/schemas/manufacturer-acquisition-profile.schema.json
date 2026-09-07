@@ -59,7 +59,10 @@
                 "required": ["id", "media_type"],
                 "properties": {
                   "id": { "type": "string", "minLength": 1 },
-                  "media_type": { "const": "application/json" }
+                  "media_type": {
+                    "type": "string",
+                    "pattern": "^application/(?:json|ld\\+json)(?:\\s*;.*)?$"
+                  }
                 }
               },
               "json_path": { "type": "string", "minLength": 1 },

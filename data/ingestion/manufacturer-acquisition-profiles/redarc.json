@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0",
+  "id": "redarc.web.acquisition-profile",
+  "profile_status": "reviewed",
+  "manufacturer": "REDARC",
+  "publisher": "REDARC",
+  "official_domains": ["www.redarc.com.au", "www.redarcelectronics.com"],
+  "strategies": [
+    {
+      "id": "product-page-json-ld-script",
+      "status": "reviewed",
+      "reference_uri": "https://www.redarcelectronics.com/au/bcdc-alpha50-r",
+      "path_prefix": "/au/",
+      "embedded_json": {
+        "representation": "embedded_json",
+        "script": { "id": "product-schema", "media_type": "application/ld+json" },
+        "json_path": "$.product",
+        "record_collection_path": "$.offers",
+        "identity_property": "sku"
+      },
+      "document_link_discovery": {
+        "link_attribute": "href",
+        "allowed_extensions": [".pdf"],
+        "path_prefix": "/au/"
+      }
+    }
+  ],
+  "provenance": {
+    "source_artifact": "data/ingestion/redarc.product-evidence.json",
+    "observed_source_content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  }
+}
