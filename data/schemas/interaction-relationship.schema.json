@@ -25,6 +25,7 @@
         "control_interaction"
       ]
     },
+    "assertion": { "enum": ["positive", "negative"] },
     "participants": {
       "type": "array",
       "minItems": 2,

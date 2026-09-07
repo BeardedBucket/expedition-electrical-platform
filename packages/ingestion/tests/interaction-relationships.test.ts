@@ -5,6 +5,8 @@ import { describe, expect, it } from 'vitest';
 import { stringify as stringifyYaml } from 'yaml';
 import {
   canonicalInteractionRelationshipSnapshot,
+  interpretInteractionRelationship,
+  interpretInteractionRelationships,
   proposeCanonicalInteractionRelationship,
   validateInteractionRelationships,
   writeCanonicalInteractionRelationship,
@@ -18,6 +20,7 @@ const relationship = (
   schema_version: '1.0',
   id: 'g2.smartshunt.charger-sharing',
   relationship_kind: 'information_sharing',
+  assertion: 'positive',
   participants: [
     {
       ref: 'victron:smartshunt',
@@ -358,6 +361,49 @@ describe('interaction relationships', () => {
     expect(result.issues).toEqual([]);
   });
 
+  it('interprets structured positive and negative assertions without reading prose polarity', () => {
+    const positive = interpretInteractionRelationship(
+      relationship({
+        id: 'g5.structured-positive',
+        assertion: 'positive',
+        notes: 'Unsupported firmware versions require an update before use.',
+      }),
+    );
+    const negative = interpretInteractionRelationship(
+      relationship({
+        id: 'g5.structured-negative',
+        assertion: 'negative',
+        notes: 'Reviewed limitation applies within this exact scope.',
+        information: [
+          {
+            direction: 'exposes',
+            participant_ref: 'victron:smartshunt',
+            term: 'battery data',
+            raw_wording: 'The relationship is unavailable in this configuration.',
+          },
+        ],
+      }),
+    );
+
+    expect(positive.status).toBe('positive');
+    expect(negative.status).toBe('explicit_negative');
+    expect(positive.status).not.toBe(negative.status);
+  });
+
+  it('returns unknown when structured assertion polarity is missing', () => {
+    const missing = relationship({
+      id: 'g5.missing-assertion',
+      assertion: undefined,
+      notes: 'Unsupported firmware versions require an update before use.',
+    });
+
+    const result = interpretInteractionRelationship(missing);
+
+    expect(result.status).toBe('unknown');
+    expect(result.reason).toBe('relationship_assertion_missing');
+    expect(result.status).not.toBe('explicit_negative');
+  });
+
   it('persists a durable promotion history that links the review to source and fact evidence', () => {
     const current = relationship();
     const result = proposeCanonicalInteractionRelationship({
@@ -505,6 +551,62 @@ describe('interaction relationships', () => {
     expect(result.status).toBe('proposed');
     expect(result.issues).toEqual([]);
     expect(result.schema_valid).toBe(true);
+    expect(result.proposal?.assertion).toBe('positive');
+  });
+
+  it('promotes a structured negative reviewed relationship through the same boundary', () => {
+    const current = relationship({
+      id: 'g5.negative-promotion',
+      assertion: 'negative',
+      notes: 'Reviewed limitation applies within the recorded scope.',
+    });
+    const result = proposeCanonicalInteractionRelationship({
+      current,
+      review: reviewFor(current),
+    });
+
+    expect(result.status).toBe('proposed');
+    expect(result.proposal?.assertion).toBe('negative');
+    expect(result.proposal?.promotion_history).toEqual([
+      expect.objectContaining({
+        relationship_id: current.id,
+        source_ids: current.evidence.source_ids,
+        fact_ids: current.evidence.fact_ids,
+      }),
+    ]);
+  });
+
+  it('rejects a verified reviewed relationship without structured assertion', () => {
+    const current = relationship({
+      id: 'g5.missing-assertion-promotion',
+      assertion: undefined,
+      notes: 'Unsupported firmware versions require an update before use.',
+    });
+    const result = proposeCanonicalInteractionRelationship({
+      current,
+      review: reviewFor(current),
+    });
+
+    expect(result.status).toBe('blocked');
+    expect(result.issues).toContainEqual(
+      expect.objectContaining({
+        code: 'assertion_missing',
+        path: 'assertion',
+      }),
+    );
+    expect(result.proposal?.promotion_history).toBeUndefined();
+  });
+
+  it('invalidates a review snapshot when assertion polarity changes', () => {
+    const positive = relationship({ id: 'g5.polarity-snapshot', assertion: 'positive' });
+    const negative = relationship({ id: positive.id, assertion: 'negative' });
+    const result = proposeCanonicalInteractionRelationship({
+      current: negative,
+      review: reviewFor(positive),
+    });
+
+    expect(result.status).toBe('blocked');
+    expect(result.issues.some((issue) => issue.code === 'canonical_snapshot_mismatch')).toBe(true);
   });
 
   it('rejects stale reviewed relationships without mutating canonical data', () => {
@@ -547,6 +649,111 @@ describe('interaction relationships', () => {
 
     expect(result.status).toBe('blocked');
     expect(result.issues.some((issue) => issue.code === 'state_not_canonical')).toBe(true);
+  });
+
+  it('interprets verified evidence as positive while preserving required intermediates and conditions', () => {
+    const current = relationship({
+      id: 'g5.positive-interpreted-assertion',
+      relationship_kind: 'information_sharing',
+      participants: [
+        { ref: 'victron:smartshunt', kind: 'product_family', role: 'producer' },
+        { ref: 'victron:connected-chargers', kind: 'product_family', role: 'consumer' },
+      ],
+      required_intermediates: ['victron:ve-can-bms-cable'],
+      scope: 'manufacturer_ecosystem',
+      information: [
+        {
+          direction: 'exposes',
+          participant_ref: 'victron:smartshunt',
+          term: 'battery voltage, current, and temperature',
+        },
+      ],
+      conditions: [
+        { kind: 'brand_dependent', value: 'VE.Can cable required for supported charger' },
+      ],
+    });
+
+    const result = interpretInteractionRelationship(current);
+
+    expect(result.status).toBe('positive');
+    expect(result.reason).toBe('positive_assertion');
+    expect(result.required_intermediates).toEqual(['victron:ve-can-bms-cable']);
+    expect(result.conditions).toEqual([
+      { kind: 'brand_dependent', value: 'VE.Can cable required for supported charger' },
+    ]);
+    expect(result.unresolved).toContain('consumption_not_established');
+    expect('compatible' in result).toBe(false);
+  });
+
+  it('keeps explicit negative reviewed assertions distinct from unknown', () => {
+    const current = relationship({
+      id: 'g5.explicit-negative',
+      relationship_kind: 'manufacturer_interoperability',
+      assertion: 'negative',
+      notes: 'This connection is unsupported and unavailable for the selected ecosystem.',
+      information: [
+        {
+          direction: 'exposes',
+          participant_ref: 'epoch:B24100A-C',
+          term: 'Bluetooth status',
+          raw_wording:
+            'Bluetooth status is available through the app, but the connection is unsupported.',
+        },
+      ],
+      evidence: {
+        source_ids: ['epoch-batteries.phase9b-d2.product-page'],
+        fact_ids: ['claim.epoch.bluetooth'],
+        applicability: [{ scope: 'exact_product', ref: 'epoch:B24100A-C' }],
+      },
+    });
+
+    const result = interpretInteractionRelationship(current);
+
+    expect(result.status).toBe('explicit_negative');
+    expect(result.reason).toBe('explicit_negative_assertion');
+    expect(result.status).not.toBe('unknown');
+  });
+
+  it('returns unknown when no applicable reviewed relationship exists and never fabricates a false negative', () => {
+    const result = interpretInteractionRelationships(
+      [
+        relationship({
+          id: 'g5.some-other-relationship',
+          relationship_kind: 'information_consumption',
+          evidence: { source_ids: ['example.source'], fact_ids: ['example.fact'] },
+        }),
+      ],
+      {
+        relationship_kind: 'manufacturer_interoperability',
+        participant_refs: ['epoch:B24100A-C', 'victron:gx'],
+      },
+    );
+
+    expect(result).toHaveLength(1);
+    expect(result[0].status).toBe('unknown');
+    expect(result[0].reason).toBe('no_applicable_reviewed_relationship');
+    expect(result[0].unresolved).toContain('no_applicable_reviewed_relationship');
+  });
+
+  it('preserves exposure without implying consumption and keeps required intermediates first-class', () => {
+    const relationshipWithExposure = relationship({
+      id: 'g5.exposure-only',
+      required_intermediates: ['victron:ve-can-bms-cable'],
+      information: [
+        {
+          direction: 'exposes',
+          participant_ref: 'victron:smartshunt',
+          term: 'battery voltage, current, and temperature',
+        },
+      ],
+    });
+
+    const result = interpretInteractionRelationship(relationshipWithExposure);
+
+    expect(result.status).toBe('positive');
+    expect(result.information.some((claim) => claim.direction === 'consumes')).toBe(false);
+    expect(result.required_intermediates).toEqual(['victron:ve-can-bms-cable']);
+    expect(result.unresolved).toContain('consumption_not_established');
   });
 
   it('keeps the canonical interaction-relationship dataset empty unless a real review exists', async () => {

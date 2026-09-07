@@ -218,6 +218,15 @@ export const proposeCanonicalInteractionRelationship = ({
       ),
     );
   }
+  if (!current.assertion) {
+    issues.push(
+      canonicalInteractionRelationshipIssue(
+        'assertion_missing',
+        'assertion',
+        'Canonical relationship promotion requires an explicit positive or negative assertion.',
+      ),
+    );
+  }
   if (!expectedSnapshot) {
     issues.push(
       canonicalInteractionRelationshipIssue(

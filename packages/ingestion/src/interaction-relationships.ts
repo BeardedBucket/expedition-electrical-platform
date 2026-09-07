@@ -35,7 +35,19 @@ export type {
   InteractionRelationshipValidationIssue,
 } from './interaction-relationship-types.js';
 
+export type {
+  InteractionInterpretationQuery,
+  InteractionInterpretationReason,
+  InteractionInterpretationResult,
+  InteractionInterpretationStatus,
+} from './interaction-relationship-interpretation.js';
+
 export { validateInteractionRelationships } from './interaction-relationship-validation.js';
+
+export {
+  interpretInteractionRelationship,
+  interpretInteractionRelationships,
+} from './interaction-relationship-interpretation.js';
 
 export {
   canonicalInteractionRelationshipProposal,

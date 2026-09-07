@@ -96,6 +96,7 @@ export interface InteractionRelationship {
   readonly schema_version: string;
   readonly id: string;
   readonly relationship_kind: InteractionRelationshipKind;
+  readonly assertion?: 'positive' | 'negative';
   readonly participants: readonly InteractionRelationshipParticipant[];
   readonly required_intermediates?: readonly string[];
   readonly scope: InteractionRelationshipScope;
@@ -156,7 +157,8 @@ export type CanonicalInteractionRelationshipIssueCode =
   | 'canonical_identity_unresolved'
   | 'source_evidence_scope_mismatch'
   | 'derived_compatibility_rejected'
-  | 'installed_system_rejected';
+  | 'installed_system_rejected'
+  | 'assertion_missing';
 
 export interface CanonicalInteractionRelationshipIssue {
   readonly code: CanonicalInteractionRelationshipIssueCode;
