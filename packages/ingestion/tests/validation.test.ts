@@ -267,6 +267,41 @@ describe('topology evidence contracts', () => {
     });
   });
 
+  it('accepts stable protection instance targets independently from ratings', () => {
+    const protectionFact = fact({
+      id: 'example.protection.fact',
+      field: 'protection.instances',
+      topology_target: { kind: 'protection_instance', id: 'branch-overcurrent' },
+    });
+    const protectionCandidate = candidate({
+      component_data: {
+        protection: {
+          instances: [
+            {
+              id: 'branch-overcurrent',
+              application: 'external_circuit',
+              function: 'overcurrent',
+              target: { kind: 'conductive_relationship', id: 'inline' },
+            },
+          ],
+        },
+      },
+      topology_evidence: {
+        'protection_instance:branch-overcurrent': ['example.protection.fact'],
+      },
+      fact_ids: ['example.protection.fact'],
+      field_evidence: {},
+      promotion_status: 'review_required',
+      review_status: 'pending',
+    });
+
+    expect(validateProductCandidate(protectionCandidate, [source()], [protectionFact])).toEqual({
+      status: 'valid',
+      issues: [],
+      ok: true,
+    });
+  });
+
   it('rejects unknown topology ids, wrong kinds, and array-index identity', () => {
     const invalidFact = fact({
       id: 'example.invalid.target',

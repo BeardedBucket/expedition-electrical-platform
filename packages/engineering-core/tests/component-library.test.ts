@@ -251,6 +251,90 @@ it('rejects switching configurations that reference uncontrolled relationships',
   if (!result.ok) expect(result.errors.join('\n')).toContain('controlled conductive relationship');
 });
 
+it('models external protection separately from static switching and internal protection', () => {
+  const breaker = {
+    ...baseComponent,
+    ports: [
+      { id: 'input', domain: 'dc', direction: 'bidirectional' },
+      { id: 'output', domain: 'dc', direction: 'bidirectional' },
+    ],
+    conductive_relationships: [
+      {
+        id: 'contact',
+        participants: [
+          { kind: 'port', id: 'input' },
+          { kind: 'port', id: 'output' },
+        ],
+      },
+    ],
+    switching: {
+      controlled_relationship_ids: ['contact'],
+      configurations: [
+        { id: 'open', active_relationship_ids: [] },
+        { id: 'closed', active_relationship_ids: ['contact'] },
+      ],
+    },
+    protection: {
+      instances: [
+        {
+          id: 'branch-overcurrent',
+          application: 'external_circuit',
+          function: 'overcurrent',
+          target: { kind: 'conductive_relationship', id: 'contact' },
+        },
+      ],
+    },
+  } satisfies ComponentLibraryRecord;
+  const internalOnly = {
+    ...baseComponent,
+    protection: {
+      instances: [
+        {
+          id: 'internal-overcurrent',
+          application: 'internal_device',
+          function: 'overcurrent',
+        },
+      ],
+    },
+  } satisfies ComponentLibraryRecord;
+  const internalTargeted = {
+    ...breaker,
+    protection: {
+      instances: [
+        {
+          id: 'internal-overcurrent',
+          application: 'internal_device',
+          function: 'overcurrent',
+          target: { kind: 'port', id: 'input' },
+        },
+      ],
+    },
+  } satisfies ComponentLibraryRecord;
+
+  expect(validateComponentLibraryRecord(breaker).ok).toBe(true);
+  expect(validateComponentLibraryRecord(internalOnly).ok).toBe(true);
+  expect(validateComponentLibraryRecord(internalTargeted).ok).toBe(true);
+});
+
+it('rejects external protection without a known topology target', () => {
+  const result = validateComponentLibraryRecord({
+    ...baseComponent,
+    protection: {
+      instances: [
+        {
+          id: 'branch-overcurrent',
+          application: 'external_circuit',
+          function: 'overcurrent',
+          target: { kind: 'conductive_relationship', id: 'missing' },
+        },
+      ],
+    },
+  });
+
+  expect(result.ok).toBe(false);
+  if (!result.ok) expect(result.errors.join('\n')).toContain('must reference an existing');
+});
+
 it('rejects malformed capability and port contracts', () => {
   const duplicateCapability = validateComponentLibraryRecord({
     ...baseComponent,

@@ -40,7 +40,8 @@ const topologyFact = (
     | 'power_path'
     | 'connection_point'
     | 'conductive_relationship'
-    | 'switching_configuration',
+    | 'switching_configuration'
+    | 'protection_instance',
   targetId: string,
 ): ProductFact => ({
   schema_version: '1.0',
@@ -925,6 +926,62 @@ describe('canonical amendment workflow', () => {
       configurations: [
         { id: 'configuration-a', active_relationship_ids: [] },
         { id: 'configuration-b', active_relationship_ids: ['contact'] },
+      ],
+    });
+  });
+
+  it('adds a reviewed protection instance with a stable topology target', () => {
+    const current = {
+      ...syntheticTopologyComponent(),
+      ports: [
+        { id: 'input', domain: 'dc', direction: 'bidirectional' },
+        { id: 'output', domain: 'dc', direction: 'bidirectional' },
+      ],
+      conductive_relationships: [
+        {
+          id: 'inline',
+          participants: [
+            { kind: 'port', id: 'input' },
+            { kind: 'port', id: 'output' },
+          ],
+        },
+      ],
+    };
+    const protection = topologyFact('fact.protection', 'protection_instance', 'branch-fuse');
+    const result = proposeCanonicalAmendment({
+      current,
+      candidate: {
+        fact_ids: ['fact.protection'],
+        facts: [protection],
+        topology_evidence: {
+          'protection_instance:branch-fuse': ['fact.protection'],
+        },
+      },
+      review: topologyReviewFor(current, [
+        {
+          operation: 'add',
+          kind: 'protection_instance',
+          id: 'branch-fuse',
+          value: {
+            id: 'branch-fuse',
+            application: 'external_circuit',
+            function: 'overcurrent',
+            target: { kind: 'conductive_relationship', id: 'inline' },
+          },
+          evidence: ['fact.protection'],
+        },
+      ]),
+    });
+
+    expect(result.status).toBe('proposed');
+    expect(result.proposal?.protection).toEqual({
+      instances: [
+        {
+          id: 'branch-fuse',
+          application: 'external_circuit',
+          function: 'overcurrent',
+          target: { kind: 'conductive_relationship', id: 'inline' },
+        },
       ],
     });
   });

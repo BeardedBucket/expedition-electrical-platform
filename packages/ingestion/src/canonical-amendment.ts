@@ -89,7 +89,8 @@ export type CanonicalTopologyKind =
   | 'power_path'
   | 'connection_point'
   | 'conductive_relationship'
-  | 'switching_configuration';
+  | 'switching_configuration'
+  | 'protection_instance';
 
 export interface CanonicalTopologyAddOperation {
   readonly operation: 'add';
@@ -337,6 +338,7 @@ const topologyCollection = {
   connection_point: 'connection_points',
   conductive_relationship: 'conductive_relationships',
   switching_configuration: 'switching.configurations',
+  protection_instance: 'protection.instances',
 } as const;
 
 const topologyTargetKey = (kind: CanonicalTopologyKind, id: string): string => `${kind}:${id}`;
@@ -384,6 +386,14 @@ const validateProposedTopology = (proposal: JsonObject): CanonicalAmendmentIssue
         : undefined
       : undefined;
   const switchingConfigurationIds = ids(switchingConfigurations);
+  const protection = proposal.protection;
+  const protectionInstances =
+    protection && typeof protection === 'object' && !Array.isArray(protection)
+      ? Array.isArray(protection.instances)
+        ? protection.instances
+        : undefined
+      : undefined;
+  const protectionInstanceIds = ids(protectionInstances);
   if (capabilities && capabilityIds.size !== capabilities.length) {
     issues.push(
       issue('amendment_topology_duplicate_id', 'capabilities', 'Capability IDs must be unique.'),
@@ -427,6 +437,15 @@ const validateProposedTopology = (proposal: JsonObject): CanonicalAmendmentIssue
         'amendment_topology_duplicate_id',
         'switching.configurations',
         'Switching configuration IDs must be unique.',
+      ),
+    );
+  }
+  if (protectionInstances && protectionInstanceIds.size !== protectionInstances.length) {
+    issues.push(
+      issue(
+        'amendment_topology_duplicate_id',
+        'protection.instances',
+        'Protection instance IDs must be unique.',
       ),
     );
   }
@@ -518,6 +537,56 @@ const validateProposedTopology = (proposal: JsonObject): CanonicalAmendmentIssue
           'A power path cannot connect a port to itself.',
         ),
       );
+  });
+  (protectionInstances ?? []).forEach((item, index) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return;
+    const application = item.application;
+    const target = item.target;
+    if (application !== 'external_circuit' && application !== 'internal_device') {
+      issues.push(
+        issue(
+          'amendment_topology_invalid_reference',
+          `protection.instances[${index}].application`,
+          'Protection application must be external_circuit or internal_device.',
+        ),
+      );
+    }
+    if (item.function !== 'overcurrent') {
+      issues.push(
+        issue(
+          'amendment_topology_invalid_reference',
+          `protection.instances[${index}].function`,
+          'Protection function must be overcurrent.',
+        ),
+      );
+    }
+    if (application === 'external_circuit' && (!target || typeof target !== 'object')) {
+      issues.push(
+        issue(
+          'amendment_topology_invalid_reference',
+          `protection.instances[${index}].target`,
+          'External circuit protection requires a topology target.',
+        ),
+      );
+    }
+    if (target && typeof target === 'object' && !Array.isArray(target)) {
+      const targetKind = target.kind;
+      const targetId = target.id;
+      const known =
+        typeof targetId === 'string' &&
+        ((targetKind === 'conductive_relationship' && conductiveRelationshipIds.has(targetId)) ||
+          (targetKind === 'connection_point' && connectionPointIds.has(targetId)) ||
+          (targetKind === 'port' && portIds.has(targetId)));
+      if (!known) {
+        issues.push(
+          issue(
+            'amendment_topology_invalid_reference',
+            `protection.instances[${index}].target`,
+            `Unknown protection topology target '${String(targetKind)}:${String(targetId)}'.`,
+          ),
+        );
+      }
+    }
   });
   return issues;
 };
@@ -816,11 +885,16 @@ export const proposeCanonicalAmendment = ({
       continue;
     }
     const existing =
-      operation.kind === 'switching_configuration'
+      operation.kind === 'switching_configuration' || operation.kind === 'protection_instance'
         ? (() => {
-            const switching = proposal.switching;
-            if (!switching || typeof switching !== 'object' || Array.isArray(switching)) return [];
-            return Array.isArray(switching.configurations) ? switching.configurations : [];
+            const container =
+              operation.kind === 'switching_configuration'
+                ? proposal.switching
+                : proposal.protection;
+            if (!container || typeof container !== 'object' || Array.isArray(container)) return [];
+            const nestedKey =
+              operation.kind === 'switching_configuration' ? 'configurations' : 'instances';
+            return Array.isArray(container[nestedKey]) ? container[nestedKey] : [];
           })()
         : Array.isArray(proposal[collection])
           ? proposal[collection]
@@ -902,14 +976,17 @@ export const proposeCanonicalAmendment = ({
       continue;
     }
     const nextCollection = [...existing, operation.value];
-    if (operation.kind === 'switching_configuration') {
-      const currentSwitching =
-        proposal.switching &&
-        typeof proposal.switching === 'object' &&
-        !Array.isArray(proposal.switching)
-          ? proposal.switching
+    if (operation.kind === 'switching_configuration' || operation.kind === 'protection_instance') {
+      const rootKey = operation.kind === 'switching_configuration' ? 'switching' : 'protection';
+      const nestedKey =
+        operation.kind === 'switching_configuration' ? 'configurations' : 'instances';
+      const currentContainer =
+        proposal[rootKey] &&
+        typeof proposal[rootKey] === 'object' &&
+        !Array.isArray(proposal[rootKey])
+          ? proposal[rootKey]
           : {};
-      proposal.switching = { ...currentSwitching, configurations: nextCollection };
+      proposal[rootKey] = { ...currentContainer, [nestedKey]: nextCollection };
     } else {
       proposal[collection] = nextCollection;
     }

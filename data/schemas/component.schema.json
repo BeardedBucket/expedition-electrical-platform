@@ -202,47 +202,94 @@
                       "pattern": "^[a-z0-9][a-z0-9._-]+$"
                     }
                   },
-                  "switching": {
-                    "type": "object",
-                    "required": ["controlled_relationship_ids", "configurations"],
-                    "properties": {
-                      "controlled_relationship_ids": {
-                        "type": "array",
-                        "minItems": 1,
-                        "items": {
+                  "additionalProperties": false
+                },
+                "uniqueItems": true
+              },
+              "notes": { "type": ["string", "null"] }
+            },
+            "additionalProperties": false
+          },
+          "switching": {
+            "type": "object",
+            "required": ["controlled_relationship_ids", "configurations"],
+            "properties": {
+              "controlled_relationship_ids": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9._-]+$"
+                },
+                "uniqueItems": true
+              },
+              "configurations": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "required": ["id", "active_relationship_ids"],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9._-]+$"
+                    },
+                    "active_relationship_ids": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9][a-z0-9._-]+$"
+                      },
+                      "uniqueItems": true
+                    },
+                    "label": { "type": ["string", "null"] },
+                    "notes": { "type": ["string", "null"] }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "notes": { "type": ["string", "null"] }
+            },
+            "additionalProperties": false
+          },
+          "protection": {
+            "type": "object",
+            "description": "Currently supported protection applications are intentionally bounded; this vocabulary is not exhaustive of all future protection contexts.",
+            "required": ["instances"],
+            "properties": {
+              "instances": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "required": ["id", "application", "function"],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9._-]+$"
+                    },
+                    "application": {
+                      "enum": ["external_circuit", "internal_device"],
+                      "description": "external_circuit describes protection of modeled external circuitry; internal_device describes manufacturer-described protection belonging to the device's own internal behavior. Neither value claims to exhaustively classify every future protection context."
+                    },
+                    "function": {
+                      "enum": ["overcurrent"]
+                    },
+                    "target": {
+                      "type": "object",
+                      "required": ["kind", "id"],
+                      "properties": {
+                        "kind": {
+                          "enum": ["conductive_relationship", "connection_point", "port"]
+                        },
+                        "id": {
                           "type": "string",
                           "pattern": "^[a-z0-9][a-z0-9._-]+$"
-                        },
-                        "uniqueItems": true
-                      },
-                      "configurations": {
-                        "type": "array",
-                        "minItems": 1,
-                        "items": {
-                          "type": "object",
-                          "required": ["id", "active_relationship_ids"],
-                          "properties": {
-                            "id": {
-                              "type": "string",
-                              "pattern": "^[a-z0-9][a-z0-9._-]+$"
-                            },
-                            "active_relationship_ids": {
-                              "type": "array",
-                              "items": {
-                                "type": "string",
-                                "pattern": "^[a-z0-9][a-z0-9._-]+$"
-                              },
-                              "uniqueItems": true
-                            },
-                            "label": { "type": ["string", "null"] },
-                            "notes": { "type": ["string", "null"] }
-                          },
-                          "additionalProperties": false
                         }
                       },
-                      "notes": { "type": ["string", "null"] }
+                      "additionalProperties": false
                     },
-                    "additionalProperties": false
+                    "notes": { "type": ["string", "null"] }
                   },
                   "additionalProperties": false
                 },
