@@ -36,7 +36,14 @@ export type CanonicalAmendmentIssueCode =
   | 'amendment_evidence_field_mismatch'
   | 'amendment_unsafe_field_path'
   | 'amendment_unresolved_evidence'
-  | 'amendment_candidate_validation_failed';
+  | 'amendment_candidate_validation_failed'
+  | 'amendment_topology_invalid_id'
+  | 'amendment_topology_duplicate_id'
+  | 'amendment_topology_value_mismatch'
+  | 'amendment_topology_missing_evidence'
+  | 'amendment_topology_evidence_mismatch'
+  | 'amendment_topology_evidence_conflict'
+  | 'amendment_topology_invalid_reference';
 
 export interface CanonicalAmendmentIssue {
   readonly code: CanonicalAmendmentIssueCode;
@@ -54,6 +61,7 @@ export interface CanonicalAmendmentReview extends PromotionReview {
   readonly field_changes?: Readonly<Record<string, 'add' | 'replace' | 'remove'>>;
   readonly field_evidence?: Readonly<Record<string, readonly string[]>>;
   readonly topology_evidence?: Readonly<Record<string, readonly string[]>>;
+  readonly topology_operations?: readonly CanonicalTopologyAddOperation[];
 }
 
 export interface CanonicalAmendmentCandidate {
@@ -73,6 +81,25 @@ export interface CanonicalAmendmentChange {
   readonly new_value: JsonValue;
   readonly review_id: string;
   readonly fact_ids: readonly string[];
+}
+
+export type CanonicalTopologyKind = 'capability' | 'port' | 'power_path';
+
+export interface CanonicalTopologyAddOperation {
+  readonly operation: 'add';
+  readonly kind: CanonicalTopologyKind;
+  readonly id: string;
+  readonly value: JsonObject;
+  readonly evidence?: readonly string[];
+}
+
+export interface CanonicalTopologyChange {
+  readonly operation: 'add';
+  readonly kind: CanonicalTopologyKind;
+  readonly id: string;
+  readonly value: JsonObject;
+  readonly fact_ids: readonly string[];
+  readonly review_id: string;
 }
 
 export interface CanonicalAmendmentRequest {
@@ -109,6 +136,7 @@ export interface CanonicalAmendmentResult {
   readonly path?: string;
   readonly serialized?: string;
   readonly changes?: readonly CanonicalAmendmentChange[];
+  readonly topology_changes?: readonly CanonicalTopologyChange[];
   readonly schema_valid: boolean;
 }
 
@@ -275,13 +303,130 @@ const amendmentHistoryEntry = (
   expectedSnapshot: string,
   changes: readonly CanonicalAmendmentChange[],
   candidate: CanonicalAmendmentCandidate | undefined,
+  topologyChanges: readonly CanonicalTopologyChange[] = [],
 ): JsonObject => ({
   review_id: review.id,
   candidate_id: review.candidate_id,
   expected_snapshot: expectedSnapshot,
   fields: changes.map((change) => ({ ...change, fact_ids: [...change.fact_ids] })),
   source_ids: [...(candidate?.source_ids ?? [])],
+  ...(topologyChanges.length > 0
+    ? {
+        topology_operations: topologyChanges.map((change) => ({
+          operation: change.operation,
+          kind: change.kind,
+          id: change.id,
+          value: clone(change.value),
+          fact_ids: [...change.fact_ids],
+          review_id: change.review_id,
+        })),
+      }
+    : {}),
 });
+
+const topologyCollection = {
+  capability: 'capabilities',
+  port: 'ports',
+  power_path: 'power_paths',
+} as const;
+
+const topologyTargetKey = (kind: CanonicalTopologyKind, id: string): string => `${kind}:${id}`;
+
+const validateProposedTopology = (proposal: JsonObject): CanonicalAmendmentIssue[] => {
+  const issues: CanonicalAmendmentIssue[] = [];
+  const capabilities = Array.isArray(proposal.capabilities) ? proposal.capabilities : undefined;
+  const ports = Array.isArray(proposal.ports) ? proposal.ports : undefined;
+  const paths = Array.isArray(proposal.power_paths) ? proposal.power_paths : undefined;
+  const ids = (items: JsonValue[] | undefined): Set<string> =>
+    new Set(
+      (items ?? []).flatMap((item) =>
+        item && typeof item === 'object' && !Array.isArray(item) && typeof item.id === 'string'
+          ? [item.id]
+          : [],
+      ),
+    );
+  const capabilityIds = ids(capabilities);
+  const portDirections = new Map<string, string>(
+    (ports ?? []).flatMap((item) =>
+      item &&
+      typeof item === 'object' &&
+      !Array.isArray(item) &&
+      typeof item.id === 'string' &&
+      typeof item.direction === 'string'
+        ? [[item.id, item.direction]]
+        : [],
+    ),
+  );
+  const pathIds = ids(paths);
+  if (capabilities && capabilityIds.size !== capabilities.length) {
+    issues.push(
+      issue('amendment_topology_duplicate_id', 'capabilities', 'Capability IDs must be unique.'),
+    );
+  }
+  if (ports && ids(ports).size !== ports.length) {
+    issues.push(issue('amendment_topology_duplicate_id', 'ports', 'Port IDs must be unique.'));
+  }
+  if (paths && pathIds.size !== paths.length) {
+    issues.push(
+      issue('amendment_topology_duplicate_id', 'power_paths', 'Power path IDs must be unique.'),
+    );
+  }
+  (paths ?? []).forEach((item, index) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return;
+    const capabilityId = item.capability_id;
+    const fromPort = item.from_port;
+    const toPort = item.to_port;
+    if (typeof capabilityId === 'string' && !capabilityIds.has(capabilityId))
+      issues.push(
+        issue(
+          'amendment_topology_invalid_reference',
+          `power_paths[${index}].capability_id`,
+          `Unknown capability '${capabilityId}'.`,
+        ),
+      );
+    if (typeof fromPort === 'string' && !portDirections.has(fromPort))
+      issues.push(
+        issue(
+          'amendment_topology_invalid_reference',
+          `power_paths[${index}].from_port`,
+          `Unknown port '${fromPort}'.`,
+        ),
+      );
+    else if (typeof fromPort === 'string' && portDirections.get(fromPort) === 'output')
+      issues.push(
+        issue(
+          'amendment_topology_invalid_reference',
+          `power_paths[${index}].from_port`,
+          'from_port must be input or bidirectional.',
+        ),
+      );
+    if (typeof toPort === 'string' && !portDirections.has(toPort))
+      issues.push(
+        issue(
+          'amendment_topology_invalid_reference',
+          `power_paths[${index}].to_port`,
+          `Unknown port '${toPort}'.`,
+        ),
+      );
+    else if (typeof toPort === 'string' && portDirections.get(toPort) === 'input')
+      issues.push(
+        issue(
+          'amendment_topology_invalid_reference',
+          `power_paths[${index}].to_port`,
+          'to_port must be output or bidirectional.',
+        ),
+      );
+    if (typeof fromPort === 'string' && fromPort === toPort)
+      issues.push(
+        issue(
+          'amendment_topology_invalid_reference',
+          `power_paths[${index}]`,
+          'A power path cannot connect a port to itself.',
+        ),
+      );
+  });
+  return issues;
+};
 
 export const proposeCanonicalAmendment = ({
   current,
@@ -300,6 +445,7 @@ export const proposeCanonicalAmendment = ({
   const data = candidateData(candidate);
   const evidenceFacts = factIndex(candidate, facts);
   const changes: CanonicalAmendmentChange[] = [];
+  const topologyChanges: CanonicalTopologyChange[] = [];
   const actualSnapshot = canonicalSerializedSnapshot(current);
   for (const field of Object.keys(review.field_actions ?? {})) {
     const primary = review.field_actions?.[field];
@@ -539,12 +685,139 @@ export const proposeCanonicalAmendment = ({
     });
   }
 
+  const topologyOperations = review.topology_operations ?? [];
+  const proposedTopologyIds = new Map<CanonicalTopologyKind, Set<string>>();
+  for (const operation of topologyOperations) {
+    const collection = topologyCollection[operation.kind];
+    const operationPath = `topology_operations.${operation.kind}:${operation.id}`;
+    if (
+      !collection ||
+      !/^[a-z0-9][a-z0-9._-]+$/i.test(operation.id) ||
+      /^\d+$/.test(operation.id) ||
+      operation.id.includes('[') ||
+      operation.id.includes(']')
+    ) {
+      issues.push(
+        issue(
+          'amendment_topology_invalid_id',
+          operationPath,
+          'Topology operation IDs must be stable component-local identifiers, not array indexes.',
+        ),
+      );
+      continue;
+    }
+    if (
+      !operation.value ||
+      Array.isArray(operation.value) ||
+      typeof operation.value !== 'object' ||
+      operation.value.id !== operation.id
+    ) {
+      issues.push(
+        issue(
+          'amendment_topology_value_mismatch',
+          operationPath,
+          'The topology operation ID must match the object id.',
+        ),
+      );
+      continue;
+    }
+    const existing = Array.isArray(proposal[collection]) ? proposal[collection] : [];
+    const existingIds = new Set(
+      existing.flatMap((item) =>
+        item && typeof item === 'object' && !Array.isArray(item) && typeof item.id === 'string'
+          ? [item.id]
+          : [],
+      ),
+    );
+    const seen = proposedTopologyIds.get(operation.kind) ?? new Set<string>();
+    if (existingIds.has(operation.id) || seen.has(operation.id)) {
+      issues.push(
+        issue(
+          'amendment_topology_duplicate_id',
+          operationPath,
+          `Topology object '${operation.id}' already exists or is added more than once.`,
+        ),
+      );
+      continue;
+    }
+    seen.add(operation.id);
+    proposedTopologyIds.set(operation.kind, seen);
+
+    const evidenceKey = topologyTargetKey(operation.kind, operation.id);
+    const evidenceRepresentations = [
+      operation.evidence,
+      review.topology_evidence?.[evidenceKey],
+      candidate?.topology_evidence?.[evidenceKey],
+    ].filter((value): value is readonly string[] => value !== undefined);
+    const normalizedEvidence = evidenceRepresentations.map((value) => [...new Set(value)].sort());
+    if (
+      normalizedEvidence.length > 1 &&
+      normalizedEvidence.some(
+        (value) => JSON.stringify(value) !== JSON.stringify(normalizedEvidence[0]),
+      )
+    ) {
+      issues.push(
+        issue(
+          'amendment_topology_evidence_conflict',
+          operationPath,
+          `Evidence representations for '${evidenceKey}' must agree exactly.`,
+        ),
+      );
+      continue;
+    }
+    const factIds = normalizedEvidence[0] ?? [];
+    if (factIds.length === 0) {
+      issues.push(
+        issue(
+          'amendment_topology_missing_evidence',
+          operationPath,
+          `Reviewed topology evidence is required for '${evidenceKey}'.`,
+        ),
+      );
+      continue;
+    }
+    const invalidEvidence = factIds.some((factId) => {
+      const fact = evidenceFacts.get(factId);
+      return (
+        !fact ||
+        !candidate?.fact_ids?.includes(factId) ||
+        fact.fact_state === 'unresolved' ||
+        fact.fact_state === 'conflicting' ||
+        fact.topology_target?.kind !== operation.kind ||
+        fact.topology_target.id !== operation.id ||
+        fact.topology_target.field !== undefined
+      );
+    });
+    if (invalidEvidence) {
+      issues.push(
+        issue(
+          'amendment_topology_evidence_mismatch',
+          operationPath,
+          `Evidence must target the reviewed ${evidenceKey} object exactly.`,
+        ),
+      );
+      continue;
+    }
+    const nextCollection = [...existing, operation.value];
+    proposal[collection] = nextCollection;
+    topologyChanges.push({
+      operation: 'add',
+      kind: operation.kind,
+      id: operation.id,
+      value: operation.value,
+      fact_ids: [...factIds].sort(),
+      review_id: review.id,
+    });
+  }
+
+  issues.push(...validateProposedTopology(proposal));
+
   changes.sort((left, right) => left.field.localeCompare(right.field));
-  if (changes.length > 0 && candidate) {
+  if ((changes.length > 0 || topologyChanges.length > 0) && candidate) {
     const history = Array.isArray(current.amendment_history) ? current.amendment_history : [];
     proposal.amendment_history = [
       ...history,
-      amendmentHistoryEntry(review, expectedSnapshot ?? '', changes, candidate),
+      amendmentHistoryEntry(review, expectedSnapshot ?? '', changes, candidate, topologyChanges),
     ];
   }
   issues.push(...schemaIssues(proposal));
@@ -559,6 +832,7 @@ export const proposeCanonicalAmendment = ({
       expected_snapshot: expectedSnapshot,
       actual_snapshot: actualSnapshot,
       changes,
+      topology_changes: topologyChanges,
       schema_valid: false,
     };
   }
@@ -571,6 +845,7 @@ export const proposeCanonicalAmendment = ({
     actual_snapshot: actualSnapshot,
     serialized: canonicalYaml(proposal),
     changes,
+    topology_changes: topologyChanges,
     schema_valid: true,
   };
 };
