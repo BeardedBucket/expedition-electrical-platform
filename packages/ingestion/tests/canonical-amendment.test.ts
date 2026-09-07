@@ -24,6 +24,46 @@ import {
 import type { ProductFact } from '../src/contracts.js';
 import type { NormalizedProductFact } from '../src/normalization-types.js';
 
+const syntheticTopologyComponent = (): Record<string, unknown> => ({
+  id: 'synthetic.topology.component',
+  manufacturer: 'Synthetic',
+  model: 'Topology Fixture',
+  category: 'other',
+  verification_status: 'unverified',
+});
+
+const topologyFact = (
+  id: string,
+  kind: 'capability' | 'port' | 'power_path',
+  targetId: string,
+): ProductFact => ({
+  schema_version: '1.0',
+  id,
+  source_id: 'source.synthetic',
+  field: 'topology',
+  raw_label: `${kind} ${targetId}`,
+  raw_value: targetId,
+  extraction_method: 'manual',
+  fact_state: 'verified',
+  topology_target: { kind, id: targetId },
+});
+
+const topologyReviewFor = (
+  current: Record<string, unknown>,
+  topology_operations: CanonicalAmendmentReview['topology_operations'],
+  overrides: Partial<CanonicalAmendmentReview> = {},
+): CanonicalAmendmentReview => ({
+  ...review({
+    component_id: current.id as string,
+    candidate_id: 'candidate.topology',
+    expected_snapshot: canonicalSerializedSnapshot(current),
+    approved_fields: [],
+    field_actions: {},
+    ...overrides,
+  }),
+  topology_operations,
+});
+
 const currentCanonical = () => {
   const text = readFileSync(
     join(process.cwd(), 'data', 'components', 'victron-energy.pmp242200100.yaml'),
@@ -552,5 +592,598 @@ describe('canonical amendment workflow', () => {
     expect(await readFile(join(root, backups[0]), 'utf8')).toBe(stringify(current));
     expect(result.status).not.toBe('written');
     await rm(root, { recursive: true, force: true });
+  });
+
+  it('adds reviewed topology objects atomically by stable ID', () => {
+    const current = syntheticTopologyComponent();
+    const operations = [
+      {
+        operation: 'add' as const,
+        kind: 'capability' as const,
+        id: 'convert',
+        value: { id: 'convert', type: 'inversion' },
+        evidence: ['fact.capability'],
+      },
+      {
+        operation: 'add' as const,
+        kind: 'port' as const,
+        id: 'input',
+        value: { id: 'input', domain: 'dc', direction: 'input' },
+        evidence: ['fact.input'],
+      },
+      {
+        operation: 'add' as const,
+        kind: 'port' as const,
+        id: 'output',
+        value: { id: 'output', domain: 'ac', direction: 'output' },
+        evidence: ['fact.output'],
+      },
+      {
+        operation: 'add' as const,
+        kind: 'power_path' as const,
+        id: 'conversion',
+        value: {
+          id: 'conversion',
+          capability_id: 'convert',
+          from_port: 'input',
+          to_port: 'output',
+        },
+        evidence: ['fact.path'],
+      },
+    ];
+    const facts = [
+      topologyFact('fact.capability', 'capability', 'convert'),
+      topologyFact('fact.input', 'port', 'input'),
+      topologyFact('fact.output', 'port', 'output'),
+      topologyFact('fact.path', 'power_path', 'conversion'),
+    ];
+    const result = proposeCanonicalAmendment({
+      current,
+      candidate: { facts, fact_ids: facts.map((fact) => fact.id) },
+      review: {
+        ...review({
+          component_id: current.id as string,
+          candidate_id: 'candidate.topology',
+          expected_snapshot: canonicalSerializedSnapshot(current),
+          approved_fields: [],
+          field_actions: {},
+        }),
+        topology_operations: operations,
+      },
+    });
+
+    expect(result.status).toBe('proposed');
+    expect(result.proposal?.capabilities).toEqual([{ id: 'convert', type: 'inversion' }]);
+    expect(result.proposal?.ports).toEqual([
+      { id: 'input', domain: 'dc', direction: 'input' },
+      { id: 'output', domain: 'ac', direction: 'output' },
+    ]);
+    expect(result.proposal?.power_paths).toEqual([
+      {
+        id: 'conversion',
+        capability_id: 'convert',
+        from_port: 'input',
+        to_port: 'output',
+      },
+    ]);
+    expect(result.proposal?.amendment_history).toMatchObject([
+      {
+        topology_operations: [
+          { kind: 'capability', id: 'convert', fact_ids: ['fact.capability'] },
+          { kind: 'port', id: 'input', fact_ids: ['fact.input'] },
+          { kind: 'port', id: 'output', fact_ids: ['fact.output'] },
+          { kind: 'power_path', id: 'conversion', fact_ids: ['fact.path'] },
+        ],
+      },
+    ]);
+  });
+
+  it('rejects duplicate IDs, mismatched evidence, missing evidence, index identities, and invalid references', () => {
+    const current = {
+      ...syntheticTopologyComponent(),
+      capabilities: [{ id: 'convert', type: 'inversion' }],
+    };
+    const fact = topologyFact('fact.port', 'port', 'input');
+    const baseReview = {
+      ...review({
+        component_id: current.id as string,
+        candidate_id: 'candidate.topology',
+        expected_snapshot: canonicalSerializedSnapshot(current),
+        approved_fields: [],
+        field_actions: {},
+      }),
+      topology_operations: [
+        {
+          operation: 'add' as const,
+          kind: 'port' as const,
+          id: 'input',
+          value: { id: 'input', domain: 'dc', direction: 'input' },
+          evidence: ['fact.port'],
+        },
+      ],
+    };
+    const candidate = { facts: [fact], fact_ids: [fact.id] };
+    expect(
+      proposeCanonicalAmendment({
+        current,
+        candidate,
+        review: {
+          ...baseReview,
+          topology_operations: [
+            {
+              ...baseReview.topology_operations[0],
+              kind: 'capability',
+              id: 'convert',
+              value: { id: 'convert', type: 'inversion' },
+            },
+          ],
+        },
+      }).issues.map((item) => item.code),
+    ).toContain('amendment_topology_duplicate_id');
+    expect(
+      proposeCanonicalAmendment({
+        current,
+        candidate,
+        review: {
+          ...baseReview,
+          topology_operations: [
+            {
+              ...baseReview.topology_operations[0],
+              id: 'input[0]',
+              value: { id: 'input[0]', domain: 'dc', direction: 'input' },
+            },
+          ],
+        },
+      }).issues.map((item) => item.code),
+    ).toContain('amendment_topology_invalid_id');
+    expect(
+      proposeCanonicalAmendment({
+        current,
+        candidate,
+        review: {
+          ...baseReview,
+          topology_operations: [
+            {
+              ...baseReview.topology_operations[0],
+              kind: 'capability',
+              value: { id: 'input', type: 'inversion' },
+            },
+          ],
+        },
+      }).issues.map((item) => item.code),
+    ).toContain('amendment_topology_evidence_mismatch');
+  });
+
+  it('requires topology evidence and rejects invalid final path topology without writing', async () => {
+    const current = syntheticTopologyComponent();
+    const capability = topologyFact('fact.capability', 'capability', 'convert');
+    const missingEvidence = proposeCanonicalAmendment({
+      current,
+      candidate: { facts: [capability], fact_ids: [capability.id] },
+      review: {
+        ...review({
+          component_id: current.id as string,
+          candidate_id: 'candidate.topology',
+          expected_snapshot: canonicalSerializedSnapshot(current),
+          approved_fields: [],
+          field_actions: {},
+        }),
+        topology_operations: [
+          {
+            operation: 'add',
+            kind: 'capability',
+            id: 'convert',
+            value: { id: 'convert', type: 'inversion' },
+          },
+        ],
+      },
+    });
+    expect(missingEvidence.issues.map((item) => item.code)).toContain(
+      'amendment_topology_missing_evidence',
+    );
+
+    const facts = [
+      capability,
+      topologyFact('fact.input', 'port', 'input'),
+      topologyFact('fact.output', 'port', 'output'),
+      topologyFact('fact.path', 'power_path', 'conversion'),
+    ];
+    const invalidPath = proposeCanonicalAmendment({
+      current,
+      candidate: { facts, fact_ids: facts.map((fact) => fact.id) },
+      review: {
+        ...review({
+          component_id: current.id as string,
+          candidate_id: 'candidate.topology',
+          expected_snapshot: canonicalSerializedSnapshot(current),
+          approved_fields: [],
+          field_actions: {},
+        }),
+        topology_operations: [
+          {
+            operation: 'add',
+            kind: 'capability',
+            id: 'convert',
+            value: { id: 'convert', type: 'inversion' },
+            evidence: ['fact.capability'],
+          },
+          {
+            operation: 'add',
+            kind: 'port',
+            id: 'input',
+            value: { id: 'input', domain: 'dc', direction: 'input' },
+            evidence: ['fact.input'],
+          },
+          {
+            operation: 'add',
+            kind: 'power_path',
+            id: 'conversion',
+            value: {
+              id: 'conversion',
+              capability_id: 'convert',
+              from_port: 'input',
+              to_port: 'missing',
+            },
+            evidence: ['fact.path'],
+          },
+        ],
+      },
+    });
+    expect(invalidPath.status).toBe('blocked');
+    expect(invalidPath.issues.map((item) => item.code)).toContain(
+      'amendment_topology_invalid_reference',
+    );
+    expect(invalidPath.status).toBe('blocked');
+
+    const root = await mkdtemp(join(tmpdir(), 'canonical-topology-dry-run-'));
+    const target = join(root, 'synthetic.topology.component.yaml');
+    await writeFile(target, stringify(current), 'utf8');
+    const dryRun = await writeCanonicalAmendment({
+      current,
+      candidate: {
+        facts: [capability],
+        fact_ids: [capability.id],
+      },
+      review: {
+        ...review({
+          component_id: current.id as string,
+          candidate_id: 'candidate.topology',
+          expected_snapshot: canonicalSerializedSnapshot(current),
+          approved_fields: [],
+          field_actions: {},
+        }),
+        topology_operations: [
+          {
+            operation: 'add',
+            kind: 'capability',
+            id: 'convert',
+            value: { id: 'convert', type: 'inversion' },
+            evidence: ['fact.capability'],
+          },
+        ],
+      },
+      destinationRoot: root,
+      write: false,
+    });
+    expect(dryRun.status).toBe('dry_run');
+    expect(parseYaml(await readFile(target, 'utf8'))).toEqual(current);
+    await rm(root, { recursive: true, force: true });
+  });
+
+  it.each(['expected_snapshot', 'expected_current_snapshot'] as const)(
+    'rejects a topology amendment with a stale %s',
+    (snapshotField) => {
+      const current = syntheticTopologyComponent();
+      const fact = topologyFact('fact.capability', 'capability', 'convert');
+      const result = proposeCanonicalAmendment({
+        current,
+        candidate: { facts: [fact], fact_ids: [fact.id] },
+        review: topologyReviewFor(
+          current,
+          [
+            {
+              operation: 'add',
+              kind: 'capability',
+              id: 'convert',
+              value: { id: 'convert', type: 'inversion' },
+              evidence: [fact.id],
+            },
+          ],
+          snapshotField === 'expected_snapshot'
+            ? { expected_snapshot: 'sha256:stale', expected_current_snapshot: undefined }
+            : { expected_snapshot: undefined, expected_current_snapshot: 'sha256:stale' },
+        ),
+      });
+
+      expect(result.status).toBe('blocked');
+      expect(result.issues.map((item) => item.code)).toContain('canonical_snapshot_mismatch');
+    },
+  );
+
+  it('protects a successfully written topology amendment from replay', async () => {
+    const current = syntheticTopologyComponent();
+    const fact = topologyFact('fact.capability', 'capability', 'convert');
+    const root = await mkdtemp(join(tmpdir(), 'canonical-topology-replay-'));
+    const target = join(root, `${current.id}.yaml`);
+    await writeFile(target, stringify(current), 'utf8');
+    const request = {
+      current,
+      candidate: { facts: [fact], fact_ids: [fact.id] },
+      review: topologyReviewFor(current, [
+        {
+          operation: 'add',
+          kind: 'capability',
+          id: 'convert',
+          value: { id: 'convert', type: 'inversion' },
+          evidence: [fact.id],
+        },
+      ]),
+      destinationRoot: root,
+      write: true,
+    } as const;
+
+    const first = await writeCanonicalAmendment(request);
+    const amended = parseYaml(await readFile(target, 'utf8')) as Record<string, unknown>;
+    const replay = await writeCanonicalAmendment({
+      ...request,
+      current: amended,
+      review: topologyReviewFor(amended, request.review.topology_operations, {
+        expected_snapshot: canonicalSerializedSnapshot(amended),
+      }),
+    });
+
+    expect(first.status).toBe('written');
+    expect(replay.issues.map((item) => item.code)).toContain('amendment_already_applied');
+    await rm(root, { recursive: true, force: true });
+  });
+
+  it('does not partially write an invalid multi-operation topology amendment', async () => {
+    const current = syntheticTopologyComponent();
+    const facts = [
+      topologyFact('fact.capability', 'capability', 'convert'),
+      topologyFact('fact.input', 'port', 'input'),
+      topologyFact('fact.path', 'power_path', 'conversion'),
+    ];
+    const root = await mkdtemp(join(tmpdir(), 'canonical-topology-atomicity-'));
+    const target = join(root, `${current.id}.yaml`);
+    const original = stringify(current);
+    await writeFile(target, original, 'utf8');
+    const result = await writeCanonicalAmendment({
+      current,
+      candidate: { facts, fact_ids: facts.map((fact) => fact.id) },
+      review: topologyReviewFor(current, [
+        {
+          operation: 'add',
+          kind: 'capability',
+          id: 'convert',
+          value: { id: 'convert', type: 'inversion' },
+          evidence: ['fact.capability'],
+        },
+        {
+          operation: 'add',
+          kind: 'port',
+          id: 'input',
+          value: { id: 'input', domain: 'dc', direction: 'input' },
+          evidence: ['fact.input'],
+        },
+        {
+          operation: 'add',
+          kind: 'power_path',
+          id: 'conversion',
+          value: {
+            id: 'conversion',
+            capability_id: 'convert',
+            from_port: 'input',
+            to_port: 'unknown',
+          },
+          evidence: ['fact.path'],
+        },
+      ]),
+      destinationRoot: root,
+      write: true,
+    });
+
+    expect(result.status).toBe('blocked');
+    expect(await readFile(target, 'utf8')).toBe(original);
+    await rm(root, { recursive: true, force: true });
+  });
+
+  it('resolves topology by stable IDs independently of collection order while preserving snapshots', () => {
+    const current = {
+      ...syntheticTopologyComponent(),
+      capabilities: [
+        { id: 'first', type: 'inversion' },
+        { id: 'second', type: 'charging' },
+      ],
+      ports: [
+        { id: 'input', domain: 'dc', direction: 'input' },
+        { id: 'output', domain: 'ac', direction: 'output' },
+      ],
+      power_paths: [
+        {
+          id: 'path',
+          capability_id: 'first',
+          from_port: 'input',
+          to_port: 'output',
+        },
+      ],
+    };
+    const reordered = {
+      ...current,
+      capabilities: [...(current.capabilities ?? [])].reverse(),
+      ports: [...(current.ports ?? [])].reverse(),
+      power_paths: [...(current.power_paths ?? [])].reverse(),
+    };
+    const fact = topologyFact('fact.third', 'capability', 'third');
+    const operation = {
+      operation: 'add' as const,
+      kind: 'capability' as const,
+      id: 'third',
+      value: { id: 'third', type: 'monitoring' },
+      evidence: [fact.id],
+    };
+
+    const stale = proposeCanonicalAmendment({
+      current: reordered,
+      candidate: { facts: [fact], fact_ids: [fact.id] },
+      review: topologyReviewFor(reordered, [operation], {
+        expected_snapshot: canonicalSerializedSnapshot(current),
+      }),
+    });
+    const valid = proposeCanonicalAmendment({
+      current: reordered,
+      candidate: { facts: [fact], fact_ids: [fact.id] },
+      review: topologyReviewFor(reordered, [operation]),
+    });
+
+    expect(stale.issues.map((item) => item.code)).toContain('canonical_snapshot_mismatch');
+    expect(valid.status).toBe('proposed');
+    expect(valid.proposal?.capabilities).toEqual([
+      { id: 'second', type: 'charging' },
+      { id: 'first', type: 'inversion' },
+      { id: 'third', type: 'monitoring' },
+    ]);
+  });
+
+  it.each([
+    {
+      label: 'capability',
+      operation: {
+        operation: 'add' as const,
+        kind: 'capability' as const,
+        id: 'convert',
+        value: { id: 'convert', type: 'inversion' },
+      },
+      fact: topologyFact('fact.capability', 'capability', 'convert'),
+      collection: 'capabilities',
+    },
+    {
+      label: 'port',
+      operation: {
+        operation: 'add' as const,
+        kind: 'port' as const,
+        id: 'input',
+        value: { id: 'input', domain: 'dc', direction: 'input' },
+      },
+      fact: topologyFact('fact.input', 'port', 'input'),
+      collection: 'ports',
+    },
+    {
+      label: 'power path',
+      operation: {
+        operation: 'add' as const,
+        kind: 'power_path' as const,
+        id: 'path',
+        value: {
+          id: 'path',
+          capability_id: 'convert',
+          from_port: 'input',
+          to_port: 'output',
+        },
+      },
+      fact: topologyFact('fact.path', 'power_path', 'path'),
+      collection: 'power_paths',
+    },
+  ])(
+    'preserves absent collections when adding the first $label',
+    ({ operation, fact, collection }) => {
+      const current =
+        operation.kind === 'power_path'
+          ? {
+              ...syntheticTopologyComponent(),
+              capabilities: [{ id: 'convert', type: 'inversion' }],
+              ports: [
+                { id: 'input', domain: 'dc', direction: 'input' },
+                { id: 'output', domain: 'ac', direction: 'output' },
+              ],
+            }
+          : syntheticTopologyComponent();
+      const result = proposeCanonicalAmendment({
+        current,
+        candidate: { facts: [fact], fact_ids: [fact.id] },
+        review: topologyReviewFor(current, [{ ...operation, evidence: [fact.id] }]),
+      });
+
+      expect(result.status).toBe('proposed');
+      expect(result.proposal?.[collection]).toEqual([operation.value]);
+      for (const other of ['capabilities', 'ports', 'power_paths']) {
+        if (other !== collection && !(other in current))
+          expect(result.proposal?.[other]).toBeUndefined();
+      }
+    },
+  );
+
+  it('keeps proposal dry-run and controlled write boundaries distinct for topology', async () => {
+    const current = syntheticTopologyComponent();
+    const fact = topologyFact('fact.capability', 'capability', 'convert');
+    const request = {
+      current,
+      candidate: { facts: [fact], fact_ids: [fact.id] },
+      review: topologyReviewFor(current, [
+        {
+          operation: 'add',
+          kind: 'capability',
+          id: 'convert',
+          value: { id: 'convert', type: 'inversion' },
+          evidence: [fact.id],
+        },
+      ]),
+    } as const;
+    const proposal = proposeCanonicalAmendment(request);
+    const root = await mkdtemp(join(tmpdir(), 'canonical-topology-write-boundary-'));
+    const target = join(root, `${current.id}.yaml`);
+    await writeFile(target, stringify(current), 'utf8');
+    const dryRun = await writeCanonicalAmendment({
+      ...request,
+      destinationRoot: root,
+      write: false,
+    });
+    const afterDryRun = await readFile(target, 'utf8');
+    const written = await writeCanonicalAmendment({
+      ...request,
+      destinationRoot: root,
+      write: true,
+    });
+
+    expect(proposal.status).toBe('proposed');
+    expect(afterDryRun).toBe(stringify(current));
+    expect(dryRun.status).toBe('dry_run');
+    expect(written.status).toBe('written');
+    expect(parseYaml(await readFile(target, 'utf8'))).toMatchObject({
+      capabilities: [{ id: 'convert', type: 'inversion' }],
+    });
+    await rm(root, { recursive: true, force: true });
+  });
+
+  it('cross-validates operation, review, and candidate topology evidence representations', () => {
+    const current = syntheticTopologyComponent();
+    const first = topologyFact('fact.first', 'capability', 'convert');
+    const second = topologyFact('fact.second', 'capability', 'convert');
+    const result = proposeCanonicalAmendment({
+      current,
+      candidate: {
+        facts: [first, second],
+        fact_ids: [first.id, second.id],
+        topology_evidence: { 'capability:convert': [second.id] },
+      },
+      review: topologyReviewFor(
+        current,
+        [
+          {
+            operation: 'add',
+            kind: 'capability',
+            id: 'convert',
+            value: { id: 'convert', type: 'inversion' },
+            evidence: [first.id],
+          },
+        ],
+        { topology_evidence: { 'capability:convert': [first.id] } },
+      ),
+    });
+
+    expect(result.status).toBe('blocked');
+    expect(result.issues.map((item) => item.code)).toContain(
+      'amendment_topology_evidence_conflict',
+    );
   });
 });
