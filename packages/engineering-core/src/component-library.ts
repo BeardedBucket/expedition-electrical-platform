@@ -184,6 +184,19 @@ export interface ComponentConductiveRelationship {
   readonly notes?: string | null;
 }
 
+export interface ComponentSwitchingConfiguration {
+  readonly id: string;
+  readonly active_relationship_ids: readonly string[];
+  readonly label?: string | null;
+  readonly notes?: string | null;
+}
+
+export interface ComponentSwitching {
+  readonly controlled_relationship_ids: readonly string[];
+  readonly configurations: readonly ComponentSwitchingConfiguration[];
+  readonly notes?: string | null;
+}
+
 export interface ComponentLibraryTerminal {
   readonly id?: string;
   readonly function: TerminalFunction;
@@ -240,6 +253,7 @@ export interface ComponentLibraryRecord {
   readonly power_paths?: readonly ComponentPowerPath[];
   readonly connection_points?: readonly ComponentConnectionPoint[];
   readonly conductive_relationships?: readonly ComponentConductiveRelationship[];
+  readonly switching?: ComponentSwitching | null;
   readonly category: string;
   readonly product_family?: string | null;
   readonly verification_status: ComponentVerificationStatus;
@@ -1149,6 +1163,111 @@ const validateEngineeringConstraints = (input: unknown): readonly string[] => {
     }
   }
 
+  const switching = record.switching;
+  if (switching !== undefined && switching !== null) {
+    if (typeof switching !== 'object' || Array.isArray(switching)) {
+      addMessage('switching', 'must be an object or null');
+    } else {
+      const switchingRecord = switching as Record<string, unknown>;
+      const relationshipIds = new Set(
+        (Array.isArray(conductiveRelationships) ? conductiveRelationships : [])
+          .filter(
+            (relationship): relationship is Record<string, unknown> =>
+              !!relationship && typeof relationship === 'object',
+          )
+          .map((relationship) => relationship.id)
+          .filter((id): id is string => typeof id === 'string'),
+      );
+      const controlledIds = switchingRecord.controlled_relationship_ids;
+      const controlledRelationshipIds = new Set<string>();
+      if (!Array.isArray(controlledIds) || controlledIds.length === 0) {
+        addMessage(
+          'switching.controlled_relationship_ids',
+          'must contain at least one conductive relationship ID',
+        );
+      } else {
+        controlledIds.forEach((id, index) => {
+          if (typeof id !== 'string' || !/^[a-z0-9][a-z0-9._-]+$/i.test(id)) {
+            addMessage(
+              `switching.controlled_relationship_ids[${index}]`,
+              'must be a stable conductive relationship ID',
+            );
+          } else if (controlledRelationshipIds.has(id)) {
+            addMessage(
+              `switching.controlled_relationship_ids[${index}]`,
+              `duplicates conductive relationship ID '${id}'`,
+            );
+          } else {
+            controlledRelationshipIds.add(id);
+            if (!relationshipIds.has(id)) {
+              addMessage(
+                `switching.controlled_relationship_ids[${index}]`,
+                `references unknown conductive relationship '${id}'`,
+              );
+            }
+          }
+        });
+      }
+      const configurations = switchingRecord.configurations;
+      if (!Array.isArray(configurations) || configurations.length === 0) {
+        addMessage('switching.configurations', 'must contain at least one allowed configuration');
+      } else {
+        const configurationIds = new Set<string>();
+        configurations.forEach((configuration, index) => {
+          if (configuration === null || typeof configuration !== 'object') {
+            addMessage(`switching.configurations[${index}]`, 'must be an object');
+            return;
+          }
+          const configurationRecord = configuration as Record<string, unknown>;
+          const id = configurationRecord.id;
+          if (typeof id !== 'string' || !/^[a-z0-9][a-z0-9._-]+$/i.test(id)) {
+            addMessage(
+              `switching.configurations[${index}].id`,
+              'must be a stable component-local identifier',
+            );
+          } else if (configurationIds.has(id)) {
+            addMessage(
+              `switching.configurations[${index}].id`,
+              `duplicates switching configuration ID '${id}'`,
+            );
+          } else {
+            configurationIds.add(id);
+          }
+          const activeIds = configurationRecord.active_relationship_ids;
+          if (!Array.isArray(activeIds)) {
+            addMessage(
+              `switching.configurations[${index}].active_relationship_ids`,
+              'must be an array',
+            );
+            return;
+          }
+          const activeSet = new Set<string>();
+          activeIds.forEach((activeId, activeIndex) => {
+            if (typeof activeId !== 'string') {
+              addMessage(
+                `switching.configurations[${index}].active_relationship_ids[${activeIndex}]`,
+                'must be a conductive relationship ID',
+              );
+            } else if (activeSet.has(activeId)) {
+              addMessage(
+                `switching.configurations[${index}].active_relationship_ids[${activeIndex}]`,
+                `duplicates conductive relationship ID '${activeId}'`,
+              );
+            } else {
+              activeSet.add(activeId);
+              if (!controlledRelationshipIds.has(activeId)) {
+                addMessage(
+                  `switching.configurations[${index}].active_relationship_ids[${activeIndex}]`,
+                  `must reference a controlled conductive relationship '${activeId}'`,
+                );
+              }
+            }
+          });
+        });
+      }
+    }
+  }
+
   if (
     record.electrical !== null &&
     record.electrical !== undefined &&
@@ -1209,6 +1328,7 @@ export const normalizeComponentLibraryRecord = (input: unknown): ComponentLibrar
     ...(Array.isArray(record.conductive_relationships)
       ? { conductive_relationships: record.conductive_relationships }
       : {}),
+    ...(record.switching !== undefined ? { switching: record.switching } : {}),
     source_refs: Array.isArray(record.source_refs) ? record.source_refs : [],
     interfaces: normalizeTextList(record.interfaces),
     terminals: Array.isArray(record.terminals) ? record.terminals : [],

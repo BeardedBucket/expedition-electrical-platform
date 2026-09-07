@@ -34,7 +34,13 @@ const syntheticTopologyComponent = (): Record<string, unknown> => ({
 
 const topologyFact = (
   id: string,
-  kind: 'capability' | 'port' | 'power_path',
+  kind:
+    | 'capability'
+    | 'port'
+    | 'power_path'
+    | 'connection_point'
+    | 'conductive_relationship'
+    | 'switching_configuration',
   targetId: string,
 ): ProductFact => ({
   schema_version: '1.0',
@@ -778,6 +784,7 @@ describe('canonical amendment workflow', () => {
         ],
       },
     });
+
     expect(missingEvidence.issues.map((item) => item.code)).toContain(
       'amendment_topology_missing_evidence',
     );
@@ -868,6 +875,58 @@ describe('canonical amendment workflow', () => {
     expect(dryRun.status).toBe('dry_run');
     expect(parseYaml(await readFile(target, 'utf8'))).toEqual(current);
     await rm(root, { recursive: true, force: true });
+  });
+
+  it('adds a reviewed switching configuration without duplicating connectivity', () => {
+    const current = {
+      ...syntheticTopologyComponent(),
+      ports: [
+        { id: 'input', domain: 'dc', direction: 'bidirectional' },
+        { id: 'output', domain: 'dc', direction: 'bidirectional' },
+      ],
+      conductive_relationships: [
+        {
+          id: 'contact',
+          participants: [
+            { kind: 'port', id: 'input' },
+            { kind: 'port', id: 'output' },
+          ],
+        },
+      ],
+      switching: {
+        controlled_relationship_ids: ['contact'],
+        configurations: [{ id: 'configuration-a', active_relationship_ids: [] }],
+      },
+    };
+    const switching = topologyFact('fact.switching', 'switching_configuration', 'configuration-b');
+    const result = proposeCanonicalAmendment({
+      current,
+      candidate: {
+        fact_ids: ['fact.switching'],
+        facts: [switching],
+        topology_evidence: {
+          'switching_configuration:configuration-b': ['fact.switching'],
+        },
+      },
+      review: topologyReviewFor(current, [
+        {
+          operation: 'add',
+          kind: 'switching_configuration',
+          id: 'configuration-b',
+          value: { id: 'configuration-b', active_relationship_ids: ['contact'] },
+          evidence: ['fact.switching'],
+        },
+      ]),
+    });
+
+    expect(result.status).toBe('proposed');
+    expect(result.proposal?.switching).toMatchObject({
+      controlled_relationship_ids: ['contact'],
+      configurations: [
+        { id: 'configuration-a', active_relationship_ids: [] },
+        { id: 'configuration-b', active_relationship_ids: ['contact'] },
+      ],
+    });
   });
 
   it.each(['expected_snapshot', 'expected_current_snapshot'] as const)(

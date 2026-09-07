@@ -160,6 +160,97 @@ it('rejects duplicate or unknown conductive participants', () => {
   }
 });
 
+it('represents static switching configurations without asserting runtime state', () => {
+  const disconnect = {
+    ...baseComponent,
+    id: 'synthetic.disconnect',
+    ports: [
+      { id: 'input', domain: 'dc', direction: 'bidirectional' },
+      { id: 'output', domain: 'dc', direction: 'bidirectional' },
+    ],
+    conductive_relationships: [
+      {
+        id: 'contact',
+        participants: [
+          { kind: 'port', id: 'input' },
+          { kind: 'port', id: 'output' },
+        ],
+      },
+    ],
+    switching: {
+      controlled_relationship_ids: ['contact'],
+      configurations: [
+        { id: 'configuration-a', active_relationship_ids: [] },
+        { id: 'configuration-b', active_relationship_ids: ['contact'] },
+      ],
+    },
+  } satisfies ComponentLibraryRecord;
+  const selector = {
+    ...baseComponent,
+    id: 'synthetic.selector',
+    conductive_relationships: [
+      {
+        id: 'battery-a',
+        participants: [
+          { kind: 'port', id: 'common' },
+          { kind: 'port', id: 'aa' },
+        ],
+      },
+      {
+        id: 'battery-b',
+        participants: [
+          { kind: 'port', id: 'common' },
+          { kind: 'port', id: 'bb' },
+        ],
+      },
+    ],
+    ports: [
+      { id: 'common', domain: 'dc', direction: 'bidirectional' },
+      { id: 'aa', domain: 'dc', direction: 'bidirectional' },
+      { id: 'bb', domain: 'dc', direction: 'bidirectional' },
+    ],
+    switching: {
+      controlled_relationship_ids: ['battery-a', 'battery-b'],
+      configurations: [
+        { id: 'none', active_relationship_ids: [] },
+        { id: 'a-only', active_relationship_ids: ['battery-a'] },
+        { id: 'b-only', active_relationship_ids: ['battery-b'] },
+        { id: 'both', active_relationship_ids: ['battery-a', 'battery-b'] },
+      ],
+    },
+  } satisfies ComponentLibraryRecord;
+
+  expect(validateComponentLibraryRecord(disconnect).ok).toBe(true);
+  expect(validateComponentLibraryRecord(selector).ok).toBe(true);
+  expect(validateComponentLibraryRecord(baseComponent).ok).toBe(true);
+});
+
+it('rejects switching configurations that reference uncontrolled relationships', () => {
+  const result = validateComponentLibraryRecord({
+    ...baseComponent,
+    conductive_relationships: [
+      {
+        id: 'contact',
+        participants: [
+          { kind: 'port', id: 'input' },
+          { kind: 'port', id: 'output' },
+        ],
+      },
+    ],
+    ports: [
+      { id: 'input', domain: 'dc', direction: 'bidirectional' },
+      { id: 'output', domain: 'dc', direction: 'bidirectional' },
+    ],
+    switching: {
+      controlled_relationship_ids: ['contact'],
+      configurations: [{ id: 'invalid', active_relationship_ids: ['other'] }],
+    },
+  });
+
+  expect(result.ok).toBe(false);
+  if (!result.ok) expect(result.errors.join('\n')).toContain('controlled conductive relationship');
+});
+
 it('rejects malformed capability and port contracts', () => {
   const duplicateCapability = validateComponentLibraryRecord({
     ...baseComponent,

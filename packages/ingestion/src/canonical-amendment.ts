@@ -84,7 +84,12 @@ export interface CanonicalAmendmentChange {
 }
 
 export type CanonicalTopologyKind =
-  'capability' | 'port' | 'power_path' | 'connection_point' | 'conductive_relationship';
+  | 'capability'
+  | 'port'
+  | 'power_path'
+  | 'connection_point'
+  | 'conductive_relationship'
+  | 'switching_configuration';
 
 export interface CanonicalTopologyAddOperation {
   readonly operation: 'add';
@@ -331,6 +336,7 @@ const topologyCollection = {
   power_path: 'power_paths',
   connection_point: 'connection_points',
   conductive_relationship: 'conductive_relationships',
+  switching_configuration: 'switching.configurations',
 } as const;
 
 const topologyTargetKey = (kind: CanonicalTopologyKind, id: string): string => `${kind}:${id}`;
@@ -370,6 +376,14 @@ const validateProposedTopology = (proposal: JsonObject): CanonicalAmendmentIssue
   const connectionPointIds = ids(connectionPoints);
   const conductiveRelationshipIds = ids(conductiveRelationships);
   const portIds = ids(ports);
+  const switching = proposal.switching;
+  const switchingConfigurations =
+    switching && typeof switching === 'object' && !Array.isArray(switching)
+      ? Array.isArray(switching.configurations)
+        ? switching.configurations
+        : undefined
+      : undefined;
+  const switchingConfigurationIds = ids(switchingConfigurations);
   if (capabilities && capabilityIds.size !== capabilities.length) {
     issues.push(
       issue('amendment_topology_duplicate_id', 'capabilities', 'Capability IDs must be unique.'),
@@ -401,6 +415,18 @@ const validateProposedTopology = (proposal: JsonObject): CanonicalAmendmentIssue
         'amendment_topology_duplicate_id',
         'conductive_relationships',
         'Conductive relationship IDs must be unique.',
+      ),
+    );
+  }
+  if (
+    switchingConfigurations &&
+    switchingConfigurationIds.size !== switchingConfigurations.length
+  ) {
+    issues.push(
+      issue(
+        'amendment_topology_duplicate_id',
+        'switching.configurations',
+        'Switching configuration IDs must be unique.',
       ),
     );
   }
@@ -789,7 +815,16 @@ export const proposeCanonicalAmendment = ({
       );
       continue;
     }
-    const existing = Array.isArray(proposal[collection]) ? proposal[collection] : [];
+    const existing =
+      operation.kind === 'switching_configuration'
+        ? (() => {
+            const switching = proposal.switching;
+            if (!switching || typeof switching !== 'object' || Array.isArray(switching)) return [];
+            return Array.isArray(switching.configurations) ? switching.configurations : [];
+          })()
+        : Array.isArray(proposal[collection])
+          ? proposal[collection]
+          : [];
     const existingIds = new Set(
       existing.flatMap((item) =>
         item && typeof item === 'object' && !Array.isArray(item) && typeof item.id === 'string'
@@ -867,7 +902,17 @@ export const proposeCanonicalAmendment = ({
       continue;
     }
     const nextCollection = [...existing, operation.value];
-    proposal[collection] = nextCollection;
+    if (operation.kind === 'switching_configuration') {
+      const currentSwitching =
+        proposal.switching &&
+        typeof proposal.switching === 'object' &&
+        !Array.isArray(proposal.switching)
+          ? proposal.switching
+          : {};
+      proposal.switching = { ...currentSwitching, configurations: nextCollection };
+    } else {
+      proposal[collection] = nextCollection;
+    }
     topologyChanges.push({
       operation: 'add',
       kind: operation.kind,

@@ -76,7 +76,12 @@ export interface SourceLocator {
 }
 
 export type TopologyTargetKind =
-  'capability' | 'port' | 'power_path' | 'connection_point' | 'conductive_relationship';
+  | 'capability'
+  | 'port'
+  | 'power_path'
+  | 'connection_point'
+  | 'conductive_relationship'
+  | 'switching_configuration';
 
 export interface TopologyTarget {
   readonly kind: TopologyTargetKind;

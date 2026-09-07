@@ -192,6 +192,7 @@ describe('topology evidence contracts', () => {
       field: 'conductive_relationships.inline',
       topology_target: { kind: 'conductive_relationship', id: 'inline' },
     });
+
     const connectivityCandidate = candidate({
       component_data: {
         connection_points: [{ id: 'input-point' }, { id: 'output-point' }],
@@ -220,6 +221,50 @@ describe('topology evidence contracts', () => {
         ok: true,
       },
     );
+  });
+
+  it('accepts stable switching configuration targets', () => {
+    const switchingFact = fact({
+      id: 'example.switching.fact',
+      field: 'switching.configurations',
+      topology_target: { kind: 'switching_configuration', id: 'configuration-a' },
+    });
+    const switchingCandidate = candidate({
+      component_data: {
+        ports: [
+          { id: 'input', domain: 'dc', direction: 'bidirectional' },
+          { id: 'output', domain: 'dc', direction: 'bidirectional' },
+        ],
+        conductive_relationships: [
+          {
+            id: 'contact',
+            participants: [
+              { kind: 'port', id: 'input' },
+              { kind: 'port', id: 'output' },
+            ],
+          },
+        ],
+        switching: {
+          controlled_relationship_ids: ['contact'],
+          configurations: [
+            { id: 'configuration-a', active_relationship_ids: [] },
+            { id: 'configuration-b', active_relationship_ids: ['contact'] },
+          ],
+        },
+      },
+      topology_evidence: {
+        'switching_configuration:configuration-a': ['example.switching.fact'],
+      },
+      fact_ids: ['example.switching.fact'],
+      field_evidence: {},
+      promotion_status: 'review_required',
+      review_status: 'pending',
+    });
+    expect(validateProductCandidate(switchingCandidate, [source()], [switchingFact])).toEqual({
+      status: 'valid',
+      issues: [],
+      ok: true,
+    });
   });
 
   it('rejects unknown topology ids, wrong kinds, and array-index identity', () => {

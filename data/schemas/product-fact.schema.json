@@ -55,7 +55,8 @@
             "port",
             "power_path",
             "connection_point",
-            "conductive_relationship"
+            "conductive_relationship",
+            "switching_configuration"
           ]
         },
         "id": {
