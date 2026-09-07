@@ -1,5 +1,6 @@
-import { readdir } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { mkdtemp, readdir, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { stringify as stringifyYaml } from 'yaml';
 import {
@@ -69,6 +70,23 @@ const reviewFor = (
   fact_ids: current.evidence.fact_ids,
   ...overrides,
 });
+
+// A canonical interaction-relationship dataset is defined as "empty" when it
+// contains zero canonical relationship records. Git does not track empty
+// directories, so a fresh checkout may legitimately omit
+// data/interaction-relationships entirely. An absent directory and an
+// existing-but-empty directory must both read as zero records; only a
+// genuine read failure other than "does not exist" should propagate.
+const readCanonicalInteractionRelationshipEntries = async (
+  directory: string,
+): Promise<readonly string[]> => {
+  try {
+    return await readdir(directory);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+    throw error;
+  }
+};
 
 describe('interaction relationships', () => {
   it('preserves directional information, family scope, and source evidence', () => {
@@ -532,8 +550,32 @@ describe('interaction relationships', () => {
   });
 
   it('keeps the canonical interaction-relationship dataset empty unless a real review exists', async () => {
-    const entries = await readdir(resolve(process.cwd(), 'data/interaction-relationships'));
+    const entries = await readCanonicalInteractionRelationshipEntries(
+      resolve(process.cwd(), 'data/interaction-relationships'),
+    );
     expect(entries).toEqual([]);
+  });
+
+  it('treats an absent canonical interaction-relationship directory as zero records', async () => {
+    const missingDirectory = join(
+      await mkdtemp(join(tmpdir(), 'interaction-relationships-absent-')),
+      'data/interaction-relationships',
+    );
+
+    const entries = await readCanonicalInteractionRelationshipEntries(missingDirectory);
+
+    expect(entries).toEqual([]);
+  });
+
+  it('treats an existing empty canonical interaction-relationship directory as zero records', async () => {
+    const emptyDirectory = await mkdtemp(join(tmpdir(), 'interaction-relationships-empty-'));
+
+    try {
+      const entries = await readCanonicalInteractionRelationshipEntries(emptyDirectory);
+      expect(entries).toEqual([]);
+    } finally {
+      await rm(emptyDirectory, { recursive: true, force: true });
+    }
   });
 
   it('keeps deterministic replay and duplicate-id promotion blocked', async () => {
