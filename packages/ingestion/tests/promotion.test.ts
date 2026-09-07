@@ -257,6 +257,54 @@ describe('reviewed candidate promotion', () => {
     );
     expect(leafApproval.issues.map((item) => item.code)).toContain('promotion_evidence_missing');
   });
+
+  it('snapshots and traces topology-only supporting facts', () => {
+    const topologyFactId = 'extracted.fact.6a4de9bfd1d6ee98';
+    const topologyFact = {
+      ...facts().find((fact) => fact.id === topologyFactId)!,
+      topology_target: { kind: 'port' as const, id: 'ac_input', field: 'voltage_v' },
+    };
+    const topologyCandidate: ProductCandidate = {
+      ...candidate(),
+      component_data: {
+        ...candidate().component_data,
+        ports: [{ id: 'ac_input', domain: 'ac', direction: 'input', voltage_v: 120 }],
+      },
+      topology_evidence: {
+        'port:ac_input#voltage_v': [topologyFactId],
+      },
+    };
+    const topologyReview = review({
+      candidate_snapshot: promotionCandidateSnapshot(
+        topologyCandidate,
+        sources(),
+        facts().map((fact) => (fact.id === topologyFactId ? topologyFact : fact)),
+      ),
+      topology_evidence: topologyCandidate.topology_evidence,
+    });
+    const result = promoteCandidate(
+      topologyCandidate,
+      sources(),
+      facts().map((fact) => (fact.id === topologyFactId ? topologyFact : fact)),
+      topologyReview,
+    );
+
+    expect(result.status).toBe('success');
+    expect(result.audit?.topology_evidence).toEqual(topologyCandidate.topology_evidence);
+    expect(result.proposal?.source_refs).toEqual([
+      expect.objectContaining({ fact_ids: expect.arrayContaining([topologyFactId]) }),
+    ]);
+    expect(
+      promoteCandidate(
+        topologyCandidate,
+        sources(),
+        facts().map((fact) =>
+          fact.id === topologyFactId ? { ...topologyFact, raw_value: 'changed' } : fact,
+        ),
+        topologyReview,
+      ).issues.map((item) => item.code),
+    ).toContain('promotion_snapshot_mismatch');
+  });
 });
 
 const candidateWith = (overrides: Partial<ProductCandidate>): ProductCandidate => ({

@@ -52,6 +52,7 @@ export interface PromotionReview {
   readonly excluded_fields?: readonly string[];
   readonly excluded_fact_ids?: readonly string[];
   readonly field_resolutions?: Readonly<Record<string, PromotionFieldResolution>>;
+  readonly topology_evidence?: Readonly<Record<string, readonly string[]>>;
   readonly evidence_acknowledged: boolean;
   readonly product_role: string;
   readonly category: string;
@@ -73,6 +74,7 @@ export interface PromotionAudit {
   readonly reviewed_at: string;
   readonly source_ids: readonly string[];
   readonly field_evidence: Readonly<Record<string, readonly string[]>>;
+  readonly topology_evidence?: Readonly<Record<string, readonly string[]>>;
   readonly omitted_fields: readonly string[];
   readonly unverified_fact_ids: readonly string[];
 }
@@ -150,7 +152,10 @@ export const promotionCandidateSnapshot = (
   sources: readonly ProductSource[],
   facts: readonly ProductFact[],
 ): string => {
-  const relevantFactIds = new Set(Object.values(candidate.field_evidence).flat());
+  const relevantFactIds = new Set([
+    ...Object.values(candidate.field_evidence).flat(),
+    ...Object.values(candidate.topology_evidence ?? {}).flat(),
+  ]);
   const snapshot = {
     candidate: {
       id: candidate.id,
@@ -161,6 +166,7 @@ export const promotionCandidateSnapshot = (
       component_data: candidate.component_data,
       fact_ids: candidate.fact_ids,
       field_evidence: candidate.field_evidence,
+      ...(candidate.topology_evidence ? { topology_evidence: candidate.topology_evidence } : {}),
     },
     facts: facts
       .filter((fact) => relevantFactIds.has(fact.id))
@@ -173,6 +179,7 @@ export const promotionCandidateSnapshot = (
         normalized_unit: fact.normalized_unit ?? null,
         fact_state: fact.fact_state,
         review_required: fact.review_required ?? false,
+        ...(fact.topology_target ? { topology_target: fact.topology_target } : {}),
       })),
     sources: sources
       .filter((source) => candidate.source_ids.includes(source.id))
@@ -240,6 +247,7 @@ const sourceRefsFor = (
   candidate: ProductCandidate,
   review: PromotionReview,
   selectedFieldEvidence: Readonly<Record<string, readonly string[]>>,
+  topologyEvidence: Readonly<Record<string, readonly string[]>>,
 ): JsonValue[] =>
   sources
     .filter((source) => candidate.source_ids.includes(source.id))
@@ -253,7 +261,12 @@ const sourceRefsFor = (
       ...(source.content_hash ? { content_hash: source.content_hash } : {}),
       candidate_id: candidate.id,
       review_id: review.id,
-      fact_ids: [...new Set(Object.values(selectedFieldEvidence).flat())]
+      fact_ids: [
+        ...new Set([
+          ...Object.values(selectedFieldEvidence).flat(),
+          ...Object.values(topologyEvidence).flat(),
+        ]),
+      ]
         .filter((factId) => candidate.fact_ids.includes(factId))
         .sort(),
     }));
@@ -485,6 +498,7 @@ export const promoteCandidate = (
       issues,
     };
 
+  const topologyEvidence = review.topology_evidence ?? candidate.topology_evidence ?? {};
   const proposal: JsonObject = {
     id: canonicalId,
     manufacturer: canonicalManufacturer,
@@ -494,7 +508,7 @@ export const promoteCandidate = (
     category: review.category,
     product_family: candidate.identity.product_family ?? null,
     verification_status: 'unverified',
-    source_refs: sourceRefsFor(sources, candidate, review, selectedFieldEvidence),
+    source_refs: sourceRefsFor(sources, candidate, review, selectedFieldEvidence, topologyEvidence),
     ...proposalData,
   };
   if (!componentValidator(proposal)) return { status: 'invalid', issues: schemaIssues() };
@@ -506,6 +520,7 @@ export const promoteCandidate = (
     reviewed_at: review.reviewed_at,
     source_ids: [...candidate.source_ids].sort(),
     field_evidence: selectedFieldEvidence,
+    ...(Object.keys(topologyEvidence).length > 0 ? { topology_evidence: topologyEvidence } : {}),
     omitted_fields: omittedFields,
     unverified_fact_ids: facts
       .filter((fact) => fact.fact_state !== 'verified')

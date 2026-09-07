@@ -147,6 +147,74 @@ describe('product fact contracts', () => {
   });
 });
 
+describe('topology evidence contracts', () => {
+  it('accepts supported topology targets and nested fields', () => {
+    const topologyFact = fact({
+      id: 'example.topology.fact',
+      field: 'ports.ac_input.voltage_v',
+      raw_value: 120,
+      normalized_value: 120,
+      normalized_unit: 'V',
+      topology_target: {
+        kind: 'port',
+        id: 'ac_input',
+        field: 'voltage_v',
+      },
+    });
+    const topologyCandidate = candidate({
+      component_data: {
+        ports: [{ id: 'ac_input', domain: 'ac', direction: 'input', voltage_v: 120 }],
+      },
+      topology_evidence: {
+        'port:ac_input#voltage_v': ['example.topology.fact'],
+      },
+      fact_ids: ['example.topology.fact'],
+      field_evidence: {},
+      promotion_status: 'review_required',
+      review_status: 'pending',
+    });
+    expect(validateProductFacts([topologyFact], [source()])).toEqual({
+      status: 'valid',
+      issues: [],
+      ok: true,
+    });
+    expect(validateProductCandidate(topologyCandidate, [source()], [topologyFact])).toEqual({
+      status: 'valid',
+      issues: [],
+      ok: true,
+    });
+  });
+
+  it('rejects unknown topology ids, wrong kinds, and array-index identity', () => {
+    const invalidFact = fact({
+      id: 'example.invalid.target',
+      field: 'ports.ac_input.voltage_v',
+      topology_target: { kind: 'port', id: 'ports[0]' },
+    });
+    const invalidKind = fact({
+      id: 'example.invalid.kind',
+      field: 'capabilities.charging.type',
+      topology_target: { kind: 'capability', id: 'ac_input' },
+    });
+    const candidateWithTopology = candidate({
+      component_data: { capabilities: [{ id: 'charging', type: 'charging' }] },
+      topology_evidence: { 'capability:ports[0]': ['example.invalid.target'] },
+      fact_ids: ['example.invalid.target', 'example.invalid.kind'],
+      field_evidence: {},
+      promotion_status: 'review_required',
+      review_status: 'pending',
+    });
+    const result = validateProductCandidate(
+      candidateWithTopology,
+      [source()],
+      [invalidFact, invalidKind],
+    );
+    expect(result.issues.map((item) => item.code)).toEqual(
+      expect.arrayContaining(['topology_target_invalid']),
+    );
+  });
+});
+
 describe('product candidate contracts', () => {
   it('validates a fully evidenced candidate', () => {
     expect(validateProductCandidate(candidate(), [source()], [fact()])).toEqual({
