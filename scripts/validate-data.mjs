@@ -12,6 +12,7 @@ const schemaByCollection = {
   rules: 'rule.schema.json',
   engineering: 'engineering.schema.json',
   'manufacturer-acquisition-profiles': 'manufacturer-acquisition-profile.schema.json',
+  'interaction-relationships': 'interaction-relationship.schema.json',
 };
 const componentSupportedExtensions = new Set(['.yaml']);
 
