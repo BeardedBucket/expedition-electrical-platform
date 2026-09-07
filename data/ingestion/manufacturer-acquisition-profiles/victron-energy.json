@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0",
+  "id": "victron-energy.web.acquisition-profile",
+  "profile_status": "reviewed",
+  "manufacturer": "Victron Energy",
+  "publisher": "Victron Energy",
+  "official_domains": ["www.victronenergy.com"],
+  "strategies": [
+    {
+      "id": "solar-controller-family-application-state",
+      "status": "reviewed",
+      "reference_uri": "https://www.victronenergy.com/solar-charge-controllers/smartsolar-mppt-75-10-75-15-100-15-100-20",
+      "path_prefix": "/solar-charge-controllers/",
+      "embedded_json": {
+        "representation": "application_state",
+        "script": { "id": "__NEXT_DATA__", "media_type": "application/json" },
+        "json_path": "$.props.pageProps",
+        "record_collection_path": "$.products",
+        "identity_property": "sku"
+      },
+      "document_link_discovery": {
+        "link_attribute": "href",
+        "allowed_extensions": [".pdf"],
+        "path_prefix": "/upload/documents/"
+      }
+    }
+  ],
+  "provenance": {
+    "source_artifact": "data/ingestion/victron-smartsolar-scc075015060r.json",
+    "observed_source_content_hash": "sha256:c4bbc6836d5139861ad30d73c448e831e86f9338feade96989c66e2e13242ed2"
+  }
+}

@@ -18,3 +18,4 @@ export * from './epoch-pilot.js';
 export * from './promotion.js';
 export * from './promotion-write.js';
 export * from './canonical-amendment.js';
+export * from './manufacturer-acquisition.js';

@@ -102,6 +102,35 @@ The package has no canonical catalog write path. Tests use synthetic captured
 content, stubbed fetch responses, and deterministic clocks; they never access
 live websites.
 
+## Manufacturer acquisition profiles
+
+`ManufacturerAcquisitionProfile` is a versioned, human-editable contract for
+retrieval mechanics only. A reviewed profile declares exact official HTTPS
+domains and one or more reviewed source strategies. Each strategy owns its path
+convention, inert JSON script identifier, declarative JSON paths to its record
+collection, exact raw identity property, and official document-link discovery
+rules. A strategy reference URI is evidence for that strategy, not a universal
+manufacturer URL. Profiles explicitly exclude product facts, topology,
+canonical mappings, engineering, scoring, and advisories.
+
+`acquireManufacturerRecord` accepts a bounded `CapturedSource`; it never
+fetches a network resource. It enforces the reviewed official domain and
+resolves exactly one applicable reviewed strategy from the captured source path.
+Zero or multiple applicable strategies remain explicit failures. It parses only
+the selected strategy's declared `application/json` script and uses the safe
+property/array-index JSON path selector rather than evaluating selectors. A
+matched result preserves the original `ProductSource`, raw record, locators,
+content hash, requested identity, matched raw identity, and discovered official
+document links. Unmatched and ambiguous raw identities remain explicit; no
+`ProductFact`, candidate, canonical component, or engineering behavior is
+created.
+
+The reviewed Victron mechanics profile is
+`data/ingestion/manufacturer-acquisition-profiles/victron-energy.json`. It is
+validated by `npm run validate:data`. `buildProposedManufacturerAcquisitionProfile`
+validates and returns only profiles explicitly marked `proposed`; it has no
+review-promotion or acquisition execution path.
+
 ## Normalization and reconciliation
 
 Extraction preserves raw labels and values as provisional claims. Normalization
