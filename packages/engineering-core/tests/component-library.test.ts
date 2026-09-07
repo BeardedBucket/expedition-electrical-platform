@@ -120,7 +120,9 @@ it('rejects malformed capability and port contracts', () => {
   });
   const malformedConstraint = validateComponentLibraryRecord({
     ...baseComponent,
-    ports: [{ id: 'port.current', domain: 'dc', direction: 'input', current_a: { min: 30, max: 10 } }],
+    ports: [
+      { id: 'port.current', domain: 'dc', direction: 'input', current_a: { min: 30, max: 10 } },
+    ],
   });
 
   expect(duplicateCapability.ok).toBe(false);

@@ -369,7 +369,11 @@ const componentCapabilityTypes: readonly CapabilityType[] = [
 ] as const;
 
 const componentElectricalDomains: readonly LogicalPortDomain[] = ['dc', 'ac'] as const;
-const componentPortDirections: readonly PortDirection[] = ['input', 'output', 'bidirectional'] as const;
+const componentPortDirections: readonly PortDirection[] = [
+  'input',
+  'output',
+  'bidirectional',
+] as const;
 
 const validateOptionalRangeValue = (
   path: string,
@@ -676,20 +680,14 @@ const validateEngineeringConstraints = (input: unknown): readonly string[] => {
         typeof domain !== 'string' ||
         !componentElectricalDomains.includes(domain as LogicalPortDomain)
       ) {
-        addMessage(
-          `ports[${index}].domain`,
-          'must be one of dc or ac',
-        );
+        addMessage(`ports[${index}].domain`, 'must be one of dc or ac');
       }
       const direction = portRecord.direction;
       if (
         typeof direction !== 'string' ||
         !componentPortDirections.includes(direction as PortDirection)
       ) {
-        addMessage(
-          `ports[${index}].direction`,
-          'must be one of input, output, or bidirectional',
-        );
+        addMessage(`ports[${index}].direction`, 'must be one of input, output, or bidirectional');
       }
       validateOptionalRangeValue(`ports[${index}].voltage_v`, portRecord.voltage_v, addMessage);
       validateOptionalRangeValue(`ports[${index}].current_a`, portRecord.current_a, addMessage);
