@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "id": "review.human.scc075015060r",
+  "candidate_id": "victron.smartsolar-mppt-75-15.scc075015060r",
+  "decision": "pending",
+  "reviewer_id": "repository-review",
+  "reviewed_at": "2026-09-07T06:05:12.538Z",
+  "approved_fields": [],
+  "evidence_acknowledged": true,
+  "product_role": "solar_charge_controller",
+  "category": "solar_charge_controller",
+  "notes": "The official Victron family page contains the exact SmartSolar 75/15 row for SCC075015060R in embedded JSON, including title \"SmartSolar MPPT 75/15 Retail\", max PV voltage 75V, rated charge current 15A, and 12V/24V battery support. The repository pipeline captured the page successfully, but the generic HTML extractor returned zero facts because this row is embedded in script payloads instead of rendered HTML tables. No canonical product was written or promoted."
+}

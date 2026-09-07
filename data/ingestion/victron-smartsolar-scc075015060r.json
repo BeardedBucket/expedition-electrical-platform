@@ -1,0 +1,80 @@
+{
+  "schema_version": "1.0",
+  "captured_at": "2026-09-07T06:05:12.538Z",
+  "pilot_target_identity": {
+    "manufacturer": "Victron Energy",
+    "product_family": "SmartSolar",
+    "model": "MPPT 75/15",
+    "manufacturer_part_number": "SCC075015060R",
+    "voltage_variant": "12V/24V auto-select",
+    "lifecycle_status": "unknown"
+  },
+  "source": {
+    "schema_version": "1.0",
+    "id": "victron.smartsolar-mppt-75-15.product-page",
+    "uri": "https://www.victronenergy.com/solar-charge-controllers/smartsolar-mppt-75-10-75-15-100-15-100-20",
+    "source_type": "manufacturer_product_page",
+    "authority": "manufacturer_product",
+    "publisher": "Victron Energy",
+    "retrieved_at": "2026-09-07T06:05:12.490Z",
+    "manufacturer": "Victron Energy",
+    "content_hash": "sha256:c4bbc6836d5139861ad30d73c448e831e86f9338feade96989c66e2e13242ed2",
+    "product_identity_claim": {
+      "manufacturer": "Victron Energy",
+      "manufacturer_part_number": "SCC075015060R"
+    },
+    "redistribution_status": "link_only",
+    "notes": "The exact SmartSolar 75/15 row is embedded in the family-page JSON payload rather than rendered as HTML table rows."
+  },
+  "extracted_document": {
+    "title": "SmartSolar MPPT 75/10, 75/15, 100/15 & 100/20 | Victron Energy",
+    "blocks": 137,
+    "warnings": []
+  },
+  "pipeline_summary": {
+    "capture_status": "success",
+    "extracted_fact_count": 0,
+    "raw_row_previously_observed": true,
+    "exact_row_source": "product family-page JSON payload",
+    "extractor_limitation": "The generic HTML extractor only reads DOM table/definition/list nodes and does not parse the embedded script JSON product payload for this page."
+  },
+  "source_markup_evidence": {
+    "sku": "SCC075015060R",
+    "title": "SmartSolar MPPT 75/15 Retail",
+    "battery_voltage": [
+      "12V",
+      "24V"
+    ],
+    "max_pv_voltage": "75V",
+    "rated_charge_current": "15A"
+  },
+  "facts": [],
+  "candidate": {
+    "schema_version": "1.0",
+    "id": "victron.smartsolar-mppt-75-15.scc075015060r",
+    "identity_status": "verified",
+    "identity": {
+      "manufacturer": "Victron Energy",
+      "product_family": "SmartSolar",
+      "model": "MPPT 75/15",
+      "manufacturer_part_number": "SCC075015060R",
+      "voltage_variant": "12V/24V auto-select",
+      "lifecycle_status": "unknown"
+    },
+    "review_status": "pending",
+    "promotion_status": "blocked",
+    "source_ids": [
+      "victron.smartsolar-mppt-75-15.product-page"
+    ],
+    "identity_source_ids": [
+      "victron.smartsolar-mppt-75-15.product-page"
+    ],
+    "fact_ids": [],
+    "component_data": {},
+    "field_evidence": {},
+    "review_reasons": [
+      "html_extractor_did_not_emit_script_embedded_variant_rows",
+      "exact_row_evidence_exists_only_in_page_json_markup"
+    ]
+  }
+}
