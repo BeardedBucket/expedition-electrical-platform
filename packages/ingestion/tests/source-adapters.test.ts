@@ -216,6 +216,26 @@ describe('inert HTML extraction', () => {
     );
   });
 
+  it('optionally preserves paragraph and list claims as provisional text facts', () => {
+    const document = extractDocument(captured());
+    const result = extractProductFacts(document, {
+      source_id: 'example.source',
+      include_text_blocks: true,
+    });
+    expect(result.facts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          raw_label: 'paragraph',
+          raw_value: 'Visible paragraph.',
+          extraction_method: 'text',
+          fact_state: 'provisional',
+          review_required: true,
+        }),
+      ]),
+    );
+    expect(result.facts.some((fact) => fact.raw_value === 'modify repository')).toBe(false);
+  });
+
   it('reports unsupported PDF and media types without pretending to extract them', () => {
     for (const media_type of ['application/pdf', 'application/octet-stream']) {
       const document = extractDocument(captured({ media_type }));

@@ -86,6 +86,7 @@ export interface ProductFactExtractionContext {
   readonly source_id: string;
   readonly schema_version?: string;
   readonly extraction_method?: 'structured' | 'table' | 'text' | 'other';
+  readonly include_text_blocks?: boolean;
 }
 
 export const createProductSource = (

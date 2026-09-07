@@ -1,0 +1,278 @@
+{
+  "schema_version": "1.0",
+  "artifact_id": "phase9b-g1.official-interaction-evidence",
+  "artifact_type": "forensic_acquisition_artifact",
+  "verification_status": "unverified",
+  "purpose": "Preserve official interaction evidence for the G1 acquisition means test without promoting canonical endpoints or interpreting compatibility.",
+  "acquisition": {
+    "adapter": "HttpSourceCaptureAdapter",
+    "retrieval_date": "2026-09-07",
+    "extraction": "inert HTML extraction with opt-in provisional text-claim preservation",
+    "interpretation_boundary": "Claims below are source-backed observations, not compatibility or installed-relationship conclusions."
+  },
+  "sources": [
+    {
+      "id": "victron.g1.smart-battery-shunt",
+      "manufacturer": "Victron Energy",
+      "uri": "https://www.victronenergy.com/battery-monitors/smart-battery-shunt",
+      "source_type": "manufacturer_product_page",
+      "authority": "manufacturer_product",
+      "applicability": "product-family-page",
+      "retrieved_at": "2026-09-07T17:34:16.480Z",
+      "response_status": 200,
+      "media_type": "text/html",
+      "content_hash": "sha256:f468d0a7ccf912e9e7e5bf5cc710d25696bb033c9d5bdace5880209d2de6cf3b",
+      "extraction_status": "success",
+      "fact_status": "success-with-opt-in-text-claims"
+    },
+    {
+      "id": "victron.g1.battery-compatibility",
+      "manufacturer": "Victron Energy",
+      "uri": "https://www.victronenergy.com/live/battery_compatibility:start",
+      "source_type": "manufacturer_support_article",
+      "authority": "manufacturer_support",
+      "applicability": "Victron ecosystem guidance",
+      "retrieved_at": "2026-09-07T17:34:16.813Z",
+      "response_status": 200,
+      "media_type": "text/html",
+      "content_hash": "sha256:8d60c9928ad22c1323d5e4e73cc94f352d926ac5fbb231d488d91b1af8b1958b",
+      "extraction_status": "success",
+      "fact_status": "success-with-opt-in-text-claims"
+    },
+    {
+      "id": "victron.g1.venus-os",
+      "manufacturer": "Victron Energy",
+      "uri": "https://www.victronenergy.com/live/venus-os:start",
+      "source_type": "manufacturer_support_article",
+      "authority": "manufacturer_support",
+      "applicability": "GX product-family guidance",
+      "retrieved_at": "2026-09-07T17:34:17.077Z",
+      "response_status": 200,
+      "media_type": "text/html",
+      "content_hash": "sha256:d5ce21f233cca14943deadeb02020e7ff8f3374bfb76654dc52b9e6a02c86759",
+      "extraction_status": "success",
+      "fact_status": "success-with-opt-in-text-claims"
+    },
+    {
+      "id": "victron.g1.ve-can-to-can-bus-bms",
+      "manufacturer": "Victron Energy",
+      "uri": "https://www.victronenergy.com/cables/ve-can-to-can-bus-bms",
+      "source_type": "manufacturer_product_page",
+      "authority": "manufacturer_product",
+      "applicability": "accessory product page",
+      "retrieved_at": "2026-09-07T17:34:17.271Z",
+      "response_status": 200,
+      "media_type": "text/html",
+      "content_hash": "sha256:72cca2ca834c13f933e1bf6fca192bc239cf96a96ef8013c4964143d8afe5794",
+      "extraction_status": "success",
+      "fact_status": "partial-with-opt-in-text-claims"
+    },
+    {
+      "id": "epoch-batteries.phase9b-d2.product-page",
+      "manufacturer": "Epoch Batteries",
+      "uri": "https://www.epochbatteries.com/products/24v-100ah-marine-lithium-battery",
+      "source_type": "manufacturer_product_page",
+      "authority": "manufacturer_product",
+      "applicability": "direct_identity",
+      "manufacturer_part_number": "B24100A-C",
+      "retrieved_at": "2026-09-07T04:35:03.425Z",
+      "content_hash": "sha256:6a868d57577f1af79a782cbcffc3cca9d16c7d8abf175ec6a8ab894127e8cebc",
+      "extraction_status": "persisted-existing-artifact",
+      "fact_status": "provisional"
+    }
+  ],
+  "claims": [
+    {
+      "id": "claim.smartshunt.measurements",
+      "source_id": "victron.g1.smart-battery-shunt",
+      "source_locator": {
+        "fragment": "paragraph-15",
+        "section": "Everything you need and want to know"
+      },
+      "source_wording": "Keep track of all important battery information on your smartphone, in real-time. Metrics include state of charge, time remaining, voltage, current, amp hours, number of charge cycles, and deepest discharge.",
+      "claim_classes": [
+        "F information exposed",
+        "L local-only information not established"
+      ],
+      "scope": "SmartShunt product-family page",
+      "status": "provisional"
+    },
+    {
+      "id": "claim.smartshunt.charger-sharing",
+      "source_id": "victron.g1.smart-battery-shunt",
+      "source_locator": {
+        "fragment": "paragraph-16",
+        "section": "System-wide charging efficiency"
+      },
+      "source_wording": "The SmartShunt shares battery voltage, current, and temperature with connected chargers to enhance charging efficiency and extend battery life. Connect wirelessly via VE.Smart Networking or plug it into a communication centre (optional).",
+      "claim_classes": [
+        "A endpoint/interface existence",
+        "B mechanism/protocol",
+        "F information exposed",
+        "G information consumed",
+        "K topology/connection condition"
+      ],
+      "scope": "SmartShunt product-family page; connected chargers; optional communication centre",
+      "status": "provisional"
+    },
+    {
+      "id": "claim.smartshunt.ve-direct",
+      "source_id": "victron.g1.smart-battery-shunt",
+      "source_locator": {
+        "fragment": "paragraph-23",
+        "section": "VE.Direct port"
+      },
+      "source_wording": "The VE.Direct port connects to a communication centre for access to VRM, Victron's remote management portal. Configure settings, check system data, analyse performance, and actively manage your system from anywhere in the world.",
+      "claim_classes": [
+        "A endpoint/interface existence",
+        "B mechanism/protocol",
+        "F information exposed",
+        "H control accepted",
+        "K topology/connection condition"
+      ],
+      "scope": "SmartShunt product-family page; communication centre and VRM",
+      "status": "provisional"
+    },
+    {
+      "id": "claim.battery-bms-can",
+      "source_id": "victron.g1.battery-compatibility",
+      "source_locator": {
+        "fragment": "paragraph-3",
+        "section": "Battery Compatibility"
+      },
+      "source_wording": "These are mostly connected via BMS-Can (CANBus) on a GX device.",
+      "claim_classes": [
+        "A endpoint/interface existence",
+        "B mechanism/protocol",
+        "G information consumed",
+        "K topology/connection condition"
+      ],
+      "scope": "Victron ecosystem guidance; lithium and other chemistries when communication is required",
+      "status": "provisional"
+    },
+    {
+      "id": "claim.battery-limit-consumption",
+      "source_id": "victron.g1.battery-compatibility",
+      "source_locator": {
+        "fragment": "paragraph-13",
+        "section": "Common issues we have seen from other DIY / Self-build oriented BMSes"
+      },
+      "source_wording": "Victron requires the BMS to change the Charge Voltage Limit (CVL) to restrict the power flowing to the battery.",
+      "claim_classes": [
+        "F information exposed",
+        "G information consumed",
+        "K topology/connection condition"
+      ],
+      "scope": "Victron guidance for a BMS-controlled lithium integration",
+      "status": "provisional"
+    },
+    {
+      "id": "claim.gx.communication-centre",
+      "source_id": "victron.g1.venus-os",
+      "source_locator": {
+        "fragment": "paragraph-2",
+        "section": "Introduction"
+      },
+      "source_wording": "The GX-device lies at the heart of the system - providing monitoring, and operating as the communication-centre of your installation. All the other system-components - such as inverter/chargers, solar chargers, and batteries - are connected to it.",
+      "claim_classes": [
+        "A endpoint/interface existence",
+        "F information exposed",
+        "G information consumed",
+        "K topology/connection condition"
+      ],
+      "scope": "GX product family; not an exact SKU claim",
+      "status": "provisional"
+    },
+    {
+      "id": "claim.gx.firmware-condition",
+      "source_id": "victron.g1.venus-os",
+      "source_locator": {
+        "fragment": "list-27",
+        "section": "Notes"
+      },
+      "source_wording": "Make sure the Venus GX is running v2.06 or later.",
+      "claim_classes": [
+        "J firmware/software/version condition"
+      ],
+      "scope": "Venus GX product family",
+      "status": "provisional"
+    },
+    {
+      "id": "claim.gx.bms-can-condition",
+      "source_id": "victron.g1.venus-os",
+      "source_locator": {
+        "fragment": "list-27",
+        "section": "Notes"
+      },
+      "source_wording": "A BMS-Can port is a port dedicated to only be used for connecting managed batteries ... To connect such managed battery, use our VE.Can to CAN-bus BMS cable ... The baudrate of a BMS-Can port is fixed to 500kbps.",
+      "claim_classes": [
+        "B mechanism/protocol",
+        "D compatibility",
+        "E manufacturer-supported interoperability",
+        "I adapter/gateway requirement",
+        "J firmware/software/version condition",
+        "K topology/connection condition"
+      ],
+      "scope": "GX hardware variants and managed-battery integration; exact hardware revision matters",
+      "status": "provisional"
+    },
+    {
+      "id": "claim.adapter.cross-manufacturer",
+      "source_id": "victron.g1.ve-can-to-can-bus-bms",
+      "source_locator": {
+        "fragment": "product-description",
+        "section": "About this product"
+      },
+      "source_wording": "Use this cable to connect a CAN-bus enabled battery, not from Victron, to a Victron system. There are two types, A and B. See the manual for details on which cable to use for which brand of batteries.",
+      "claim_classes": [
+        "D compatibility",
+        "E manufacturer-supported interoperability",
+        "I adapter/gateway requirement",
+        "K topology/connection condition"
+      ],
+      "scope": "Cross-manufacturer battery to Victron system; cable type depends on battery brand",
+      "status": "provisional"
+    },
+    {
+      "id": "claim.epoch.bluetooth",
+      "source_id": "epoch-batteries.phase9b-d2.product-page",
+      "source_locator": {
+        "fragment": "table-1",
+        "section": "Technical Specifications & Dimensions",
+        "row": "7"
+      },
+      "source_wording": "Yes - compatible with Epoch Li-Ion app for iOS and Android",
+      "claim_classes": [
+        "A endpoint/interface existence",
+        "B mechanism/protocol",
+        "D compatibility",
+        "E manufacturer-supported interoperability"
+      ],
+      "scope": "Exact product B24100A-C and Epoch Li-Ion app",
+      "status": "provisional"
+    },
+    {
+      "id": "claim.epoch.smart-bms",
+      "source_id": "epoch-batteries.phase9b-d2.product-page",
+      "source_locator": {
+        "fragment": "table-1",
+        "section": "Technical Specifications & Dimensions",
+        "row": "32"
+      },
+      "source_wording": "Overcharge, over-discharge, over-current, short circuit, high and low temperature disconnects",
+      "claim_classes": [
+        "L local-only information",
+        "M ambiguous/unresolved"
+      ],
+      "scope": "Exact product B24100A-C",
+      "status": "provisional"
+    }
+  ],
+  "negative_findings": [
+    "No official source in this set proves Epoch B24100A-C interoperability with Victron GX, MultiPlus, or BMS-Can.",
+    "No source proves that a SmartShunt measurement is available to a particular non-Victron endpoint.",
+    "Protection/disconnect wording does not prove externally observable protection state.",
+    "Manufacturer identity or shared ecosystem membership does not by itself prove compatibility.",
+    "The source extractor previously emitted zero facts for paragraph-only interaction claims; the opt-in text-claim path now preserves them as provisional unmapped facts."
+  ]
+}
