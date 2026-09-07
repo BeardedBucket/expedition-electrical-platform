@@ -11,6 +11,7 @@ const schemaByCollection = {
   advisories: 'advisory.schema.json',
   rules: 'rule.schema.json',
   engineering: 'engineering.schema.json',
+  'manufacturer-acquisition-profiles': 'manufacturer-acquisition-profile.schema.json',
 };
 const componentSupportedExtensions = new Set(['.yaml']);
 
@@ -76,7 +77,10 @@ export const validateDataRoot = async (dataRoot = join(process.cwd(), 'data')) =
     const relativePath = displayPath(dataFile, process.cwd());
     const pathParts = relative(dataRoot, dataFile).split(sep);
     const collection = pathParts[0];
-    if (collection === 'ingestion' || collection === 'templates') continue;
+    if (collection === 'templates') continue;
+    if (collection === 'ingestion' && pathParts[1] !== 'manufacturer-acquisition-profiles') {
+      continue;
+    }
 
     if (collection === 'components') {
       const fileName = basename(dataFile);
@@ -140,7 +144,10 @@ export const validateDataRoot = async (dataRoot = join(process.cwd(), 'data')) =
       continue;
     }
 
-    const schemaName = schemaByCollection[collection];
+    const schemaName =
+      collection === 'ingestion'
+        ? schemaByCollection[pathParts[1]]
+        : schemaByCollection[collection];
     if (!schemaName) {
       throw new Error(`No schema mapping for data file: ${relativePath}`);
     }
