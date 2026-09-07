@@ -161,6 +161,7 @@ describe('topology evidence contracts', () => {
         field: 'voltage_v',
       },
     });
+
     const topologyCandidate = candidate({
       component_data: {
         ports: [{ id: 'ac_input', domain: 'ac', direction: 'input', voltage_v: 120 }],
@@ -183,6 +184,42 @@ describe('topology evidence contracts', () => {
       issues: [],
       ok: true,
     });
+  });
+
+  it('accepts stable connectivity topology targets without array identity', () => {
+    const connectivityFact = fact({
+      id: 'example.connectivity.fact',
+      field: 'conductive_relationships.inline',
+      topology_target: { kind: 'conductive_relationship', id: 'inline' },
+    });
+    const connectivityCandidate = candidate({
+      component_data: {
+        connection_points: [{ id: 'input-point' }, { id: 'output-point' }],
+        conductive_relationships: [
+          {
+            id: 'inline',
+            participants: [
+              { kind: 'connection_point', id: 'input-point' },
+              { kind: 'connection_point', id: 'output-point' },
+            ],
+          },
+        ],
+      },
+      topology_evidence: {
+        'conductive_relationship:inline': ['example.connectivity.fact'],
+      },
+      fact_ids: ['example.connectivity.fact'],
+      field_evidence: {},
+      promotion_status: 'review_required',
+      review_status: 'pending',
+    });
+    expect(validateProductCandidate(connectivityCandidate, [source()], [connectivityFact])).toEqual(
+      {
+        status: 'valid',
+        issues: [],
+        ok: true,
+      },
+    );
   });
 
   it('rejects unknown topology ids, wrong kinds, and array-index identity', () => {

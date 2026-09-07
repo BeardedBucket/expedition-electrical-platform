@@ -49,7 +49,15 @@
       "additionalProperties": false,
       "required": ["kind", "id"],
       "properties": {
-        "kind": { "enum": ["capability", "port", "power_path"] },
+        "kind": {
+          "enum": [
+            "capability",
+            "port",
+            "power_path",
+            "connection_point",
+            "conductive_relationship"
+          ]
+        },
         "id": {
           "type": "string",
           "minLength": 1,

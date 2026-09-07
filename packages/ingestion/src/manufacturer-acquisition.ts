@@ -642,6 +642,7 @@ export const acquireManufacturerRecord = (
   let base: AcquisitionBaseResult = {
     profile_id: request.profile.id,
     documents: [],
+    issues: [],
   };
   if (!validation.ok) return { status: 'invalid', ...base, issues: validation.issues };
   if (request.profile.profile_status !== 'reviewed') {
@@ -743,6 +744,7 @@ export const acquireManufacturerRecord = (
   base = {
     profile_id: request.profile.id,
     documents: discoverOfficialDocuments(request.profile, strategy, request.captured_source),
+    issues: [],
   };
   const payloadResult = embeddedPayload(strategy, request.captured_source);
   if (!payloadResult.payload) return { status: 'invalid', ...base, issues: payloadResult.issues };

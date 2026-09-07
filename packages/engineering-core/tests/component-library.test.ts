@@ -91,6 +91,75 @@ it('accepts a single capability and multiple logical ports', () => {
   expect(validateComponentLibraryRecord(component).ok).toBe(true);
 });
 
+it('represents optional conductive connectivity without changing logical port semantics', () => {
+  const busbar = {
+    ...baseComponent,
+    id: 'synthetic.busbar',
+    ports: [{ id: 'dc-node', domain: 'dc', direction: 'bidirectional' }],
+    connection_points: [{ id: 'stud-a' }, { id: 'stud-b' }, { id: 'stud-c' }],
+    conductive_relationships: [
+      {
+        id: 'common-node',
+        participants: [
+          { kind: 'connection_point', id: 'stud-a' },
+          { kind: 'connection_point', id: 'stud-b' },
+          { kind: 'connection_point', id: 'stud-c' },
+        ],
+      },
+    ],
+  } satisfies ComponentLibraryRecord;
+  const inline = {
+    ...baseComponent,
+    id: 'synthetic.fuse',
+    ports: [
+      { id: 'input', domain: 'dc', direction: 'bidirectional' },
+      { id: 'output', domain: 'dc', direction: 'bidirectional' },
+    ],
+    conductive_relationships: [
+      {
+        id: 'inline',
+        participants: [
+          { kind: 'port', id: 'input' },
+          { kind: 'port', id: 'output' },
+        ],
+      },
+    ],
+  } satisfies ComponentLibraryRecord;
+
+  expect(validateComponentLibraryRecord(busbar).ok).toBe(true);
+  expect(validateComponentLibraryRecord(inline).ok).toBe(true);
+  expect(validateComponentLibraryRecord(baseComponent).ok).toBe(true);
+});
+
+it('rejects duplicate or unknown conductive participants', () => {
+  const result = validateComponentLibraryRecord({
+    ...baseComponent,
+    ports: [{ id: 'input', domain: 'dc', direction: 'bidirectional' }],
+    conductive_relationships: [
+      {
+        id: 'inline',
+        participants: [
+          { kind: 'port', id: 'input' },
+          { kind: 'port', id: 'input' },
+        ],
+      },
+      {
+        id: 'unknown',
+        participants: [
+          { kind: 'port', id: 'missing' },
+          { kind: 'connection_point', id: 'missing-point' },
+        ],
+      },
+    ],
+  });
+
+  expect(result.ok).toBe(false);
+  if (!result.ok) {
+    expect(result.errors.join('\n')).toContain('duplicates participant');
+    expect(result.errors.join('\n')).toContain("references unknown port 'missing'");
+  }
+});
+
 it('rejects malformed capability and port contracts', () => {
   const duplicateCapability = validateComponentLibraryRecord({
     ...baseComponent,

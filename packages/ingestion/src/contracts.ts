@@ -75,7 +75,8 @@ export interface SourceLocator {
   readonly fragment?: string;
 }
 
-export type TopologyTargetKind = 'capability' | 'port' | 'power_path';
+export type TopologyTargetKind =
+  'capability' | 'port' | 'power_path' | 'connection_point' | 'conductive_relationship';
 
 export interface TopologyTarget {
   readonly kind: TopologyTargetKind;

@@ -160,6 +160,57 @@
             "pattern": "^[a-z0-9][a-z0-9._-]+$"
           }
         },
+        "connection_points": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._-]+$"
+              },
+              "port_id": {
+                "type": ["string", "null"],
+                "pattern": "^[a-z0-9][a-z0-9._-]+$"
+              },
+              "notes": { "type": ["string", "null"] }
+            },
+            "additionalProperties": false
+          }
+        },
+        "conductive_relationships": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "participants"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._-]+$"
+              },
+              "participants": {
+                "type": "array",
+                "minItems": 2,
+                "items": {
+                  "type": "object",
+                  "required": ["kind", "id"],
+                  "properties": {
+                    "kind": { "enum": ["port", "connection_point"] },
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9._-]+$"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "uniqueItems": true
+              },
+              "notes": { "type": ["string", "null"] }
+            },
+            "additionalProperties": false
+          }
+        },
         "additionalProperties": false
       }
     },

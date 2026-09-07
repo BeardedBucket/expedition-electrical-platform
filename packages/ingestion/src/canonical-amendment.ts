@@ -83,7 +83,8 @@ export interface CanonicalAmendmentChange {
   readonly fact_ids: readonly string[];
 }
 
-export type CanonicalTopologyKind = 'capability' | 'port' | 'power_path';
+export type CanonicalTopologyKind =
+  'capability' | 'port' | 'power_path' | 'connection_point' | 'conductive_relationship';
 
 export interface CanonicalTopologyAddOperation {
   readonly operation: 'add';
@@ -328,6 +329,8 @@ const topologyCollection = {
   capability: 'capabilities',
   port: 'ports',
   power_path: 'power_paths',
+  connection_point: 'connection_points',
+  conductive_relationship: 'conductive_relationships',
 } as const;
 
 const topologyTargetKey = (kind: CanonicalTopologyKind, id: string): string => `${kind}:${id}`;
@@ -337,6 +340,12 @@ const validateProposedTopology = (proposal: JsonObject): CanonicalAmendmentIssue
   const capabilities = Array.isArray(proposal.capabilities) ? proposal.capabilities : undefined;
   const ports = Array.isArray(proposal.ports) ? proposal.ports : undefined;
   const paths = Array.isArray(proposal.power_paths) ? proposal.power_paths : undefined;
+  const connectionPoints = Array.isArray(proposal.connection_points)
+    ? proposal.connection_points
+    : undefined;
+  const conductiveRelationships = Array.isArray(proposal.conductive_relationships)
+    ? proposal.conductive_relationships
+    : undefined;
   const ids = (items: JsonValue[] | undefined): Set<string> =>
     new Set(
       (items ?? []).flatMap((item) =>
@@ -358,6 +367,9 @@ const validateProposedTopology = (proposal: JsonObject): CanonicalAmendmentIssue
     ),
   );
   const pathIds = ids(paths);
+  const connectionPointIds = ids(connectionPoints);
+  const conductiveRelationshipIds = ids(conductiveRelationships);
+  const portIds = ids(ports);
   if (capabilities && capabilityIds.size !== capabilities.length) {
     issues.push(
       issue('amendment_topology_duplicate_id', 'capabilities', 'Capability IDs must be unique.'),
@@ -371,6 +383,62 @@ const validateProposedTopology = (proposal: JsonObject): CanonicalAmendmentIssue
       issue('amendment_topology_duplicate_id', 'power_paths', 'Power path IDs must be unique.'),
     );
   }
+  if (connectionPoints && connectionPointIds.size !== connectionPoints.length) {
+    issues.push(
+      issue(
+        'amendment_topology_duplicate_id',
+        'connection_points',
+        'Connection point IDs must be unique.',
+      ),
+    );
+  }
+  if (
+    conductiveRelationships &&
+    conductiveRelationshipIds.size !== conductiveRelationships.length
+  ) {
+    issues.push(
+      issue(
+        'amendment_topology_duplicate_id',
+        'conductive_relationships',
+        'Conductive relationship IDs must be unique.',
+      ),
+    );
+  }
+  (connectionPoints ?? []).forEach((item, index) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return;
+    const portId = item.port_id;
+    if (typeof portId === 'string' && !portIds.has(portId)) {
+      issues.push(
+        issue(
+          'amendment_topology_invalid_reference',
+          `connection_points[${index}].port_id`,
+          `Unknown port '${portId}'.`,
+        ),
+      );
+    }
+  });
+  (conductiveRelationships ?? []).forEach((item, index) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return;
+    const participants = item.participants;
+    if (!Array.isArray(participants)) return;
+    participants.forEach((participant, participantIndex) => {
+      if (!participant || typeof participant !== 'object' || Array.isArray(participant)) return;
+      const kind = participant.kind;
+      const id = participant.id;
+      const known =
+        (kind === 'port' && portIds.has(id as string)) ||
+        (kind === 'connection_point' && connectionPointIds.has(id as string));
+      if (!known) {
+        issues.push(
+          issue(
+            'amendment_topology_invalid_reference',
+            `conductive_relationships[${index}].participants[${participantIndex}]`,
+            `Unknown ${String(kind)} '${String(id)}'.`,
+          ),
+        );
+      }
+    });
+  });
   (paths ?? []).forEach((item, index) => {
     if (!item || typeof item !== 'object' || Array.isArray(item)) return;
     const capabilityId = item.capability_id;

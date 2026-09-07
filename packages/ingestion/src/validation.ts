@@ -70,7 +70,12 @@ export const topologyTargetFromKey = (value: string): TopologyTarget | undefined
   const field = hashIndex >= 0 ? value.slice(hashIndex + 1) : undefined;
   const [kind, id] = base.split(':');
   if (!kind || !id || base.split(':').length !== 2) return undefined;
-  if (!['capability', 'port', 'power_path'].includes(kind)) return undefined;
+  if (
+    !['capability', 'port', 'power_path', 'connection_point', 'conductive_relationship'].includes(
+      kind,
+    )
+  )
+    return undefined;
   if (!topologyIdPattern.test(id) || /^\d+$/.test(id) || id.includes('[') || id.includes(']')) {
     return undefined;
   }
@@ -89,13 +94,18 @@ const validateTopologyTargetShape = (
 ): IngestionIssue[] => {
   if (!target) return [];
   const issues: IngestionIssue[] = [];
-  if (!target.kind || !['capability', 'port', 'power_path'].includes(target.kind)) {
+  if (
+    !target.kind ||
+    !['capability', 'port', 'power_path', 'connection_point', 'conductive_relationship'].includes(
+      target.kind,
+    )
+  ) {
     issues.push(
       issue(
         'topology_target_invalid',
         'invalid',
         path,
-        'Topology target kind must be capability, port, or power_path.',
+        'Topology target kind must be capability, port, power_path, connection_point, or conductive_relationship.',
       ),
     );
   }
@@ -141,6 +151,8 @@ const validateTopologyTargetShape = (
     capability: 'capabilities',
     port: 'ports',
     power_path: 'power_paths',
+    connection_point: 'connection_points',
+    conductive_relationship: 'conductive_relationships',
   } as const;
   const containerName = refs[target.kind as keyof typeof refs];
   const values = Array.isArray(componentData[containerName]) ? componentData[containerName] : [];
@@ -569,7 +581,16 @@ export const validateProductCandidate = (
   };
   populatedFields(candidate.component_data).forEach((field) => {
     const base = field.split('.')[0];
-    if (['capabilities', 'ports', 'power_paths'].includes(base)) return;
+    if (
+      [
+        'capabilities',
+        'ports',
+        'power_paths',
+        'connection_points',
+        'conductive_relationships',
+      ].includes(base)
+    )
+      return;
     if (!fieldPath.test(field))
       issues.push(
         issue(
