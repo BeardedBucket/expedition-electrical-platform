@@ -158,6 +158,13 @@ export interface ComponentLogicalPort {
   readonly [key: string]: unknown;
 }
 
+export interface ComponentPowerPath {
+  readonly id: string;
+  readonly capability_id: string;
+  readonly from_port: string;
+  readonly to_port: string;
+}
+
 export interface ComponentLibraryTerminal {
   readonly id?: string;
   readonly function: TerminalFunction;
@@ -211,6 +218,7 @@ export interface ComponentLibraryRecord {
   readonly product_role?: ProductRole | null;
   readonly capabilities?: readonly ComponentCapability[];
   readonly ports?: readonly ComponentLogicalPort[];
+  readonly power_paths?: readonly ComponentPowerPath[];
   readonly category: string;
   readonly product_family?: string | null;
   readonly verification_status: ComponentVerificationStatus;
@@ -698,6 +706,81 @@ const validateEngineeringConstraints = (input: unknown): readonly string[] => {
         typeof portRecord.notes !== 'string'
       ) {
         addMessage(`ports[${index}].notes`, 'must be a string or null');
+      }
+    });
+  }
+
+  if (Array.isArray(record.power_paths)) {
+    const capabilityIds = new Set(
+      Array.isArray(record.capabilities)
+        ? record.capabilities.flatMap((capability) => {
+            if (capability === null || typeof capability !== 'object') return [];
+            const id = (capability as Record<string, unknown>).id;
+            return typeof id === 'string' ? [id] : [];
+          })
+        : [],
+    );
+    const portsById = new Map(
+      Array.isArray(record.ports)
+        ? record.ports.flatMap((port) => {
+            if (port === null || typeof port !== 'object') return [];
+            const portRecord = port as Record<string, unknown>;
+            const id = portRecord.id;
+            const direction = portRecord.direction;
+            return typeof id === 'string' && typeof direction === 'string'
+              ? [[id, direction] as const]
+              : [];
+          })
+        : [],
+    );
+    const seenPowerPathIds = new Set<string>();
+
+    record.power_paths.forEach((powerPath, index) => {
+      if (powerPath === null || typeof powerPath !== 'object') return;
+      const pathRecord = powerPath as Record<string, unknown>;
+      const pathId = pathRecord.id;
+      const capabilityId = pathRecord.capability_id;
+      const fromPort = pathRecord.from_port;
+      const toPort = pathRecord.to_port;
+
+      if (typeof pathId === 'string') {
+        if (seenPowerPathIds.has(pathId)) {
+          addMessage(`power_paths[${index}].id`, `duplicate power path ID '${pathId}'`);
+        }
+        seenPowerPathIds.add(pathId);
+      }
+      if (typeof capabilityId === 'string' && !capabilityIds.has(capabilityId)) {
+        addMessage(
+          `power_paths[${index}].capability_id`,
+          `must reference an existing capability ID '${capabilityId}'`,
+        );
+      }
+      const fromDirection = typeof fromPort === 'string' ? portsById.get(fromPort) : undefined;
+      if (typeof fromPort === 'string' && !fromDirection) {
+        addMessage(
+          `power_paths[${index}].from_port`,
+          `must reference an existing port ID '${fromPort}'`,
+        );
+      } else if (fromDirection === 'output') {
+        addMessage(
+          `power_paths[${index}].from_port`,
+          'must reference an input or bidirectional port',
+        );
+      }
+      const toDirection = typeof toPort === 'string' ? portsById.get(toPort) : undefined;
+      if (typeof toPort === 'string' && !toDirection) {
+        addMessage(
+          `power_paths[${index}].to_port`,
+          `must reference an existing port ID '${toPort}'`,
+        );
+      } else if (toDirection === 'input') {
+        addMessage(
+          `power_paths[${index}].to_port`,
+          'must reference an output or bidirectional port',
+        );
+      }
+      if (typeof fromPort === 'string' && fromPort === toPort) {
+        addMessage(`power_paths[${index}]`, 'from_port and to_port must be different');
       }
     });
   }
