@@ -137,6 +137,32 @@
         "additionalProperties": false
       }
     },
+    "power_paths": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "capability_id", "from_port", "to_port"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]+$"
+          },
+          "capability_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]+$"
+          },
+          "from_port": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]+$"
+          },
+          "to_port": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]+$"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
     "category": {
       "type": "string"
     },

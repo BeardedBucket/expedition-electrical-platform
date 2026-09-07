@@ -149,6 +149,191 @@ it('allows the same component-local capability ID on two different products', ()
   expect(second.ok).toBe(true);
 });
 
+describe('static component power paths', () => {
+  const pathComponent = {
+    ...baseComponent,
+    id: 'synthetic.power-paths',
+    capabilities: [
+      { id: 'cap.inversion', type: 'inversion' },
+      { id: 'cap.charging', type: 'charging' },
+    ],
+    ports: [
+      { id: 'port.dc', domain: 'dc', direction: 'bidirectional' },
+      { id: 'port.ac-in', domain: 'ac', direction: 'input' },
+      { id: 'port.ac-out', domain: 'ac', direction: 'output' },
+    ],
+  } as ComponentLibraryRecord;
+
+  it('keeps power_paths optional for legacy and unconnected records', () => {
+    expect(validateComponentLibraryRecord(baseComponent).ok).toBe(true);
+    expect(
+      validateComponentLibraryRecord({
+        ...pathComponent,
+        capabilities: [{ id: 'cap.monitoring', type: 'monitoring' }],
+        ports: [{ id: 'port.dc', domain: 'dc', direction: 'input' }],
+      }).ok,
+    ).toBe(true);
+  });
+
+  it('accepts simple, multiple, shared-capability, and shared-port paths', () => {
+    const result = validateComponentLibraryRecord({
+      ...pathComponent,
+      power_paths: [
+        {
+          id: 'path.inversion',
+          capability_id: 'cap.inversion',
+          from_port: 'port.dc',
+          to_port: 'port.ac-out',
+        },
+        {
+          id: 'path.charging',
+          capability_id: 'cap.charging',
+          from_port: 'port.ac-in',
+          to_port: 'port.dc',
+        },
+        {
+          id: 'path.alternate-inversion',
+          capability_id: 'cap.inversion',
+          from_port: 'port.dc',
+          to_port: 'port.ac-out',
+        },
+      ],
+    });
+
+    expect(result.ok).toBe(true);
+  });
+
+  it('allows the same path ID on different products', () => {
+    const first = validateComponentLibraryRecord({
+      ...pathComponent,
+      power_paths: [
+        {
+          id: 'path.shared',
+          capability_id: 'cap.inversion',
+          from_port: 'port.dc',
+          to_port: 'port.ac-out',
+        },
+      ],
+    });
+    const second = validateComponentLibraryRecord({
+      ...pathComponent,
+      id: 'synthetic.other-power-paths',
+      power_paths: [
+        {
+          id: 'path.shared',
+          capability_id: 'cap.inversion',
+          from_port: 'port.dc',
+          to_port: 'port.ac-out',
+        },
+      ],
+    });
+
+    expect(first.ok).toBe(true);
+    expect(second.ok).toBe(true);
+  });
+
+  it.each([
+    [
+      'duplicate path IDs',
+      [
+        {
+          id: 'path.dup',
+          capability_id: 'cap.inversion',
+          from_port: 'port.dc',
+          to_port: 'port.ac-out',
+        },
+        {
+          id: 'path.dup',
+          capability_id: 'cap.charging',
+          from_port: 'port.ac-in',
+          to_port: 'port.dc',
+        },
+      ],
+    ],
+    [
+      'unknown capability',
+      [
+        {
+          id: 'path.unknown-cap',
+          capability_id: 'cap.missing',
+          from_port: 'port.dc',
+          to_port: 'port.ac-out',
+        },
+      ],
+    ],
+    [
+      'unknown from port',
+      [
+        {
+          id: 'path.unknown-from',
+          capability_id: 'cap.inversion',
+          from_port: 'port.missing',
+          to_port: 'port.ac-out',
+        },
+      ],
+    ],
+    [
+      'unknown to port',
+      [
+        {
+          id: 'path.unknown-to',
+          capability_id: 'cap.inversion',
+          from_port: 'port.dc',
+          to_port: 'port.missing',
+        },
+      ],
+    ],
+    [
+      'output-only from port',
+      [
+        {
+          id: 'path.output-from',
+          capability_id: 'cap.inversion',
+          from_port: 'port.ac-out',
+          to_port: 'port.ac-in',
+        },
+      ],
+    ],
+    [
+      'input-only to port',
+      [
+        {
+          id: 'path.input-to',
+          capability_id: 'cap.inversion',
+          from_port: 'port.ac-in',
+          to_port: 'port.ac-in',
+        },
+      ],
+    ],
+    [
+      'self path',
+      [
+        {
+          id: 'path.self',
+          capability_id: 'cap.inversion',
+          from_port: 'port.dc',
+          to_port: 'port.dc',
+        },
+      ],
+    ],
+  ])('rejects %s', (_label, powerPaths) => {
+    expect(validateComponentLibraryRecord({ ...pathComponent, power_paths: powerPaths }).ok).toBe(
+      false,
+    );
+  });
+
+  it('rejects malformed path objects and preserves absent versus explicit empty paths', () => {
+    expect(
+      validateComponentLibraryRecord({
+        ...pathComponent,
+        power_paths: [{ id: 'path.malformed', capability_id: 'cap.inversion' }],
+      }).ok,
+    ).toBe(false);
+    expect(validateComponentLibraryRecord(pathComponent).ok).toBe(true);
+    expect(validateComponentLibraryRecord({ ...pathComponent, power_paths: [] }).ok).toBe(true);
+  });
+});
+
 describe('component library ingestion and compatibility checks', () => {
   it('validates a JSON component record', () => {
     const result = validateComponentLibraryRecord(baseComponent);
