@@ -1,3 +1,32 @@
+amendment_history:
+  - candidate_id: epoch-b24100a-c-topology-d2
+    expected_snapshot: sha256:a97fdefd53c72fc6e93ba9e22fe83a09b1d4498cd4ad39b55e9a12dfab4bb68c
+    fields: []
+    review_id: review.amendment.epoch-b24100a-c-topology-d2
+    source_ids:
+      - epoch.phase9b-d2.resources-page
+      - epoch.phase9b-d2.b24100a-c.manual
+    topology_operations:
+      - fact_ids:
+          - fact.epoch.energy-storage
+        id: energy_storage
+        kind: capability
+        operation: add
+        review_id: review.amendment.epoch-b24100a-c-topology-d2
+        value:
+          id: energy_storage
+          type: energy_storage
+      - fact_ids:
+          - fact.epoch.dc-charge
+          - fact.epoch.dc-discharge
+        id: dc_port
+        kind: port
+        operation: add
+        review_id: review.amendment.epoch-b24100a-c-topology-d2
+        value:
+          direction: bidirectional
+          domain: dc
+          id: dc_port
 battery:
   allowed_parallel_count:
     max: 4
@@ -10,6 +39,9 @@ battery:
   chemistry: lifepo4
   nominal_capacity_ah: 100
   nominal_energy_wh: 2560
+capabilities:
+  - id: energy_storage
+    type: energy_storage
 category: battery
 electrical:
   continuous_discharge_current_a: 120
@@ -20,6 +52,10 @@ id: epoch-batteries.b24100a-c
 manufacturer: Epoch Batteries
 model: 24V 100Ah LiFePO4 Battery (2.56kWh)
 part_number: B24100A-C
+ports:
+  - direction: bidirectional
+    domain: dc
+    id: dc_port
 product_family: 24V Lithium Batteries
 product_role: battery
 source_refs:
