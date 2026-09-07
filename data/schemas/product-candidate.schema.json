@@ -50,6 +50,18 @@
         "minItems": 1
       }
     },
+    "topology_evidence": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[A-Za-z0-9_][A-Za-z0-9_:#.-]*$"
+      },
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]+$" },
+        "uniqueItems": true,
+        "minItems": 1
+      }
+    },
     "review_reasons": { "type": "array", "items": { "type": "string", "minLength": 1 } },
     "notes": { "type": "string" }
   },

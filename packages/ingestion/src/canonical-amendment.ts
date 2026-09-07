@@ -53,11 +53,13 @@ export interface CanonicalAmendmentReview extends PromotionReview {
   readonly field_actions?: Readonly<Record<string, 'add' | 'replace' | 'remove'>>;
   readonly field_changes?: Readonly<Record<string, 'add' | 'replace' | 'remove'>>;
   readonly field_evidence?: Readonly<Record<string, readonly string[]>>;
+  readonly topology_evidence?: Readonly<Record<string, readonly string[]>>;
 }
 
 export interface CanonicalAmendmentCandidate {
   readonly component_data?: JsonObject;
   readonly field_evidence?: Readonly<Record<string, readonly string[]>>;
+  readonly topology_evidence?: Readonly<Record<string, readonly string[]>>;
   readonly fact_ids?: readonly string[];
   readonly source_ids?: readonly string[];
   readonly facts?: readonly ProductFact[];

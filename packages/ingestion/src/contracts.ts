@@ -75,6 +75,14 @@ export interface SourceLocator {
   readonly fragment?: string;
 }
 
+export type TopologyTargetKind = 'capability' | 'port' | 'power_path';
+
+export interface TopologyTarget {
+  readonly kind: TopologyTargetKind;
+  readonly id: string;
+  readonly field?: string;
+}
+
 export interface ProductFact {
   readonly schema_version: string;
   readonly id: string;
@@ -91,6 +99,7 @@ export interface ProductFact {
   readonly review_required?: boolean;
   readonly notes?: string;
   readonly fact_state: FactState;
+  readonly topology_target?: TopologyTarget;
 }
 
 export type IdentityStatus = 'verified' | 'provisional' | 'unresolved' | 'conflicting';
@@ -111,6 +120,7 @@ export interface ProductCandidate {
   readonly fact_ids: readonly string[];
   readonly component_data: JsonObject;
   readonly field_evidence: Readonly<Record<string, readonly string[]>>;
+  readonly topology_evidence?: Readonly<Record<string, readonly string[]>>;
   readonly review_reasons?: readonly string[];
   readonly notes?: string;
 }

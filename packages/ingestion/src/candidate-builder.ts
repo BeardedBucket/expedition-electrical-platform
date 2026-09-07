@@ -17,6 +17,7 @@ export interface ProductCandidateBuildInput {
   readonly sources: readonly ProductSource[];
   readonly facts: readonly ProductFact[];
   readonly normalized_facts: readonly NormalizedProductFact[];
+  readonly topology_evidence?: Readonly<Record<string, readonly string[]>>;
   /**
    * Explicit legacy compatibility boundary passed through to
    * reconcileProductFacts(). Strict by default (undefined applicability is
@@ -94,6 +95,7 @@ export const buildProductCandidate = (input: ProductCandidateBuildInput): Produc
     fact_ids: input.facts.map((fact) => fact.id).sort(),
     component_data: componentData,
     field_evidence: fieldEvidence,
+    ...(input.topology_evidence ? { topology_evidence: input.topology_evidence } : {}),
     ...(reviewReasons.length ? { review_reasons: reviewReasons } : {}),
   };
   const validation = validateProductCandidate(candidate, input.sources, candidateFacts);

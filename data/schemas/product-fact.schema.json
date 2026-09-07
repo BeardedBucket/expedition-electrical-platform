@@ -43,6 +43,23 @@
     "transformation_notes": { "type": "string" },
     "review_required": { "type": "boolean" },
     "notes": { "type": "string" },
-    "fact_state": { "enum": ["verified", "provisional", "unresolved", "conflicting"] }
+    "fact_state": { "enum": ["verified", "provisional", "unresolved", "conflicting"] },
+    "topology_target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": { "enum": ["capability", "port", "power_path"] },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?!\\d+$)(?!.*\\[[0-9]+\\])[A-Za-z0-9][A-Za-z0-9._-]*$"
+        },
+        "field": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"
+        }
+      }
+    }
   }
 }

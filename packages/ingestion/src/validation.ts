@@ -3,7 +3,13 @@ import addFormats from 'ajv-formats';
 import candidateSchema from '../../../data/schemas/product-candidate.schema.json' with { type: 'json' };
 import factSchema from '../../../data/schemas/product-fact.schema.json' with { type: 'json' };
 import sourceSchema from '../../../data/schemas/product-source.schema.json' with { type: 'json' };
-import type { ProductCandidate, ProductFact, ProductSource } from './contracts.js';
+import type {
+  JsonObject,
+  ProductCandidate,
+  ProductFact,
+  ProductSource,
+  TopologyTarget,
+} from './contracts.js';
 
 export type IngestionIssueCategory = 'invalid' | 'unresolved';
 export interface IngestionIssue {
@@ -48,6 +54,148 @@ const issue = (
   path: string,
   message: string,
 ): IngestionIssue => ({ code, category, path, message });
+
+const topologyTargetKey = (target: TopologyTarget): string => {
+  const base = `${target.kind}:${target.id}`;
+  return target.field ? `${base}#${target.field}` : base;
+};
+
+const topologyFieldPattern = /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$/;
+const topologyIdPattern = /^[a-z0-9][a-z0-9._-]*$/i;
+
+export const topologyTargetFromKey = (value: string): TopologyTarget | undefined => {
+  if (!value) return undefined;
+  const hashIndex = value.indexOf('#');
+  const base = hashIndex >= 0 ? value.slice(0, hashIndex) : value;
+  const field = hashIndex >= 0 ? value.slice(hashIndex + 1) : undefined;
+  const [kind, id] = base.split(':');
+  if (!kind || !id || base.split(':').length !== 2) return undefined;
+  if (!['capability', 'port', 'power_path'].includes(kind)) return undefined;
+  if (!topologyIdPattern.test(id) || /^\d+$/.test(id) || id.includes('[') || id.includes(']')) {
+    return undefined;
+  }
+  if (field !== undefined && (!topologyFieldPattern.test(field) || field.includes('..'))) {
+    return undefined;
+  }
+  return { kind: kind as TopologyTarget['kind'], id, ...(field ? { field } : {}) };
+};
+
+export const topologyTargetKeyFromTarget = topologyTargetKey;
+
+const validateTopologyTargetShape = (
+  target: TopologyTarget | undefined,
+  path: string,
+  componentData?: JsonObject,
+): IngestionIssue[] => {
+  if (!target) return [];
+  const issues: IngestionIssue[] = [];
+  if (!target.kind || !['capability', 'port', 'power_path'].includes(target.kind)) {
+    issues.push(
+      issue(
+        'topology_target_invalid',
+        'invalid',
+        path,
+        'Topology target kind must be capability, port, or power_path.',
+      ),
+    );
+  }
+  if (
+    typeof target.id !== 'string' ||
+    !topologyIdPattern.test(target.id) ||
+    /^\d+$/.test(target.id)
+  ) {
+    issues.push(
+      issue(
+        'topology_target_invalid',
+        'invalid',
+        path,
+        'Topology target id must be a stable component-local identifier.',
+      ),
+    );
+  }
+  if (target.id && (target.id.includes('[') || target.id.includes(']'))) {
+    issues.push(
+      issue(
+        'topology_target_invalid',
+        'invalid',
+        path,
+        'Topology target id cannot use array-index identity.',
+      ),
+    );
+  }
+  if (
+    target.field !== undefined &&
+    (!topologyFieldPattern.test(target.field) || target.field.includes('..'))
+  ) {
+    issues.push(
+      issue(
+        'topology_target_invalid',
+        'invalid',
+        `${path}.field`,
+        'Topology field must be a safe relative path.',
+      ),
+    );
+  }
+  if (!componentData) return issues;
+  const refs = {
+    capability: 'capabilities',
+    port: 'ports',
+    power_path: 'power_paths',
+  } as const;
+  const containerName = refs[target.kind as keyof typeof refs];
+  const values = Array.isArray(componentData[containerName]) ? componentData[containerName] : [];
+  const knownIds = new Set(
+    values
+      .filter(
+        (item): item is JsonObject =>
+          !!item && typeof item === 'object' && !Array.isArray(item) && typeof item.id === 'string',
+      )
+      .map((item) => item.id as string),
+  );
+  if (target.kind && target.id && !knownIds.has(target.id)) {
+    const mismatchedIds = new Set<string>();
+    Object.entries(refs).forEach(([kind, key]) => {
+      if (kind !== target.kind && Array.isArray(componentData[key])) {
+        const ids = componentData[key]
+          .filter(
+            (item): item is JsonObject =>
+              !!item &&
+              typeof item === 'object' &&
+              !Array.isArray(item) &&
+              typeof item.id === 'string',
+          )
+          .map((item) => item.id as string);
+        ids.forEach((value) => mismatchedIds.add(value));
+      }
+    });
+    if (mismatchedIds.has(target.id)) {
+      issues.push(
+        issue(
+          'topology_target_kind_mismatch',
+          'invalid',
+          path,
+          `Topology target '${target.id}' belongs to a different object kind.`,
+        ),
+      );
+    } else {
+      issues.push(
+        issue(
+          'topology_target_unknown_id',
+          'invalid',
+          path,
+          `Topology target '${target.id}' was not found in component_data.${containerName}.`,
+        ),
+      );
+    }
+  }
+  return issues;
+};
+
+export const validateTopologyTarget = (
+  target: TopologyTarget | undefined,
+  componentData: JsonObject = {},
+  path = 'topology_target',
+): IngestionIssue[] => validateTopologyTargetShape(target, path, componentData);
 
 const result = (issues: IngestionIssue[]): IngestionValidation => ({
   status: issues.some((item) => item.category === 'invalid')
@@ -189,6 +337,11 @@ export const validateProductFacts = (
           `facts[${index}].fact_state`,
           'community or social evidence cannot establish a verified manufacturer specification.',
         ),
+      );
+    }
+    if (fact.topology_target) {
+      issues.push(
+        ...validateTopologyTargetShape(fact.topology_target, `facts[${index}].topology_target`),
       );
     }
   });
@@ -333,6 +486,80 @@ export const validateProductCandidate = (
     });
   }
 
+  const topologyFactIds = new Set<string>();
+  for (const [key, factIds] of Object.entries(candidate.topology_evidence ?? {})) {
+    const target = topologyTargetFromKey(key);
+    if (!target) {
+      issues.push(
+        issue(
+          'topology_target_invalid',
+          'invalid',
+          `topology_evidence.${key}`,
+          'Topology evidence keys must encode a stable topology target.',
+        ),
+      );
+      continue;
+    }
+    issues.push(
+      ...validateTopologyTargetShape(target, `topology_evidence.${key}`, candidate.component_data),
+    );
+    if (factIds.length === 0) {
+      issues.push(
+        issue(
+          'empty_topology_evidence',
+          'invalid',
+          `topology_evidence.${key}`,
+          'Topology evidence must reference at least one fact.',
+        ),
+      );
+    }
+    factIds.forEach((factId, index) => {
+      if (topologyFactIds.has(factId)) {
+        issues.push(
+          issue(
+            'duplicate_topology_fact_reference',
+            'invalid',
+            `topology_evidence.${key}[${index}]`,
+            `fact '${factId}' is referenced more than once across topology evidence.`,
+          ),
+        );
+      }
+      topologyFactIds.add(factId);
+      const fact = factById.get(factId);
+      if (!fact) {
+        issues.push(
+          issue(
+            'topology_fact_missing',
+            'invalid',
+            `topology_evidence.${key}[${index}]`,
+            `fact '${factId}' does not exist.`,
+          ),
+        );
+        return;
+      }
+      if (!candidateFactIds.has(factId)) {
+        issues.push(
+          issue(
+            'topology_fact_not_in_candidate',
+            'invalid',
+            `topology_evidence.${key}[${index}]`,
+            `fact '${factId}' is not listed in fact_ids.`,
+          ),
+        );
+      }
+      if (fact.topology_target && topologyTargetKeyFromTarget(fact.topology_target) !== key) {
+        issues.push(
+          issue(
+            'topology_target_fact_mismatch',
+            'invalid',
+            `topology_evidence.${key}[${index}]`,
+            `fact '${factId}' targets a different topology identity.`,
+          ),
+        );
+      }
+    });
+  }
+
   const populatedFields = (value: unknown, prefix = ''): string[] => {
     if (value === null || typeof value !== 'object' || Array.isArray(value))
       return prefix ? [prefix] : [];
@@ -341,6 +568,8 @@ export const validateProductCandidate = (
     );
   };
   populatedFields(candidate.component_data).forEach((field) => {
+    const base = field.split('.')[0];
+    if (['capabilities', 'ports', 'power_paths'].includes(base)) return;
     if (!fieldPath.test(field))
       issues.push(
         issue(
