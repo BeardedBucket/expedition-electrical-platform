@@ -82,7 +82,8 @@ export type TopologyTargetKind =
   | 'connection_point'
   | 'conductive_relationship'
   | 'switching_configuration'
-  | 'protection_instance';
+  | 'protection_instance'
+  | 'measurement_instance';
 
 export interface TopologyTarget {
   readonly kind: TopologyTargetKind;

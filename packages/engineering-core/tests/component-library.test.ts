@@ -335,6 +335,63 @@ it('rejects external protection without a known topology target', () => {
   if (!result.ok) expect(result.errors.join('\n')).toContain('must reference an existing');
 });
 
+it('models inline current and point-like voltage measurement without runtime values', () => {
+  const measured = {
+    ...baseComponent,
+    ports: [
+      { id: 'input', domain: 'dc', direction: 'bidirectional' },
+      { id: 'output', domain: 'dc', direction: 'bidirectional' },
+      { id: 'sense', domain: 'dc', direction: 'input' },
+    ],
+    connection_points: [{ id: 'voltage-point', port_id: 'sense' }],
+    conductive_relationships: [
+      {
+        id: 'shunt-path',
+        participants: [
+          { kind: 'port', id: 'input' },
+          { kind: 'port', id: 'output' },
+        ],
+      },
+    ],
+    measurement: {
+      instances: [
+        {
+          id: 'path-current',
+          quantity: 'current',
+          target: { kind: 'conductive_relationship', id: 'shunt-path' },
+        },
+        {
+          id: 'sense-voltage',
+          quantity: 'voltage',
+          target: { kind: 'connection_point', id: 'voltage-point' },
+        },
+      ],
+    },
+  } satisfies ComponentLibraryRecord;
+
+  expect(validateComponentLibraryRecord(measured).ok).toBe(true);
+  expect(JSON.stringify(measured)).not.toContain('current_value');
+});
+
+it('rejects measurement targets that do not match the measured quantity', () => {
+  const result = validateComponentLibraryRecord({
+    ...baseComponent,
+    ports: [{ id: 'sense', domain: 'dc', direction: 'input' }],
+    measurement: {
+      instances: [
+        {
+          id: 'invalid-current',
+          quantity: 'current',
+          target: { kind: 'port', id: 'sense' },
+        },
+      ],
+    },
+  });
+
+  expect(result.ok).toBe(false);
+  if (!result.ok) expect(result.errors.join('\n')).toContain('conductive_relationship');
+});
+
 it('rejects malformed capability and port contracts', () => {
   const duplicateCapability = validateComponentLibraryRecord({
     ...baseComponent,

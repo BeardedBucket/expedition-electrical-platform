@@ -90,7 +90,8 @@ export type CanonicalTopologyKind =
   | 'connection_point'
   | 'conductive_relationship'
   | 'switching_configuration'
-  | 'protection_instance';
+  | 'protection_instance'
+  | 'measurement_instance';
 
 export interface CanonicalTopologyAddOperation {
   readonly operation: 'add';
@@ -339,6 +340,7 @@ const topologyCollection = {
   conductive_relationship: 'conductive_relationships',
   switching_configuration: 'switching.configurations',
   protection_instance: 'protection.instances',
+  measurement_instance: 'measurement.instances',
 } as const;
 
 const topologyTargetKey = (kind: CanonicalTopologyKind, id: string): string => `${kind}:${id}`;
@@ -394,6 +396,14 @@ const validateProposedTopology = (proposal: JsonObject): CanonicalAmendmentIssue
         : undefined
       : undefined;
   const protectionInstanceIds = ids(protectionInstances);
+  const measurement = proposal.measurement;
+  const measurementInstances =
+    measurement && typeof measurement === 'object' && !Array.isArray(measurement)
+      ? Array.isArray(measurement.instances)
+        ? measurement.instances
+        : undefined
+      : undefined;
+  const measurementInstanceIds = ids(measurementInstances);
   if (capabilities && capabilityIds.size !== capabilities.length) {
     issues.push(
       issue('amendment_topology_duplicate_id', 'capabilities', 'Capability IDs must be unique.'),
@@ -446,6 +456,15 @@ const validateProposedTopology = (proposal: JsonObject): CanonicalAmendmentIssue
         'amendment_topology_duplicate_id',
         'protection.instances',
         'Protection instance IDs must be unique.',
+      ),
+    );
+  }
+  if (measurementInstances && measurementInstanceIds.size !== measurementInstances.length) {
+    issues.push(
+      issue(
+        'amendment_topology_duplicate_id',
+        'measurement.instances',
+        'Measurement instance IDs must be unique.',
       ),
     );
   }
@@ -586,6 +605,33 @@ const validateProposedTopology = (proposal: JsonObject): CanonicalAmendmentIssue
           ),
         );
       }
+    }
+  });
+  (measurementInstances ?? []).forEach((item, index) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return;
+    const quantity = item.quantity;
+    const target = item.target;
+    const targetKind =
+      target && typeof target === 'object' && !Array.isArray(target) ? target.kind : undefined;
+    const targetId =
+      target && typeof target === 'object' && !Array.isArray(target) ? target.id : undefined;
+    const known =
+      typeof targetId === 'string' &&
+      ((quantity === 'current' &&
+        targetKind === 'conductive_relationship' &&
+        conductiveRelationshipIds.has(targetId)) ||
+        (quantity === 'voltage' &&
+          targetKind === 'connection_point' &&
+          connectionPointIds.has(targetId)) ||
+        (quantity === 'voltage' && targetKind === 'port' && portIds.has(targetId)));
+    if (!known) {
+      issues.push(
+        issue(
+          'amendment_topology_invalid_reference',
+          `measurement.instances[${index}].target`,
+          `Measurement ${String(quantity)} target must reference a compatible existing topology object.`,
+        ),
+      );
     }
   });
   return issues;
@@ -885,12 +931,16 @@ export const proposeCanonicalAmendment = ({
       continue;
     }
     const existing =
-      operation.kind === 'switching_configuration' || operation.kind === 'protection_instance'
+      operation.kind === 'switching_configuration' ||
+      operation.kind === 'protection_instance' ||
+      operation.kind === 'measurement_instance'
         ? (() => {
             const container =
               operation.kind === 'switching_configuration'
                 ? proposal.switching
-                : proposal.protection;
+                : operation.kind === 'protection_instance'
+                  ? proposal.protection
+                  : proposal.measurement;
             if (!container || typeof container !== 'object' || Array.isArray(container)) return [];
             const nestedKey =
               operation.kind === 'switching_configuration' ? 'configurations' : 'instances';
@@ -976,8 +1026,17 @@ export const proposeCanonicalAmendment = ({
       continue;
     }
     const nextCollection = [...existing, operation.value];
-    if (operation.kind === 'switching_configuration' || operation.kind === 'protection_instance') {
-      const rootKey = operation.kind === 'switching_configuration' ? 'switching' : 'protection';
+    if (
+      operation.kind === 'switching_configuration' ||
+      operation.kind === 'protection_instance' ||
+      operation.kind === 'measurement_instance'
+    ) {
+      const rootKey =
+        operation.kind === 'switching_configuration'
+          ? 'switching'
+          : operation.kind === 'protection_instance'
+            ? 'protection'
+            : 'measurement';
       const nestedKey =
         operation.kind === 'switching_configuration' ? 'configurations' : 'instances';
       const currentContainer =

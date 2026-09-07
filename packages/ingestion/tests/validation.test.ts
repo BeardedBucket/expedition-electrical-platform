@@ -302,6 +302,53 @@ describe('topology evidence contracts', () => {
     });
   });
 
+  it('accepts stable measurement instance targets without runtime readings', () => {
+    const measurementFact = fact({
+      id: 'example.measurement.fact',
+      field: 'measurement.instances',
+      topology_target: { kind: 'measurement_instance', id: 'path-current' },
+    });
+    const measurementCandidate = candidate({
+      component_data: {
+        ports: [
+          { id: 'input', domain: 'dc', direction: 'bidirectional' },
+          { id: 'output', domain: 'dc', direction: 'bidirectional' },
+        ],
+        conductive_relationships: [
+          {
+            id: 'shunt-path',
+            participants: [
+              { kind: 'port', id: 'input' },
+              { kind: 'port', id: 'output' },
+            ],
+          },
+        ],
+        measurement: {
+          instances: [
+            {
+              id: 'path-current',
+              quantity: 'current',
+              target: { kind: 'conductive_relationship', id: 'shunt-path' },
+            },
+          ],
+        },
+      },
+      topology_evidence: {
+        'measurement_instance:path-current': ['example.measurement.fact'],
+      },
+      fact_ids: ['example.measurement.fact'],
+      field_evidence: {},
+      promotion_status: 'review_required',
+      review_status: 'pending',
+    });
+
+    expect(validateProductCandidate(measurementCandidate, [source()], [measurementFact])).toEqual({
+      status: 'valid',
+      issues: [],
+      ok: true,
+    });
+  });
+
   it('rejects unknown topology ids, wrong kinds, and array-index identity', () => {
     const invalidFact = fact({
       id: 'example.invalid.target',

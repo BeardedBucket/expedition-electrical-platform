@@ -41,7 +41,8 @@ const topologyFact = (
     | 'connection_point'
     | 'conductive_relationship'
     | 'switching_configuration'
-    | 'protection_instance',
+    | 'protection_instance'
+    | 'measurement_instance',
   targetId: string,
 ): ProductFact => ({
   schema_version: '1.0',
@@ -981,6 +982,60 @@ describe('canonical amendment workflow', () => {
           application: 'external_circuit',
           function: 'overcurrent',
           target: { kind: 'conductive_relationship', id: 'inline' },
+        },
+      ],
+    });
+  });
+
+  it('adds a reviewed measurement instance with a stable topology target', () => {
+    const current = {
+      ...syntheticTopologyComponent(),
+      ports: [
+        { id: 'input', domain: 'dc', direction: 'bidirectional' },
+        { id: 'output', domain: 'dc', direction: 'bidirectional' },
+      ],
+      conductive_relationships: [
+        {
+          id: 'shunt-path',
+          participants: [
+            { kind: 'port', id: 'input' },
+            { kind: 'port', id: 'output' },
+          ],
+        },
+      ],
+    };
+    const measurement = topologyFact('fact.measurement', 'measurement_instance', 'path-current');
+    const result = proposeCanonicalAmendment({
+      current,
+      candidate: {
+        fact_ids: ['fact.measurement'],
+        facts: [measurement],
+        topology_evidence: {
+          'measurement_instance:path-current': ['fact.measurement'],
+        },
+      },
+      review: topologyReviewFor(current, [
+        {
+          operation: 'add',
+          kind: 'measurement_instance',
+          id: 'path-current',
+          value: {
+            id: 'path-current',
+            quantity: 'current',
+            target: { kind: 'conductive_relationship', id: 'shunt-path' },
+          },
+          evidence: ['fact.measurement'],
+        },
+      ]),
+    });
+
+    expect(result.status).toBe('proposed');
+    expect(result.proposal?.measurement).toEqual({
+      instances: [
+        {
+          id: 'path-current',
+          quantity: 'current',
+          target: { kind: 'conductive_relationship', id: 'shunt-path' },
         },
       ],
     });

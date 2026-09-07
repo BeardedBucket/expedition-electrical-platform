@@ -80,6 +80,7 @@ export const topologyTargetFromKey = (value: string): TopologyTarget | undefined
       'conductive_relationship',
       'switching_configuration',
       'protection_instance',
+      'measurement_instance',
     ].includes(kind)
   )
     return undefined;
@@ -111,6 +112,7 @@ const validateTopologyTargetShape = (
       'conductive_relationship',
       'switching_configuration',
       'protection_instance',
+      'measurement_instance',
     ].includes(target.kind)
   ) {
     issues.push(
@@ -118,7 +120,7 @@ const validateTopologyTargetShape = (
         'topology_target_invalid',
         'invalid',
         path,
-        'Topology target kind must be capability, port, power_path, connection_point, conductive_relationship, switching_configuration, or protection_instance.',
+        'Topology target kind must be capability, port, power_path, connection_point, conductive_relationship, switching_configuration, protection_instance, or measurement_instance.',
       ),
     );
   }
@@ -168,6 +170,7 @@ const validateTopologyTargetShape = (
     conductive_relationship: 'conductive_relationships',
     switching_configuration: 'switching.configurations',
     protection_instance: 'protection.instances',
+    measurement_instance: 'measurement.instances',
   } as const;
   const containerName = refs[target.kind as keyof typeof refs];
   const values = containerName
@@ -621,6 +624,7 @@ export const validateProductCandidate = (
         'conductive_relationships',
         'switching',
         'protection',
+        'measurement',
       ].includes(base)
     )
       return;

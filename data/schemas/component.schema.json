@@ -298,6 +298,49 @@
               "notes": { "type": ["string", "null"] }
             },
             "additionalProperties": false
+          },
+          "measurement": {
+            "type": "object",
+            "description": "Currently supported electrical measurement quantities are intentionally bounded; this does not assert runtime readings or exhaustively classify every future measurement context.",
+            "required": ["instances"],
+            "properties": {
+              "instances": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "required": ["id", "quantity", "target"],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9._-]+$"
+                    },
+                    "quantity": {
+                      "enum": ["current", "voltage"]
+                    },
+                    "target": {
+                      "type": "object",
+                      "required": ["kind", "id"],
+                      "properties": {
+                        "kind": {
+                          "enum": ["conductive_relationship", "connection_point", "port"]
+                        },
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9][a-z0-9._-]+$"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "notes": { "type": ["string", "null"] }
+                  },
+                  "additionalProperties": false
+                },
+                "uniqueItems": true
+              },
+              "notes": { "type": ["string", "null"] }
+            },
+            "additionalProperties": false
           }
         },
         "additionalProperties": false

@@ -57,7 +57,8 @@
             "connection_point",
             "conductive_relationship",
             "switching_configuration",
-            "protection_instance"
+            "protection_instance",
+            "measurement_instance"
           ]
         },
         "id": {
