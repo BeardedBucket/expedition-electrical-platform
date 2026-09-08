@@ -4,7 +4,7 @@
   "pilot_target_identity": {
     "manufacturer": "Victron Energy",
     "product_family": "SmartSolar",
-    "model": "MPPT 75/15",
+    "model": "SmartSolar MPPT 75/15 Retail",
     "manufacturer_part_number": "SCC075015060R",
     "voltage_variant": "12V/24V auto-select",
     "lifecycle_status": "unknown"
@@ -19,6 +19,7 @@
     "retrieved_at": "2026-09-07T06:05:12.490Z",
     "manufacturer": "Victron Energy",
     "content_hash": "sha256:c4bbc6836d5139861ad30d73c448e831e86f9338feade96989c66e2e13242ed2",
+    "applicability": "direct_identity",
     "product_identity_claim": {
       "manufacturer": "Victron Energy",
       "manufacturer_part_number": "SCC075015060R"
@@ -33,22 +34,102 @@
   },
   "pipeline_summary": {
     "capture_status": "success",
-    "extracted_fact_count": 0,
+    "extracted_fact_count": 3,
     "raw_row_previously_observed": true,
     "exact_row_source": "product family-page JSON payload",
-    "extractor_limitation": "The generic HTML extractor only reads DOM table/definition/list nodes and does not parse the embedded script JSON product payload for this page."
+    "extractor_limitation": null,
+    "fact_extraction": "Reviewed structured field mappings emit provisional ProductFact records from the selected raw record."
   },
+  "discovered_documents": [
+    {
+      "uri": "https://www.victronenergy.com/upload/documents/SmartSolar-MPPT-75-10-up-to-100-20-Manual.pdf",
+      "type": "manual",
+      "applicability": "family-level discovered-only",
+      "capture_status": "discovered_only"
+    },
+    {
+      "uri": "https://www.victronenergy.com/upload/documents/SmartSolar-MPPT-75-10-up-to-100-20-Datasheet.pdf",
+      "type": "datasheet",
+      "applicability": "family-level discovered-only",
+      "capture_status": "discovered_only"
+    }
+  ],
   "source_markup_evidence": {
     "sku": "SCC075015060R",
     "title": "SmartSolar MPPT 75/15 Retail",
-    "battery_voltage": [
-      "12V",
-      "24V"
-    ],
+    "battery_voltage": ["12V", "24V"],
     "max_pv_voltage": "75V",
     "rated_charge_current": "15A"
   },
-  "facts": [],
+  "raw_structured_evidence": {
+    "representation": "application_state",
+    "locator": {
+      "script_id": "__NEXT_DATA__",
+      "json_path": "$.props.pageProps",
+      "record_collection_path": "$.products",
+      "record_index": 0
+    },
+    "matched_identity": {
+      "property": "sku",
+      "raw_value": "SCC075015060R"
+    },
+    "raw_record": {
+      "sku": "SCC075015060R",
+      "title": "SmartSolar MPPT 75/15 Retail",
+      "battery_voltage": ["12V", "24V"],
+      "max_pv_voltage": "75V",
+      "rated_charge_current": "15A"
+    }
+  },
+  "facts": [
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.e965f29baa026619",
+      "source_id": "victron.smartsolar-mppt-75-15.product-page",
+      "field": "unmapped",
+      "raw_label": "Supported battery voltage",
+      "raw_value": ["12V", "24V"],
+      "source_locator": {
+        "fragment": "__NEXT_DATA__:$.props.pageProps:$.products[0].battery_voltage"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Reviewed structured mapping 'battery_voltage' -> 'Supported battery voltage'.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.82a15570f5ae2c12",
+      "source_id": "victron.smartsolar-mppt-75-15.product-page",
+      "field": "unmapped",
+      "raw_label": "Continuous charge current",
+      "raw_value": "15A",
+      "raw_unit": "A",
+      "source_locator": {
+        "fragment": "__NEXT_DATA__:$.props.pageProps:$.products[0].rated_charge_current"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Reviewed structured mapping 'rated_charge_current' -> 'Continuous charge current'.",
+      "fact_state": "provisional"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.f6fee013b4ada60d",
+      "source_id": "victron.smartsolar-mppt-75-15.product-page",
+      "field": "unmapped",
+      "raw_value": "75V",
+      "raw_unit": "V",
+      "raw_label": "Maximum PV open-circuit voltage",
+      "source_locator": {
+        "fragment": "__NEXT_DATA__:$.props.pageProps:$.products[0].max_pv_voltage"
+      },
+      "extraction_method": "structured",
+      "review_required": true,
+      "transformation_notes": "Reviewed structured mapping 'max_pv_voltage' -> 'Maximum PV open-circuit voltage'.",
+      "fact_state": "provisional"
+    }
+  ],
   "candidate": {
     "schema_version": "1.0",
     "id": "victron.smartsolar-mppt-75-15.scc075015060r",
@@ -56,25 +137,33 @@
     "identity": {
       "manufacturer": "Victron Energy",
       "product_family": "SmartSolar",
-      "model": "MPPT 75/15",
+      "model": "SmartSolar MPPT 75/15 Retail",
       "manufacturer_part_number": "SCC075015060R",
       "voltage_variant": "12V/24V auto-select",
       "lifecycle_status": "unknown"
     },
     "review_status": "pending",
-    "promotion_status": "blocked",
-    "source_ids": [
-      "victron.smartsolar-mppt-75-15.product-page"
+    "promotion_status": "review_required",
+    "source_ids": ["victron.smartsolar-mppt-75-15.product-page"],
+    "identity_source_ids": ["victron.smartsolar-mppt-75-15.product-page"],
+    "fact_ids": [
+      "extracted.fact.82a15570f5ae2c12",
+      "extracted.fact.e965f29baa026619",
+      "extracted.fact.f6fee013b4ada60d"
     ],
-    "identity_source_ids": [
-      "victron.smartsolar-mppt-75-15.product-page"
-    ],
-    "fact_ids": [],
-    "component_data": {},
-    "field_evidence": {},
+    "component_data": {
+      "electrical": {
+        "nominal_voltage_v": [12, 24],
+        "continuous_charge_current_a": 15
+      }
+    },
+    "field_evidence": {
+      "electrical.nominal_voltage_v": ["extracted.fact.e965f29baa026619"],
+      "electrical.continuous_charge_current_a": ["extracted.fact.82a15570f5ae2c12"]
+    },
     "review_reasons": [
-      "html_extractor_did_not_emit_script_embedded_variant_rows",
-      "exact_row_evidence_exists_only_in_page_json_markup"
+      "fact_review_required",
+      "maximum_pv_open_circuit_voltage_is_evidence_only_until_topology_schema_review"
     ]
   }
 }

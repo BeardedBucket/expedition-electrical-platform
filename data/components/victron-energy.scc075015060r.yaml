@@ -1,0 +1,25 @@
+category: solar_charge_controller
+electrical:
+  continuous_charge_current_a: 15
+  nominal_voltage_v:
+    - 12
+    - 24
+id: victron-energy.scc075015060r
+manufacturer: Victron Energy
+model: SmartSolar MPPT 75/15 Retail
+part_number: SCC075015060R
+product_family: SmartSolar
+product_role: solar_charge_controller
+source_refs:
+  - candidate_id: victron.smartsolar-mppt-75-15.scc075015060r
+    content_hash: sha256:c4bbc6836d5139861ad30d73c448e831e86f9338feade96989c66e2e13242ed2
+    fact_ids:
+      - extracted.fact.82a15570f5ae2c12
+      - extracted.fact.e965f29baa026619
+    id: victron.smartsolar-mppt-75-15.product-page
+    publisher: Victron Energy
+    retrieved_at: 2026-09-07T06:05:12.490Z
+    review_id: review.human.scc075015060r
+    type: manufacturer_product_page
+    uri: https://www.victronenergy.com/solar-charge-controllers/smartsolar-mppt-75-10-75-15-100-15-100-20
+verification_status: unverified

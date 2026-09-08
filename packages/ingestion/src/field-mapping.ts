@@ -99,10 +99,32 @@ const baseCanonicalFieldMappings: readonly CanonicalFieldMapping[] = [
     dimension: 'current',
     unit: 'A',
     aliases: [
+      'continuous charge current',
       'maximum charge current',
       'maximum battery charge current',
       'maximum charge current (up to 25°c ambient)',
     ],
+  },
+  {
+    canonical_field: 'electrical.nominal_voltage_v',
+    dimension: 'voltage',
+    unit: 'V',
+    aliases: ['supported battery voltage'],
+    value_kind: 'structured',
+    normalize_value: (value) => {
+      const values = value
+        .split(',')
+        .map((item) => Number(item.trim().replace(/V$/i, '')))
+        .filter((item) => Number.isFinite(item));
+      return values.length ? values : undefined;
+    },
+  },
+  {
+    canonical_field: 'electrical.max_pv_voltage_v',
+    dimension: 'voltage',
+    unit: 'V',
+    aliases: ['maximum pv open-circuit voltage'],
+    target_kind: 'evidence',
   },
   {
     canonical_field: 'electrical.continuous_power_w',

@@ -9,6 +9,9 @@ import {
   type CorpusWorkItem,
 } from '../src/corpus-workflow.js';
 import { promotionCandidateSnapshot } from '../src/promotion.js';
+import { extractStructuredProductFacts } from '../src/structured-fact-extraction.js';
+import type { StructuredFactMapping } from '../src/manufacturer-acquisition.js';
+import { buildProductCandidate } from '../src/candidate-builder.js';
 
 const workItem: CorpusWorkItem = {
   schema_version: '1.0',
@@ -91,6 +94,7 @@ const review = {
   reviewer_id: 'test-reviewer',
   reviewed_at: '2026-09-07T00:01:00Z',
   approved_fields: ['electrical.continuous_charge_current_a'],
+  reviewed_evidence_fact_ids: [],
   evidence_acknowledged: true,
   product_role: 'solar_charge_controller',
   category: 'solar_charge_controller',
@@ -98,10 +102,80 @@ const review = {
 };
 
 describe('corpus promotion workflow', () => {
+  it('extracts only mapped fields from the selected structured record', () => {
+    const mappings: readonly StructuredFactMapping[] = [
+      { source_path: 'battery_voltage', raw_label: 'Supported battery voltage' },
+      {
+        source_path: 'rated_charge_current',
+        raw_label: 'Continuous charge current',
+        source_unit: 'A',
+      },
+      {
+        source_path: 'max_pv_voltage',
+        raw_label: 'Maximum PV open-circuit voltage',
+        source_unit: 'V',
+      },
+    ];
+    const first = extractStructuredProductFacts({
+      source,
+      raw_record: {
+        sku: 'SCC075015060R',
+        battery_voltage: ['12V', '24V'],
+        rated_charge_current: '15A',
+        max_pv_voltage: '75V',
+        sibling_rated_charge_current: '10A',
+      },
+      record_locator: {
+        script_id: '__NEXT_DATA__',
+        json_path: '$.props.pageProps',
+        record_collection_path: '$.products',
+        record_index: 0,
+      },
+      mappings,
+    });
+    const second = extractStructuredProductFacts({
+      source,
+      raw_record: {
+        sku: 'SCC075010060R',
+        battery_voltage: ['12V', '24V'],
+        rated_charge_current: '10A',
+        max_pv_voltage: '75V',
+      },
+      record_locator: {
+        script_id: '__NEXT_DATA__',
+        json_path: '$.props.pageProps',
+        record_collection_path: '$.products',
+        record_index: 1,
+      },
+      mappings,
+    });
+    expect(first.facts.map((fact) => fact.raw_value)).toEqual([['12V', '24V'], '15A', '75V']);
+    expect(first.normalized_facts.map((fact) => fact.normalized_value)).toEqual([[12, 24], 15, 75]);
+    expect(first.facts.some((fact) => fact.raw_value === '10A')).toBe(false);
+    expect(
+      second.facts.find((fact) => fact.raw_label === 'Continuous charge current')?.raw_value,
+    ).toBe('10A');
+    const rebuilt = buildProductCandidate({
+      id: candidate.id,
+      identity: candidate.identity,
+      sources: [source],
+      facts: first.facts,
+      normalized_facts: first.normalized_facts,
+    });
+    expect(rebuilt.fact_ids).toEqual(first.facts.map((fact) => fact.id).sort());
+    expect(rebuilt.component_data).toEqual({
+      electrical: { nominal_voltage_v: [12, 24], continuous_charge_current_a: 15 },
+    });
+    expect(
+      first.facts.every((fact) => fact.source_locator?.fragment?.includes('__NEXT_DATA__')),
+    ).toBe(true);
+  });
+
   it('tracks source artifact to candidate and stops at human review', () => {
     expect(assessCorpusWorkflow({ work_item: workItem, source })).toMatchObject({
       state: 'source_captured',
     });
+
     expect(assessCorpusWorkflow({ work_item: workItem, source, candidate, facts })).toMatchObject({
       state: 'review_pending',
     });
@@ -165,5 +239,44 @@ describe('corpus promotion workflow', () => {
     });
     expect(rerun.state).toBe('review_approved');
     expect(rerun.write?.collision).toBe(true);
+  });
+
+  it('retains approved evidence-only facts without promoting them to canonical fields', () => {
+    const evidenceFact = {
+      ...facts[0],
+      id: 'fact.smartsolar.pv-limit',
+      raw_label: 'Maximum PV open-circuit voltage',
+      raw_value: '75V',
+      raw_unit: 'V',
+      normalized_value: 75,
+      normalized_unit: 'V',
+    };
+    const candidateWithEvidence = {
+      ...candidate,
+      fact_ids: [...candidate.fact_ids, evidenceFact.id],
+    };
+    const result = assessCorpusWorkflow({
+      work_item: workItem,
+      source,
+      candidate: candidateWithEvidence,
+      facts: [...facts, evidenceFact],
+      review: {
+        ...review,
+        candidate_snapshot: promotionCandidateSnapshot(
+          candidateWithEvidence,
+          [source],
+          [...facts, evidenceFact],
+        ),
+        reviewed_evidence_fact_ids: [evidenceFact.id],
+      },
+    });
+    expect(result.state).toBe('promotion_ready');
+    expect(result.promotion?.proposal?.electrical).toEqual({
+      continuous_charge_current_a: 15,
+    });
+    expect(result.promotion?.proposal?.source_refs).toEqual([
+      expect.objectContaining({ fact_ids: [facts[0].id] }),
+    ]);
+    expect(result.promotion?.audit?.reviewed_evidence_fact_ids).toEqual([evidenceFact.id]);
   });
 });

@@ -21,6 +21,8 @@ export type PromotionIssueCode =
   | 'promotion_invalid_component'
   | 'promotion_evidence_missing'
   | 'promotion_dangling_resolution'
+  | 'promotion_reviewed_evidence_missing'
+  | 'promotion_reviewed_evidence_conflict'
   | 'promotion_candidate_validation_failed'
   | 'promotion_snapshot_missing'
   | 'promotion_snapshot_mismatch'
@@ -51,6 +53,11 @@ export interface PromotionReview {
   readonly approved_fields: readonly string[];
   readonly excluded_fields?: readonly string[];
   readonly excluded_fact_ids?: readonly string[];
+  /**
+   * Facts accepted as source evidence but intentionally not mapped to
+   * canonical component fields.
+   */
+  readonly reviewed_evidence_fact_ids?: readonly string[];
   readonly field_resolutions?: Readonly<Record<string, PromotionFieldResolution>>;
   readonly topology_evidence?: Readonly<Record<string, readonly string[]>>;
   readonly evidence_acknowledged: boolean;
@@ -77,6 +84,7 @@ export interface PromotionAudit {
   readonly topology_evidence?: Readonly<Record<string, readonly string[]>>;
   readonly omitted_fields: readonly string[];
   readonly unverified_fact_ids: readonly string[];
+  readonly reviewed_evidence_fact_ids: readonly string[];
 }
 
 export interface PromotionResult {
@@ -499,6 +507,33 @@ export const promoteCandidate = (
     };
 
   const topologyEvidence = review.topology_evidence ?? candidate.topology_evidence ?? {};
+  const reviewedEvidenceFactIds = (review.reviewed_evidence_fact_ids ?? []).filter((factId) =>
+    candidate.fact_ids.includes(factId),
+  );
+  const requestedReviewedEvidenceFactIds = review.reviewed_evidence_fact_ids ?? [];
+  requestedReviewedEvidenceFactIds
+    .filter((factId) => !candidate.fact_ids.includes(factId))
+    .forEach((factId) =>
+      issues.push(
+        issue(
+          'promotion_reviewed_evidence_missing',
+          'review.reviewed_evidence_fact_ids',
+          `Reviewed evidence fact '${factId}' is not present in the candidate.`,
+        ),
+      ),
+    );
+  const approvedFactIds = new Set(Object.values(selectedFieldEvidence).flat());
+  reviewedEvidenceFactIds
+    .filter((factId) => approvedFactIds.has(factId))
+    .forEach((factId) =>
+      issues.push(
+        issue(
+          'promotion_reviewed_evidence_conflict',
+          'review.reviewed_evidence_fact_ids',
+          `Fact '${factId}' cannot be both canonical-approved and evidence-only.`,
+        ),
+      ),
+    );
   const proposal: JsonObject = {
     id: canonicalId,
     manufacturer: canonicalManufacturer,
@@ -526,6 +561,7 @@ export const promoteCandidate = (
       .filter((fact) => fact.fact_state !== 'verified')
       .map((fact) => fact.id)
       .sort(),
+    reviewed_evidence_fact_ids: [...reviewedEvidenceFactIds].sort(),
   };
   return { status: 'success', issues: [], proposal, audit };
 };
