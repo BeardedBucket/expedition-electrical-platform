@@ -3,6 +3,16 @@ import {
   evaluateInstalledCommunicationRequirements,
   type InstalledCommunicationRequirement,
 } from '../src/installed-communication-requirements.js';
+import {
+  evaluateInstalledInteraction,
+  validateComponentLibraryRecord,
+  interpretInstalledCommunicationSystem,
+} from '../src/index.js';
+import type {
+  ComponentLibraryRecord,
+  ReferenceSystem,
+  ReviewedInteractionRelationship,
+} from '../src/index.js';
 import type {
   InstalledCommunicationInterpretation,
   InstalledControlAvailability,
@@ -393,5 +403,113 @@ describe('installed communication requirement evaluation', () => {
     const first = evaluateInstalledCommunicationRequirements(input);
     expect(evaluateInstalledCommunicationRequirements(input)).toEqual(first);
     expect(input).toEqual(before);
+  });
+
+  it('composes electrical facts, installed evaluation, G8 interpretation, and G9 requirements', () => {
+    const battery: ComponentLibraryRecord = {
+      id: 'synthetic.battery',
+      manufacturer: 'Synthetic',
+      model: 'Battery',
+      category: 'battery',
+      verification_status: 'unverified',
+      ports: [
+        { id: 'positive', domain: 'dc', direction: 'bidirectional' },
+        { id: 'negative', domain: 'dc', direction: 'bidirectional' },
+      ],
+      conductive_relationships: [
+        {
+          id: 'battery.internal',
+          participants: [
+            { kind: 'port', id: 'positive' },
+            { kind: 'port', id: 'negative' },
+          ],
+        },
+      ],
+      measurement: {
+        instances: [
+          { id: 'battery.voltage', quantity: 'voltage', target: { kind: 'port', id: 'positive' } },
+        ],
+      },
+      interaction_endpoints: [{ id: 'bus', kind: 'communication' }],
+    };
+    const monitor: ComponentLibraryRecord = {
+      id: 'synthetic.monitor',
+      manufacturer: 'Synthetic',
+      model: 'Monitor',
+      category: 'monitor',
+      verification_status: 'unverified',
+      interaction_endpoints: [{ id: 'bus', kind: 'communication' }],
+    };
+    expect(validateComponentLibraryRecord(battery).ok).toBe(true);
+    expect(validateComponentLibraryRecord(monitor).ok).toBe(true);
+
+    const reviewed: ReviewedInteractionRelationship = {
+      id: 'battery-monitor-soc',
+      assertion: 'positive',
+      state: 'verified',
+      normalized_participants: [
+        { id: 'battery', reference: { kind: 'component', component_id: battery.id } },
+        { id: 'monitor', reference: { kind: 'component', component_id: monitor.id } },
+      ],
+      normalized_information: [
+        { id: 'soc.source', direction: 'exposes', participant_id: 'battery', term: 'SOC' },
+        { id: 'soc.consumer', direction: 'consumes', participant_id: 'monitor', term: 'SOC' },
+      ],
+      evidence: { source_ids: ['synthetic.review'], fact_ids: ['synthetic.fact'] },
+    };
+    const referenceSystem: ReferenceSystem = {
+      schema_version: '0.1.0',
+      id: 'synthetic.system',
+      name: 'Synthetic system',
+      status: 'installed',
+      component_instances: [
+        { id: 'battery-1', component_id: battery.id, status: 'installed' },
+        { id: 'monitor-1', component_id: monitor.id, status: 'installed' },
+      ],
+      interaction_relationships: [
+        {
+          id: 'installed-link',
+          kind: 'direct',
+          participants: [
+            { endpoint: { instance_id: 'battery-1', endpoint_id: 'bus' } },
+            { endpoint: { instance_id: 'monitor-1', endpoint_id: 'bus' } },
+          ],
+          state: 'connected',
+        },
+      ],
+    };
+    const g7 = evaluateInstalledInteraction({
+      relationship: reviewed,
+      reference_system: referenceSystem,
+      catalog: [battery, monitor],
+      mappings: [
+        {
+          participant_id: 'battery',
+          target: { kind: 'component_instance', instance_id: 'battery-1' },
+        },
+        {
+          participant_id: 'monitor',
+          target: { kind: 'component_instance', instance_id: 'monitor-1' },
+        },
+      ],
+      selected_topology: { kind: 'direct', relationship_id: 'installed-link' },
+    });
+    expect(g7.status).toBe('satisfied');
+
+    const g8 = interpretInstalledCommunicationSystem({
+      interactions: [{ reviewed_relationship: reviewed, evaluation: g7 }],
+    });
+    const g9 = evaluateInstalledCommunicationRequirements({
+      requirements: [
+        informationRequirement(
+          'observe-soc',
+          'SOC',
+          component('battery-1'),
+          component('monitor-1'),
+        ),
+      ],
+      interpretation: g8,
+    });
+    expect(g9.results).toMatchObject([{ requirement_id: 'observe-soc', status: 'satisfied' }]);
   });
 });
