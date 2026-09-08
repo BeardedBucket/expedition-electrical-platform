@@ -1,7 +1,6 @@
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { parse as parseYaml } from 'yaml';
 import { describe, expect, it } from 'vitest';
 import artifact from '../../../data/ingestion/victron-smartshunt-shu050150050.json' with { type: 'json' };
 import reviewArtifact from '../../../data/ingestion/victron-smartshunt-shu050150050.review.json' with { type: 'json' };
@@ -88,14 +87,23 @@ describe('SmartShunt promotion candidate contract', () => {
     expect(promotion.proposal?.electrical).not.toHaveProperty('nominal_voltage_v');
   });
 
-  it('does not use the historical canonical-looking draft as candidate input', async () => {
-    const historical = parseYaml(
-      await readFile(
-        '.local-corpus-draft-archive/victron-energy.smartshunt-shu050150050.yaml',
-        'utf8',
-      ),
+  it('constructs the candidate only from persisted reviewed ingestion evidence', () => {
+    expect(artifact.candidate.source_ids).toEqual(artifact.sources.map((source) => source.id));
+    expect(artifact.candidate.source_ids.every((sourceId) => sourceId.startsWith('victron.'))).toBe(
+      true,
     );
-    expect(artifact.candidate).not.toBe(historical);
+
+    const evidenceFactIds = [
+      ...Object.values(artifact.candidate.field_evidence).flat(),
+      ...Object.values(artifact.candidate.topology_evidence ?? {}).flat(),
+    ];
+    expect(evidenceFactIds.every((factId) => artifact.candidate.fact_ids.includes(factId))).toBe(
+      true,
+    );
+    expect(
+      evidenceFactIds.every((factId) => artifact.facts.some((fact) => fact.id === factId)),
+    ).toBe(true);
+
     expect(artifact.candidate.component_data).not.toHaveProperty('battery_port');
     expect(artifact.candidate.component_data).not.toHaveProperty('electrical.nominal_voltage_v');
   });
