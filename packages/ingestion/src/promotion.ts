@@ -188,6 +188,7 @@ export const promotionCandidateSnapshot = (
         fact_state: fact.fact_state,
         review_required: fact.review_required ?? false,
         ...(fact.topology_target ? { topology_target: fact.topology_target } : {}),
+        ...(fact.target ? { target: fact.target } : {}),
       })),
     sources: sources
       .filter((source) => candidate.source_ids.includes(source.id))
@@ -360,7 +361,28 @@ const topologyDataFor = (
       if (!item) return;
       const canonicalItem =
         kind === 'conductive_relationship'
-          ? Object.fromEntries(Object.entries(item).filter(([field]) => field !== 'directional'))
+          ? Object.fromEntries(
+              Object.entries(item)
+                .filter(([field]) => field !== 'directional')
+                .map(([field, value]) => [
+                  field,
+                  field === 'constraints' && Array.isArray(value)
+                    ? value.map((constraint) => {
+                        if (
+                          constraint === null ||
+                          typeof constraint !== 'object' ||
+                          Array.isArray(constraint)
+                        )
+                          return constraint;
+                        return Object.fromEntries(
+                          Object.entries(constraint).filter(
+                            ([constraintField]) => constraintField !== 'target',
+                          ),
+                        );
+                      })
+                    : value,
+                ]),
+            )
           : item;
       const [root, ...path] = collectionPath.split('.');
       const existing = selected[root];
@@ -378,7 +400,77 @@ const topologyDataFor = (
         : [];
       selected[root] = { ...nested, [path[0]]: [...nestedValues, canonicalItem] };
     });
+  const switching = componentData.switching;
+  const projectedSwitching = selected.switching;
+  if (
+    switching &&
+    typeof switching === 'object' &&
+    !Array.isArray(switching) &&
+    projectedSwitching &&
+    typeof projectedSwitching === 'object' &&
+    !Array.isArray(projectedSwitching)
+  ) {
+    const sourceControlled = switching.controlled_relationship_ids;
+    const configurations = projectedSwitching.configurations;
+    if (Array.isArray(sourceControlled) && Array.isArray(configurations)) {
+      selected.switching = {
+        ...(projectedSwitching as JsonObject),
+        controlled_relationship_ids: sourceControlled,
+      };
+    }
+  }
   return selected;
+};
+
+const topologyProjectionIssues = (
+  componentData: JsonObject,
+  projected: JsonObject,
+): PromotionIssue[] => {
+  const switching = projected.switching;
+  if (!switching || typeof switching !== 'object' || Array.isArray(switching)) return [];
+  const controlled = switching.controlled_relationship_ids;
+  const configurations = switching.configurations;
+  const relationships = projected.conductive_relationships;
+  if (!Array.isArray(controlled) || !Array.isArray(configurations) || !Array.isArray(relationships))
+    return [];
+  const relationshipIds = new Set(
+    relationships
+      .filter(
+        (item): item is JsonObject =>
+          item !== null && typeof item === 'object' && !Array.isArray(item),
+      )
+      .map((item) => item.id)
+      .filter((id): id is string => typeof id === 'string'),
+  );
+  const controlledIds = new Set(controlled.filter((id): id is string => typeof id === 'string'));
+  const issues: PromotionIssue[] = [];
+  for (const id of controlledIds) {
+    if (!relationshipIds.has(id))
+      issues.push(
+        issue(
+          'promotion_invalid_component',
+          'switching.controlled_relationship_ids',
+          `Controlled relationship '${id}' was not approved for promotion.`,
+        ),
+      );
+  }
+  for (const configuration of configurations) {
+    if (configuration === null || typeof configuration !== 'object' || Array.isArray(configuration))
+      continue;
+    const activeIds = configuration.active_relationship_ids;
+    if (!Array.isArray(activeIds)) continue;
+    for (const id of activeIds) {
+      if (typeof id === 'string' && !controlledIds.has(id))
+        issues.push(
+          issue(
+            'promotion_invalid_component',
+            'switching.configurations.active_relationship_ids',
+            `Active relationship '${id}' is not controlled by the projected switching parent.`,
+          ),
+        );
+    }
+  }
+  return issues;
 };
 
 export const promoteCandidate = (
@@ -600,6 +692,8 @@ export const promoteCandidate = (
 
   const topologyEvidence = review.topology_evidence ?? candidate.topology_evidence ?? {};
   const approvedTopologyData = topologyDataFor(candidate.component_data, topologyEvidence);
+  const topologyIssues = topologyProjectionIssues(candidate.component_data, approvedTopologyData);
+  if (topologyIssues.length > 0) return { status: 'invalid', issues: topologyIssues };
   const reviewedEvidenceFactIds = (review.reviewed_evidence_fact_ids ?? []).filter((factId) =>
     candidate.fact_ids.includes(factId),
   );

@@ -64,9 +64,15 @@
               "other"
             ]
           },
-          "name": { "type": ["string", "null"] },
-          "label": { "type": ["string", "null"] },
-          "notes": { "type": ["string", "null"] }
+          "name": {
+            "type": ["string", "null"]
+          },
+          "label": {
+            "type": ["string", "null"]
+          },
+          "notes": {
+            "type": ["string", "null"]
+          }
         },
         "additionalProperties": false
       }
@@ -89,168 +95,91 @@
           },
           "voltage_v": {
             "oneOf": [
-              { "type": "number", "minimum": 0 },
+              {
+                "type": "number",
+                "minimum": 0
+              },
               {
                 "type": "object",
                 "required": ["min", "max"],
                 "properties": {
-                  "min": { "type": "number", "minimum": 0 },
-                  "max": { "type": "number", "minimum": 0 }
+                  "min": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "max": {
+                    "type": "number",
+                    "minimum": 0
+                  }
                 },
                 "additionalProperties": false
               },
-              { "type": "null" }
+              {
+                "type": "null"
+              }
             ]
           },
           "current_a": {
             "oneOf": [
-              { "type": "number", "minimum": 0 },
+              {
+                "type": "number",
+                "minimum": 0
+              },
               {
                 "type": "object",
                 "required": ["min", "max"],
                 "properties": {
-                  "min": { "type": "number", "minimum": 0 },
-                  "max": { "type": "number", "minimum": 0 }
+                  "min": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "max": {
+                    "type": "number",
+                    "minimum": 0
+                  }
                 },
                 "additionalProperties": false
               },
-              { "type": "null" }
+              {
+                "type": "null"
+              }
             ]
           },
           "power_w": {
             "oneOf": [
-              { "type": "number", "minimum": 0 },
+              {
+                "type": "number",
+                "minimum": 0
+              },
               {
                 "type": "object",
                 "required": ["min", "max"],
                 "properties": {
-                  "min": { "type": "number", "minimum": 0 },
-                  "max": { "type": "number", "minimum": 0 }
+                  "min": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "max": {
+                    "type": "number",
+                    "minimum": 0
+                  }
                 },
                 "additionalProperties": false
               },
-              { "type": "null" }
+              {
+                "type": "null"
+              }
             ]
           },
           "constraints": {
             "type": "array",
-            "description": "Optional manufacturer-published electrical constraints applying at this logical port. Missing constraints are unknown, not zero.",
             "items": {
-              "type": "object",
-              "required": ["id", "kind", "quantity", "unit"],
-              "properties": {
-                "id": {
-                  "type": "string",
-                  "pattern": "^[a-z0-9][a-z0-9._-]+$"
-                },
-                "kind": {
-                  "enum": [
-                    "absolute_maximum",
-                    "absolute_minimum",
-                    "operating_range",
-                    "startup_threshold",
-                    "shutdown_threshold",
-                    "recommended_range",
-                    "relational_headroom",
-                    "nominal_design",
-                    "nominal",
-                    "recovery_hysteresis",
-                    "continuous_rating"
-                  ]
-                },
-                "quantity": {
-                  "enum": ["voltage", "current", "power"]
-                },
-                "unit": {
-                  "enum": ["V", "A", "W"]
-                },
-                "basis": {
-                  "enum": ["open_circuit", "short_circuit", "operating"]
-                },
-                "value": { "type": "number", "minimum": 0 },
-                "range": {
-                  "type": "object",
-                  "required": ["min", "max"],
-                  "properties": {
-                    "min": { "type": "number", "minimum": 0 },
-                    "max": { "type": "number", "minimum": 0 }
-                  },
-                  "additionalProperties": false
-                },
-                "reference": {
-                  "type": "object",
-                  "required": ["port_id", "relation", "offset"],
-                  "properties": {
-                    "port_id": {
-                      "type": "string",
-                      "pattern": "^[a-z0-9][a-z0-9._-]+$"
-                    },
-                    "relation": {
-                      "enum": ["greater_than_or_equal", "less_than_or_equal"]
-                    },
-                    "offset": { "type": "number" }
-                  },
-                  "additionalProperties": false
-                },
-                "conditions": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "required": ["path"],
-                    "properties": {
-                      "path": { "type": "string", "minLength": 1 },
-                      "equals": {},
-                      "reference": {
-                        "type": "object",
-                        "required": ["constraint_id", "relation"],
-                        "properties": {
-                          "constraint_id": {
-                            "type": "string",
-                            "pattern": "^[a-z0-9][a-z0-9._-]+$"
-                          },
-                          "relation": { "enum": ["nominal"] }
-                        },
-                        "additionalProperties": false
-                      }
-                    },
-                    "oneOf": [{ "required": ["equals"] }, { "required": ["reference"] }],
-                    "additionalProperties": false
-                  }
-                },
-                "recovery": {
-                  "type": "object",
-                  "required": ["constraint_id", "event", "relation", "offset"],
-                  "properties": {
-                    "constraint_id": {
-                      "type": "string",
-                      "pattern": "^[a-z0-9][a-z0-9._-]+$"
-                    },
-                    "event": {
-                      "enum": ["overvoltage"]
-                    },
-                    "relation": {
-                      "enum": ["greater_than_or_equal", "less_than_or_equal"]
-                    },
-                    "offset": { "type": "number" }
-                  },
-                  "additionalProperties": false
-                },
-                "notes": { "type": ["string", "null"] }
-              },
-              "allOf": [
-                {
-                  "oneOf": [
-                    { "required": ["value"] },
-                    { "required": ["range"] },
-                    { "required": ["reference"] },
-                    { "required": ["recovery"] }
-                  ]
-                }
-              ],
-              "additionalProperties": false
+              "$ref": "#/$defs/electricalConstraint"
             }
           },
-          "notes": { "type": ["string", "null"] }
+          "notes": {
+            "type": ["string", "null"]
+          }
         },
         "additionalProperties": false
       }
@@ -276,189 +205,6 @@
           "to_port": {
             "type": "string",
             "pattern": "^[a-z0-9][a-z0-9._-]+$"
-          }
-        },
-        "connection_points": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "required": ["id"],
-            "properties": {
-              "id": {
-                "type": "string",
-                "pattern": "^[a-z0-9][a-z0-9._-]+$"
-              },
-              "port_id": {
-                "type": ["string", "null"],
-                "pattern": "^[a-z0-9][a-z0-9._-]+$"
-              },
-              "notes": { "type": ["string", "null"] }
-            },
-            "additionalProperties": false
-          }
-        },
-        "conductive_relationships": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "required": ["id", "participants"],
-            "properties": {
-              "id": {
-                "type": "string",
-                "pattern": "^[a-z0-9][a-z0-9._-]+$"
-              },
-              "participants": {
-                "type": "array",
-                "minItems": 2,
-                "items": {
-                  "type": "object",
-                  "required": ["kind", "id"],
-                  "properties": {
-                    "kind": { "enum": ["port", "connection_point"] },
-                    "id": {
-                      "type": "string",
-                      "pattern": "^[a-z0-9][a-z0-9._-]+$"
-                    }
-                  },
-                  "additionalProperties": false
-                },
-                "uniqueItems": true
-              },
-              "notes": { "type": ["string", "null"] }
-            },
-            "additionalProperties": false
-          },
-          "switching": {
-            "type": "object",
-            "required": ["controlled_relationship_ids", "configurations"],
-            "properties": {
-              "controlled_relationship_ids": {
-                "type": "array",
-                "minItems": 1,
-                "items": {
-                  "type": "string",
-                  "pattern": "^[a-z0-9][a-z0-9._-]+$"
-                },
-                "uniqueItems": true
-              },
-              "configurations": {
-                "type": "array",
-                "minItems": 1,
-                "items": {
-                  "type": "object",
-                  "required": ["id", "active_relationship_ids"],
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                      "pattern": "^[a-z0-9][a-z0-9._-]+$"
-                    },
-                    "active_relationship_ids": {
-                      "type": "array",
-                      "items": {
-                        "type": "string",
-                        "pattern": "^[a-z0-9][a-z0-9._-]+$"
-                      },
-                      "uniqueItems": true
-                    },
-                    "label": { "type": ["string", "null"] },
-                    "notes": { "type": ["string", "null"] }
-                  },
-                  "additionalProperties": false
-                }
-              },
-              "notes": { "type": ["string", "null"] }
-            },
-            "additionalProperties": false
-          },
-          "protection": {
-            "type": "object",
-            "description": "Currently supported protection applications are intentionally bounded; this vocabulary is not exhaustive of all future protection contexts.",
-            "required": ["instances"],
-            "properties": {
-              "instances": {
-                "type": "array",
-                "minItems": 1,
-                "items": {
-                  "type": "object",
-                  "required": ["id", "application", "function"],
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                      "pattern": "^[a-z0-9][a-z0-9._-]+$"
-                    },
-                    "application": {
-                      "enum": ["external_circuit", "internal_device"],
-                      "description": "external_circuit describes protection of modeled external circuitry; internal_device describes manufacturer-described protection belonging to the device's own internal behavior. Neither value claims to exhaustively classify every future protection context."
-                    },
-                    "function": {
-                      "enum": ["overcurrent"]
-                    },
-                    "target": {
-                      "type": "object",
-                      "required": ["kind", "id"],
-                      "properties": {
-                        "kind": {
-                          "enum": ["conductive_relationship", "connection_point", "port"]
-                        },
-                        "id": {
-                          "type": "string",
-                          "pattern": "^[a-z0-9][a-z0-9._-]+$"
-                        }
-                      },
-                      "additionalProperties": false
-                    },
-                    "notes": { "type": ["string", "null"] }
-                  },
-                  "additionalProperties": false
-                },
-                "uniqueItems": true
-              },
-              "notes": { "type": ["string", "null"] }
-            },
-            "additionalProperties": false
-          },
-          "measurement": {
-            "type": "object",
-            "description": "Currently supported electrical measurement quantities are intentionally bounded; this does not assert runtime readings or exhaustively classify every future measurement context.",
-            "required": ["instances"],
-            "properties": {
-              "instances": {
-                "type": "array",
-                "minItems": 1,
-                "items": {
-                  "type": "object",
-                  "required": ["id", "quantity", "target"],
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                      "pattern": "^[a-z0-9][a-z0-9._-]+$"
-                    },
-                    "quantity": {
-                      "enum": ["current", "voltage"]
-                    },
-                    "target": {
-                      "type": "object",
-                      "required": ["kind", "id"],
-                      "properties": {
-                        "kind": {
-                          "enum": ["conductive_relationship", "connection_point", "port"]
-                        },
-                        "id": {
-                          "type": "string",
-                          "pattern": "^[a-z0-9][a-z0-9._-]+$"
-                        }
-                      },
-                      "additionalProperties": false
-                    },
-                    "notes": { "type": ["string", "null"] }
-                  },
-                  "additionalProperties": false
-                },
-                "uniqueItems": true
-              },
-              "notes": { "type": ["string", "null"] }
-            },
-            "additionalProperties": false
           }
         },
         "additionalProperties": false
@@ -487,10 +233,19 @@
             "type": "object",
             "required": ["id"],
             "properties": {
-              "id": { "type": "string", "minLength": 1 },
-              "name": { "type": "string" },
-              "label": { "type": ["string", "null"] },
-              "note": { "type": ["string", "null"] }
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "name": {
+                "type": "string"
+              },
+              "label": {
+                "type": ["string", "null"]
+              },
+              "note": {
+                "type": ["string", "null"]
+              }
             },
             "additionalProperties": true
           }
@@ -509,10 +264,19 @@
             "type": "object",
             "required": ["id"],
             "properties": {
-              "id": { "type": "string", "minLength": 1 },
-              "name": { "type": "string" },
-              "label": { "type": ["string", "null"] },
-              "note": { "type": ["string", "null"] }
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "name": {
+                "type": "string"
+              },
+              "label": {
+                "type": ["string", "null"]
+              },
+              "note": {
+                "type": ["string", "null"]
+              }
             },
             "additionalProperties": true
           }
@@ -541,7 +305,9 @@
               "type": "object",
               "required": ["kind", "id"],
               "properties": {
-                "kind": { "enum": ["port", "case"] },
+                "kind": {
+                  "enum": ["port", "case"]
+                },
                 "id": {
                   "type": "string",
                   "pattern": "^[a-z0-9][a-z0-9._-]+$"
@@ -555,13 +321,22 @@
             "type": "object",
             "required": ["value", "unit", "basis"],
             "properties": {
-              "value": { "type": "number", "minimum": 0 },
-              "unit": { "enum": ["V"] },
-              "basis": { "enum": ["dc"] }
+              "value": {
+                "type": "number",
+                "minimum": 0
+              },
+              "unit": {
+                "enum": ["V"]
+              },
+              "basis": {
+                "enum": ["dc"]
+              }
             },
             "additionalProperties": false
           },
-          "notes": { "type": ["string", "null"] }
+          "notes": {
+            "type": ["string", "null"]
+          }
         },
         "additionalProperties": false
       },
@@ -590,8 +365,12 @@
         "input_voltage_range_v": {
           "type": ["object", "null"],
           "properties": {
-            "min": { "type": "number" },
-            "max": { "type": "number" }
+            "min": {
+              "type": "number"
+            },
+            "max": {
+              "type": "number"
+            }
           },
           "required": ["min", "max"],
           "additionalProperties": false
@@ -599,8 +378,12 @@
         "output_voltage_range_v": {
           "type": ["object", "null"],
           "properties": {
-            "min": { "type": "number" },
-            "max": { "type": "number" }
+            "min": {
+              "type": "number"
+            },
+            "max": {
+              "type": "number"
+            }
           },
           "required": ["min", "max"],
           "additionalProperties": false
@@ -679,12 +462,16 @@
     "battery": {
       "type": ["object", "null"],
       "properties": {
-        "nominal_capacity_ah": { "type": ["number", "null"] },
+        "nominal_capacity_ah": {
+          "type": ["number", "null"]
+        },
         "usable_capacity_ah": {
           "type": ["number", "null"],
           "description": "Legacy product-supplied usable Ah; not calculated design-usable energy."
         },
-        "nominal_energy_wh": { "type": ["number", "null"] },
+        "nominal_energy_wh": {
+          "type": ["number", "null"]
+        },
         "chemistry": {
           "type": ["string", "null"],
           "enum": ["flooded_lead_acid", "agm", "gel", "lifepo4", "other", null]
@@ -692,9 +479,18 @@
         "charge_current": {
           "type": ["object", "null"],
           "properties": {
-            "recommended_a": { "type": ["number", "null"], "minimum": 0 },
-            "maximum_continuous_a": { "type": ["number", "null"], "minimum": 0 },
-            "protection_limit_a": { "type": ["number", "null"], "minimum": 0 }
+            "recommended_a": {
+              "type": ["number", "null"],
+              "minimum": 0
+            },
+            "maximum_continuous_a": {
+              "type": ["number", "null"],
+              "minimum": 0
+            },
+            "protection_limit_a": {
+              "type": ["number", "null"],
+              "minimum": 0
+            }
           },
           "additionalProperties": false
         },
@@ -702,8 +498,14 @@
           "description": "Manufacturer-permitted count of identical battery units in series per series string; this is not a total battery count, arbitrary bank size, or parallel-string count.",
           "type": ["object", "null"],
           "properties": {
-            "min": { "type": "integer", "minimum": 1 },
-            "max": { "type": "integer", "minimum": 1 }
+            "min": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "max": {
+              "type": "integer",
+              "minimum": 1
+            }
           },
           "required": ["min", "max"],
           "additionalProperties": false
@@ -712,8 +514,14 @@
           "description": "Manufacturer-permitted number of identical series strings connected in parallel; this is not a total battery count, per-string unit count, or arbitrary bank size.",
           "type": ["object", "null"],
           "properties": {
-            "min": { "type": "integer", "minimum": 1 },
-            "max": { "type": "integer", "minimum": 1 }
+            "min": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "max": {
+              "type": "integer",
+              "minimum": 1
+            }
           },
           "required": ["min", "max"],
           "additionalProperties": false
@@ -749,8 +557,12 @@
               "other"
             ]
           },
-          "type": { "type": ["string", "null"] },
-          "designation": { "type": ["string", "null"] },
+          "type": {
+            "type": ["string", "null"]
+          },
+          "designation": {
+            "type": ["string", "null"]
+          },
           "polarity": {
             "type": ["string", "null"],
             "enum": [
@@ -764,7 +576,9 @@
               null
             ]
           },
-          "notes": { "type": ["string", "null"] }
+          "notes": {
+            "type": ["string", "null"]
+          }
         },
         "additionalProperties": true
       },
@@ -804,18 +618,54 @@
       "type": ["object", "null"],
       "description": "Clearances are separate from physical body dimensions. Local face keys x_min/x_max/y_min/y_max/z_min/z_max are component-local; null or missing means unresolved, not zero. Legacy front/rear/left/right/top/bottom keys remain accepted for compatibility but do not define world axes.",
       "properties": {
-        "front": { "type": ["number", "null"], "minimum": 0 },
-        "rear": { "type": ["number", "null"], "minimum": 0 },
-        "left": { "type": ["number", "null"], "minimum": 0 },
-        "right": { "type": ["number", "null"], "minimum": 0 },
-        "top": { "type": ["number", "null"], "minimum": 0 },
-        "bottom": { "type": ["number", "null"], "minimum": 0 },
-        "x_min": { "type": ["number", "null"], "minimum": 0 },
-        "x_max": { "type": ["number", "null"], "minimum": 0 },
-        "y_min": { "type": ["number", "null"], "minimum": 0 },
-        "y_max": { "type": ["number", "null"], "minimum": 0 },
-        "z_min": { "type": ["number", "null"], "minimum": 0 },
-        "z_max": { "type": ["number", "null"], "minimum": 0 }
+        "front": {
+          "type": ["number", "null"],
+          "minimum": 0
+        },
+        "rear": {
+          "type": ["number", "null"],
+          "minimum": 0
+        },
+        "left": {
+          "type": ["number", "null"],
+          "minimum": 0
+        },
+        "right": {
+          "type": ["number", "null"],
+          "minimum": 0
+        },
+        "top": {
+          "type": ["number", "null"],
+          "minimum": 0
+        },
+        "bottom": {
+          "type": ["number", "null"],
+          "minimum": 0
+        },
+        "x_min": {
+          "type": ["number", "null"],
+          "minimum": 0
+        },
+        "x_max": {
+          "type": ["number", "null"],
+          "minimum": 0
+        },
+        "y_min": {
+          "type": ["number", "null"],
+          "minimum": 0
+        },
+        "y_max": {
+          "type": ["number", "null"],
+          "minimum": 0
+        },
+        "z_min": {
+          "type": ["number", "null"],
+          "minimum": 0
+        },
+        "z_max": {
+          "type": ["number", "null"],
+          "minimum": 0
+        }
       },
       "additionalProperties": true
     },
@@ -830,59 +680,104 @@
           "type": "object",
           "required": ["status"],
           "properties": {
-            "status": { "enum": ["unrestricted", "restricted", "unknown"] },
+            "status": {
+              "enum": ["unrestricted", "restricted", "unknown"]
+            },
             "allowedMountingFaces": {
               "type": "array",
               "minItems": 1,
-              "items": { "enum": ["x_min", "x_max", "y_min", "y_max", "z_min", "z_max"] },
+              "items": {
+                "enum": ["x_min", "x_max", "y_min", "y_max", "z_min", "z_max"]
+              },
               "uniqueItems": true
             },
             "prohibitedMountingFaces": {
               "type": "array",
               "minItems": 1,
-              "items": { "enum": ["x_min", "x_max", "y_min", "y_max", "z_min", "z_max"] },
+              "items": {
+                "enum": ["x_min", "x_max", "y_min", "y_max", "z_min", "z_max"]
+              },
               "uniqueItems": true
             },
             "allowedOrientationIds": {
               "type": "array",
               "minItems": 1,
-              "items": { "type": "string", "minLength": 1 },
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
               "uniqueItems": true
             }
           },
           "additionalProperties": false,
           "allOf": [
             {
-              "if": { "properties": { "status": { "const": "unrestricted" } } },
+              "if": {
+                "properties": {
+                  "status": {
+                    "const": "unrestricted"
+                  }
+                }
+              },
               "then": {
                 "not": {
                   "anyOf": [
-                    { "required": ["allowedMountingFaces"] },
-                    { "required": ["prohibitedMountingFaces"] },
-                    { "required": ["allowedOrientationIds"] }
+                    {
+                      "required": ["allowedMountingFaces"]
+                    },
+                    {
+                      "required": ["prohibitedMountingFaces"]
+                    },
+                    {
+                      "required": ["allowedOrientationIds"]
+                    }
                   ]
                 }
               }
             },
             {
-              "if": { "properties": { "status": { "const": "unknown" } } },
+              "if": {
+                "properties": {
+                  "status": {
+                    "const": "unknown"
+                  }
+                }
+              },
               "then": {
                 "not": {
                   "anyOf": [
-                    { "required": ["allowedMountingFaces"] },
-                    { "required": ["prohibitedMountingFaces"] },
-                    { "required": ["allowedOrientationIds"] }
+                    {
+                      "required": ["allowedMountingFaces"]
+                    },
+                    {
+                      "required": ["prohibitedMountingFaces"]
+                    },
+                    {
+                      "required": ["allowedOrientationIds"]
+                    }
                   ]
                 }
               }
             },
             {
-              "if": { "properties": { "status": { "const": "restricted" } } },
+              "if": {
+                "properties": {
+                  "status": {
+                    "const": "restricted"
+                  }
+                }
+              },
               "then": {
                 "anyOf": [
-                  { "required": ["allowedMountingFaces"] },
-                  { "required": ["prohibitedMountingFaces"] },
-                  { "required": ["allowedOrientationIds"] }
+                  {
+                    "required": ["allowedMountingFaces"]
+                  },
+                  {
+                    "required": ["prohibitedMountingFaces"]
+                  },
+                  {
+                    "required": ["allowedOrientationIds"]
+                  }
                 ]
               }
             }
@@ -911,7 +806,9 @@
           "kind": {
             "enum": ["communication", "control", "sensing"]
           },
-          "notes": { "type": ["string", "null"] }
+          "notes": {
+            "type": ["string", "null"]
+          }
         },
         "additionalProperties": false
       }
@@ -923,10 +820,19 @@
         "type": "object",
         "required": ["id"],
         "properties": {
-          "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]+$" },
-          "designation": { "type": ["string", "null"] },
-          "type": { "type": ["string", "null"] },
-          "notes": { "type": ["string", "null"] }
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]+$"
+          },
+          "designation": {
+            "type": ["string", "null"]
+          },
+          "type": {
+            "type": ["string", "null"]
+          },
+          "notes": {
+            "type": ["string", "null"]
+          }
         },
         "additionalProperties": false
       }
@@ -937,8 +843,14 @@
         "type": "object",
         "required": ["id", "connector_id", "target"],
         "properties": {
-          "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]+$" },
-          "connector_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]+$" },
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]+$"
+          },
+          "connector_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]+$"
+          },
           "target": {
             "type": "object",
             "required": ["kind", "id"],
@@ -946,11 +858,16 @@
               "kind": {
                 "enum": ["interaction_endpoint", "terminal", "connection_point", "port"]
               },
-              "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]+$" }
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._-]+$"
+              }
             },
             "additionalProperties": false
           },
-          "notes": { "type": ["string", "null"] }
+          "notes": {
+            "type": ["string", "null"]
+          }
         },
         "additionalProperties": false
       }
@@ -1003,13 +920,27 @@
       "items": {
         "type": "object",
         "properties": {
-          "id": { "type": "string" },
-          "title": { "type": ["string", "null"] },
-          "type": { "type": ["string", "null"] },
-          "uri": { "type": ["string", "null"] },
-          "url": { "type": ["string", "null"] },
-          "source_type": { "type": ["string", "null"] },
-          "summary": { "type": ["string", "null"] }
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": ["string", "null"]
+          },
+          "type": {
+            "type": ["string", "null"]
+          },
+          "uri": {
+            "type": ["string", "null"]
+          },
+          "url": {
+            "type": ["string", "null"]
+          },
+          "source_type": {
+            "type": ["string", "null"]
+          },
+          "summary": {
+            "type": ["string", "null"]
+          }
         },
         "additionalProperties": true
       }
@@ -1019,7 +950,424 @@
       "items": {
         "type": "string"
       }
+    },
+    "connection_points": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]+$"
+          },
+          "port_id": {
+            "type": ["string", "null"],
+            "pattern": "^[a-z0-9][a-z0-9._-]+$"
+          },
+          "notes": {
+            "type": ["string", "null"]
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "conductive_relationships": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "participants"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]+$"
+          },
+          "participants": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "object",
+              "required": ["kind", "id"],
+              "properties": {
+                "kind": {
+                  "enum": ["port", "connection_point"]
+                },
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9._-]+$"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "notes": {
+            "type": ["string", "null"]
+          },
+          "constraints": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/electricalConstraint"
+            }
+          },
+          "interruption_capabilities": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "kind", "domain", "current"],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9._-]+$"
+                },
+                "kind": {
+                  "enum": ["load_current_switching", "fault_current_interrupting"]
+                },
+                "domain": {
+                  "enum": ["dc", "ac"]
+                },
+                "voltage": {
+                  "$ref": "#/$defs/electricalRangeOrValue"
+                },
+                "current": {
+                  "$ref": "#/$defs/electricalRangeOrValue"
+                },
+                "notes": {
+                  "type": ["string", "null"]
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "switching": {
+      "type": "object",
+      "required": ["controlled_relationship_ids", "configurations"],
+      "properties": {
+        "controlled_relationship_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]+$"
+          },
+          "uniqueItems": true
+        },
+        "configurations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["id", "active_relationship_ids"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._-]+$"
+              },
+              "active_relationship_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9._-]+$"
+                },
+                "uniqueItems": true
+              },
+              "label": {
+                "type": ["string", "null"]
+              },
+              "notes": {
+                "type": ["string", "null"]
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "notes": {
+          "type": ["string", "null"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "protection": {
+      "type": "object",
+      "description": "Currently supported protection applications are intentionally bounded; this vocabulary is not exhaustive of all future protection contexts.",
+      "required": ["instances"],
+      "properties": {
+        "instances": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["id", "application", "function"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._-]+$"
+              },
+              "application": {
+                "enum": ["external_circuit", "internal_device"],
+                "description": "external_circuit describes protection of modeled external circuitry; internal_device describes manufacturer-described protection belonging to the device's own internal behavior. Neither value claims to exhaustively classify every future protection context."
+              },
+              "function": {
+                "enum": ["overcurrent"]
+              },
+              "target": {
+                "type": "object",
+                "required": ["kind", "id"],
+                "properties": {
+                  "kind": {
+                    "enum": ["conductive_relationship", "connection_point", "port"]
+                  },
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9][a-z0-9._-]+$"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "notes": {
+                "type": ["string", "null"]
+              }
+            },
+            "additionalProperties": false
+          },
+          "uniqueItems": true
+        },
+        "notes": {
+          "type": ["string", "null"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "measurement": {
+      "type": "object",
+      "description": "Currently supported electrical measurement quantities are intentionally bounded; this does not assert runtime readings or exhaustively classify every future measurement context.",
+      "required": ["instances"],
+      "properties": {
+        "instances": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["id", "quantity", "target"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._-]+$"
+              },
+              "quantity": {
+                "enum": ["current", "voltage"]
+              },
+              "target": {
+                "type": "object",
+                "required": ["kind", "id"],
+                "properties": {
+                  "kind": {
+                    "enum": ["conductive_relationship", "connection_point", "port"]
+                  },
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9][a-z0-9._-]+$"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "notes": {
+                "type": ["string", "null"]
+              }
+            },
+            "additionalProperties": false
+          },
+          "uniqueItems": true
+        },
+        "notes": {
+          "type": ["string", "null"]
+        }
+      },
+      "additionalProperties": false
     }
   },
-  "additionalProperties": true
+  "additionalProperties": true,
+  "$defs": {
+    "electricalRangeOrValue": {
+      "oneOf": [
+        {
+          "type": "number",
+          "minimum": 0
+        },
+        {
+          "type": "object",
+          "required": ["min", "max"],
+          "properties": {
+            "min": {
+              "type": "number",
+              "minimum": 0
+            },
+            "max": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "electricalConstraint": {
+      "type": "object",
+      "required": ["id", "kind", "quantity", "unit"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]+$"
+        },
+        "kind": {
+          "enum": [
+            "absolute_maximum",
+            "absolute_minimum",
+            "operating_range",
+            "startup_threshold",
+            "shutdown_threshold",
+            "recommended_range",
+            "relational_headroom",
+            "nominal_design",
+            "nominal",
+            "recovery_hysteresis",
+            "continuous_rating"
+          ]
+        },
+        "quantity": {
+          "enum": ["voltage", "current", "power"]
+        },
+        "unit": {
+          "enum": ["V", "A", "W"]
+        },
+        "domain": {
+          "enum": ["dc", "ac"]
+        },
+        "basis": {
+          "enum": ["open_circuit", "short_circuit", "operating"]
+        },
+        "value": {
+          "type": "number",
+          "minimum": 0
+        },
+        "range": {
+          "type": "object",
+          "required": ["min", "max"],
+          "properties": {
+            "min": {
+              "type": "number",
+              "minimum": 0
+            },
+            "max": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false
+        },
+        "reference": {
+          "type": "object",
+          "required": ["port_id", "relation", "offset"],
+          "properties": {
+            "port_id": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._-]+$"
+            },
+            "relation": {
+              "enum": ["greater_than_or_equal", "less_than_or_equal"]
+            },
+            "offset": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path"],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "equals": {},
+              "reference": {
+                "type": "object",
+                "required": ["constraint_id", "relation"],
+                "properties": {
+                  "constraint_id": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9][a-z0-9._-]+$"
+                  },
+                  "relation": {
+                    "enum": ["nominal"]
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "oneOf": [
+              {
+                "required": ["equals"]
+              },
+              {
+                "required": ["reference"]
+              }
+            ],
+            "additionalProperties": false
+          }
+        },
+        "recovery": {
+          "type": "object",
+          "required": ["constraint_id", "event", "relation", "offset"],
+          "properties": {
+            "constraint_id": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._-]+$"
+            },
+            "event": {
+              "enum": ["overvoltage"]
+            },
+            "relation": {
+              "enum": ["greater_than_or_equal", "less_than_or_equal"]
+            },
+            "offset": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false
+        },
+        "notes": {
+          "type": ["string", "null"]
+        }
+      },
+      "allOf": [
+        {
+          "oneOf": [
+            {
+              "required": ["value"]
+            },
+            {
+              "required": ["range"]
+            },
+            {
+              "required": ["reference"]
+            },
+            {
+              "required": ["recovery"]
+            }
+          ]
+        }
+      ],
+      "additionalProperties": false
+    }
+  }
 }

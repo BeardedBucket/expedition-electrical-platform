@@ -1,0 +1,865 @@
+{
+  "schema_version": "1.0",
+  "captured_at": "2026-09-08T19:05:00Z",
+  "checkpoint": "G",
+  "review_status": "pending_human_review",
+  "target": {
+    "manufacturer": "Blue Sea Systems",
+    "product_family": "m-Series",
+    "model": "m-Series Mini On-Off Battery Switch with Knob - Red",
+    "manufacturer_part_number": "6006"
+  },
+  "sources": [
+    {
+      "schema_version": "1.0",
+      "id": "bluesea.mseries.6006.product-page",
+      "uri": "https://www.bluesea.com/products/6006/m-Series_Battery_Switch",
+      "source_type": "manufacturer_product_page",
+      "authority": "manufacturer_product",
+      "publisher": "Blue Sea Systems",
+      "retrieved_at": "2026-09-08T18:45:00Z",
+      "applicability": "direct_identity",
+      "applies_to": ["6006"],
+      "notes": "Official product URL retrieved 2026-09-08. Local capture was a Cloudflare challenge page, not treated as a product-page content hash; page claims remain limited to the live URL and retrieval record."
+    },
+    {
+      "schema_version": "1.0",
+      "id": "bluesea.mseries.6006.instructions",
+      "uri": "https://d2pyqmyd3fw2i.cloudfront.net/files/resources/instructions/6006_web_version.pdf",
+      "source_type": "manufacturer_manual",
+      "authority": "manufacturer_technical",
+      "publisher": "Blue Sea Systems",
+      "retrieved_at": "2026-09-08T18:45:00Z",
+      "content_hash": "sha256:1618923f816efde20d21492fc4b756e113831098cbcb18abea7329b3e71b1f83",
+      "applicability": "direct_identity",
+      "applies_to": ["6006", "6006200"],
+      "notes": "Official 6006/6006200 instruction sheet. Shared two-SKU instructions are explicitly limited to the red and black single-circuit variants."
+    },
+    {
+      "schema_version": "1.0",
+      "id": "bluesea.mseries.6006.dimensioned-drawing",
+      "uri": "https://d2pyqmyd3fw2i.cloudfront.net/files/resources/dimensioned_drawing/M_Switch_Knob.pdf",
+      "source_type": "manufacturer_drawing",
+      "authority": "manufacturer_technical",
+      "publisher": "Blue Sea Systems",
+      "retrieved_at": "2026-09-08T18:45:00Z",
+      "content_hash": "sha256:7cc74f7fbfefeb04505edb6118d069b5733d724e912a46875f926bb305f3f980",
+      "applicability": "explicitly_reviewed",
+      "applies_to": ["6006"],
+      "notes": "Official dimensioned drawing covers a family of knob and selector variants. Dimension values and mounting-hole values are retained as evidence; canonical x/y/z orientation is not inferred."
+    },
+    {
+      "schema_version": "1.0",
+      "id": "bluesea.mseries.operation-diagrams",
+      "uri": "https://d2pyqmyd3fw2i.cloudfront.net/files/resources/reference/all-switches.pdf",
+      "source_type": "manufacturer_manual",
+      "authority": "manufacturer_technical",
+      "publisher": "Blue Sea Systems",
+      "retrieved_at": "2026-09-08T18:45:00Z",
+      "content_hash": "sha256:172387ee3a412c4d445da353972b08c48720c2ef227b6f9f2c8daab00ae7a641",
+      "applicability": "explicitly_reviewed",
+      "applies_to": ["6006"],
+      "notes": "Official operation-diagram reference defines the Single Circuit ON-OFF behavior as switching a single battery to a single load group; the exact 6006 product page identifies this switch type."
+    },
+    {
+      "schema_version": "1.0",
+      "id": "bluesea.mseries.6006.ul-certificate",
+      "uri": "https://d2pyqmyd3fw2i.cloudfront.net/files/resources/certificates/mSeries-UL.pdf",
+      "source_type": "manufacturer_certificate",
+      "authority": "manufacturer_technical",
+      "publisher": "Blue Sea Systems",
+      "retrieved_at": "2026-09-08T18:45:00Z",
+      "content_hash": "sha256:38df2a287a69f10e6e141eeab3abde852f44c135d240f4c59a9b4c5cc4273f13",
+      "applicability": "explicitly_reviewed",
+      "applies_to": ["6004", "6005", "6006", "6007", "6010", "6011"],
+      "notes": "Official UL certificate of compliance lists catalog number 6006 under UL 1107; it does not establish current switching ratings or environmental claims.",
+      "title": "UL Certificate of Compliance 20170728-MQ1199",
+      "document_revision": "2017-JULY-28"
+    },
+    {
+      "schema_version": "1.0",
+      "id": "bluesea.mseries.6006.990520240",
+      "uri": "https://d2pyqmyd3fw2i.cloudfront.net/files/resources/instructions/990520240.pdf",
+      "source_type": "manufacturer_manual",
+      "authority": "manufacturer_technical",
+      "publisher": "Blue Sea Systems",
+      "retrieved_at": "2026-09-08T19:20:00Z",
+      "applicability": "explicitly_reviewed",
+      "applies_to": ["6006", "6006200"],
+      "title": "m-Series Single Circuit ON/OFF Battery Switch Instructions PN 6006",
+      "notes": "Direct text verified from independently acquired official PDF: removable knob for security and service lockout; 4/0 cable basis; 120 in-lb torque; 300 A continuous, 500 A/5 min intermittent, 775 A/1 min cranking, 1500 A/10 sec cranking; 48 V DC maximum.",
+      "content_hash": "sha256:0d61fee8fde4b90f438a4e83cc72ee702f3bcc22445b33fda871bbc6640782f1"
+    }
+  ],
+  "facts": [
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.bluesea.6006.identity",
+      "source_id": "bluesea.mseries.6006.product-page",
+      "field": "identity",
+      "raw_label": "Product title and part number",
+      "raw_value": "m-Series Mini On-Off Battery Switch with Knob - Red; 6006",
+      "source_locator": {
+        "fragment": "product title and partnumber"
+      },
+      "extraction_method": "text",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.bluesea.6006.family",
+      "source_id": "bluesea.mseries.6006.product-page",
+      "field": "product_family",
+      "raw_label": "Product family",
+      "raw_value": "m-Series",
+      "source_locator": {
+        "fragment": "product family link"
+      },
+      "extraction_method": "text",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.bluesea.6006.manufacturer",
+      "source_id": "bluesea.mseries.6006.product-page",
+      "field": "manufacturer",
+      "raw_label": "Manufacturer",
+      "raw_value": "Blue Sea Systems",
+      "source_locator": {
+        "fragment": "Blue Sea Systems product page"
+      },
+      "extraction_method": "text",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.bluesea.6006.model",
+      "source_id": "bluesea.mseries.6006.product-page",
+      "field": "model",
+      "raw_label": "Product title",
+      "raw_value": "m-Series Mini On-Off Battery Switch with Knob - Red",
+      "source_locator": {
+        "fragment": "product title"
+      },
+      "extraction_method": "text",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.bluesea.6006.part-number",
+      "source_id": "bluesea.mseries.6006.product-page",
+      "field": "part_number",
+      "raw_label": "Part number",
+      "raw_value": "6006",
+      "source_locator": {
+        "fragment": "partnumber"
+      },
+      "extraction_method": "text",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.bluesea.6006.category",
+      "source_id": "bluesea.mseries.6006.product-page",
+      "field": "category",
+      "raw_label": "Product group",
+      "raw_value": "Manual Battery Switches",
+      "source_locator": {
+        "fragment": "product group"
+      },
+      "extraction_method": "text",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.bluesea.6006.product-role",
+      "source_id": "bluesea.mseries.6006.product-page",
+      "field": "product_role",
+      "raw_label": "Product function",
+      "raw_value": "Manual battery switch / disconnect",
+      "source_locator": {
+        "fragment": "product group and switch type"
+      },
+      "extraction_method": "text",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.bluesea.6006.switch-type",
+      "source_id": "bluesea.mseries.6006.product-page",
+      "field": "switching.type",
+      "raw_label": "Switch Type",
+      "raw_value": "Single Circuit ON-OFF",
+      "source_locator": {
+        "table": "Specifications",
+        "row": "Switch Type"
+      },
+      "extraction_method": "table",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.bluesea.6006.switch-positions",
+      "source_id": "bluesea.mseries.6006.product-page",
+      "field": "switching.configurations",
+      "raw_label": "Switch Positions",
+      "raw_value": 2,
+      "source_locator": {
+        "table": "Specifications",
+        "row": "Switch Positions"
+      },
+      "extraction_method": "table",
+      "fact_state": "provisional",
+      "review_required": true,
+      "topology_target": {
+        "kind": "switching_configuration",
+        "id": "bluesea.6006.off"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.bluesea.6006.on-behavior",
+      "source_id": "bluesea.mseries.operation-diagrams",
+      "field": "switching.configurations",
+      "raw_label": "Single Circuit ON-OFF operation",
+      "raw_value": "Switches a single battery to a single load group",
+      "source_locator": {
+        "page": 1,
+        "section": "Single Circuit ON-OFF"
+      },
+      "extraction_method": "text",
+      "fact_state": "provisional",
+      "review_required": true,
+      "topology_target": {
+        "kind": "switching_configuration",
+        "id": "bluesea.6006.on"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.bluesea.6006.main-terminals",
+      "source_id": "bluesea.mseries.6006.instructions",
+      "field": "connection_points",
+      "raw_label": "Battery switch terminals",
+      "raw_value": 2,
+      "source_locator": {
+        "page": 1,
+        "section": "Specifications"
+      },
+      "extraction_method": "table",
+      "fact_state": "provisional",
+      "review_required": true,
+      "topology_target": {
+        "kind": "connection_point",
+        "id": "bluesea.6006.terminal-1"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.bluesea.6006.stud-size",
+      "source_id": "bluesea.mseries.6006.instructions",
+      "field": "connection_points.hardware",
+      "raw_label": "Terminal stud",
+      "raw_value": "3/8-16 (M10), tin-plated copper",
+      "source_locator": {
+        "page": 1,
+        "section": "Specifications"
+      },
+      "extraction_method": "table",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.bluesea.6006.terminal-2",
+      "source_id": "bluesea.mseries.6006.instructions",
+      "field": "connection_points",
+      "raw_label": "Second main battery-switch terminal",
+      "raw_value": "Terminal 2",
+      "source_locator": {
+        "page": 2,
+        "section": "Switch Mounting Options"
+      },
+      "extraction_method": "manual",
+      "fact_state": "provisional",
+      "review_required": true,
+      "topology_target": {
+        "kind": "connection_point",
+        "id": "bluesea.6006.terminal-2"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.bluesea.6006.main-contact",
+      "source_id": "bluesea.mseries.operation-diagrams",
+      "field": "conductive_relationships",
+      "raw_label": "Single Circuit ON-OFF contact relationship",
+      "raw_value": "The two main switch terminals are electrically connected when the Single Circuit switch is ON; the relationship is inactive when OFF.",
+      "source_locator": {
+        "page": 1,
+        "section": "Single Circuit ON-OFF",
+        "paragraph": "Switch set to ON"
+      },
+      "extraction_method": "text",
+      "fact_state": "provisional",
+      "review_required": true,
+      "topology_target": {
+        "kind": "conductive_relationship",
+        "id": "bluesea.6006.main-contact"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.bluesea.6006.max-voltage",
+      "source_id": "bluesea.mseries.6006.990520240",
+      "field": "electrical.maximum_voltage",
+      "raw_label": "Maximum Voltage Rating",
+      "raw_value": 48,
+      "raw_unit": "V DC",
+      "normalized_value": 48,
+      "normalized_unit": "V",
+      "source_locator": {
+        "page": 1,
+        "section": "Specifications",
+        "row": "Maximum Voltage Rating"
+      },
+      "extraction_method": "table",
+      "fact_state": "provisional",
+      "review_required": true,
+      "target": {
+        "kind": "conductive_relationship",
+        "id": "bluesea.6006.main-contact",
+        "field": "bluesea.6006.contact-maximum-voltage"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.bluesea.6006.continuous-rating",
+      "source_id": "bluesea.mseries.6006.990520240",
+      "field": "electrical.continuous_rating",
+      "raw_label": "Continuous Rating",
+      "raw_value": 300,
+      "raw_unit": "A DC",
+      "normalized_value": 300,
+      "normalized_unit": "A",
+      "source_locator": {
+        "page": 1,
+        "section": "Specifications",
+        "row": "Continuous Rating"
+      },
+      "extraction_method": "table",
+      "fact_state": "provisional",
+      "review_required": true,
+      "target": {
+        "kind": "conductive_relationship",
+        "id": "bluesea.6006.main-contact",
+        "field": "bluesea.6006.contact-continuous"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.bluesea.6006.intermittent-rating",
+      "source_id": "bluesea.mseries.6006.990520240",
+      "field": "electrical.intermittent_rating",
+      "raw_label": "Intermittent Rating",
+      "raw_value": 500,
+      "raw_unit": "A DC for 5 min",
+      "normalized_value": 500,
+      "normalized_unit": "A",
+      "source_locator": {
+        "page": 1,
+        "section": "Specifications",
+        "row": "Intermittent Rating"
+      },
+      "extraction_method": "table",
+      "transformation_notes": "The five-minute duration remains in the raw unit and fact notes; it is not collapsed into the continuous rating.",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.bluesea.6006.cranking-rating",
+      "source_id": "bluesea.mseries.6006.990520240",
+      "field": "electrical.cranking_rating",
+      "raw_label": "Cranking Rating",
+      "raw_value": "1500 A DC for 10 sec and 775 A DC for 1 min",
+      "raw_unit": "A DC for 10 sec / 1 min",
+      "normalized_value": 1500,
+      "normalized_unit": "A",
+      "source_locator": {
+        "page": 1,
+        "section": "Specifications",
+        "row": "Cranking Rating"
+      },
+      "extraction_method": "table",
+      "transformation_notes": "The thirty-second duration remains part of the source fact.",
+      "fact_state": "provisional",
+      "review_required": true,
+      "notes": "Official 990520240 presents two cranking ratings: 1,500 A DC for 10 seconds and 775 A DC for 1 minute. Both are preserved as separate duration-qualified claims."
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.bluesea.6006.cable-size",
+      "source_id": "bluesea.mseries.6006.instructions",
+      "field": "installation.cable_size",
+      "raw_label": "Cable Size to Meet Ratings",
+      "raw_value": "4/0 AWG (120 mm2)",
+      "source_locator": {
+        "page": 1,
+        "section": "Specifications"
+      },
+      "extraction_method": "table",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.bluesea.6006.cable-clearance",
+      "source_id": "bluesea.mseries.6006.product-page",
+      "field": "installation.cable_clearance",
+      "raw_label": "Cable Clearance For 4/0 AWG Cables",
+      "raw_value": "1.12 in (28.45 mm)",
+      "source_locator": {
+        "table": "Specifications",
+        "row": "Cable Clearance For 4/0 AWG Cables"
+      },
+      "extraction_method": "table",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.bluesea.6006.mounting",
+      "source_id": "bluesea.mseries.6006.product-page",
+      "field": "installation.mounting",
+      "raw_label": "Mounting",
+      "raw_value": ["surface", "front panel", "rear panel"],
+      "source_locator": {
+        "fragment": "product overview and dimensioned drawing link"
+      },
+      "extraction_method": "text",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.bluesea.6006.dimensions",
+      "source_id": "bluesea.mseries.6006.dimensioned-drawing",
+      "field": "dimensions.manufacturer",
+      "raw_label": "M Series Switch with Knob drawing dimensions",
+      "raw_value": {
+        "values_in": [3.32, 2.95, 2.175],
+        "values_m": [84.34, 74.93, 55.25]
+      },
+      "source_locator": {
+        "page": 2,
+        "section": "M SERIES SWITCH WITH KNOB"
+      },
+      "extraction_method": "table",
+      "transformation_notes": "Drawing projection and orientation are not assigned to canonical x/y/z fields.",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.bluesea.6006.weight",
+      "source_id": "bluesea.mseries.6006.product-page",
+      "field": "weight",
+      "raw_label": "Weight",
+      "raw_value": "0.65 lb (0.29 kg)",
+      "source_locator": {
+        "table": "Specifications",
+        "row": "Weight"
+      },
+      "extraction_method": "table",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.bluesea.6006.ignition-protection",
+      "source_id": "bluesea.mseries.6006.product-page",
+      "field": "certifications.ignition_protection",
+      "raw_label": "Ignition Protected",
+      "raw_value": true,
+      "source_locator": {
+        "fragment": "regulatory specifications"
+      },
+      "extraction_method": "text",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.bluesea.6006.certifications",
+      "source_id": "bluesea.mseries.6006.ul-certificate",
+      "field": "certifications",
+      "raw_label": "UL certificate representative samples",
+      "raw_value": {
+        "standard": "UL 1107",
+        "catalog_numbers": ["6004", "6005", "6006", "6007", "6010", "6011"]
+      },
+      "source_locator": {
+        "page": 1,
+        "section": "Certificate of Compliance"
+      },
+      "extraction_method": "text",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.bluesea.6006.ip66",
+      "source_id": "bluesea.mseries.6006.product-page",
+      "field": "certifications.environmental",
+      "raw_label": "IP66",
+      "raw_value": true,
+      "source_locator": {
+        "fragment": "regulatory specifications"
+      },
+      "extraction_method": "text",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.bluesea.6006.no-combine",
+      "source_id": "bluesea.mseries.6006.product-page",
+      "field": "switching.battery_combine",
+      "raw_label": "Battery Combine",
+      "raw_value": false,
+      "source_locator": {
+        "table": "Specifications",
+        "row": "Battery Combine"
+      },
+      "extraction_method": "table",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "schema_version": "1.0",
+      "id": "extracted.fact.bluesea.6006.no-afd",
+      "source_id": "bluesea.mseries.6006.product-page",
+      "field": "switching.alternator_field_disconnect",
+      "raw_label": "Alternator Field Disconnect",
+      "raw_value": false,
+      "source_locator": {
+        "table": "Specifications",
+        "row": "Alternator Field Disconnect"
+      },
+      "extraction_method": "table",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "id": "extracted.fact.bluesea.6006.torque",
+      "source_id": "bluesea.mseries.6006.990520240",
+      "field": "connection_points.hardware.torque",
+      "raw_label": "Battery cable terminal torque",
+      "raw_value": 120,
+      "raw_unit": "in-lb (13.56 N m)",
+      "normalized_value": 13.56,
+      "normalized_unit": "N m",
+      "source_locator": {
+        "page": 1,
+        "section": "Installation",
+        "paragraph": "Battery cable terminals must be attached under nut and lock washer"
+      },
+      "extraction_method": "table",
+      "notes": "Torque applies to battery cable terminals under nut and lock washer.",
+      "schema_version": "1.0",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "id": "extracted.fact.bluesea.6006.off-evidence",
+      "source_id": "bluesea.mseries.6006.990520240",
+      "field": "switching.configurations",
+      "raw_label": "OFF operation warning",
+      "raw_value": "Turn all appliances off before turning the battery switch to OFF; do not switch to OFF while engine is running.",
+      "source_locator": {
+        "page": 2,
+        "section": "Operation",
+        "paragraph": "Turn all appliances off before turning the battery switch to OFF"
+      },
+      "extraction_method": "text",
+      "topology_target": {
+        "kind": "switching_configuration",
+        "id": "bluesea.6006.off"
+      },
+      "schema_version": "1.0",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "id": "extracted.fact.bluesea.6006.cable-basis",
+      "source_id": "bluesea.mseries.6006.990520240",
+      "field": "installation.cable_size",
+      "raw_label": "Cable size to meet ratings",
+      "raw_value": "Attach one 4/0 AWG (120 mm2) cable per terminal to meet ratings; reducing cable sizes will reduce current ratings.",
+      "source_locator": {
+        "page": 1,
+        "section": "Installation"
+      },
+      "extraction_method": "text",
+      "notes": "This is a manufacturer rating basis, not a universal cable ampacity or installation rule.",
+      "schema_version": "1.0",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "id": "extracted.fact.bluesea.6006.switching-25a-unresolved",
+      "source_id": "bluesea.mseries.6006.product-page",
+      "field": "electrical.switching_rating_unknown_relationship",
+      "raw_label": "25A switching rating",
+      "raw_value": 25,
+      "raw_unit": "A",
+      "source_locator": {
+        "fragment": "25A switching rating"
+      },
+      "extraction_method": "text",
+      "fact_state": "unresolved",
+      "notes": "The product page states 25 A switching rating, but the available sources do not define its semantic relationship to the 300 A continuous contact rating. Preserve as unresolved informational evidence; do not normalize or promote the 25 A value.",
+      "schema_version": "1.0",
+      "review_required": true
+    },
+    {
+      "id": "extracted.fact.bluesea.6006.removable-knob-service-lockout",
+      "source_id": "bluesea.mseries.6006.990520240",
+      "field": "switching.knob_and_lockout",
+      "raw_label": "Removable knob for security and service lockout",
+      "raw_value": "Removable knob for security and service lockout",
+      "source_locator": {
+        "page": 1,
+        "section": "Features",
+        "paragraph": "Case design"
+      },
+      "extraction_method": "text",
+      "notes": "Direct official text; establishes removable knob/service-lockout feature, but does not define a separate electrical switching configuration.",
+      "schema_version": "1.0",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "id": "extracted.fact.bluesea.6006.cranking-775a-1min",
+      "source_id": "bluesea.mseries.6006.990520240",
+      "field": "electrical.cranking_rating",
+      "raw_label": "Cranking Rating",
+      "raw_value": 775,
+      "raw_unit": "A DC for 1 min",
+      "normalized_value": 775,
+      "normalized_unit": "A",
+      "source_locator": {
+        "page": 1,
+        "section": "Specifications",
+        "row": "Cranking Rating"
+      },
+      "extraction_method": "text",
+      "notes": "Separate duration-qualified official claim.",
+      "schema_version": "1.0",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "id": "extracted.fact.bluesea.6006.cranking-1500a-10sec",
+      "source_id": "bluesea.mseries.6006.990520240",
+      "field": "electrical.cranking_rating",
+      "raw_label": "Cranking Rating",
+      "raw_value": 1500,
+      "raw_unit": "A DC for 10 sec",
+      "normalized_value": 1500,
+      "normalized_unit": "A",
+      "source_locator": {
+        "page": 1,
+        "section": "Specifications",
+        "row": "Cranking Rating"
+      },
+      "extraction_method": "text",
+      "notes": "Separate duration-qualified official claim.",
+      "schema_version": "1.0",
+      "fact_state": "provisional",
+      "review_required": true
+    }
+  ],
+  "candidate": {
+    "schema_version": "1.0",
+    "id": "bluesea.mseries.6006",
+    "identity_status": "provisional",
+    "identity": {
+      "manufacturer": "Blue Sea Systems",
+      "product_family": "m-Series",
+      "model": "m-Series Mini On-Off Battery Switch with Knob - Red",
+      "manufacturer_part_number": "6006"
+    },
+    "review_status": "pending",
+    "promotion_status": "review_required",
+    "source_ids": [
+      "bluesea.mseries.6006.product-page",
+      "bluesea.mseries.6006.instructions",
+      "bluesea.mseries.6006.dimensioned-drawing",
+      "bluesea.mseries.operation-diagrams",
+      "bluesea.mseries.6006.ul-certificate",
+      "bluesea.mseries.6006.990520240"
+    ],
+    "identity_source_ids": [
+      "bluesea.mseries.6006.product-page",
+      "bluesea.mseries.6006.instructions"
+    ],
+    "fact_ids": [
+      "extracted.fact.bluesea.6006.identity",
+      "extracted.fact.bluesea.6006.family",
+      "extracted.fact.bluesea.6006.manufacturer",
+      "extracted.fact.bluesea.6006.model",
+      "extracted.fact.bluesea.6006.part-number",
+      "extracted.fact.bluesea.6006.category",
+      "extracted.fact.bluesea.6006.product-role",
+      "extracted.fact.bluesea.6006.switch-type",
+      "extracted.fact.bluesea.6006.switch-positions",
+      "extracted.fact.bluesea.6006.on-behavior",
+      "extracted.fact.bluesea.6006.main-terminals",
+      "extracted.fact.bluesea.6006.stud-size",
+      "extracted.fact.bluesea.6006.terminal-2",
+      "extracted.fact.bluesea.6006.main-contact",
+      "extracted.fact.bluesea.6006.max-voltage",
+      "extracted.fact.bluesea.6006.continuous-rating",
+      "extracted.fact.bluesea.6006.intermittent-rating",
+      "extracted.fact.bluesea.6006.cranking-rating",
+      "extracted.fact.bluesea.6006.cable-size",
+      "extracted.fact.bluesea.6006.cable-clearance",
+      "extracted.fact.bluesea.6006.mounting",
+      "extracted.fact.bluesea.6006.dimensions",
+      "extracted.fact.bluesea.6006.weight",
+      "extracted.fact.bluesea.6006.ignition-protection",
+      "extracted.fact.bluesea.6006.certifications",
+      "extracted.fact.bluesea.6006.ip66",
+      "extracted.fact.bluesea.6006.no-combine",
+      "extracted.fact.bluesea.6006.no-afd",
+      "extracted.fact.bluesea.6006.torque",
+      "extracted.fact.bluesea.6006.off-evidence",
+      "extracted.fact.bluesea.6006.cable-basis",
+      "extracted.fact.bluesea.6006.switching-25a-unresolved",
+      "extracted.fact.bluesea.6006.removable-knob-service-lockout",
+      "extracted.fact.bluesea.6006.cranking-775a-1min",
+      "extracted.fact.bluesea.6006.cranking-1500a-10sec"
+    ],
+    "component_data": {
+      "manufacturer": "Blue Sea Systems",
+      "model": "m-Series Mini On-Off Battery Switch with Knob - Red",
+      "part_number": "6006",
+      "product_family": "m-Series",
+      "category": "disconnect",
+      "product_role": "disconnect",
+      "connection_points": [
+        {
+          "id": "bluesea.6006.terminal-1",
+          "notes": "Main switched terminal; 3/8-16 (M10) tin-plated copper stud."
+        },
+        {
+          "id": "bluesea.6006.terminal-2",
+          "notes": "Main switched terminal; 3/8-16 (M10) tin-plated copper stud."
+        }
+      ],
+      "conductive_relationships": [
+        {
+          "id": "bluesea.6006.main-contact",
+          "participants": [
+            {
+              "kind": "connection_point",
+              "id": "bluesea.6006.terminal-1"
+            },
+            {
+              "kind": "connection_point",
+              "id": "bluesea.6006.terminal-2"
+            }
+          ],
+          "constraints": [
+            {
+              "id": "bluesea.6006.contact-continuous",
+              "kind": "continuous_rating",
+              "domain": "dc",
+              "quantity": "current",
+              "unit": "A",
+              "value": 300,
+              "target": {
+                "kind": "conductive_relationship",
+                "id": "bluesea.6006.main-contact"
+              },
+              "notes": "Manufacturer contact-path continuous rating; 4/0 AWG cable basis is informational evidence, not ampacity."
+            },
+            {
+              "id": "bluesea.6006.contact-maximum-voltage",
+              "kind": "absolute_maximum",
+              "domain": "dc",
+              "quantity": "voltage",
+              "unit": "V",
+              "value": 48,
+              "target": {
+                "kind": "conductive_relationship",
+                "id": "bluesea.6006.main-contact"
+              },
+              "notes": "Manufacturer maximum DC voltage rating."
+            }
+          ]
+        }
+      ],
+      "switching": {
+        "controlled_relationship_ids": ["bluesea.6006.main-contact"],
+        "configurations": [
+          {
+            "id": "bluesea.6006.off",
+            "label": "OFF",
+            "active_relationship_ids": []
+          },
+          {
+            "id": "bluesea.6006.on",
+            "label": "ON",
+            "active_relationship_ids": ["bluesea.6006.main-contact"]
+          }
+        ]
+      }
+    },
+    "field_evidence": {
+      "manufacturer": ["extracted.fact.bluesea.6006.manufacturer"],
+      "model": ["extracted.fact.bluesea.6006.model"],
+      "part_number": ["extracted.fact.bluesea.6006.part-number"],
+      "product_family": ["extracted.fact.bluesea.6006.family"],
+      "category": ["extracted.fact.bluesea.6006.category"],
+      "product_role": ["extracted.fact.bluesea.6006.product-role"]
+    },
+    "topology_evidence": {
+      "connection_point:bluesea.6006.terminal-1": [
+        "extracted.fact.bluesea.6006.main-terminals"
+      ],
+      "connection_point:bluesea.6006.terminal-2": ["extracted.fact.bluesea.6006.terminal-2"],
+      "conductive_relationship:bluesea.6006.main-contact": [
+        "extracted.fact.bluesea.6006.main-contact",
+        "extracted.fact.bluesea.6006.continuous-rating",
+        "extracted.fact.bluesea.6006.max-voltage",
+        "extracted.fact.bluesea.6006.cable-basis",
+        "extracted.fact.bluesea.6006.switching-25a-unresolved"
+      ],
+      "switching_configuration:bluesea.6006.off": [
+        "extracted.fact.bluesea.6006.switch-positions",
+        "extracted.fact.bluesea.6006.off-evidence"
+      ],
+      "switching_configuration:bluesea.6006.on": ["extracted.fact.bluesea.6006.on-behavior"]
+    },
+    "review_reasons": [
+      "exact_product_identity_and_family_applicability_require_human_review",
+      "dimensioned drawing orientation is intentionally unresolved",
+      "passive switching is modeled without a converter power path",
+      "25A switching-rating claim has an unresolved semantic relationship and is not promoted",
+      "removable knob and service lockout are directly documented by official 990520240 text",
+      "only bounded dc absolute-maximum and continuous-rating constraints are canonical; duration variants remain informational evidence",
+      "constraint-target facts bind the exact 48 V and 300 A claims to the passive contact relationship"
+    ]
+  }
+}

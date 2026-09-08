@@ -22,6 +22,25 @@ const componentWith = (constraints: unknown[]) => ({
   ],
 });
 
+const componentWithInterruption = (interruption_capabilities: unknown[]) => ({
+  id: 'synthetic.interruption.component',
+  manufacturer: 'Synthetic',
+  model: 'Interruption Fixture',
+  category: 'disconnect',
+  verification_status: 'unverified',
+  connection_points: [{ id: 'a1' }, { id: 'b1' }],
+  conductive_relationships: [
+    {
+      id: 'contact',
+      participants: [
+        { kind: 'connection_point', id: 'a1' },
+        { kind: 'connection_point', id: 'b1' },
+      ],
+      interruption_capabilities,
+    },
+  ],
+});
+
 describe('generic electrical constraints', () => {
   it('distinguishes continuous ratings and preserves temperature and nominal references', () => {
     expect(
@@ -257,5 +276,41 @@ describe('generic electrical constraints', () => {
         ]),
       ),
     ).toBe(true);
+  });
+
+  it('distinguishes load-current switching from fault-current interrupting', () => {
+    expect(
+      canonicalProposalSchemaValid(
+        componentWithInterruption([
+          {
+            id: 'contact.load-switching',
+            kind: 'load_current_switching',
+            domain: 'dc',
+            voltage: 48,
+            current: 25,
+          },
+          {
+            id: 'contact.fault-interrupting',
+            kind: 'fault_current_interrupting',
+            domain: 'dc',
+            voltage: 48,
+            current: 1500,
+          },
+        ]),
+      ),
+    ).toBe(true);
+  });
+
+  it('rejects an interruption capability without electrical context', () => {
+    expect(
+      canonicalProposalSchemaValid(
+        componentWithInterruption([
+          {
+            id: 'contact.ambiguous',
+            kind: 'fault_current_interrupting',
+          },
+        ]),
+      ),
+    ).toBe(false);
   });
 });

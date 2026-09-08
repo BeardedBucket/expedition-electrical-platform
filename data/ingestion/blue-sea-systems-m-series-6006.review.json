@@ -1,0 +1,70 @@
+{
+  "schema_version": "1.0",
+  "id": "review.human.bluesea.mseries.6006",
+  "candidate_id": "bluesea.mseries.6006",
+  "canonical_target_id": "blue-sea-systems.6006",
+  "candidate_snapshot": "sha256:f0da14b13e4da421512e979b4e135ff3f8dc395675b6ab95f552f1ad4fe615c3",
+  "decision": "approved",
+  "reviewer_id": "repository-review",
+  "reviewed_at": "2026-09-08T21:15:17.154Z",
+  "approved_fields": [
+    "category",
+    "manufacturer",
+    "model",
+    "part_number",
+    "product_family",
+    "product_role"
+  ],
+  "topology_evidence": {
+    "connection_point:bluesea.6006.terminal-1": [
+      "extracted.fact.bluesea.6006.main-terminals"
+    ],
+    "connection_point:bluesea.6006.terminal-2": [
+      "extracted.fact.bluesea.6006.terminal-2"
+    ],
+    "conductive_relationship:bluesea.6006.main-contact": [
+      "extracted.fact.bluesea.6006.main-contact",
+      "extracted.fact.bluesea.6006.continuous-rating",
+      "extracted.fact.bluesea.6006.max-voltage",
+      "extracted.fact.bluesea.6006.cable-basis"
+    ],
+    "switching_configuration:bluesea.6006.off": [
+      "extracted.fact.bluesea.6006.switch-positions",
+      "extracted.fact.bluesea.6006.off-evidence"
+    ],
+    "switching_configuration:bluesea.6006.on": [
+      "extracted.fact.bluesea.6006.on-behavior"
+    ]
+  },
+  "reviewed_evidence_fact_ids": [
+    "extracted.fact.bluesea.6006.identity",
+    "extracted.fact.bluesea.6006.family",
+    "extracted.fact.bluesea.6006.manufacturer",
+    "extracted.fact.bluesea.6006.model",
+    "extracted.fact.bluesea.6006.part-number",
+    "extracted.fact.bluesea.6006.category",
+    "extracted.fact.bluesea.6006.product-role",
+    "extracted.fact.bluesea.6006.switch-type",
+    "extracted.fact.bluesea.6006.switch-positions",
+    "extracted.fact.bluesea.6006.on-behavior",
+    "extracted.fact.bluesea.6006.main-terminals",
+    "extracted.fact.bluesea.6006.stud-size",
+    "extracted.fact.bluesea.6006.terminal-2",
+    "extracted.fact.bluesea.6006.main-contact",
+    "extracted.fact.bluesea.6006.max-voltage",
+    "extracted.fact.bluesea.6006.continuous-rating",
+    "extracted.fact.bluesea.6006.intermittent-rating",
+    "extracted.fact.bluesea.6006.cranking-rating",
+    "extracted.fact.bluesea.6006.cranking-775a-1min",
+    "extracted.fact.bluesea.6006.cranking-1500a-10sec",
+    "extracted.fact.bluesea.6006.switching-25a-unresolved",
+    "extracted.fact.bluesea.6006.ignition-protection",
+    "extracted.fact.bluesea.6006.certifications",
+    "extracted.fact.bluesea.6006.removable-knob-service-lockout"
+  ],
+  "evidence_acknowledged": true,
+  "product_role": "disconnect",
+  "category": "disconnect",
+  "rationale": "Approve only the exact reviewed identity, passive topology, 48 V DC maximum, and 300 A DC continuous conductive-relationship semantics. Preserve duration-qualified ratings, the unresolved 25 A switching label, ignition-protection evidence, certification evidence, and lockout evidence as non-canonical review evidence.",
+  "notes": "Checkpoint G approval binds the exact raw candidate artifact hash sha256:2ee1d1337b94a7170dda10c8dbd7927fa2aa887695db329fbb9c1f26ee698a8e and semantic snapshot hash sha256:f0da14b13e4da421512e979b4e135ff3f8dc395675b6ab95f552f1ad4fe615c3. Canonical target is blue-sea-systems.6006, derived by the existing manufacturer-plus-MPN identity convention. The earlier bluesea.mseries.6006 expectation was a human-review identity-target error, not a product-semantic change. No Blue Sea interruption capability is approved."
+}
