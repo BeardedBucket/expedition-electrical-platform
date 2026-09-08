@@ -45,15 +45,418 @@
       "uri": "https://www.victronenergy.com/upload/documents/SmartSolar-MPPT-75-10-up-to-100-20-Manual.pdf",
       "type": "manual",
       "applicability": "family-level discovered-only",
-      "capture_status": "discovered_only"
+      "capture_status": "stale_404",
+      "superseded_by": "https://www.victronenergy.com/upload/documents/Manual_SmartSolar_MPPT_75-10_up_to_100-20/29694-MPPT_solar_charger_manual-pdf-en.pdf"
     },
     {
       "uri": "https://www.victronenergy.com/upload/documents/SmartSolar-MPPT-75-10-up-to-100-20-Datasheet.pdf",
       "type": "datasheet",
       "applicability": "family-level discovered-only",
-      "capture_status": "discovered_only"
+      "capture_status": "stale_404",
+      "superseded_by": "https://www.victronenergy.com/upload/documents/Datasheet-BlueSolar-and-SmartSolar-charge-controller-overview-EN.pdf"
     }
   ],
+  "primary_evidence_completion": {
+    "captured_at": "2026-09-08T05:57:09.5417774Z",
+    "review_status": "pending_human_review",
+    "sources": [
+      {
+        "schema_version": "1.0",
+        "id": "victron.smartsolar-mppt-75-15.manual-rev10",
+        "uri": "https://www.victronenergy.com/upload/documents/Manual_SmartSolar_MPPT_75-10_up_to_100-20/29694-MPPT_solar_charger_manual-pdf-en.pdf",
+        "source_type": "manufacturer_manual",
+        "authority": "manufacturer_technical",
+        "publisher": "Victron Energy",
+        "retrieved_at": "2026-09-08T05:57:09.5417774Z",
+        "manufacturer": "Victron Energy",
+        "title": "MPPT solar charger manual — SmartSolar MPPT 75/10 up to 100/20",
+        "document_revision": "Rev 10 - 02/2026",
+        "content_hash": "sha256:6fe199cd061441c30225f8ec9eff6dcb372cf5cb3215d9c7bab949b16f0125f9",
+        "applicability": "explicitly_reviewed",
+        "applicability_reason": "The manual's model tables explicitly include MPPT 75/15 and its dimensions section identifies SCC075015060R as SmartSolar MPPT 75/15 Retail.",
+        "applies_to": ["SCC075015060R"],
+        "product_identity_claim": {
+          "manufacturer": "Victron Energy",
+          "product_family": "SmartSolar",
+          "model": "SmartSolar MPPT 75/15 Retail",
+          "manufacturer_part_number": "SCC075015060R",
+          "voltage_variant": "12V/24V auto-select"
+        },
+        "redistribution_status": "link_only",
+        "notes": "Captured from the current manual link published on the exact Victron SmartSolar family product page."
+      },
+      {
+        "schema_version": "1.0",
+        "id": "victron.smartsolar-charge-controller-overview-datasheet",
+        "uri": "https://www.victronenergy.com/upload/documents/Datasheet-BlueSolar-and-SmartSolar-charge-controller-overview-EN.pdf",
+        "source_type": "manufacturer_datasheet",
+        "authority": "manufacturer_technical",
+        "publisher": "Victron Energy",
+        "retrieved_at": "2026-09-08T05:57:09.5417774Z",
+        "manufacturer": "Victron Energy",
+        "title": "BlueSolar and SmartSolar MPPT Charge Controllers — Overview",
+        "content_hash": "sha256:d66b88e24c88c86b42fa0f2854b0afe2edb0b0364892e8cef7fbd3323f60b9c1",
+        "applicability": "explicitly_reviewed",
+        "applicability_reason": "The SmartSolar table explicitly contains a 75/15 row with 12/24V battery voltage and 15A charge current; no sibling row values are imported.",
+        "applies_to": ["SCC075015060R"],
+        "product_identity_claim": {
+          "manufacturer": "Victron Energy",
+          "product_family": "SmartSolar",
+          "model": "SmartSolar MPPT 75/15 Retail",
+          "manufacturer_part_number": "SCC075015060R",
+          "voltage_variant": "12V/24V auto-select"
+        },
+        "redistribution_status": "link_only",
+        "notes": "Current official overview datasheet linked from the product page."
+      }
+    ],
+    "facts": [
+      {
+        "schema_version": "1.0",
+        "id": "extracted.fact.5da63b8db8ff98e5",
+        "source_id": "victron.smartsolar-mppt-75-15.manual-rev10",
+        "field": "unmapped",
+        "raw_label": "PV input interface",
+        "raw_value": "The DC (PV) input is not isolated from the battery circuit.",
+        "source_locator": { "page": 11, "section": "4. Installation", "paragraph": 1 },
+        "extraction_method": "text",
+        "review_required": true,
+        "transformation_notes": "Primary manual text establishes a DC PV input interface; logical port identity remains pending human review.",
+        "fact_state": "provisional",
+        "topology_target": { "kind": "port", "id": "smartsolar.pv-input", "field": "domain" }
+      },
+      {
+        "schema_version": "1.0",
+        "id": "extracted.fact.7ad76dab93bb6e22",
+        "source_id": "victron.smartsolar-mppt-75-15.manual-rev10",
+        "field": "unmapped",
+        "raw_label": "Battery interface",
+        "raw_value": "The battery and PV connections must be guarded against inadvertent contact.",
+        "source_locator": { "page": 11, "section": "4. Installation", "paragraph": 3 },
+        "extraction_method": "text",
+        "review_required": true,
+        "transformation_notes": "Primary manual text establishes battery connections; logical battery port identity remains pending human review.",
+        "fact_state": "provisional",
+        "topology_target": { "kind": "port", "id": "smartsolar.battery-output", "field": "domain" }
+      },
+      {
+        "schema_version": "1.0",
+        "id": "extracted.fact.ef162fc4e124c460",
+        "source_id": "victron.smartsolar-mppt-75-15.manual-rev10",
+        "field": "unmapped",
+        "raw_label": "Directional PV to battery charging",
+        "raw_value": "The solar charger can charge a lower nominal-voltage battery from a higher nominal voltage PV array.",
+        "source_locator": {
+          "page": 4,
+          "section": "2.1. Battery voltage, PV voltage and current rating",
+          "paragraph": 1
+        },
+        "extraction_method": "text",
+        "review_required": true,
+        "transformation_notes": "Primary manual text establishes the functional PV-array-to-battery charging relationship; canonical power-path application remains pending human review.",
+        "fact_state": "provisional",
+        "topology_target": { "kind": "power_path", "id": "smartsolar.pv-to-battery-charge" }
+      },
+      {
+        "schema_version": "1.0",
+        "id": "extracted.fact.0b27657158157616",
+        "source_id": "victron.smartsolar-mppt-75-15.manual-rev10",
+        "field": "unmapped",
+        "raw_label": "PV to battery charge flow",
+        "raw_value": "The controller will automatically adjust to the battery voltage and will charge the battery with a current up to its rated current.",
+        "source_locator": {
+          "page": 4,
+          "section": "2.1. Battery voltage, PV voltage and current rating",
+          "paragraph": 1
+        },
+        "extraction_method": "text",
+        "review_required": true,
+        "transformation_notes": "Primary manual text supports charging output behavior but does not independently establish additional current or power limits.",
+        "fact_state": "provisional",
+        "topology_target": {
+          "kind": "power_path",
+          "id": "smartsolar.pv-to-battery-charge",
+          "field": "direction"
+        }
+      },
+      {
+        "schema_version": "1.0",
+        "id": "extracted.fact.46e26422cb2ad502",
+        "source_id": "victron.smartsolar-mppt-75-15.manual-rev10",
+        "field": "unmapped",
+        "raw_label": "PV nominal voltage relationship",
+        "raw_value": "The nominal PV voltage should be at least 5V higher than the battery voltage.",
+        "normalized_value": 5,
+        "normalized_unit": "V",
+        "source_locator": { "page": 11, "section": "4.3. PV array", "paragraph": 2 },
+        "extraction_method": "text",
+        "review_required": true,
+        "transformation_notes": "Manufacturer-stated nominal PV voltage relationship. This is not a generic +5 V heuristic, not a startup threshold, and not a continued-operation minimum.",
+        "fact_state": "provisional"
+      },
+      {
+        "schema_version": "1.0",
+        "id": "extracted.fact.89fdce21d19d1776",
+        "source_id": "victron.smartsolar-mppt-75-15.manual-rev10",
+        "field": "unmapped",
+        "raw_label": "PV overvoltage recovery",
+        "raw_value": "Charging resumes only when the PV voltage drops 5V below the rated maximum voltage.",
+        "normalized_value": 5,
+        "normalized_unit": "V",
+        "source_locator": { "page": 48, "section": "8.5.6. PV voltage too high", "paragraph": 2 },
+        "extraction_method": "text",
+        "review_required": true,
+        "transformation_notes": "Manufacturer-stated recovery hysteresis after overvoltage. This is distinct from startup, shutdown, MPPT operating range, and battery-relative headroom.",
+        "fact_state": "provisional"
+      },
+      {
+        "schema_version": "1.0",
+        "id": "extracted.fact.867bebba68349009",
+        "source_id": "victron.smartsolar-mppt-75-15.manual-rev10",
+        "field": "unmapped",
+        "raw_label": "Nominal PV power, 12V",
+        "raw_value": "220W",
+        "normalized_value": 220,
+        "normalized_unit": "W",
+        "source_locator": {
+          "page": 62,
+          "section": "9.1. Specifications 75/10, 75/15, 100/15 and 100/20",
+          "table": "Technical specifications",
+          "row": "Nominal PV power, 12V"
+        },
+        "extraction_method": "table",
+        "review_required": true,
+        "transformation_notes": "Exact MPPT 75/15 column value; semantic wording is nominal PV power conditional on 12V battery operation.",
+        "fact_state": "provisional"
+      },
+      {
+        "schema_version": "1.0",
+        "id": "extracted.fact.cb138b497cf13404",
+        "source_id": "victron.smartsolar-mppt-75-15.manual-rev10",
+        "field": "unmapped",
+        "raw_label": "Nominal PV power, 24V",
+        "raw_value": "440W",
+        "normalized_value": 440,
+        "normalized_unit": "W",
+        "source_locator": {
+          "page": 62,
+          "section": "9.1. Specifications 75/10, 75/15, 100/15 and 100/20",
+          "table": "Technical specifications",
+          "row": "Nominal PV power, 24V"
+        },
+        "extraction_method": "table",
+        "review_required": true,
+        "transformation_notes": "Exact MPPT 75/15 column value; semantic wording is nominal PV power conditional on 24V battery operation.",
+        "fact_state": "provisional"
+      },
+      {
+        "schema_version": "1.0",
+        "id": "extracted.fact.f2dc7ad1a395ead2",
+        "source_id": "victron.smartsolar-mppt-75-15.manual-rev10",
+        "field": "unmapped",
+        "raw_label": "Max. PV short circuit current",
+        "raw_value": "15A",
+        "normalized_value": 15,
+        "normalized_unit": "A",
+        "source_locator": {
+          "page": 62,
+          "section": "9.1. Specifications 75/10, 75/15, 100/15 and 100/20",
+          "table": "Technical specifications",
+          "row": "Max. PV short circuit current"
+        },
+        "extraction_method": "table",
+        "review_required": true,
+        "transformation_notes": "Exact MPPT 75/15 column value; distinct from maximum battery charge current.",
+        "fact_state": "provisional"
+      },
+      {
+        "schema_version": "1.0",
+        "id": "extracted.fact.59c8da3bca7c294d",
+        "source_id": "victron.smartsolar-mppt-75-15.manual-rev10",
+        "field": "unmapped",
+        "raw_label": "Battery voltage (auto select)",
+        "raw_value": "12V or 24V",
+        "normalized_value": [12, 24],
+        "normalized_unit": "V",
+        "source_locator": {
+          "page": 62,
+          "section": "9.1. Specifications 75/10, 75/15, 100/15 and 100/20",
+          "table": "Technical specifications",
+          "row": "Battery voltage (auto select)"
+        },
+        "extraction_method": "table",
+        "review_required": true,
+        "transformation_notes": "Exact MPPT 75/15 column value; corroborates the previously reviewed exact product-page fact.",
+        "fact_state": "provisional"
+      },
+      {
+        "schema_version": "1.0",
+        "id": "extracted.fact.e60800807e1b1b5f",
+        "source_id": "victron.smartsolar-mppt-75-15.manual-rev10",
+        "field": "unmapped",
+        "raw_label": "Maximum PV open circuit voltage",
+        "raw_value": "75V",
+        "normalized_value": 75,
+        "normalized_unit": "V",
+        "source_locator": {
+          "page": 62,
+          "section": "9.1. Specifications 75/10, 75/15, 100/15 and 100/20",
+          "table": "Technical specifications",
+          "row": "Maximum PV open circuit voltage"
+        },
+        "extraction_method": "table",
+        "review_required": true,
+        "transformation_notes": "Exact MPPT 75/15 column value; corroborates extracted.fact.f6fee013b4ada60d.",
+        "fact_state": "provisional"
+      },
+      {
+        "schema_version": "1.0",
+        "id": "extracted.fact.75pvtopology",
+        "source_id": "victron.smartsolar-mppt-75-15.manual-rev10",
+        "field": "unmapped",
+        "raw_label": "Maximum PV open circuit voltage at PV input",
+        "raw_value": "75V",
+        "normalized_value": 75,
+        "normalized_unit": "V",
+        "source_locator": {
+          "page": 62,
+          "section": "9.1. Specifications 75/10, 75/15, 100/15 and 100/20",
+          "table": "Technical specifications",
+          "row": "Maximum PV open circuit voltage"
+        },
+        "extraction_method": "table",
+        "review_required": true,
+        "transformation_notes": "D-R approved topology-targeted interpretation of the exact MPPT 75/15 maximum PV open-circuit-voltage row.",
+        "fact_state": "provisional",
+        "topology_target": { "kind": "port", "id": "smartsolar.pv-input" }
+      },
+      {
+        "schema_version": "1.0",
+        "id": "extracted.fact.chargecapability",
+        "source_id": "victron.smartsolar-mppt-75-15.manual-rev10",
+        "field": "unmapped",
+        "raw_label": "PV to battery charging capability",
+        "raw_value": "The solar charger can charge a lower nominal-voltage battery from a higher nominal voltage PV array.",
+        "source_locator": {
+          "page": 4,
+          "section": "2.1. Battery voltage, PV voltage and current rating",
+          "paragraph": 1
+        },
+        "extraction_method": "text",
+        "review_required": true,
+        "transformation_notes": "D-R approved topology-targeted interpretation used only to support the required capability reference for the reviewed power path.",
+        "fact_state": "provisional",
+        "topology_target": { "kind": "capability", "id": "smartsolar.pv-to-battery-charge" }
+      },
+      {
+        "schema_version": "1.0",
+        "id": "extracted.fact.chargepath",
+        "source_id": "victron.smartsolar-mppt-75-15.manual-rev10",
+        "field": "unmapped",
+        "raw_label": "PV to battery charging path",
+        "raw_value": "The solar charger can charge a lower nominal-voltage battery from a higher nominal voltage PV array.",
+        "source_locator": {
+          "page": 4,
+          "section": "2.1. Battery voltage, PV voltage and current rating",
+          "paragraph": 1
+        },
+        "extraction_method": "text",
+        "review_required": true,
+        "transformation_notes": "D-R approved topology-targeted interpretation of the explicit PV-array-to-battery charging relationship.",
+        "fact_state": "provisional",
+        "topology_target": { "kind": "power_path", "id": "smartsolar.pv-to-battery-charge" }
+      },
+      {
+        "schema_version": "1.0",
+        "id": "extracted.fact.pvport",
+        "source_id": "victron.smartsolar-mppt-75-15.manual-rev10",
+        "field": "unmapped",
+        "raw_label": "DC PV input",
+        "raw_value": "The DC (PV) input is not isolated from the battery circuit.",
+        "source_locator": { "page": 11, "section": "4. Installation", "paragraph": 1 },
+        "extraction_method": "text",
+        "review_required": true,
+        "transformation_notes": "D-R approved topology-targeted interpretation of the explicit DC PV input statement.",
+        "fact_state": "provisional",
+        "topology_target": { "kind": "port", "id": "smartsolar.pv-input" }
+      },
+      {
+        "schema_version": "1.0",
+        "id": "extracted.fact.batteryport",
+        "source_id": "victron.smartsolar-mppt-75-15.manual-rev10",
+        "field": "unmapped",
+        "raw_label": "Battery connection",
+        "raw_value": "The battery and PV connections must be guarded against inadvertent contact.",
+        "source_locator": { "page": 11, "section": "4. Installation", "paragraph": 3 },
+        "extraction_method": "text",
+        "review_required": true,
+        "transformation_notes": "D-R approved topology-targeted interpretation of the explicit battery connection statement.",
+        "fact_state": "provisional",
+        "topology_target": { "kind": "port", "id": "smartsolar.battery-output" }
+      },
+      {
+        "schema_version": "1.0",
+        "id": "extracted.fact.51011df078f2cc22",
+        "source_id": "victron.smartsolar-mppt-75-15.manual-rev10",
+        "field": "unmapped",
+        "raw_label": "Maximum battery current",
+        "raw_value": "15A",
+        "normalized_value": 15,
+        "normalized_unit": "A",
+        "source_locator": {
+          "page": 62,
+          "section": "9.1. Specifications 75/10, 75/15, 100/15 and 100/20",
+          "table": "Technical specifications",
+          "row": "Maximum battery current"
+        },
+        "extraction_method": "table",
+        "review_required": true,
+        "transformation_notes": "Exact MPPT 75/15 column value; corroborates the previously reviewed charge-current fact.",
+        "fact_state": "provisional"
+      }
+    ],
+    "candidate": {
+      "id": "victron.smartsolar-mppt-75-15.scc075015060r.d-r",
+      "identity_status": "verified",
+      "review_status": "pending",
+      "promotion_status": "review_required",
+      "source_ids": [
+        "victron.smartsolar-mppt-75-15.product-page",
+        "victron.smartsolar-mppt-75-15.manual-rev10",
+        "victron.smartsolar-charge-controller-overview-datasheet"
+      ],
+      "fact_ids": [
+        "extracted.fact.0b27657158157616",
+        "extracted.fact.46e26422cb2ad502",
+        "extracted.fact.5da63b8db8ff98e5",
+        "extracted.fact.59c8da3bca7c294d",
+        "extracted.fact.7ad76dab93bb6e22",
+        "extracted.fact.867bebba68349009",
+        "extracted.fact.89fdce21d19d1776",
+        "extracted.fact.cb138b497cf13404",
+        "extracted.fact.e60800807e1b1b5f",
+        "extracted.fact.ef162fc4e124c460",
+        "extracted.fact.f2dc7ad1a395ead2",
+        "extracted.fact.51011df078f2cc22",
+        "extracted.fact.75pvtopology",
+        "extracted.fact.chargecapability",
+        "extracted.fact.chargepath",
+        "extracted.fact.pvport",
+        "extracted.fact.batteryport"
+      ],
+      "topology_evidence": {
+        "capability:smartsolar.pv-to-battery-charge": ["extracted.fact.chargecapability"],
+        "port:smartsolar.pv-input": ["extracted.fact.5da63b8db8ff98e5"],
+        "port:smartsolar.battery-output": ["extracted.fact.7ad76dab93bb6e22"],
+        "power_path:smartsolar.pv-to-battery-charge": ["extracted.fact.chargepath"]
+      },
+      "review_reasons": [
+        "new_primary_evidence_requires_human_review",
+        "topology_targets_pending",
+        "constraint_targets_pending"
+      ]
+    }
+  },
   "source_markup_evidence": {
     "sku": "SCC075015060R",
     "title": "SmartSolar MPPT 75/15 Retail",

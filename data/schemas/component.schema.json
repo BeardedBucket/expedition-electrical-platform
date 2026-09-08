@@ -132,6 +132,110 @@
               { "type": "null" }
             ]
           },
+          "constraints": {
+            "type": "array",
+            "description": "Optional manufacturer-published electrical constraints applying at this logical port. Missing constraints are unknown, not zero.",
+            "items": {
+              "type": "object",
+              "required": ["id", "kind", "quantity", "unit"],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9._-]+$"
+                },
+                "kind": {
+                  "enum": [
+                    "absolute_maximum",
+                    "absolute_minimum",
+                    "operating_range",
+                    "startup_threshold",
+                    "shutdown_threshold",
+                    "recommended_range",
+                    "relational_headroom",
+                    "nominal_design",
+                    "nominal",
+                    "recovery_hysteresis"
+                  ]
+                },
+                "quantity": {
+                  "enum": ["voltage", "current", "power"]
+                },
+                "unit": {
+                  "enum": ["V", "A", "W"]
+                },
+                "basis": {
+                  "enum": ["open_circuit", "short_circuit", "operating"]
+                },
+                "value": { "type": "number", "minimum": 0 },
+                "range": {
+                  "type": "object",
+                  "required": ["min", "max"],
+                  "properties": {
+                    "min": { "type": "number", "minimum": 0 },
+                    "max": { "type": "number", "minimum": 0 }
+                  },
+                  "additionalProperties": false
+                },
+                "reference": {
+                  "type": "object",
+                  "required": ["port_id", "relation", "offset"],
+                  "properties": {
+                    "port_id": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9._-]+$"
+                    },
+                    "relation": {
+                      "enum": ["greater_than_or_equal", "less_than_or_equal"]
+                    },
+                    "offset": { "type": "number" }
+                  },
+                  "additionalProperties": false
+                },
+                "conditions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["path", "equals"],
+                    "properties": {
+                      "path": { "type": "string", "minLength": 1 },
+                      "equals": {}
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "recovery": {
+                  "type": "object",
+                  "required": ["constraint_id", "event", "relation", "offset"],
+                  "properties": {
+                    "constraint_id": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9._-]+$"
+                    },
+                    "event": {
+                      "enum": ["overvoltage"]
+                    },
+                    "relation": {
+                      "enum": ["greater_than_or_equal", "less_than_or_equal"]
+                    },
+                    "offset": { "type": "number" }
+                  },
+                  "additionalProperties": false
+                },
+                "notes": { "type": ["string", "null"] }
+              },
+              "allOf": [
+                {
+                  "oneOf": [
+                    { "required": ["value"] },
+                    { "required": ["range"] },
+                    { "required": ["reference"] },
+                    { "required": ["recovery"] }
+                  ]
+                }
+              ],
+              "additionalProperties": false
+            }
+          },
           "notes": { "type": ["string", "null"] }
         },
         "additionalProperties": false

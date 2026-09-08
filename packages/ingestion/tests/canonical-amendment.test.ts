@@ -171,6 +171,115 @@ const candidateFor = (current: Record<string, unknown>): CanonicalAmendmentCandi
 });
 
 describe('canonical amendment workflow', () => {
+  it('accepts generic port constraint objects with explicit limit semantics', () => {
+    const current = syntheticTopologyComponent();
+    const fact = topologyFact('fact.pv.max-voc', 'port', 'smartsolar.pv-input');
+    const result = proposeCanonicalAmendment({
+      current,
+      candidate: { fact_ids: [fact.id], facts: [fact] },
+      facts: [fact],
+      review: topologyReviewFor(current, [
+        {
+          operation: 'add',
+          kind: 'port',
+          id: 'smartsolar.pv-input',
+          value: {
+            id: 'smartsolar.pv-input',
+            domain: 'dc',
+            direction: 'input',
+            constraints: [
+              {
+                id: 'smartsolar.pv-input.max-pv-voc',
+                kind: 'absolute_maximum',
+                quantity: 'voltage',
+                unit: 'V',
+                value: 75,
+              },
+            ],
+          },
+          evidence: [fact.id],
+        },
+      ]),
+    });
+    expect(result.status).toBe('proposed');
+  });
+
+  it('preserves generic constraint semantics when proposed through an amendment', () => {
+    const current = syntheticTopologyComponent();
+    const fact = topologyFact('fact.pv.semantic', 'port', 'smartsolar.pv-input');
+    const result = proposeCanonicalAmendment({
+      current,
+      candidate: { fact_ids: [fact.id], facts: [fact] },
+      facts: [fact],
+      review: topologyReviewFor(current, [
+        {
+          operation: 'add',
+          kind: 'port',
+          id: 'smartsolar.pv-input',
+          value: {
+            id: 'smartsolar.pv-input',
+            domain: 'dc',
+            direction: 'input',
+            constraints: [
+              {
+                id: 'smartsolar.pv-input.nominal-pv-battery-voltage',
+                kind: 'nominal_design',
+                quantity: 'voltage',
+                unit: 'V',
+                reference: {
+                  port_id: 'output',
+                  relation: 'greater_than_or_equal',
+                  offset: 5,
+                },
+              },
+              {
+                id: 'smartsolar.pv-input.overvoltage-recovery',
+                kind: 'recovery_hysteresis',
+                quantity: 'voltage',
+                unit: 'V',
+                recovery: {
+                  constraint_id: 'smartsolar.pv-input.max-pv-voc',
+                  event: 'overvoltage',
+                  relation: 'less_than_or_equal',
+                  offset: -5,
+                },
+              },
+              {
+                id: 'smartsolar.pv-input.nominal-pv-power-12v',
+                kind: 'nominal',
+                quantity: 'power',
+                unit: 'W',
+                value: 220,
+                conditions: [{ path: 'electrical.nominal_voltage_v', equals: 12 }],
+              },
+              {
+                id: 'smartsolar.pv-input.max-pv-isc',
+                kind: 'absolute_maximum',
+                quantity: 'current',
+                unit: 'A',
+                basis: 'short_circuit',
+                value: 15,
+              },
+            ],
+          },
+          evidence: [fact.id],
+        },
+      ]),
+    });
+    expect(result.status).toBe('proposed');
+    expect(result.proposal?.ports).toEqual([
+      expect.objectContaining({
+        id: 'smartsolar.pv-input',
+        constraints: expect.arrayContaining([
+          expect.objectContaining({ kind: 'nominal_design' }),
+          expect.objectContaining({ kind: 'recovery_hysteresis' }),
+          expect.objectContaining({ kind: 'nominal' }),
+          expect.objectContaining({ basis: 'short_circuit' }),
+        ]),
+      }),
+    ]);
+  });
+
   it('adds only the approved dimensions without modifying unrelated fields', () => {
     const current = currentCanonical();
     const result = proposeCanonicalAmendment({
@@ -191,6 +300,58 @@ describe('canonical amendment workflow', () => {
     expect(result.proposal?.electrical).toMatchObject({
       nominal_voltage_v: 24,
     });
+  });
+
+  it('enriches an existing constraint without duplicating its stable ID', () => {
+    const current = {
+      ...syntheticTopologyComponent(),
+      ports: [
+        {
+          id: 'smartsolar.pv-input',
+          domain: 'dc',
+          direction: 'input',
+          constraints: [
+            {
+              id: 'smartsolar.pv-input.max-pv-voc',
+              kind: 'absolute_maximum',
+              quantity: 'voltage',
+              unit: 'V',
+              value: 75,
+            },
+          ],
+        },
+      ],
+    };
+    const fact = topologyFact('fact.pv.voc', 'port', 'smartsolar.pv-input');
+    const result = proposeCanonicalAmendment({
+      current,
+      candidate: { fact_ids: [fact.id], facts: [fact] },
+      facts: [fact],
+      review: topologyReviewFor(current, [], {
+        constraint_operations: [
+          {
+            operation: 'enrich',
+            port_id: 'smartsolar.pv-input',
+            id: 'smartsolar.pv-input.max-pv-voc',
+            value: { basis: 'open_circuit' },
+            evidence: [fact.id],
+          },
+        ],
+      }),
+    });
+    expect(result.status).toBe('proposed');
+    const constraints = (result.proposal?.ports as Array<Record<string, unknown>>)[0]
+      ?.constraints as Array<Record<string, unknown>>;
+    expect(constraints).toHaveLength(1);
+    expect(constraints[0]).toMatchObject({
+      id: 'smartsolar.pv-input.max-pv-voc',
+      kind: 'absolute_maximum',
+      quantity: 'voltage',
+      unit: 'V',
+      value: 75,
+      basis: 'open_circuit',
+    });
+    expect(result.constraint_changes).toHaveLength(1);
   });
 
   it('blocks a stale review when the canonical snapshot changed', async () => {

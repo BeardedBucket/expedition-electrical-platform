@@ -43,7 +43,13 @@ export type CanonicalAmendmentIssueCode =
   | 'amendment_topology_missing_evidence'
   | 'amendment_topology_evidence_mismatch'
   | 'amendment_topology_evidence_conflict'
-  | 'amendment_topology_invalid_reference';
+  | 'amendment_topology_invalid_reference'
+  | 'amendment_constraint_invalid_reference'
+  | 'amendment_constraint_duplicate_id'
+  | 'amendment_constraint_missing_evidence'
+  | 'amendment_constraint_evidence_mismatch'
+  | 'amendment_constraint_already_exists'
+  | 'amendment_constraint_missing';
 
 export interface CanonicalAmendmentIssue {
   readonly code: CanonicalAmendmentIssueCode;
@@ -61,8 +67,26 @@ export interface CanonicalAmendmentReview extends PromotionReview {
   readonly field_changes?: Readonly<Record<string, 'add' | 'replace' | 'remove'>>;
   readonly field_evidence?: Readonly<Record<string, readonly string[]>>;
   readonly topology_evidence?: Readonly<Record<string, readonly string[]>>;
+  readonly constraint_evidence?: Readonly<Record<string, readonly string[]>>;
   readonly topology_operations?: readonly CanonicalTopologyAddOperation[];
+  readonly constraint_operations?: readonly CanonicalConstraintOperation[];
 }
+
+export type CanonicalConstraintOperation =
+  | {
+      readonly operation: 'add';
+      readonly port_id: string;
+      readonly id: string;
+      readonly value: JsonObject;
+      readonly evidence?: readonly string[];
+    }
+  | {
+      readonly operation: 'enrich';
+      readonly port_id: string;
+      readonly id: string;
+      readonly value: JsonObject;
+      readonly evidence?: readonly string[];
+    };
 
 export interface CanonicalAmendmentCandidate {
   readonly component_data?: JsonObject;
@@ -148,7 +172,17 @@ export interface CanonicalAmendmentResult {
   readonly serialized?: string;
   readonly changes?: readonly CanonicalAmendmentChange[];
   readonly topology_changes?: readonly CanonicalTopologyChange[];
+  readonly constraint_changes?: readonly CanonicalConstraintChange[];
   readonly schema_valid: boolean;
+}
+
+export interface CanonicalConstraintChange {
+  readonly operation: 'add' | 'enrich';
+  readonly port_id: string;
+  readonly id: string;
+  readonly value: JsonObject;
+  readonly fact_ids: readonly string[];
+  readonly review_id: string;
 }
 
 const AjvCtor = Ajv2020 as unknown as new (options?: Record<string, unknown>) => {
@@ -315,6 +349,7 @@ const amendmentHistoryEntry = (
   changes: readonly CanonicalAmendmentChange[],
   candidate: CanonicalAmendmentCandidate | undefined,
   topologyChanges: readonly CanonicalTopologyChange[] = [],
+  constraintChanges: readonly CanonicalConstraintChange[] = [],
 ): JsonObject => ({
   review_id: review.id,
   candidate_id: review.candidate_id,
@@ -326,6 +361,18 @@ const amendmentHistoryEntry = (
         topology_operations: topologyChanges.map((change) => ({
           operation: change.operation,
           kind: change.kind,
+          id: change.id,
+          value: clone(change.value),
+          fact_ids: [...change.fact_ids],
+          review_id: change.review_id,
+        })),
+      }
+    : {}),
+  ...(constraintChanges.length > 0
+    ? {
+        constraint_operations: constraintChanges.map((change) => ({
+          operation: change.operation,
+          port_id: change.port_id,
           id: change.id,
           value: clone(change.value),
           fact_ids: [...change.fact_ids],
@@ -1149,14 +1196,158 @@ export const proposeCanonicalAmendment = ({
     });
   }
 
+  const constraintChanges: CanonicalConstraintChange[] = [];
+  const constraintOperations = review.constraint_operations ?? [];
+  const ports = Array.isArray(proposal.ports) ? proposal.ports : [];
+  const portById = new Map<string, { [key: string]: JsonValue }>(
+    ports.flatMap((port) =>
+      port && typeof port === 'object' && !Array.isArray(port) && typeof port.id === 'string'
+        ? [[port.id, port as { [key: string]: JsonValue }]]
+        : [],
+    ),
+  );
+  const proposedConstraintIds = new Set<string>();
+  for (const operation of constraintOperations) {
+    const operationPath = `constraint_operations.${operation.port_id}:${operation.id}`;
+    const port = portById.get(operation.port_id);
+    if (!port) {
+      issues.push(
+        issue(
+          'amendment_constraint_invalid_reference',
+          operationPath,
+          `Constraint operation references unknown port '${operation.port_id}'.`,
+        ),
+      );
+      continue;
+    }
+    if (
+      !/^[a-z0-9][a-z0-9._-]+$/i.test(operation.id) ||
+      operation.id.includes('[') ||
+      operation.id.includes(']')
+    ) {
+      issues.push(
+        issue(
+          'amendment_constraint_duplicate_id',
+          operationPath,
+          'Constraint IDs must be stable component-local identifiers.',
+        ),
+      );
+      continue;
+    }
+    const constraints = Array.isArray(port.constraints) ? port.constraints : [];
+    const existingIndex = constraints.findIndex(
+      (constraint) =>
+        constraint &&
+        typeof constraint === 'object' &&
+        !Array.isArray(constraint) &&
+        constraint.id === operation.id,
+    );
+    if (
+      (operation.operation === 'add' && existingIndex >= 0) ||
+      (operation.operation === 'enrich' && existingIndex < 0) ||
+      proposedConstraintIds.has(`${operation.port_id}:${operation.id}`)
+    ) {
+      issues.push(
+        issue(
+          operation.operation === 'add'
+            ? 'amendment_constraint_already_exists'
+            : 'amendment_constraint_missing',
+          operationPath,
+          `Constraint operation '${operation.operation}' does not match the current constraint state.`,
+        ),
+      );
+      continue;
+    }
+    const evidenceRepresentations = [
+      operation.evidence,
+      review.constraint_evidence?.[`constraint:${operation.port_id}:${operation.id}`],
+    ].filter((value): value is readonly string[] => value !== undefined);
+    const normalizedEvidence = evidenceRepresentations.map((value) => [...new Set(value)].sort());
+    if (
+      normalizedEvidence.length > 1 &&
+      normalizedEvidence.some(
+        (value) => JSON.stringify(value) !== JSON.stringify(normalizedEvidence[0]),
+      )
+    ) {
+      issues.push(
+        issue(
+          'amendment_constraint_evidence_mismatch',
+          operationPath,
+          'Constraint evidence representations must agree exactly.',
+        ),
+      );
+      continue;
+    }
+    const factIds = normalizedEvidence[0] ?? [];
+    if (
+      factIds.length === 0 ||
+      factIds.some(
+        (factId) =>
+          !candidate?.fact_ids?.includes(factId) ||
+          !evidenceFacts.has(factId) ||
+          evidenceFacts.get(factId)?.fact_state === 'unresolved' ||
+          evidenceFacts.get(factId)?.fact_state === 'conflicting',
+      )
+    ) {
+      issues.push(
+        issue(
+          'amendment_constraint_missing_evidence',
+          operationPath,
+          'Reviewed, resolved evidence is required for each constraint operation.',
+        ),
+      );
+      continue;
+    }
+    const nextConstraint =
+      operation.operation === 'add'
+        ? operation.value
+        : {
+            ...(constraints[existingIndex] as { [key: string]: JsonValue }),
+            ...operation.value,
+          };
+    if (nextConstraint.id !== operation.id) {
+      issues.push(
+        issue(
+          'amendment_constraint_evidence_mismatch',
+          operationPath,
+          'Constraint operation ID must match the constraint value ID.',
+        ),
+      );
+      continue;
+    }
+    const nextConstraints = [...constraints];
+    if (operation.operation === 'add') nextConstraints.push(nextConstraint);
+    else nextConstraints[existingIndex] = nextConstraint;
+    port.constraints = nextConstraints;
+    proposedConstraintIds.add(`${operation.port_id}:${operation.id}`);
+    constraintChanges.push({
+      operation: operation.operation,
+      port_id: operation.port_id,
+      id: operation.id,
+      value: clone(operation.value),
+      fact_ids: [...factIds].sort(),
+      review_id: review.id,
+    });
+  }
+
   issues.push(...validateProposedTopology(proposal));
 
   changes.sort((left, right) => left.field.localeCompare(right.field));
-  if ((changes.length > 0 || topologyChanges.length > 0) && candidate) {
+  if (
+    (changes.length > 0 || topologyChanges.length > 0 || constraintChanges.length > 0) &&
+    candidate
+  ) {
     const history = Array.isArray(current.amendment_history) ? current.amendment_history : [];
     proposal.amendment_history = [
       ...history,
-      amendmentHistoryEntry(review, expectedSnapshot ?? '', changes, candidate, topologyChanges),
+      amendmentHistoryEntry(
+        review,
+        expectedSnapshot ?? '',
+        changes,
+        candidate,
+        topologyChanges,
+        constraintChanges,
+      ),
     ];
   }
   issues.push(...schemaIssues(proposal));
@@ -1172,6 +1363,7 @@ export const proposeCanonicalAmendment = ({
       actual_snapshot: actualSnapshot,
       changes,
       topology_changes: topologyChanges,
+      constraint_changes: constraintChanges,
       schema_valid: false,
     };
   }
@@ -1185,6 +1377,7 @@ export const proposeCanonicalAmendment = ({
     serialized: canonicalYaml(proposal),
     changes,
     topology_changes: topologyChanges,
+    constraint_changes: constraintChanges,
     schema_valid: true,
   };
 };

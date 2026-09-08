@@ -1,0 +1,150 @@
+{
+  "schema_version": "1.0",
+  "id": "review.human.scc075015060r.d-r2",
+  "component_id": "victron-energy.scc075015060r",
+  "candidate_id": "victron.smartsolar-mppt-75-15.scc075015060r.d-r2",
+  "decision": "approved",
+  "reviewer_id": "repository-review",
+  "reviewed_at": "2026-09-08T06:18:37.411Z",
+  "approved_fields": [],
+  "field_actions": {},
+  "constraint_operations": [
+    {
+      "operation": "add",
+      "port_id": "smartsolar.pv-input",
+      "id": "smartsolar.pv-input.nominal-pv-battery-voltage",
+      "value": {
+        "id": "smartsolar.pv-input.nominal-pv-battery-voltage",
+        "kind": "nominal_design",
+        "quantity": "voltage",
+        "unit": "V",
+        "reference": {
+          "port_id": "smartsolar.battery-output",
+          "relation": "greater_than_or_equal",
+          "offset": 5
+        }
+      },
+      "evidence": ["extracted.fact.46e26422cb2ad502"]
+    },
+    {
+      "operation": "add",
+      "port_id": "smartsolar.pv-input",
+      "id": "smartsolar.pv-input.overvoltage-recovery",
+      "value": {
+        "id": "smartsolar.pv-input.overvoltage-recovery",
+        "kind": "recovery_hysteresis",
+        "quantity": "voltage",
+        "unit": "V",
+        "recovery": {
+          "constraint_id": "smartsolar.pv-input.max-pv-voc",
+          "event": "overvoltage",
+          "relation": "less_than_or_equal",
+          "offset": -5
+        }
+      },
+      "evidence": ["extracted.fact.89fdce21d19d1776"]
+    },
+    {
+      "operation": "add",
+      "port_id": "smartsolar.pv-input",
+      "id": "smartsolar.pv-input.nominal-pv-power-12v",
+      "value": {
+        "id": "smartsolar.pv-input.nominal-pv-power-12v",
+        "kind": "nominal",
+        "quantity": "power",
+        "unit": "W",
+        "value": 220,
+        "conditions": [
+          {
+            "path": "electrical.nominal_voltage_v",
+            "equals": 12
+          }
+        ]
+      },
+      "evidence": ["extracted.fact.867bebba68349009"]
+    },
+    {
+      "operation": "add",
+      "port_id": "smartsolar.pv-input",
+      "id": "smartsolar.pv-input.nominal-pv-power-24v",
+      "value": {
+        "id": "smartsolar.pv-input.nominal-pv-power-24v",
+        "kind": "nominal",
+        "quantity": "power",
+        "unit": "W",
+        "value": 440,
+        "conditions": [
+          {
+            "path": "electrical.nominal_voltage_v",
+            "equals": 24
+          }
+        ]
+      },
+      "evidence": ["extracted.fact.cb138b497cf13404"]
+    },
+    {
+      "operation": "add",
+      "port_id": "smartsolar.pv-input",
+      "id": "smartsolar.pv-input.max-pv-isc",
+      "value": {
+        "id": "smartsolar.pv-input.max-pv-isc",
+        "kind": "absolute_maximum",
+        "quantity": "current",
+        "unit": "A",
+        "basis": "short_circuit",
+        "value": 15
+      },
+      "evidence": ["extracted.fact.f2dc7ad1a395ead2"]
+    },
+    {
+      "operation": "enrich",
+      "port_id": "smartsolar.pv-input",
+      "id": "smartsolar.pv-input.max-pv-voc",
+      "value": {
+        "basis": "open_circuit"
+      },
+      "evidence": [
+        "extracted.fact.f6fee013b4ada60d",
+        "extracted.fact.e60800807e1b1b5f"
+      ]
+    }
+  ],
+  "constraint_evidence": {
+    "constraint:smartsolar.pv-input:smartsolar.pv-input.nominal-pv-battery-voltage": [
+      "extracted.fact.46e26422cb2ad502"
+    ],
+    "constraint:smartsolar.pv-input:smartsolar.pv-input.overvoltage-recovery": [
+      "extracted.fact.89fdce21d19d1776"
+    ],
+    "constraint:smartsolar.pv-input:smartsolar.pv-input.nominal-pv-power-12v": [
+      "extracted.fact.867bebba68349009"
+    ],
+    "constraint:smartsolar.pv-input:smartsolar.pv-input.nominal-pv-power-24v": [
+      "extracted.fact.cb138b497cf13404"
+    ],
+    "constraint:smartsolar.pv-input:smartsolar.pv-input.max-pv-isc": [
+      "extracted.fact.f2dc7ad1a395ead2"
+    ],
+    "constraint:smartsolar.pv-input:smartsolar.pv-input.max-pv-voc": [
+      "extracted.fact.f6fee013b4ada60d",
+      "extracted.fact.e60800807e1b1b5f"
+    ]
+  },
+  "reviewed_evidence_fact_ids": [
+    "extracted.fact.46e26422cb2ad502",
+    "extracted.fact.89fdce21d19d1776",
+    "extracted.fact.867bebba68349009",
+    "extracted.fact.cb138b497cf13404",
+    "extracted.fact.f2dc7ad1a395ead2",
+    "extracted.fact.f6fee013b4ada60d",
+    "extracted.fact.e60800807e1b1b5f"
+  ],
+  "expected_snapshot": "sha256:da5ee9308657cdc7848fa1b6801827b4ba82d6baa10e99200fe9d20d9db35559",
+  "evidence_acknowledged": true,
+  "product_role": "solar_charge_controller",
+  "category": "solar_charge_controller",
+  "rationale": "Human D-R2 approval authorizes exactly five new generic constraint mappings and enrichment of the existing 75 V maximum PV open-circuit-voltage constraint. No additional facts or mappings are authorized.",
+  "notes": "The amendment is snapshot-bound and must be applied through the canonical amendment pipeline.",
+  "applied_snapshot": "sha256:1ad06a27dadc90157bec0e9b685486187d4539c34401deb55927c4b99905550",
+  "applied_status": "written"
+}
