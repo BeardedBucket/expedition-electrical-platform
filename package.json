@@ -10,7 +10,7 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build --workspace @expedition/engineering-core && npm run build --workspace @expedition/configurator",
+    "build": "npm run build --workspace @expedition/engineering-core && npm run build --workspace @expedition/ingestion && npm run build --workspace @expedition/configurator",
     "build:embed": "npm run build:embed --workspace @expedition/configurator",
     "dev": "npm run dev --workspace @expedition/configurator",
     "format": "prettier --write .",

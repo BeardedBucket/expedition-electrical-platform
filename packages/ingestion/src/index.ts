@@ -22,3 +22,4 @@ export * from './manufacturer-acquisition.js';
 export * from './interaction-relationships.js';
 export * from './corpus-workflow.js';
 export * from './structured-fact-extraction.js';
+export * from './production-contracts.js';

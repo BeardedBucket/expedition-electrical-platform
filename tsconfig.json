@@ -1,4 +1,8 @@
 {
   "files": [],
-  "references": [{ "path": "./packages/engineering-core" }, { "path": "./apps/configurator" }]
+  "references": [
+    { "path": "./packages/engineering-core" },
+    { "path": "./packages/ingestion" },
+    { "path": "./apps/configurator" }
+  ]
 }
