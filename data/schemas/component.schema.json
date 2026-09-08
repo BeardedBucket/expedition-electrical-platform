@@ -160,6 +160,189 @@
             "pattern": "^[a-z0-9][a-z0-9._-]+$"
           }
         },
+        "connection_points": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._-]+$"
+              },
+              "port_id": {
+                "type": ["string", "null"],
+                "pattern": "^[a-z0-9][a-z0-9._-]+$"
+              },
+              "notes": { "type": ["string", "null"] }
+            },
+            "additionalProperties": false
+          }
+        },
+        "conductive_relationships": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "participants"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._-]+$"
+              },
+              "participants": {
+                "type": "array",
+                "minItems": 2,
+                "items": {
+                  "type": "object",
+                  "required": ["kind", "id"],
+                  "properties": {
+                    "kind": { "enum": ["port", "connection_point"] },
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9._-]+$"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "uniqueItems": true
+              },
+              "notes": { "type": ["string", "null"] }
+            },
+            "additionalProperties": false
+          },
+          "switching": {
+            "type": "object",
+            "required": ["controlled_relationship_ids", "configurations"],
+            "properties": {
+              "controlled_relationship_ids": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9._-]+$"
+                },
+                "uniqueItems": true
+              },
+              "configurations": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "required": ["id", "active_relationship_ids"],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9._-]+$"
+                    },
+                    "active_relationship_ids": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9][a-z0-9._-]+$"
+                      },
+                      "uniqueItems": true
+                    },
+                    "label": { "type": ["string", "null"] },
+                    "notes": { "type": ["string", "null"] }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "notes": { "type": ["string", "null"] }
+            },
+            "additionalProperties": false
+          },
+          "protection": {
+            "type": "object",
+            "description": "Currently supported protection applications are intentionally bounded; this vocabulary is not exhaustive of all future protection contexts.",
+            "required": ["instances"],
+            "properties": {
+              "instances": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "required": ["id", "application", "function"],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9._-]+$"
+                    },
+                    "application": {
+                      "enum": ["external_circuit", "internal_device"],
+                      "description": "external_circuit describes protection of modeled external circuitry; internal_device describes manufacturer-described protection belonging to the device's own internal behavior. Neither value claims to exhaustively classify every future protection context."
+                    },
+                    "function": {
+                      "enum": ["overcurrent"]
+                    },
+                    "target": {
+                      "type": "object",
+                      "required": ["kind", "id"],
+                      "properties": {
+                        "kind": {
+                          "enum": ["conductive_relationship", "connection_point", "port"]
+                        },
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9][a-z0-9._-]+$"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "notes": { "type": ["string", "null"] }
+                  },
+                  "additionalProperties": false
+                },
+                "uniqueItems": true
+              },
+              "notes": { "type": ["string", "null"] }
+            },
+            "additionalProperties": false
+          },
+          "measurement": {
+            "type": "object",
+            "description": "Currently supported electrical measurement quantities are intentionally bounded; this does not assert runtime readings or exhaustively classify every future measurement context.",
+            "required": ["instances"],
+            "properties": {
+              "instances": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "required": ["id", "quantity", "target"],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9._-]+$"
+                    },
+                    "quantity": {
+                      "enum": ["current", "voltage"]
+                    },
+                    "target": {
+                      "type": "object",
+                      "required": ["kind", "id"],
+                      "properties": {
+                        "kind": {
+                          "enum": ["conductive_relationship", "connection_point", "port"]
+                        },
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9][a-z0-9._-]+$"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "notes": { "type": ["string", "null"] }
+                  },
+                  "additionalProperties": false
+                },
+                "uniqueItems": true
+              },
+              "notes": { "type": ["string", "null"] }
+            },
+            "additionalProperties": false
+          }
+        },
         "additionalProperties": false
       }
     },
@@ -548,6 +731,64 @@
         "type": "string"
       },
       "default": []
+    },
+    "interaction_endpoints": {
+      "type": "array",
+      "description": "Stable logical non-power interaction boundaries. Endpoint presence does not assert protocol compatibility, interoperability, installed relationships, information availability, or runtime state.",
+      "items": {
+        "type": "object",
+        "required": ["id", "kind"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]+$"
+          },
+          "kind": {
+            "enum": ["communication", "control", "sensing"]
+          },
+          "notes": { "type": ["string", "null"] }
+        },
+        "additionalProperties": false
+      }
+    },
+    "physical_connectors": {
+      "type": "array",
+      "description": "Stable product-local physical connector or socket instances. Missing means unknown or unmodeled.",
+      "items": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]+$" },
+          "designation": { "type": ["string", "null"] },
+          "type": { "type": ["string", "null"] },
+          "notes": { "type": ["string", "null"] }
+        },
+        "additionalProperties": false
+      }
+    },
+    "physical_connector_associations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "connector_id", "target"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]+$" },
+          "connector_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]+$" },
+          "target": {
+            "type": "object",
+            "required": ["kind", "id"],
+            "properties": {
+              "kind": {
+                "enum": ["interaction_endpoint", "terminal", "connection_point", "port"]
+              },
+              "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]+$" }
+            },
+            "additionalProperties": false
+          },
+          "notes": { "type": ["string", "null"] }
+        },
+        "additionalProperties": false
+      }
     },
     "cad": {
       "type": "array",

@@ -91,6 +91,329 @@ it('accepts a single capability and multiple logical ports', () => {
   expect(validateComponentLibraryRecord(component).ok).toBe(true);
 });
 
+it('accepts bounded interaction endpoints without inferring them from capabilities', () => {
+  const component = {
+    ...baseComponent,
+    id: 'synthetic.interaction-endpoints',
+    capabilities: [{ id: 'cap.communication', type: 'communication' }],
+    interaction_endpoints: [{ id: 'bms-link', kind: 'communication' }],
+  } as ComponentLibraryRecord;
+
+  expect(validateComponentLibraryRecord(component).ok).toBe(true);
+});
+
+it('does not synthesize interaction endpoints from communication capabilities', () => {
+  const component = {
+    ...baseComponent,
+    id: 'synthetic.capability-only',
+    capabilities: [{ id: 'cap.communication', type: 'communication' }],
+  };
+
+  const result = normalizeComponentLibraryRecord(component);
+  expect(result.interaction_endpoints).toBeUndefined();
+});
+
+it('represents optional conductive connectivity without changing logical port semantics', () => {
+  const busbar = {
+    ...baseComponent,
+    id: 'synthetic.busbar',
+    ports: [{ id: 'dc-node', domain: 'dc', direction: 'bidirectional' }],
+    connection_points: [{ id: 'stud-a' }, { id: 'stud-b' }, { id: 'stud-c' }],
+    conductive_relationships: [
+      {
+        id: 'common-node',
+        participants: [
+          { kind: 'connection_point', id: 'stud-a' },
+          { kind: 'connection_point', id: 'stud-b' },
+          { kind: 'connection_point', id: 'stud-c' },
+        ],
+      },
+    ],
+  } satisfies ComponentLibraryRecord;
+  const inline = {
+    ...baseComponent,
+    id: 'synthetic.fuse',
+    ports: [
+      { id: 'input', domain: 'dc', direction: 'bidirectional' },
+      { id: 'output', domain: 'dc', direction: 'bidirectional' },
+    ],
+    conductive_relationships: [
+      {
+        id: 'inline',
+        participants: [
+          { kind: 'port', id: 'input' },
+          { kind: 'port', id: 'output' },
+        ],
+      },
+    ],
+  } satisfies ComponentLibraryRecord;
+
+  expect(validateComponentLibraryRecord(busbar).ok).toBe(true);
+  expect(validateComponentLibraryRecord(inline).ok).toBe(true);
+  expect(validateComponentLibraryRecord(baseComponent).ok).toBe(true);
+});
+
+it('rejects duplicate or unknown conductive participants', () => {
+  const result = validateComponentLibraryRecord({
+    ...baseComponent,
+    ports: [{ id: 'input', domain: 'dc', direction: 'bidirectional' }],
+    conductive_relationships: [
+      {
+        id: 'inline',
+        participants: [
+          { kind: 'port', id: 'input' },
+          { kind: 'port', id: 'input' },
+        ],
+      },
+      {
+        id: 'unknown',
+        participants: [
+          { kind: 'port', id: 'missing' },
+          { kind: 'connection_point', id: 'missing-point' },
+        ],
+      },
+    ],
+  });
+
+  expect(result.ok).toBe(false);
+  if (!result.ok) {
+    expect(result.errors.join('\n')).toContain('duplicates participant');
+    expect(result.errors.join('\n')).toContain("references unknown port 'missing'");
+  }
+});
+
+it('represents static switching configurations without asserting runtime state', () => {
+  const disconnect = {
+    ...baseComponent,
+    id: 'synthetic.disconnect',
+    ports: [
+      { id: 'input', domain: 'dc', direction: 'bidirectional' },
+      { id: 'output', domain: 'dc', direction: 'bidirectional' },
+    ],
+    conductive_relationships: [
+      {
+        id: 'contact',
+        participants: [
+          { kind: 'port', id: 'input' },
+          { kind: 'port', id: 'output' },
+        ],
+      },
+    ],
+    switching: {
+      controlled_relationship_ids: ['contact'],
+      configurations: [
+        { id: 'configuration-a', active_relationship_ids: [] },
+        { id: 'configuration-b', active_relationship_ids: ['contact'] },
+      ],
+    },
+  } satisfies ComponentLibraryRecord;
+  const selector = {
+    ...baseComponent,
+    id: 'synthetic.selector',
+    conductive_relationships: [
+      {
+        id: 'battery-a',
+        participants: [
+          { kind: 'port', id: 'common' },
+          { kind: 'port', id: 'aa' },
+        ],
+      },
+      {
+        id: 'battery-b',
+        participants: [
+          { kind: 'port', id: 'common' },
+          { kind: 'port', id: 'bb' },
+        ],
+      },
+    ],
+    ports: [
+      { id: 'common', domain: 'dc', direction: 'bidirectional' },
+      { id: 'aa', domain: 'dc', direction: 'bidirectional' },
+      { id: 'bb', domain: 'dc', direction: 'bidirectional' },
+    ],
+    switching: {
+      controlled_relationship_ids: ['battery-a', 'battery-b'],
+      configurations: [
+        { id: 'none', active_relationship_ids: [] },
+        { id: 'a-only', active_relationship_ids: ['battery-a'] },
+        { id: 'b-only', active_relationship_ids: ['battery-b'] },
+        { id: 'both', active_relationship_ids: ['battery-a', 'battery-b'] },
+      ],
+    },
+  } satisfies ComponentLibraryRecord;
+
+  expect(validateComponentLibraryRecord(disconnect).ok).toBe(true);
+  expect(validateComponentLibraryRecord(selector).ok).toBe(true);
+  expect(validateComponentLibraryRecord(baseComponent).ok).toBe(true);
+});
+
+it('rejects switching configurations that reference uncontrolled relationships', () => {
+  const result = validateComponentLibraryRecord({
+    ...baseComponent,
+    conductive_relationships: [
+      {
+        id: 'contact',
+        participants: [
+          { kind: 'port', id: 'input' },
+          { kind: 'port', id: 'output' },
+        ],
+      },
+    ],
+    ports: [
+      { id: 'input', domain: 'dc', direction: 'bidirectional' },
+      { id: 'output', domain: 'dc', direction: 'bidirectional' },
+    ],
+    switching: {
+      controlled_relationship_ids: ['contact'],
+      configurations: [{ id: 'invalid', active_relationship_ids: ['other'] }],
+    },
+  });
+
+  expect(result.ok).toBe(false);
+  if (!result.ok) expect(result.errors.join('\n')).toContain('controlled conductive relationship');
+});
+
+it('models external protection separately from static switching and internal protection', () => {
+  const breaker = {
+    ...baseComponent,
+    ports: [
+      { id: 'input', domain: 'dc', direction: 'bidirectional' },
+      { id: 'output', domain: 'dc', direction: 'bidirectional' },
+    ],
+    conductive_relationships: [
+      {
+        id: 'contact',
+        participants: [
+          { kind: 'port', id: 'input' },
+          { kind: 'port', id: 'output' },
+        ],
+      },
+    ],
+    switching: {
+      controlled_relationship_ids: ['contact'],
+      configurations: [
+        { id: 'open', active_relationship_ids: [] },
+        { id: 'closed', active_relationship_ids: ['contact'] },
+      ],
+    },
+    protection: {
+      instances: [
+        {
+          id: 'branch-overcurrent',
+          application: 'external_circuit',
+          function: 'overcurrent',
+          target: { kind: 'conductive_relationship', id: 'contact' },
+        },
+      ],
+    },
+  } satisfies ComponentLibraryRecord;
+  const internalOnly = {
+    ...baseComponent,
+    protection: {
+      instances: [
+        {
+          id: 'internal-overcurrent',
+          application: 'internal_device',
+          function: 'overcurrent',
+        },
+      ],
+    },
+  } satisfies ComponentLibraryRecord;
+  const internalTargeted = {
+    ...breaker,
+    protection: {
+      instances: [
+        {
+          id: 'internal-overcurrent',
+          application: 'internal_device',
+          function: 'overcurrent',
+          target: { kind: 'port', id: 'input' },
+        },
+      ],
+    },
+  } satisfies ComponentLibraryRecord;
+
+  expect(validateComponentLibraryRecord(breaker).ok).toBe(true);
+  expect(validateComponentLibraryRecord(internalOnly).ok).toBe(true);
+  expect(validateComponentLibraryRecord(internalTargeted).ok).toBe(true);
+});
+
+it('rejects external protection without a known topology target', () => {
+  const result = validateComponentLibraryRecord({
+    ...baseComponent,
+    protection: {
+      instances: [
+        {
+          id: 'branch-overcurrent',
+          application: 'external_circuit',
+          function: 'overcurrent',
+          target: { kind: 'conductive_relationship', id: 'missing' },
+        },
+      ],
+    },
+  });
+
+  expect(result.ok).toBe(false);
+  if (!result.ok) expect(result.errors.join('\n')).toContain('must reference an existing');
+});
+
+it('models inline current and point-like voltage measurement without runtime values', () => {
+  const measured = {
+    ...baseComponent,
+    ports: [
+      { id: 'input', domain: 'dc', direction: 'bidirectional' },
+      { id: 'output', domain: 'dc', direction: 'bidirectional' },
+      { id: 'sense', domain: 'dc', direction: 'input' },
+    ],
+    connection_points: [{ id: 'voltage-point', port_id: 'sense' }],
+    conductive_relationships: [
+      {
+        id: 'shunt-path',
+        participants: [
+          { kind: 'port', id: 'input' },
+          { kind: 'port', id: 'output' },
+        ],
+      },
+    ],
+    measurement: {
+      instances: [
+        {
+          id: 'path-current',
+          quantity: 'current',
+          target: { kind: 'conductive_relationship', id: 'shunt-path' },
+        },
+        {
+          id: 'sense-voltage',
+          quantity: 'voltage',
+          target: { kind: 'connection_point', id: 'voltage-point' },
+        },
+      ],
+    },
+  } satisfies ComponentLibraryRecord;
+
+  expect(validateComponentLibraryRecord(measured).ok).toBe(true);
+  expect(JSON.stringify(measured)).not.toContain('current_value');
+});
+
+it('rejects measurement targets that do not match the measured quantity', () => {
+  const result = validateComponentLibraryRecord({
+    ...baseComponent,
+    ports: [{ id: 'sense', domain: 'dc', direction: 'input' }],
+    measurement: {
+      instances: [
+        {
+          id: 'invalid-current',
+          quantity: 'current',
+          target: { kind: 'port', id: 'sense' },
+        },
+      ],
+    },
+  });
+
+  expect(result.ok).toBe(false);
+  if (!result.ok) expect(result.errors.join('\n')).toContain('conductive_relationship');
+});
+
 it('rejects malformed capability and port contracts', () => {
   const duplicateCapability = validateComponentLibraryRecord({
     ...baseComponent,

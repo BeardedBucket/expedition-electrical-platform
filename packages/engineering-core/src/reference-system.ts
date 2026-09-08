@@ -1,4 +1,13 @@
 import type { ComponentLibraryRecord } from './component-library.js';
+import {
+  validateInstalledInteractionArchitecture,
+  type InstalledArtifact,
+  type InstalledInteractionBinding,
+  type InstalledInteractionConfiguration,
+  type InstalledInteractionNetwork,
+  type InstalledInteractionRelationshipGroup,
+  type InstalledDirectInteractionRelationship,
+} from './installed-interactions.js';
 
 export type InstallationStatus =
   'requirement' | 'candidate' | 'selected' | 'installed' | 'deferred';
@@ -43,6 +52,16 @@ export interface ComponentInstance {
   readonly source_refs?: readonly ReferenceSource[];
 }
 
+export interface InstalledTerminalRef {
+  readonly instance_id: string;
+  readonly terminal_id: string;
+}
+
+export interface InstalledPhysicalConnectorRef {
+  readonly instance_id: string;
+  readonly connector_id: string;
+}
+
 export interface ReferenceNode {
   readonly id: string;
   readonly kind: NodeKind;
@@ -56,8 +75,7 @@ export interface ReferenceNode {
   readonly source_refs?: readonly ReferenceSource[];
 }
 
-export type ConnectionEndpoint =
-  { readonly instance_id: string; readonly terminal_id: string } | { readonly node_id: string };
+export type ConnectionEndpoint = InstalledTerminalRef | { readonly node_id: string };
 
 export interface ReferenceConnection {
   readonly id: string;
@@ -120,10 +138,16 @@ export interface ReferenceSystem {
   readonly nominal_system_voltage_v?: number | null;
   readonly locations?: readonly ReferenceLocation[];
   readonly component_instances?: readonly ComponentInstance[];
+  readonly artifacts?: readonly InstalledArtifact[];
   readonly nodes?: readonly ReferenceNode[];
   readonly connections?: readonly ReferenceConnection[];
   readonly conductors?: readonly ReferenceConductor[];
   readonly paths?: readonly ReferencePath[];
+  readonly interaction_bindings?: readonly InstalledInteractionBinding[];
+  readonly interaction_relationships?: readonly InstalledDirectInteractionRelationship[];
+  readonly interaction_networks?: readonly InstalledInteractionNetwork[];
+  readonly interaction_configurations?: readonly InstalledInteractionConfiguration[];
+  readonly interaction_relationship_groups?: readonly InstalledInteractionRelationshipGroup[];
   readonly source_refs?: readonly ReferenceSource[];
   readonly open_questions?: readonly OpenQuestion[];
 }
@@ -149,7 +173,27 @@ export type ReferenceSystemIssueCode =
   | 'invalid_status'
   | 'invalid_numeric_value'
   | 'location_cycle'
-  | 'invalid_schema_value';
+  | 'invalid_schema_value'
+  | 'duplicate_installed_object_id'
+  | 'duplicate_interaction_relationship_id'
+  | 'duplicate_interaction_network_id'
+  | 'duplicate_interaction_configuration_id'
+  | 'duplicate_interaction_binding_id'
+  | 'duplicate_interaction_group_id'
+  | 'missing_interaction_reference'
+  | 'invalid_interaction_endpoint_reference'
+  | 'invalid_interaction_participants'
+  | 'duplicate_interaction_participant'
+  | 'invalid_interaction_state'
+  | 'invalid_interaction_medium'
+  | 'invalid_interaction_binding_target'
+  | 'duplicate_physical_connector_id'
+  | 'invalid_physical_connector_association'
+  | 'invalid_physical_connector_reference'
+  | 'missing_interaction_configuration'
+  | 'invalid_interaction_configuration_target'
+  | 'missing_interaction_relationship'
+  | 'missing_interaction_network';
 
 export interface ReferenceSystemIssue {
   readonly code: ReferenceSystemIssueCode;
@@ -271,6 +315,12 @@ export const validateReferenceSystem = (
   const connections = input.connections ?? [];
   const conductors = input.conductors ?? [];
   const paths = input.paths ?? [];
+  const artifacts = input.artifacts ?? [];
+  const interactionBindings = input.interaction_bindings ?? [];
+  const interactionRelationships = input.interaction_relationships ?? [];
+  const interactionNetworks = input.interaction_networks ?? [];
+  const interactionConfigurations = input.interaction_configurations ?? [];
+  const interactionRelationshipGroups = input.interaction_relationship_groups ?? [];
   const catalogById = new Map<string, ComponentLibraryRecord>();
   catalog.components.forEach((component, index) => {
     if (catalogById.has(component.id)) {
@@ -286,6 +336,7 @@ export const validateReferenceSystem = (
 
   addDuplicateErrors(issues, 'locations', locations);
   addDuplicateErrors(issues, 'component_instances', instances);
+  addDuplicateErrors(issues, 'artifacts', artifacts);
   addDuplicateErrors(issues, 'nodes', nodes);
   addDuplicateErrors(issues, 'connections', connections);
   addDuplicateErrors(issues, 'conductors', conductors);
@@ -305,6 +356,18 @@ export const validateReferenceSystem = (
   const instanceIds = new Set(instances.map((item) => item.id));
   const nodeIds = new Set(nodes.map((item) => item.id));
   const conductorIds = new Set(conductors.map((item) => item.id));
+  const interactionIssues = validateInstalledInteractionArchitecture({
+    component_instances: instances,
+    artifacts,
+    connections,
+    interaction_bindings: interactionBindings,
+    interaction_relationships: interactionRelationships,
+    interaction_networks: interactionNetworks,
+    interaction_configurations: interactionConfigurations,
+    interaction_relationship_groups: interactionRelationshipGroups,
+    catalogById,
+  });
+  issues.push(...interactionIssues);
 
   if (
     input.nominal_system_voltage_v !== undefined &&

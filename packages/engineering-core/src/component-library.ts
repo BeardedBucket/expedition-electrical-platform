@@ -165,6 +165,81 @@ export interface ComponentPowerPath {
   readonly to_port: string;
 }
 
+export interface ComponentConnectionPoint {
+  readonly id: string;
+  readonly port_id?: string | null;
+  readonly notes?: string | null;
+}
+
+export type ConductiveParticipantKind = 'port' | 'connection_point';
+
+export interface ComponentConductiveParticipant {
+  readonly kind: ConductiveParticipantKind;
+  readonly id: string;
+}
+
+export interface ComponentConductiveRelationship {
+  readonly id: string;
+  readonly participants: readonly ComponentConductiveParticipant[];
+  readonly notes?: string | null;
+}
+
+export interface ComponentSwitchingConfiguration {
+  readonly id: string;
+  readonly active_relationship_ids: readonly string[];
+  readonly label?: string | null;
+  readonly notes?: string | null;
+}
+
+export interface ComponentSwitching {
+  readonly controlled_relationship_ids: readonly string[];
+  readonly configurations: readonly ComponentSwitchingConfiguration[];
+  readonly notes?: string | null;
+}
+
+export type ComponentProtectionApplication = 'external_circuit' | 'internal_device';
+export type ComponentProtectionFunction = 'overcurrent';
+export type ComponentProtectionTargetKind = 'conductive_relationship' | 'connection_point' | 'port';
+
+export interface ComponentProtectionTarget {
+  readonly kind: ComponentProtectionTargetKind;
+  readonly id: string;
+}
+
+export interface ComponentProtectionInstance {
+  readonly id: string;
+  readonly application: ComponentProtectionApplication;
+  readonly function: ComponentProtectionFunction;
+  readonly target?: ComponentProtectionTarget;
+  readonly notes?: string | null;
+}
+
+export interface ComponentProtection {
+  readonly instances: readonly ComponentProtectionInstance[];
+  readonly notes?: string | null;
+}
+
+export type ComponentMeasurementQuantity = 'current' | 'voltage';
+export type ComponentMeasurementTargetKind =
+  'conductive_relationship' | 'connection_point' | 'port';
+
+export interface ComponentMeasurementTarget {
+  readonly kind: ComponentMeasurementTargetKind;
+  readonly id: string;
+}
+
+export interface ComponentMeasurementInstance {
+  readonly id: string;
+  readonly quantity: ComponentMeasurementQuantity;
+  readonly target: ComponentMeasurementTarget;
+  readonly notes?: string | null;
+}
+
+export interface ComponentMeasurement {
+  readonly instances: readonly ComponentMeasurementInstance[];
+  readonly notes?: string | null;
+}
+
 export interface ComponentLibraryTerminal {
   readonly id?: string;
   readonly function: TerminalFunction;
@@ -173,6 +248,34 @@ export interface ComponentLibraryTerminal {
   readonly polarity?: TerminalPolarity | null;
   readonly notes?: string | null;
   readonly [key: string]: unknown;
+}
+
+export type ComponentInteractionEndpointKind = 'communication' | 'control' | 'sensing';
+
+export interface ComponentInteractionEndpoint {
+  readonly id: string;
+  readonly kind: ComponentInteractionEndpointKind;
+  readonly notes?: string | null;
+}
+
+export interface ComponentPhysicalConnector {
+  readonly id: string;
+  readonly designation?: string | null;
+  readonly type?: string | null;
+  readonly notes?: string | null;
+}
+
+export type ComponentPhysicalConnectorAssociationTargetKind =
+  'interaction_endpoint' | 'terminal' | 'connection_point' | 'port';
+
+export interface ComponentPhysicalConnectorAssociation {
+  readonly id: string;
+  readonly connector_id: string;
+  readonly target: {
+    readonly kind: ComponentPhysicalConnectorAssociationTargetKind;
+    readonly id: string;
+  };
+  readonly notes?: string | null;
 }
 
 export interface ComponentLibraryServiceClearancesMm {
@@ -219,6 +322,11 @@ export interface ComponentLibraryRecord {
   readonly capabilities?: readonly ComponentCapability[];
   readonly ports?: readonly ComponentLogicalPort[];
   readonly power_paths?: readonly ComponentPowerPath[];
+  readonly connection_points?: readonly ComponentConnectionPoint[];
+  readonly conductive_relationships?: readonly ComponentConductiveRelationship[];
+  readonly switching?: ComponentSwitching | null;
+  readonly protection?: ComponentProtection | null;
+  readonly measurement?: ComponentMeasurement | null;
   readonly category: string;
   readonly product_family?: string | null;
   readonly verification_status: ComponentVerificationStatus;
@@ -237,6 +345,9 @@ export interface ComponentLibraryRecord {
   readonly service_clearances_mm?: ComponentLibraryServiceClearancesMm | null;
   readonly orientation_constraint?: OrientationConstraint | null;
   readonly interfaces?: readonly string[];
+  readonly interaction_endpoints?: readonly ComponentInteractionEndpoint[];
+  readonly physical_connectors?: readonly ComponentPhysicalConnector[];
+  readonly physical_connector_associations?: readonly ComponentPhysicalConnectorAssociation[];
   readonly required_accessories?: ReadonlyArray<string | ComponentRequirementRef>;
   readonly required_converters?: ReadonlyArray<string | ComponentRequirementRef>;
   readonly advisory_refs?: readonly ComponentLibraryAdvisoryReference[];
@@ -985,6 +1096,428 @@ const validateEngineeringConstraints = (input: unknown): readonly string[] => {
     });
   }
 
+  const connectionPoints = record.connection_points;
+  const connectionPointIds = new Set<string>();
+  if (connectionPoints !== undefined) {
+    if (!Array.isArray(connectionPoints)) {
+      addMessage('connection_points', 'must be an array when provided');
+    } else {
+      connectionPoints.forEach((point, index) => {
+        if (point === null || typeof point !== 'object') {
+          addMessage(`connection_points[${index}]`, 'must be an object');
+          return;
+        }
+        const pointRecord = point as Record<string, unknown>;
+        if (
+          typeof pointRecord.id !== 'string' ||
+          !/^[a-z0-9][a-z0-9._-]+$/i.test(pointRecord.id) ||
+          /^\d+$/.test(pointRecord.id)
+        ) {
+          addMessage(
+            `connection_points[${index}].id`,
+            'must be a stable component-local identifier',
+          );
+        } else if (connectionPointIds.has(pointRecord.id)) {
+          addMessage(
+            `connection_points[${index}].id`,
+            `duplicates connection point ID '${pointRecord.id}'`,
+          );
+        } else {
+          connectionPointIds.add(pointRecord.id);
+        }
+        if (
+          pointRecord.port_id !== undefined &&
+          pointRecord.port_id !== null &&
+          (typeof pointRecord.port_id !== 'string' ||
+            !/^[a-z0-9][a-z0-9._-]+$/i.test(pointRecord.port_id))
+        ) {
+          addMessage(`connection_points[${index}].port_id`, 'must reference a logical port ID');
+        }
+        if (
+          pointRecord.notes !== undefined &&
+          pointRecord.notes !== null &&
+          typeof pointRecord.notes !== 'string'
+        ) {
+          addMessage(`connection_points[${index}].notes`, 'must be a string or null');
+        }
+      });
+    }
+  }
+
+  const conductiveRelationships = record.conductive_relationships;
+  if (conductiveRelationships !== undefined) {
+    if (!Array.isArray(conductiveRelationships)) {
+      addMessage('conductive_relationships', 'must be an array when provided');
+    } else {
+      const relationshipIds = new Set<string>();
+      const portIds = new Set(
+        (Array.isArray(record.ports) ? record.ports : [])
+          .filter((port): port is Record<string, unknown> => !!port && typeof port === 'object')
+          .map((port) => port.id)
+          .filter((id): id is string => typeof id === 'string'),
+      );
+      conductiveRelationships.forEach((relationship, index) => {
+        if (relationship === null || typeof relationship !== 'object') {
+          addMessage(`conductive_relationships[${index}]`, 'must be an object');
+          return;
+        }
+        const relationshipRecord = relationship as Record<string, unknown>;
+        const relationshipId = relationshipRecord.id;
+        if (
+          typeof relationshipId !== 'string' ||
+          !/^[a-z0-9][a-z0-9._-]+$/i.test(relationshipId) ||
+          /^\d+$/.test(relationshipId)
+        ) {
+          addMessage(
+            `conductive_relationships[${index}].id`,
+            'must be a stable component-local identifier',
+          );
+        } else if (relationshipIds.has(relationshipId)) {
+          addMessage(
+            `conductive_relationships[${index}].id`,
+            `duplicates conductive relationship ID '${relationshipId}'`,
+          );
+        } else {
+          relationshipIds.add(relationshipId);
+        }
+        const participants = relationshipRecord.participants;
+        if (!Array.isArray(participants) || participants.length < 2) {
+          addMessage(
+            `conductive_relationships[${index}].participants`,
+            'must contain at least two participants',
+          );
+          return;
+        }
+        const participantIds = new Set<string>();
+        participants.forEach((participant, participantIndex) => {
+          if (participant === null || typeof participant !== 'object') {
+            addMessage(
+              `conductive_relationships[${index}].participants[${participantIndex}]`,
+              'must be an object',
+            );
+            return;
+          }
+          const participantRecord = participant as Record<string, unknown>;
+          const kind = participantRecord.kind;
+          const id = participantRecord.id;
+          if (kind !== 'port' && kind !== 'connection_point') {
+            addMessage(
+              `conductive_relationships[${index}].participants[${participantIndex}].kind`,
+              'must be port or connection_point',
+            );
+            return;
+          }
+          if (typeof id !== 'string') {
+            addMessage(
+              `conductive_relationships[${index}].participants[${participantIndex}].id`,
+              'must be a stable component-local identifier',
+            );
+            return;
+          }
+          const participantKey = `${kind}:${id}`;
+          if (participantIds.has(participantKey)) {
+            addMessage(
+              `conductive_relationships[${index}].participants`,
+              `duplicates participant '${participantKey}'`,
+            );
+          }
+          participantIds.add(participantKey);
+          if (kind === 'port' && !portIds.has(id)) {
+            addMessage(
+              `conductive_relationships[${index}].participants[${participantIndex}].id`,
+              `references unknown port '${id}'`,
+            );
+          }
+          if (kind === 'connection_point' && !connectionPointIds.has(id)) {
+            addMessage(
+              `conductive_relationships[${index}].participants[${participantIndex}].id`,
+              `references unknown connection point '${id}'`,
+            );
+          }
+        });
+      });
+    }
+  }
+
+  const switching = record.switching;
+  if (switching !== undefined && switching !== null) {
+    if (typeof switching !== 'object' || Array.isArray(switching)) {
+      addMessage('switching', 'must be an object or null');
+    } else {
+      const switchingRecord = switching as Record<string, unknown>;
+      const relationshipIds = new Set(
+        (Array.isArray(conductiveRelationships) ? conductiveRelationships : [])
+          .filter(
+            (relationship): relationship is Record<string, unknown> =>
+              !!relationship && typeof relationship === 'object',
+          )
+          .map((relationship) => relationship.id)
+          .filter((id): id is string => typeof id === 'string'),
+      );
+      const controlledIds = switchingRecord.controlled_relationship_ids;
+      const controlledRelationshipIds = new Set<string>();
+      if (!Array.isArray(controlledIds) || controlledIds.length === 0) {
+        addMessage(
+          'switching.controlled_relationship_ids',
+          'must contain at least one conductive relationship ID',
+        );
+      } else {
+        controlledIds.forEach((id, index) => {
+          if (typeof id !== 'string' || !/^[a-z0-9][a-z0-9._-]+$/i.test(id)) {
+            addMessage(
+              `switching.controlled_relationship_ids[${index}]`,
+              'must be a stable conductive relationship ID',
+            );
+          } else if (controlledRelationshipIds.has(id)) {
+            addMessage(
+              `switching.controlled_relationship_ids[${index}]`,
+              `duplicates conductive relationship ID '${id}'`,
+            );
+          } else {
+            controlledRelationshipIds.add(id);
+            if (!relationshipIds.has(id)) {
+              addMessage(
+                `switching.controlled_relationship_ids[${index}]`,
+                `references unknown conductive relationship '${id}'`,
+              );
+            }
+          }
+        });
+      }
+      const configurations = switchingRecord.configurations;
+      if (!Array.isArray(configurations) || configurations.length === 0) {
+        addMessage('switching.configurations', 'must contain at least one allowed configuration');
+      } else {
+        const configurationIds = new Set<string>();
+        configurations.forEach((configuration, index) => {
+          if (configuration === null || typeof configuration !== 'object') {
+            addMessage(`switching.configurations[${index}]`, 'must be an object');
+            return;
+          }
+          const configurationRecord = configuration as Record<string, unknown>;
+          const id = configurationRecord.id;
+          if (typeof id !== 'string' || !/^[a-z0-9][a-z0-9._-]+$/i.test(id)) {
+            addMessage(
+              `switching.configurations[${index}].id`,
+              'must be a stable component-local identifier',
+            );
+          } else if (configurationIds.has(id)) {
+            addMessage(
+              `switching.configurations[${index}].id`,
+              `duplicates switching configuration ID '${id}'`,
+            );
+          } else {
+            configurationIds.add(id);
+          }
+          const activeIds = configurationRecord.active_relationship_ids;
+          if (!Array.isArray(activeIds)) {
+            addMessage(
+              `switching.configurations[${index}].active_relationship_ids`,
+              'must be an array',
+            );
+            return;
+          }
+          const activeSet = new Set<string>();
+          activeIds.forEach((activeId, activeIndex) => {
+            if (typeof activeId !== 'string') {
+              addMessage(
+                `switching.configurations[${index}].active_relationship_ids[${activeIndex}]`,
+                'must be a conductive relationship ID',
+              );
+            } else if (activeSet.has(activeId)) {
+              addMessage(
+                `switching.configurations[${index}].active_relationship_ids[${activeIndex}]`,
+                `duplicates conductive relationship ID '${activeId}'`,
+              );
+            } else {
+              activeSet.add(activeId);
+              if (!controlledRelationshipIds.has(activeId)) {
+                addMessage(
+                  `switching.configurations[${index}].active_relationship_ids[${activeIndex}]`,
+                  `must reference a controlled conductive relationship '${activeId}'`,
+                );
+              }
+            }
+          });
+        });
+      }
+    }
+  }
+
+  const protection = record.protection;
+  if (protection !== undefined && protection !== null) {
+    if (typeof protection !== 'object' || Array.isArray(protection)) {
+      addMessage('protection', 'must be an object or null');
+    } else {
+      const protectionRecord = protection as Record<string, unknown>;
+      const instances = protectionRecord.instances;
+      const targetIds = {
+        conductive_relationship: new Set(
+          (Array.isArray(conductiveRelationships) ? conductiveRelationships : [])
+            .filter(
+              (relationship): relationship is Record<string, unknown> =>
+                !!relationship && typeof relationship === 'object',
+            )
+            .map((relationship) => relationship.id)
+            .filter((id): id is string => typeof id === 'string'),
+        ),
+        connection_point: connectionPointIds,
+        port: new Set(
+          (Array.isArray(record.ports) ? record.ports : [])
+            .filter((port): port is Record<string, unknown> => !!port && typeof port === 'object')
+            .map((port) => port.id)
+            .filter((id): id is string => typeof id === 'string'),
+        ),
+      };
+      if (!Array.isArray(instances) || instances.length === 0) {
+        addMessage('protection.instances', 'must contain at least one protection instance');
+      } else {
+        const instanceIds = new Set<string>();
+        instances.forEach((instance, index) => {
+          if (instance === null || typeof instance !== 'object') {
+            addMessage(`protection.instances[${index}]`, 'must be an object');
+            return;
+          }
+          const instanceRecord = instance as Record<string, unknown>;
+          const id = instanceRecord.id;
+          if (typeof id !== 'string' || !/^[a-z0-9][a-z0-9._-]+$/i.test(id)) {
+            addMessage(
+              `protection.instances[${index}].id`,
+              'must be a stable component-local identifier',
+            );
+          } else if (instanceIds.has(id)) {
+            addMessage(`protection.instances[${index}].id`, `duplicates protection ID '${id}'`);
+          } else {
+            instanceIds.add(id);
+          }
+          const application = instanceRecord.application;
+          if (application !== 'external_circuit' && application !== 'internal_device') {
+            addMessage(
+              `protection.instances[${index}].application`,
+              'must be external_circuit or internal_device',
+            );
+          }
+          if (instanceRecord.function !== 'overcurrent') {
+            addMessage(`protection.instances[${index}].function`, 'must be overcurrent');
+          }
+          const target = instanceRecord.target;
+          if (application === 'external_circuit' && (target === undefined || target === null)) {
+            addMessage(
+              `protection.instances[${index}].target`,
+              'is required for external_circuit protection',
+            );
+          }
+          if (target !== undefined && target !== null) {
+            if (typeof target !== 'object' || Array.isArray(target)) {
+              addMessage(`protection.instances[${index}].target`, 'must be an object');
+            } else {
+              const targetRecord = target as Record<string, unknown>;
+              const kind = targetRecord.kind;
+              const targetId = targetRecord.id;
+              if (
+                kind !== 'conductive_relationship' &&
+                kind !== 'connection_point' &&
+                kind !== 'port'
+              ) {
+                addMessage(
+                  `protection.instances[${index}].target.kind`,
+                  'must be conductive_relationship, connection_point, or port',
+                );
+              } else if (typeof targetId !== 'string' || !targetIds[kind].has(targetId)) {
+                addMessage(
+                  `protection.instances[${index}].target.id`,
+                  `must reference an existing ${kind} ID`,
+                );
+              }
+            }
+          }
+        });
+      }
+    }
+  }
+
+  const measurement = record.measurement;
+  if (measurement !== undefined && measurement !== null) {
+    if (typeof measurement !== 'object' || Array.isArray(measurement)) {
+      addMessage('measurement', 'must be an object or null');
+    } else {
+      const measurementRecord = measurement as Record<string, unknown>;
+      const instances = measurementRecord.instances;
+      const targetIds = {
+        conductive_relationship: new Set(
+          (Array.isArray(conductiveRelationships) ? conductiveRelationships : [])
+            .filter(
+              (relationship): relationship is Record<string, unknown> =>
+                !!relationship && typeof relationship === 'object',
+            )
+            .map((relationship) => relationship.id)
+            .filter((id): id is string => typeof id === 'string'),
+        ),
+        connection_point: connectionPointIds,
+        port: new Set(
+          (Array.isArray(record.ports) ? record.ports : [])
+            .filter((port): port is Record<string, unknown> => !!port && typeof port === 'object')
+            .map((port) => port.id)
+            .filter((id): id is string => typeof id === 'string'),
+        ),
+      };
+      if (!Array.isArray(instances) || instances.length === 0) {
+        addMessage('measurement.instances', 'must contain at least one measurement instance');
+      } else {
+        const instanceIds = new Set<string>();
+        instances.forEach((instance, index) => {
+          if (instance === null || typeof instance !== 'object') {
+            addMessage(`measurement.instances[${index}]`, 'must be an object');
+            return;
+          }
+          const instanceRecord = instance as Record<string, unknown>;
+          const id = instanceRecord.id;
+          if (typeof id !== 'string' || !/^[a-z0-9][a-z0-9._-]+$/i.test(id)) {
+            addMessage(
+              `measurement.instances[${index}].id`,
+              'must be a stable component-local identifier',
+            );
+          } else if (instanceIds.has(id)) {
+            addMessage(`measurement.instances[${index}].id`, `duplicates measurement ID '${id}'`);
+          } else {
+            instanceIds.add(id);
+          }
+          const quantity = instanceRecord.quantity;
+          if (quantity !== 'current' && quantity !== 'voltage') {
+            addMessage(`measurement.instances[${index}].quantity`, 'must be current or voltage');
+          }
+          const target = instanceRecord.target;
+          if (!target || typeof target !== 'object' || Array.isArray(target)) {
+            addMessage(`measurement.instances[${index}].target`, 'must be an object');
+            return;
+          }
+          const targetRecord = target as Record<string, unknown>;
+          const kind = targetRecord.kind;
+          const targetId = targetRecord.id;
+          const quantityTargetIsValid =
+            (quantity === 'current' && kind === 'conductive_relationship') ||
+            (quantity === 'voltage' && (kind === 'connection_point' || kind === 'port'));
+          if (!quantityTargetIsValid) {
+            addMessage(
+              `measurement.instances[${index}].target.kind`,
+              quantity === 'current'
+                ? 'current measurement must target a conductive_relationship'
+                : 'voltage measurement must target a connection_point or port',
+            );
+          } else if (
+            typeof targetId !== 'string' ||
+            !targetIds[kind as ComponentMeasurementTargetKind].has(targetId)
+          ) {
+            addMessage(
+              `measurement.instances[${index}].target.id`,
+              `must reference an existing ${String(kind)} ID`,
+            );
+          }
+        });
+      }
+    }
+  }
+
   if (
     record.electrical !== null &&
     record.electrical !== undefined &&
@@ -1002,6 +1535,43 @@ const validateEngineeringConstraints = (input: unknown): readonly string[] => {
       'peak_discharge_duration_s',
     ] as const) {
       validateFiniteNonNegative(`electrical.${field}`, electricalRecord[field]);
+    }
+
+    if (record.interaction_endpoints !== undefined) {
+      if (!Array.isArray(record.interaction_endpoints)) {
+        addMessage('interaction_endpoints', 'must be an array');
+      } else {
+        const endpointIds = new Set<string>();
+        record.interaction_endpoints.forEach((endpoint, index) => {
+          if (!endpoint || typeof endpoint !== 'object' || Array.isArray(endpoint)) {
+            addMessage(`interaction_endpoints[${index}]`, 'must be an object');
+            return;
+          }
+          if (typeof endpoint.id !== 'string' || !/^[a-z0-9][a-z0-9._-]+$/i.test(endpoint.id)) {
+            addMessage(
+              `interaction_endpoints[${index}].id`,
+              'must be a stable component-local identifier',
+            );
+          } else if (endpointIds.has(endpoint.id)) {
+            addMessage(
+              `interaction_endpoints[${index}].id`,
+              `duplicates interaction endpoint ID '${endpoint.id}'`,
+            );
+          } else {
+            endpointIds.add(endpoint.id);
+          }
+          if (
+            endpoint.kind !== 'communication' &&
+            endpoint.kind !== 'control' &&
+            endpoint.kind !== 'sensing'
+          ) {
+            addMessage(
+              `interaction_endpoints[${index}].kind`,
+              'must be communication, control, or sensing',
+            );
+          }
+        });
+      }
     }
   }
 
@@ -1039,8 +1609,20 @@ export const normalizeComponentLibraryRecord = (input: unknown): ComponentLibrar
     ...record,
     ...(Array.isArray(record.capabilities) ? { capabilities: record.capabilities } : {}),
     ...(Array.isArray(record.ports) ? { ports: record.ports } : {}),
+    ...(Array.isArray(record.connection_points)
+      ? { connection_points: record.connection_points }
+      : {}),
+    ...(Array.isArray(record.conductive_relationships)
+      ? { conductive_relationships: record.conductive_relationships }
+      : {}),
+    ...(record.switching !== undefined ? { switching: record.switching } : {}),
+    ...(record.protection !== undefined ? { protection: record.protection } : {}),
+    ...(record.measurement !== undefined ? { measurement: record.measurement } : {}),
     source_refs: Array.isArray(record.source_refs) ? record.source_refs : [],
     interfaces: normalizeTextList(record.interfaces),
+    ...(Array.isArray(record.interaction_endpoints)
+      ? { interaction_endpoints: record.interaction_endpoints }
+      : {}),
     terminals: Array.isArray(record.terminals) ? record.terminals : [],
     required_accessories: Array.isArray(record.required_accessories)
       ? record.required_accessories

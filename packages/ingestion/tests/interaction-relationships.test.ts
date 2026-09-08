@@ -1,0 +1,864 @@
+import { mkdtemp, readdir, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { describe, expect, it } from 'vitest';
+import { stringify as stringifyYaml } from 'yaml';
+import {
+  canonicalInteractionRelationshipSnapshot,
+  interpretInteractionRelationship,
+  interpretInteractionRelationships,
+  proposeCanonicalInteractionRelationship,
+  validateInteractionRelationships,
+  writeCanonicalInteractionRelationship,
+  type CanonicalInteractionRelationshipReview,
+  type InteractionRelationship,
+} from '../src/interaction-relationships.js';
+
+const relationship = (
+  overrides: Partial<InteractionRelationship> = {},
+): InteractionRelationship => ({
+  schema_version: '1.0',
+  id: 'g2.smartshunt.charger-sharing',
+  relationship_kind: 'information_sharing',
+  assertion: 'positive',
+  participants: [
+    {
+      ref: 'victron:smartshunt',
+      kind: 'product_family',
+      role: 'producer',
+    },
+    {
+      ref: 'victron:connected-chargers',
+      kind: 'product_family',
+      role: 'consumer',
+    },
+  ],
+  scope: 'product_family',
+  information: [
+    {
+      direction: 'exposes',
+      participant_ref: 'victron:smartshunt',
+      term: 'battery voltage, current, and temperature',
+      raw_wording:
+        'The SmartShunt shares battery voltage, current, and temperature with connected chargers.',
+    },
+  ],
+  conditions: [{ kind: 'connection', value: 'connected chargers' }],
+  evidence: {
+    source_ids: ['victron.g1.smart-battery-shunt'],
+    fact_ids: ['claim.smartshunt.charger-sharing'],
+    applicability: [
+      { scope: 'product_family', ref: 'victron:smartshunt' },
+      { scope: 'product_family', ref: 'victron:connected-chargers' },
+    ],
+  },
+  state: 'verified',
+  ...overrides,
+});
+
+const reviewFor = (
+  current: InteractionRelationship,
+  overrides: Partial<CanonicalInteractionRelationshipReview> = {},
+): CanonicalInteractionRelationshipReview => ({
+  schema_version: '1.0',
+  id: 'review.relationship.1',
+  relationship_id: current.id,
+  candidate_id: 'candidate.relationship.1',
+  decision: 'approved',
+  reviewer_id: 'reviewer.human',
+  reviewed_at: '2026-09-07T12:00:00.000Z',
+  expected_snapshot: canonicalInteractionRelationshipSnapshot(current),
+  evidence_acknowledged: true,
+  source_ids: current.evidence.source_ids,
+  fact_ids: current.evidence.fact_ids,
+  ...overrides,
+});
+
+// A canonical interaction-relationship dataset is defined as "empty" when it
+// contains zero canonical relationship records. Git does not track empty
+// directories, so a fresh checkout may legitimately omit
+// data/interaction-relationships entirely. An absent directory and an
+// existing-but-empty directory must both read as zero records; only a
+// genuine read failure other than "does not exist" should propagate.
+const readCanonicalInteractionRelationshipEntries = async (
+  directory: string,
+): Promise<readonly string[]> => {
+  try {
+    return await readdir(directory);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+    throw error;
+  }
+};
+
+describe('interaction relationships', () => {
+  it('preserves directional information, family scope, and source evidence', () => {
+    expect(validateInteractionRelationships([relationship()])).toEqual({
+      status: 'valid',
+      issues: [],
+      ok: true,
+    });
+  });
+
+  it('preserves a required accessory without flattening direct compatibility', () => {
+    const result = validateInteractionRelationships([
+      relationship({
+        id: 'g2.battery-victron-cable',
+        relationship_kind: 'required_intermediate',
+        participants: [
+          { ref: 'external:can-battery', kind: 'unresolved_external', role: 'battery' },
+          { ref: 'victron:system', kind: 'manufacturer_ecosystem', role: 'system' },
+          {
+            ref: 'victron:ve-can-bms-cable',
+            kind: 'accessory_class',
+            role: 'required intermediate',
+          },
+        ],
+        required_intermediates: ['victron:ve-can-bms-cable'],
+        scope: 'manufacturer_ecosystem',
+        information: undefined,
+        conditions: [
+          { kind: 'brand_dependent', value: 'Cable type A or B depends on battery brand.' },
+        ],
+        evidence: {
+          source_ids: ['victron.g1.ve-can-to-can-bus-bms'],
+          fact_ids: ['claim.adapter.cross-manufacturer'],
+          applicability: [
+            { scope: 'manufacturer_ecosystem', ref: 'victron:system' },
+            { scope: 'accessory_class', ref: 'victron:ve-can-bms-cable' },
+          ],
+        },
+      }),
+    ]);
+    expect(result.ok).toBe(true);
+  });
+
+  it('rejects unsupported cross-manufacturer evidence with generic applicability matching', () => {
+    const mismatched = relationship({
+      id: 'g3.cross-manufacturer-mismatch',
+      participants: [
+        { ref: 'manufacturer-a:exact-product', kind: 'exact_product', role: 'producer' },
+        { ref: 'manufacturer-b:ecosystem', kind: 'manufacturer_ecosystem', role: 'consumer' },
+      ],
+      scope: 'manufacturer_ecosystem',
+      information: [
+        {
+          direction: 'exposes',
+          participant_ref: 'manufacturer-a:exact-product',
+          term: 'product telemetry',
+        },
+      ],
+      evidence: {
+        source_ids: ['manufacturer-a.g1.product-page'],
+        fact_ids: ['claim.manufacturer-a.exact-product'],
+        applicability: [{ scope: 'exact_product', ref: 'manufacturer-a:exact-product' }],
+      },
+    });
+
+    const result = proposeCanonicalInteractionRelationship({
+      current: mismatched,
+      review: reviewFor(mismatched),
+      participantReferenceResolver: (kind, ref) =>
+        kind === 'exact_product' ? ref === 'manufacturer-a:exact-product' : true,
+    });
+
+    expect(result.status).toBe('blocked');
+    expect(result.issues.some((issue) => issue.code === 'source_evidence_scope_mismatch')).toBe(
+      true,
+    );
+  });
+
+  it('supports matching exact product and family applicability generically', () => {
+    const exactMatch = relationship({
+      id: 'g3.exact-match',
+      participants: [
+        { ref: 'manufacturer-a:exact-product', kind: 'exact_product', role: 'producer' },
+        { ref: 'manufacturer-a:family', kind: 'product_family', role: 'consumer' },
+      ],
+      scope: 'exact_product',
+      information: [
+        {
+          direction: 'exposes',
+          participant_ref: 'manufacturer-a:exact-product',
+          term: 'product telemetry',
+        },
+      ],
+      evidence: {
+        source_ids: ['manufacturer-a.g1.exact-product'],
+        fact_ids: ['claim.manufacturer-a.exact-product'],
+        applicability: [
+          { scope: 'exact_product', ref: 'manufacturer-a:exact-product' },
+          { scope: 'product_family', ref: 'manufacturer-a:family' },
+        ],
+      },
+    });
+    const exactResult = proposeCanonicalInteractionRelationship({
+      current: exactMatch,
+      review: reviewFor(exactMatch),
+      participantReferenceResolver: (kind, ref) =>
+        kind === 'exact_product' ? ref === 'manufacturer-a:exact-product' : true,
+    });
+    expect(exactResult.status).toBe('proposed');
+
+    const familyMatch = relationship({
+      id: 'g3.family-match',
+      participants: [
+        { ref: 'manufacturer-a:family-alpha', kind: 'product_family', role: 'producer' },
+        { ref: 'manufacturer-a:family-beta', kind: 'product_family', role: 'consumer' },
+      ],
+      scope: 'product_family',
+      information: [
+        {
+          direction: 'exposes',
+          participant_ref: 'manufacturer-a:family-alpha',
+          term: 'family telemetry',
+        },
+      ],
+      evidence: {
+        source_ids: ['manufacturer-a.g1.family-page'],
+        fact_ids: ['claim.manufacturer-a.family'],
+        applicability: [
+          { scope: 'product_family', ref: 'manufacturer-a:family-alpha' },
+          { scope: 'product_family', ref: 'manufacturer-a:family-beta' },
+        ],
+      },
+    });
+    const familyResult = proposeCanonicalInteractionRelationship({
+      current: familyMatch,
+      review: reviewFor(familyMatch),
+    });
+    expect(familyResult.status).toBe('proposed');
+
+    const familyMismatch = relationship({
+      id: 'g3.family-mismatch',
+      participants: [
+        { ref: 'manufacturer-a:family-alpha', kind: 'product_family', role: 'producer' },
+        { ref: 'manufacturer-b:family-beta', kind: 'product_family', role: 'consumer' },
+      ],
+      scope: 'product_family',
+      information: [
+        {
+          direction: 'exposes',
+          participant_ref: 'manufacturer-a:family-alpha',
+          term: 'family telemetry',
+        },
+      ],
+      evidence: {
+        source_ids: ['manufacturer-a.g1.family-page'],
+        fact_ids: ['claim.manufacturer-a.family'],
+        applicability: [{ scope: 'product_family', ref: 'manufacturer-a:family-alpha' }],
+      },
+    });
+    const familyMismatchResult = proposeCanonicalInteractionRelationship({
+      current: familyMismatch,
+      review: reviewFor(familyMismatch),
+    });
+    expect(familyMismatchResult.status).toBe('blocked');
+    expect(
+      familyMismatchResult.issues.some((issue) => issue.code === 'source_evidence_scope_mismatch'),
+    ).toBe(true);
+  });
+
+  it('does not infer consumes from shares-with wording and supports explicit consumption evidence', () => {
+    const sharedExposure = relationship({
+      id: 'g3.exposes-not-consumes',
+      information: [
+        {
+          direction: 'exposes',
+          participant_ref: 'victron:smartshunt',
+          term: 'battery voltage, current, and temperature',
+          raw_wording:
+            'The SmartShunt shares battery voltage, current, and temperature with connected chargers.',
+        },
+      ],
+    });
+    const sharedResult = proposeCanonicalInteractionRelationship({
+      current: sharedExposure,
+      review: reviewFor(sharedExposure),
+    });
+    expect(sharedResult.status).toBe('proposed');
+    expect(
+      sharedResult.proposal?.information?.some((claim) => claim.direction === 'consumes'),
+    ).toBe(false);
+
+    const explicitConsumption = relationship({
+      id: 'g3.explicit-consumes',
+      information: [
+        {
+          direction: 'consumes',
+          participant_ref: 'victron:connected-chargers',
+          term: 'battery voltage, current, and temperature',
+          raw_wording:
+            'The connected chargers use SmartShunt voltage, current, and temperature for charging logic.',
+        },
+      ],
+      evidence: {
+        source_ids: ['victron.g1.charger-uses-smartshunt'],
+        fact_ids: ['claim.charger.uses-smartshunt-values'],
+        applicability: [
+          { scope: 'product_family', ref: 'victron:smartshunt' },
+          { scope: 'product_family', ref: 'victron:connected-chargers' },
+        ],
+      },
+    });
+    const explicitResult = proposeCanonicalInteractionRelationship({
+      current: explicitConsumption,
+      review: reviewFor(explicitConsumption),
+    });
+    expect(explicitResult.status).toBe('proposed');
+    expect(
+      explicitResult.proposal?.information?.some((claim) => claim.direction === 'consumes'),
+    ).toBe(true);
+  });
+
+  it('rejects dangling references and duplicate stable ids', () => {
+    const invalid = relationship({
+      required_intermediates: ['missing:adapter'],
+      information: [{ direction: 'exposes', participant_ref: 'missing:endpoint', term: 'SOC' }],
+    });
+    const result = validateInteractionRelationships([invalid, invalid]);
+    expect(result.status).toBe('invalid');
+    expect(result.issues.map((item) => item.code)).toEqual(
+      expect.arrayContaining([
+        'duplicate_id',
+        'invalid_intermediate_ref',
+        'invalid_information_ref',
+      ]),
+    );
+  });
+
+  it('does not turn Epoch Bluetooth or protocol equality into interoperability', () => {
+    const result = validateInteractionRelationships(
+      [
+        relationship({
+          id: 'g2.epoch-negative-control',
+          relationship_kind: 'information_sharing',
+          participants: [
+            { ref: 'epoch:B24100A-C', kind: 'exact_product', role: 'source' },
+            { ref: 'epoch:li-ion-app', kind: 'unresolved_external', role: 'consumer' },
+          ],
+          scope: 'exact_product',
+          information: [
+            {
+              direction: 'exposes',
+              participant_ref: 'epoch:B24100A-C',
+              term: 'Bluetooth/app data',
+              raw_wording: 'Yes - compatible with Epoch Li-Ion app for iOS and Android',
+            },
+          ],
+          evidence: {
+            source_ids: ['epoch-batteries.phase9b-d2.product-page'],
+            fact_ids: ['claim.epoch.bluetooth'],
+          },
+        }),
+      ],
+      {
+        participantReferenceResolver: (kind, ref) =>
+          kind === 'exact_product' ? ref === 'epoch:B24100A-C' : true,
+      },
+    );
+    expect(result.ok).toBe(true);
+    expect(result.issues).toEqual([]);
+  });
+
+  it('interprets structured positive and negative assertions without reading prose polarity', () => {
+    const positive = interpretInteractionRelationship(
+      relationship({
+        id: 'g5.structured-positive',
+        assertion: 'positive',
+        notes: 'Unsupported firmware versions require an update before use.',
+      }),
+    );
+    const negative = interpretInteractionRelationship(
+      relationship({
+        id: 'g5.structured-negative',
+        assertion: 'negative',
+        notes: 'Reviewed limitation applies within this exact scope.',
+        information: [
+          {
+            direction: 'exposes',
+            participant_ref: 'victron:smartshunt',
+            term: 'battery data',
+            raw_wording: 'The relationship is unavailable in this configuration.',
+          },
+        ],
+      }),
+    );
+
+    expect(positive.status).toBe('positive');
+    expect(negative.status).toBe('explicit_negative');
+    expect(positive.status).not.toBe(negative.status);
+  });
+
+  it('returns unknown when structured assertion polarity is missing', () => {
+    const missing = relationship({
+      id: 'g5.missing-assertion',
+      assertion: undefined,
+      notes: 'Unsupported firmware versions require an update before use.',
+    });
+
+    const result = interpretInteractionRelationship(missing);
+
+    expect(result.status).toBe('unknown');
+    expect(result.reason).toBe('relationship_assertion_missing');
+    expect(result.status).not.toBe('explicit_negative');
+  });
+
+  it('persists a durable promotion history that links the review to source and fact evidence', () => {
+    const current = relationship();
+    const result = proposeCanonicalInteractionRelationship({
+      current,
+      review: reviewFor(current),
+    });
+
+    expect(result.status).toBe('proposed');
+    expect(result.proposal?.promotion_history).toEqual([
+      expect.objectContaining({
+        review_id: 'review.relationship.1',
+        relationship_id: current.id,
+        reviewer_id: 'reviewer.human',
+        source_ids: current.evidence.source_ids,
+        fact_ids: current.evidence.fact_ids,
+        expected_snapshot: canonicalInteractionRelationshipSnapshot(current),
+      }),
+    ]);
+  });
+
+  it('requires concrete canonical refs to resolve when they are claimed', () => {
+    const resolved = relationship({
+      id: 'g3.concrete-resolved',
+      participants: [
+        { ref: 'victron:smartshunt', kind: 'exact_product', role: 'producer' },
+        { ref: 'victron:connected-chargers', kind: 'product_family', role: 'consumer' },
+      ],
+      scope: 'exact_product',
+    });
+    const resolvedResult = proposeCanonicalInteractionRelationship({
+      current: resolved,
+      review: reviewFor(resolved),
+      participantReferenceResolver: (kind, ref) =>
+        kind === 'exact_product' ? ref === 'victron:smartshunt' : true,
+    });
+    expect(resolvedResult.status).toBe('proposed');
+
+    const unresolved = relationship({
+      id: 'g3.concrete-unresolved',
+      participants: [
+        { ref: 'fabricated:unknown-product', kind: 'exact_product', role: 'producer' },
+        { ref: 'victron:connected-chargers', kind: 'product_family', role: 'consumer' },
+      ],
+      scope: 'exact_product',
+    });
+    const unresolvedResult = proposeCanonicalInteractionRelationship({
+      current: unresolved,
+      review: reviewFor(unresolved),
+      participantReferenceResolver: (kind, ref) =>
+        kind === 'exact_product' ? ref === 'victron:smartshunt' : true,
+    });
+    expect(unresolvedResult.status).toBe('blocked');
+    expect(
+      unresolvedResult.issues.some((issue) => issue.code === 'canonical_identity_unresolved'),
+    ).toBe(true);
+
+    const familyScoped = relationship({
+      id: 'g3.family-scope',
+      participants: [
+        { ref: 'victron:smartshunt', kind: 'product_family', role: 'producer' },
+        { ref: 'victron:connected-chargers', kind: 'manufacturer_ecosystem', role: 'consumer' },
+      ],
+      scope: 'manufacturer_ecosystem',
+    });
+    const familyResult = proposeCanonicalInteractionRelationship({
+      current: familyScoped,
+      review: reviewFor(familyScoped),
+    });
+    expect(familyResult.status).toBe('proposed');
+  });
+
+  it('rejects source assertions that smuggle derived compatibility or installed-system conclusions', () => {
+    const derived = relationship({
+      id: 'g3.derived-compatibility',
+      notes:
+        'This compatibility conclusion is derived for the platform and not a raw manufacturer assertion.',
+    });
+    const derivedResult = proposeCanonicalInteractionRelationship({
+      current: derived,
+      review: reviewFor(derived),
+    });
+    expect(derivedResult.status).toBe('blocked');
+    expect(
+      derivedResult.issues.some((issue) => issue.code === 'derived_compatibility_rejected'),
+    ).toBe(true);
+
+    const installed = relationship({
+      id: 'g3.installed-system',
+      notes: 'The system currently has this installed and connected at runtime.',
+    });
+    const installedResult = proposeCanonicalInteractionRelationship({
+      current: installed,
+      review: reviewFor(installed),
+    });
+    expect(installedResult.status).toBe('blocked');
+    expect(installedResult.issues.some((issue) => issue.code === 'installed_system_rejected')).toBe(
+      true,
+    );
+  });
+
+  it('rejects Epoch evidence when it is used to claim a Victron interoperability relationship', () => {
+    const current = relationship({
+      id: 'g3.epoch-victron-negative-control',
+      relationship_kind: 'manufacturer_interoperability',
+      participants: [
+        { ref: 'epoch:B24100A-C', kind: 'exact_product', role: 'source' },
+        { ref: 'victron:gx', kind: 'product_family', role: 'consumer' },
+      ],
+      scope: 'exact_product',
+      evidence: {
+        source_ids: ['epoch-batteries.phase9b-d2.product-page'],
+        fact_ids: ['claim.epoch.bluetooth'],
+        applicability: [{ scope: 'exact_product', ref: 'epoch:B24100A-C' }],
+      },
+      information: [
+        {
+          direction: 'exposes',
+          participant_ref: 'epoch:B24100A-C',
+          term: 'Bluetooth status',
+        },
+      ],
+      notes:
+        'Source evidence is a manufacturer app claim; it does not prove Victron interoperability.',
+    });
+    const result = proposeCanonicalInteractionRelationship({
+      current,
+      review: reviewFor(current),
+      participantReferenceResolver: (kind, ref) =>
+        kind === 'exact_product' ? ref === 'epoch:B24100A-C' : true,
+    });
+
+    expect(result.status).toBe('blocked');
+    expect(result.issues.some((issue) => issue.code === 'source_evidence_scope_mismatch')).toBe(
+      true,
+    );
+  });
+
+  it('promotes a reviewed relationship when the snapshot and evidence are valid', () => {
+    const current = relationship();
+    const result = proposeCanonicalInteractionRelationship({
+      current,
+      review: reviewFor(current),
+    });
+
+    expect(result.status).toBe('proposed');
+    expect(result.issues).toEqual([]);
+    expect(result.schema_valid).toBe(true);
+    expect(result.proposal?.assertion).toBe('positive');
+  });
+
+  it('promotes a structured negative reviewed relationship through the same boundary', () => {
+    const current = relationship({
+      id: 'g5.negative-promotion',
+      assertion: 'negative',
+      notes: 'Reviewed limitation applies within the recorded scope.',
+    });
+    const result = proposeCanonicalInteractionRelationship({
+      current,
+      review: reviewFor(current),
+    });
+
+    expect(result.status).toBe('proposed');
+    expect(result.proposal?.assertion).toBe('negative');
+    expect(result.proposal?.promotion_history).toEqual([
+      expect.objectContaining({
+        relationship_id: current.id,
+        source_ids: current.evidence.source_ids,
+        fact_ids: current.evidence.fact_ids,
+      }),
+    ]);
+  });
+
+  it('rejects a verified reviewed relationship without structured assertion', () => {
+    const current = relationship({
+      id: 'g5.missing-assertion-promotion',
+      assertion: undefined,
+      notes: 'Unsupported firmware versions require an update before use.',
+    });
+    const result = proposeCanonicalInteractionRelationship({
+      current,
+      review: reviewFor(current),
+    });
+
+    expect(result.status).toBe('blocked');
+    expect(result.issues).toContainEqual(
+      expect.objectContaining({
+        code: 'assertion_missing',
+        path: 'assertion',
+      }),
+    );
+    expect(result.proposal?.promotion_history).toBeUndefined();
+  });
+
+  it('invalidates a review snapshot when assertion polarity changes', () => {
+    const positive = relationship({ id: 'g5.polarity-snapshot', assertion: 'positive' });
+    const negative = relationship({ id: positive.id, assertion: 'negative' });
+    const result = proposeCanonicalInteractionRelationship({
+      current: negative,
+      review: reviewFor(positive),
+    });
+
+    expect(result.status).toBe('blocked');
+    expect(result.issues.some((issue) => issue.code === 'canonical_snapshot_mismatch')).toBe(true);
+  });
+
+  it('rejects stale reviewed relationships without mutating canonical data', () => {
+    const current = relationship();
+    const result = proposeCanonicalInteractionRelationship({
+      current,
+      review: reviewFor(current, { expected_snapshot: 'deadbeef' }),
+    });
+
+    expect(result.status).toBe('blocked');
+    expect(result.issues.some((issue) => issue.code === 'canonical_snapshot_mismatch')).toBe(true);
+  });
+
+  it('rejects dangling required intermediates during promotion', () => {
+    const current = relationship({
+      id: 'g3.dangling-intermediate',
+      required_intermediates: ['missing:adapter'],
+      evidence: {
+        source_ids: ['victron.g1.ve-can-to-can-bus-bms'],
+        fact_ids: ['claim.adapter.cross-manufacturer'],
+      },
+    });
+    const result = proposeCanonicalInteractionRelationship({
+      current,
+      review: reviewFor(current),
+    });
+
+    expect(result.status).toBe('blocked');
+    expect(result.issues.some((issue) => issue.code === 'invalid_intermediate_ref')).toBe(true);
+  });
+
+  it('rejects a provisional state from canonical promotion', () => {
+    const current = relationship({ state: 'provisional' });
+    const result = proposeCanonicalInteractionRelationship({
+      current,
+      review: reviewFor(current, {
+        expected_snapshot: canonicalInteractionRelationshipSnapshot(current),
+      }),
+    });
+
+    expect(result.status).toBe('blocked');
+    expect(result.issues.some((issue) => issue.code === 'state_not_canonical')).toBe(true);
+  });
+
+  it('interprets verified evidence as positive while preserving required intermediates and conditions', () => {
+    const current = relationship({
+      id: 'g5.positive-interpreted-assertion',
+      relationship_kind: 'information_sharing',
+      participants: [
+        { ref: 'victron:smartshunt', kind: 'product_family', role: 'producer' },
+        { ref: 'victron:connected-chargers', kind: 'product_family', role: 'consumer' },
+      ],
+      required_intermediates: ['victron:ve-can-bms-cable'],
+      scope: 'manufacturer_ecosystem',
+      information: [
+        {
+          direction: 'exposes',
+          participant_ref: 'victron:smartshunt',
+          term: 'battery voltage, current, and temperature',
+        },
+      ],
+      conditions: [
+        { kind: 'brand_dependent', value: 'VE.Can cable required for supported charger' },
+      ],
+    });
+
+    const result = interpretInteractionRelationship(current);
+
+    expect(result.status).toBe('positive');
+    expect(result.reason).toBe('positive_assertion');
+    expect(result.required_intermediates).toEqual(['victron:ve-can-bms-cable']);
+    expect(result.conditions).toEqual([
+      { kind: 'brand_dependent', value: 'VE.Can cable required for supported charger' },
+    ]);
+    expect(result.unresolved).toContain('consumption_not_established');
+    expect('compatible' in result).toBe(false);
+  });
+
+  it('keeps explicit negative reviewed assertions distinct from unknown', () => {
+    const current = relationship({
+      id: 'g5.explicit-negative',
+      relationship_kind: 'manufacturer_interoperability',
+      assertion: 'negative',
+      notes: 'This connection is unsupported and unavailable for the selected ecosystem.',
+      information: [
+        {
+          direction: 'exposes',
+          participant_ref: 'epoch:B24100A-C',
+          term: 'Bluetooth status',
+          raw_wording:
+            'Bluetooth status is available through the app, but the connection is unsupported.',
+        },
+      ],
+      evidence: {
+        source_ids: ['epoch-batteries.phase9b-d2.product-page'],
+        fact_ids: ['claim.epoch.bluetooth'],
+        applicability: [{ scope: 'exact_product', ref: 'epoch:B24100A-C' }],
+      },
+    });
+
+    const result = interpretInteractionRelationship(current);
+
+    expect(result.status).toBe('explicit_negative');
+    expect(result.reason).toBe('explicit_negative_assertion');
+    expect(result.status).not.toBe('unknown');
+  });
+
+  it('returns unknown when no applicable reviewed relationship exists and never fabricates a false negative', () => {
+    const result = interpretInteractionRelationships(
+      [
+        relationship({
+          id: 'g5.some-other-relationship',
+          relationship_kind: 'information_consumption',
+          evidence: { source_ids: ['example.source'], fact_ids: ['example.fact'] },
+        }),
+      ],
+      {
+        relationship_kind: 'manufacturer_interoperability',
+        participant_refs: ['epoch:B24100A-C', 'victron:gx'],
+      },
+    );
+
+    expect(result).toHaveLength(1);
+    expect(result[0].status).toBe('unknown');
+    expect(result[0].reason).toBe('no_applicable_reviewed_relationship');
+    expect(result[0].unresolved).toContain('no_applicable_reviewed_relationship');
+  });
+
+  it('preserves exposure without implying consumption and keeps required intermediates first-class', () => {
+    const relationshipWithExposure = relationship({
+      id: 'g5.exposure-only',
+      required_intermediates: ['victron:ve-can-bms-cable'],
+      information: [
+        {
+          direction: 'exposes',
+          participant_ref: 'victron:smartshunt',
+          term: 'battery voltage, current, and temperature',
+        },
+      ],
+    });
+
+    const result = interpretInteractionRelationship(relationshipWithExposure);
+
+    expect(result.status).toBe('positive');
+    expect(result.information.some((claim) => claim.direction === 'consumes')).toBe(false);
+    expect(result.required_intermediates).toEqual(['victron:ve-can-bms-cable']);
+    expect(result.unresolved).toContain('consumption_not_established');
+  });
+
+  it('keeps the canonical interaction-relationship dataset empty unless a real review exists', async () => {
+    const entries = await readCanonicalInteractionRelationshipEntries(
+      resolve(process.cwd(), 'data/interaction-relationships'),
+    );
+    expect(entries).toEqual([]);
+  });
+
+  it('treats an absent canonical interaction-relationship directory as zero records', async () => {
+    const missingDirectory = join(
+      await mkdtemp(join(tmpdir(), 'interaction-relationships-absent-')),
+      'data/interaction-relationships',
+    );
+
+    const entries = await readCanonicalInteractionRelationshipEntries(missingDirectory);
+
+    expect(entries).toEqual([]);
+  });
+
+  it('treats an existing empty canonical interaction-relationship directory as zero records', async () => {
+    const emptyDirectory = await mkdtemp(join(tmpdir(), 'interaction-relationships-empty-'));
+
+    try {
+      const entries = await readCanonicalInteractionRelationshipEntries(emptyDirectory);
+      expect(entries).toEqual([]);
+    } finally {
+      await rm(emptyDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it('keeps deterministic replay and duplicate-id promotion blocked', async () => {
+    const current = relationship({ id: 'g3.deterministic-replay' });
+    const first = proposeCanonicalInteractionRelationship({
+      current,
+      review: reviewFor(current),
+    });
+    const second = proposeCanonicalInteractionRelationship({
+      current,
+      review: reviewFor(current),
+    });
+
+    expect(first.status).toBe('proposed');
+    expect(second.status).toBe('proposed');
+    expect(first.actual_snapshot).toBe(second.actual_snapshot);
+    expect(first.serialized).toBe(second.serialized);
+
+    const existing = {
+      access: async () => undefined,
+      readFile: async () =>
+        `schema_version: "1.0"\nid: "g3.deterministic-replay"\nrelationship_kind: "information_sharing"\nparticipants:\n  - ref: "victron:smartshunt"\n    kind: "product_family"\n    role: "producer"\n  - ref: "victron:connected-chargers"\n    kind: "product_family"\n    role: "consumer"\nscope: "product_family"\ninformation:\n  - direction: "exposes"\n    participant_ref: "victron:smartshunt"\n    term: "battery voltage, current, and temperature"\nconditions:\n  - kind: "connection"\n    value: "connected chargers"\nevidence:\n  source_ids:\n    - "victron.g1.smart-battery-shunt"\n  fact_ids:\n    - "claim.epoch.bluetooth"\nstate: "verified"\n`,
+      mkdir: async () => undefined,
+      writeFile: async () => undefined,
+      rename: async () => undefined,
+      rm: async () => undefined,
+    };
+
+    const duplicateResult = await writeCanonicalInteractionRelationship({
+      current,
+      review: reviewFor(current),
+      write: true,
+      destinationRoot: '/tmp',
+      filename: 'g3.deterministic-replay.yaml',
+      filesystem: existing,
+    });
+    expect(duplicateResult.status).toBe('blocked');
+    expect(
+      duplicateResult.issues.some((issue) => issue.code === 'canonical_snapshot_mismatch'),
+    ).toBe(true);
+  });
+
+  it('restores the previous canonical relationship when atomic write replacement fails', async () => {
+    const current = relationship({ id: 'g3.atomic-failure' });
+    const original = stringifyYaml(current, { sortMapEntries: true });
+    let latestDisk = original;
+    const filesystem = {
+      access: async (path: string) => {
+        if (path.endsWith('g3.atomic-failure.yaml')) return;
+        throw Object.assign(new Error('missing'), { code: 'ENOENT' });
+      },
+      readFile: async () => latestDisk,
+      mkdir: async () => undefined,
+      writeFile: async () => undefined,
+      rename: async (from: string, to: string) => {
+        if (from.includes('.tmp') && to.endsWith('g3.atomic-failure.yaml')) {
+          throw new Error('atomic replacement failed');
+        }
+        if (to.endsWith('.bak')) {
+          latestDisk = original;
+        }
+      },
+      rm: async () => undefined,
+    };
+
+    const result = await writeCanonicalInteractionRelationship({
+      current,
+      review: reviewFor(current),
+      write: true,
+      destinationRoot: '/tmp',
+      filename: 'g3.atomic-failure.yaml',
+      filesystem,
+    });
+
+    expect(result.status).toBe('blocked');
+    expect(result.issues.some((issue) => issue.code === 'write_failed')).toBe(true);
+    expect(latestDisk).toBe(original);
+  });
+});

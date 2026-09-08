@@ -32,25 +32,46 @@ export const extractProductFacts = (
   }
   const facts: ProductFact[] = [];
   document.blocks.forEach((block) => {
-    if (!block.rows) return;
-    block.rows.forEach((row, rowIndex) => {
-      const rawUnitValue = rawUnit(row.value);
+    if (block.rows) {
+      block.rows.forEach((row, rowIndex) => {
+        const rawUnitValue = rawUnit(row.value);
+        facts.push({
+          schema_version: context.schema_version ?? '1.0',
+          id: stableId(context.source_id, facts.length + rowIndex, row.label, row.value),
+          source_id: context.source_id,
+          field: 'unmapped',
+          raw_label: row.label,
+          raw_value: row.value,
+          ...(rawUnitValue ? { raw_unit: rawUnitValue } : {}),
+          source_locator: { ...block.locator, row: String(rowIndex + 1) },
+          extraction_method:
+            context.extraction_method ?? (block.kind === 'table' ? 'table' : 'structured'),
+          review_required: true,
+          transformation_notes: 'Raw claim only; no semantic mapping or unit conversion performed.',
+          fact_state: 'provisional',
+        });
+      });
+    }
+    if (
+      context.include_text_blocks &&
+      (block.kind === 'paragraph' || block.kind === 'list') &&
+      block.text
+    ) {
       facts.push({
         schema_version: context.schema_version ?? '1.0',
-        id: stableId(context.source_id, facts.length + rowIndex, row.label, row.value),
+        id: stableId(context.source_id, facts.length, block.kind, block.text),
         source_id: context.source_id,
         field: 'unmapped',
-        raw_label: row.label,
-        raw_value: row.value,
-        ...(rawUnitValue ? { raw_unit: rawUnitValue } : {}),
-        source_locator: { ...block.locator, row: String(rowIndex + 1) },
-        extraction_method:
-          context.extraction_method ?? (block.kind === 'table' ? 'table' : 'structured'),
+        raw_label: block.kind,
+        raw_value: block.text,
+        source_locator: block.locator,
+        extraction_method: 'text',
         review_required: true,
-        transformation_notes: 'Raw claim only; no semantic mapping or unit conversion performed.',
+        transformation_notes:
+          'Raw text claim only; no semantic mapping, interpretation, or compatibility conclusion.',
         fact_state: 'provisional',
       });
-    });
+    }
   });
   return { status: facts.length ? 'success' : 'partial', facts, warnings: document.warnings };
 };

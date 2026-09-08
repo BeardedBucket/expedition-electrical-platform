@@ -15,10 +15,34 @@
       "type": "array",
       "items": { "$ref": "#/$defs/componentInstance" }
     },
+    "artifacts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/artifact" }
+    },
     "nodes": { "type": "array", "items": { "$ref": "#/$defs/node" } },
     "connections": { "type": "array", "items": { "$ref": "#/$defs/connection" } },
     "conductors": { "type": "array", "items": { "$ref": "#/$defs/conductor" } },
     "paths": { "type": "array", "items": { "$ref": "#/$defs/path" } },
+    "interaction_bindings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/interactionBinding" }
+    },
+    "interaction_relationships": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/directInteractionRelationship" }
+    },
+    "interaction_networks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/interactionNetwork" }
+    },
+    "interaction_configurations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/interactionConfiguration" }
+    },
+    "interaction_relationship_groups": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/interactionRelationshipGroup" }
+    },
     "source_refs": { "type": "array", "items": { "$ref": "#/$defs/sourceRef" } },
     "open_questions": { "type": "array", "items": { "$ref": "#/$defs/openQuestion" } }
   },
@@ -65,6 +89,18 @@
       },
       "additionalProperties": false
     },
+    "artifact": {
+      "type": "object",
+      "required": ["id", "kind"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "kind": { "type": "string", "minLength": 1 },
+        "label": { "type": ["string", "null"] },
+        "notes": { "type": ["string", "null"] },
+        "source_refs": { "type": "array", "items": { "$ref": "#/$defs/sourceRef" } }
+      },
+      "additionalProperties": false
+    },
     "location": {
       "type": "object",
       "required": ["id", "label", "status"],
@@ -98,6 +134,15 @@
     },
     "endpoint": {
       "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind", "connector"],
+          "properties": {
+            "kind": { "const": "connector" },
+            "connector": { "$ref": "#/$defs/installedPhysicalConnectorRef" }
+          },
+          "additionalProperties": false
+        },
         {
           "type": "object",
           "required": ["instance_id", "terminal_id"],
@@ -170,6 +215,168 @@
         "controller_instance_ids": { "type": "array", "items": { "type": "string" } },
         "destination_node_ids": { "type": "array", "items": { "type": "string" } },
         "status": { "$ref": "#/$defs/status" },
+        "notes": { "type": ["string", "null"] },
+        "source_refs": { "type": "array", "items": { "$ref": "#/$defs/sourceRef" } }
+      },
+      "additionalProperties": false
+    },
+    "interactionEndpoint": {
+      "type": "object",
+      "required": ["instance_id", "endpoint_id"],
+      "properties": {
+        "instance_id": { "type": "string", "minLength": 1 },
+        "endpoint_id": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "interactionParticipant": {
+      "type": "object",
+      "required": ["endpoint"],
+      "properties": {
+        "endpoint": { "$ref": "#/$defs/interactionEndpoint" },
+        "role": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "interactionBinding": {
+      "type": "object",
+      "required": ["id", "endpoint", "target"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "endpoint": { "$ref": "#/$defs/interactionEndpoint" },
+        "target": {
+          "oneOf": [
+            {
+              "type": "object",
+              "required": ["kind", "terminal"],
+              "properties": {
+                "kind": { "const": "terminal" },
+                "terminal": { "$ref": "#/$defs/installedTerminalRef" }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "required": ["kind", "connection_id"],
+              "properties": {
+                "kind": { "const": "connection" },
+                "connection_id": { "type": "string", "minLength": 1 }
+              },
+              "additionalProperties": false
+            }
+          ]
+        },
+        "notes": { "type": ["string", "null"] },
+        "source_refs": { "type": "array", "items": { "$ref": "#/$defs/sourceRef" } }
+      },
+      "additionalProperties": false
+    },
+    "installedTerminalRef": {
+      "type": "object",
+      "required": ["instance_id", "terminal_id"],
+      "properties": {
+        "instance_id": { "type": "string", "minLength": 1 },
+        "terminal_id": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "installedPhysicalConnectorRef": {
+      "type": "object",
+      "required": ["instance_id", "connector_id"],
+      "properties": {
+        "instance_id": { "type": "string", "minLength": 1 },
+        "connector_id": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "interactionState": { "enum": ["connected", "disconnected"] },
+    "interactionMedium": { "enum": ["wired", "wireless", "other"] },
+    "directInteractionRelationship": {
+      "type": "object",
+      "required": ["id", "kind", "participants", "state"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "kind": { "const": "direct" },
+        "participants": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "$ref": "#/$defs/interactionParticipant" }
+        },
+        "state": { "$ref": "#/$defs/interactionState" },
+        "medium": { "$ref": "#/$defs/interactionMedium" },
+        "intermediate_object_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "configuration_ids": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "notes": { "type": ["string", "null"] },
+        "source_refs": { "type": "array", "items": { "$ref": "#/$defs/sourceRef" } }
+      },
+      "additionalProperties": false
+    },
+    "interactionNetwork": {
+      "type": "object",
+      "required": ["id", "participants", "state"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "participants": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "$ref": "#/$defs/interactionParticipant" }
+        },
+        "state": { "$ref": "#/$defs/interactionState" },
+        "medium": { "$ref": "#/$defs/interactionMedium" },
+        "intermediate_object_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "configuration_ids": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "notes": { "type": ["string", "null"] },
+        "source_refs": { "type": "array", "items": { "$ref": "#/$defs/sourceRef" } }
+      },
+      "additionalProperties": false
+    },
+    "interactionConfiguration": {
+      "type": "object",
+      "required": ["id", "target", "key", "value"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "target": {
+          "oneOf": [
+            {
+              "type": "object",
+              "required": ["endpoint"],
+              "properties": { "endpoint": { "$ref": "#/$defs/interactionEndpoint" } },
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "required": ["relationship_id"],
+              "properties": { "relationship_id": { "type": "string", "minLength": 1 } },
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "required": ["network_id"],
+              "properties": { "network_id": { "type": "string", "minLength": 1 } },
+              "additionalProperties": false
+            }
+          ]
+        },
+        "key": { "type": "string", "minLength": 1 },
+        "value": { "type": ["string", "number", "boolean", "null"] },
+        "notes": { "type": ["string", "null"] },
+        "source_refs": { "type": "array", "items": { "$ref": "#/$defs/sourceRef" } }
+      },
+      "additionalProperties": false
+    },
+    "interactionRelationshipGroup": {
+      "type": "object",
+      "required": ["id", "relationship_ids"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "relationship_ids": { "type": "array", "items": { "type": "string", "minLength": 1 } },
         "notes": { "type": ["string", "null"] },
         "source_refs": { "type": "array", "items": { "$ref": "#/$defs/sourceRef" } }
       },

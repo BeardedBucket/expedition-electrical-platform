@@ -161,6 +161,7 @@ describe('topology evidence contracts', () => {
         field: 'voltage_v',
       },
     });
+
     const topologyCandidate = candidate({
       component_data: {
         ports: [{ id: 'ac_input', domain: 'ac', direction: 'input', voltage_v: 120 }],
@@ -181,6 +182,249 @@ describe('topology evidence contracts', () => {
     expect(validateProductCandidate(topologyCandidate, [source()], [topologyFact])).toEqual({
       status: 'valid',
       issues: [],
+      ok: true,
+    });
+  });
+
+  it('accepts stable connectivity topology targets without array identity', () => {
+    const connectivityFact = fact({
+      id: 'example.connectivity.fact',
+      field: 'conductive_relationships.inline',
+      topology_target: { kind: 'conductive_relationship', id: 'inline' },
+    });
+
+    const connectivityCandidate = candidate({
+      component_data: {
+        connection_points: [{ id: 'input-point' }, { id: 'output-point' }],
+        conductive_relationships: [
+          {
+            id: 'inline',
+            participants: [
+              { kind: 'connection_point', id: 'input-point' },
+              { kind: 'connection_point', id: 'output-point' },
+            ],
+          },
+        ],
+      },
+      topology_evidence: {
+        'conductive_relationship:inline': ['example.connectivity.fact'],
+      },
+      fact_ids: ['example.connectivity.fact'],
+      field_evidence: {},
+      promotion_status: 'review_required',
+      review_status: 'pending',
+    });
+    expect(validateProductCandidate(connectivityCandidate, [source()], [connectivityFact])).toEqual(
+      {
+        status: 'valid',
+        issues: [],
+        ok: true,
+      },
+    );
+  });
+
+  it('accepts stable switching configuration targets', () => {
+    const switchingFact = fact({
+      id: 'example.switching.fact',
+      field: 'switching.configurations',
+      topology_target: { kind: 'switching_configuration', id: 'configuration-a' },
+    });
+    const switchingCandidate = candidate({
+      component_data: {
+        ports: [
+          { id: 'input', domain: 'dc', direction: 'bidirectional' },
+          { id: 'output', domain: 'dc', direction: 'bidirectional' },
+        ],
+        conductive_relationships: [
+          {
+            id: 'contact',
+            participants: [
+              { kind: 'port', id: 'input' },
+              { kind: 'port', id: 'output' },
+            ],
+          },
+        ],
+        switching: {
+          controlled_relationship_ids: ['contact'],
+          configurations: [
+            { id: 'configuration-a', active_relationship_ids: [] },
+            { id: 'configuration-b', active_relationship_ids: ['contact'] },
+          ],
+        },
+      },
+      topology_evidence: {
+        'switching_configuration:configuration-a': ['example.switching.fact'],
+      },
+      fact_ids: ['example.switching.fact'],
+      field_evidence: {},
+      promotion_status: 'review_required',
+      review_status: 'pending',
+    });
+    expect(validateProductCandidate(switchingCandidate, [source()], [switchingFact])).toEqual({
+      status: 'valid',
+      issues: [],
+      ok: true,
+    });
+  });
+
+  it('accepts stable protection instance targets independently from ratings', () => {
+    const protectionFact = fact({
+      id: 'example.protection.fact',
+      field: 'protection.instances',
+      topology_target: { kind: 'protection_instance', id: 'branch-overcurrent' },
+    });
+    const protectionCandidate = candidate({
+      component_data: {
+        protection: {
+          instances: [
+            {
+              id: 'branch-overcurrent',
+              application: 'external_circuit',
+              function: 'overcurrent',
+              target: { kind: 'conductive_relationship', id: 'inline' },
+            },
+          ],
+        },
+      },
+      topology_evidence: {
+        'protection_instance:branch-overcurrent': ['example.protection.fact'],
+      },
+      fact_ids: ['example.protection.fact'],
+      field_evidence: {},
+      promotion_status: 'review_required',
+      review_status: 'pending',
+    });
+
+    expect(validateProductCandidate(protectionCandidate, [source()], [protectionFact])).toEqual({
+      status: 'valid',
+      issues: [],
+      ok: true,
+    });
+  });
+
+  it('accepts stable measurement instance targets without runtime readings', () => {
+    const measurementFact = fact({
+      id: 'example.measurement.fact',
+      field: 'measurement.instances',
+      topology_target: { kind: 'measurement_instance', id: 'path-current' },
+    });
+    const measurementCandidate = candidate({
+      component_data: {
+        ports: [
+          { id: 'input', domain: 'dc', direction: 'bidirectional' },
+          { id: 'output', domain: 'dc', direction: 'bidirectional' },
+        ],
+        conductive_relationships: [
+          {
+            id: 'shunt-path',
+            participants: [
+              { kind: 'port', id: 'input' },
+              { kind: 'port', id: 'output' },
+            ],
+          },
+        ],
+        measurement: {
+          instances: [
+            {
+              id: 'path-current',
+              quantity: 'current',
+              target: { kind: 'conductive_relationship', id: 'shunt-path' },
+            },
+          ],
+        },
+      },
+      topology_evidence: {
+        'measurement_instance:path-current': ['example.measurement.fact'],
+      },
+      fact_ids: ['example.measurement.fact'],
+      field_evidence: {},
+      promotion_status: 'review_required',
+      review_status: 'pending',
+    });
+
+    expect(validateProductCandidate(measurementCandidate, [source()], [measurementFact])).toEqual({
+      status: 'valid',
+      issues: [],
+      ok: true,
+    });
+  });
+
+  it('accepts stable interaction endpoint targets without protocol or compatibility claims', () => {
+    const endpointFact = fact({
+      id: 'example.interaction.endpoint',
+      field: 'interaction_endpoints',
+      topology_target: { kind: 'interaction_endpoint', id: 'bms-link' },
+    });
+    const endpointCandidate = candidate({
+      component_data: {
+        interaction_endpoints: [{ id: 'bms-link', kind: 'communication' }],
+      },
+      topology_evidence: {
+        'interaction_endpoint:bms-link': ['example.interaction.endpoint'],
+      },
+      fact_ids: ['example.interaction.endpoint'],
+      field_evidence: {},
+      promotion_status: 'review_required',
+      review_status: 'pending',
+    });
+
+    expect(validateProductFacts([endpointFact], [source()])).toMatchObject({
+      status: 'valid',
+      ok: true,
+    });
+    expect(validateProductCandidate(endpointCandidate, [source()], [endpointFact])).toMatchObject({
+      status: 'valid',
+      ok: true,
+    });
+  });
+
+  it('accepts stable physical connector targets without inferring protocol semantics', () => {
+    const connectorFact = fact({
+      id: 'example.physical.connector',
+      field: 'physical_connectors',
+      topology_target: { kind: 'physical_connector', id: 'can-1' },
+    });
+
+    const connectorCandidate = candidate({
+      component_data: {
+        physical_connectors: [{ id: 'can-1', type: 'source-backed description' }],
+      },
+      topology_evidence: {
+        'physical_connector:can-1': [connectorFact.id],
+      },
+      fact_ids: [connectorFact.id],
+      field_evidence: { physical_connectors: [connectorFact.id] },
+      promotion_status: 'review_required',
+      review_status: 'pending',
+    });
+
+    expect(validateProductFacts([connectorFact], [source()])).toMatchObject({
+      status: 'valid',
+      ok: true,
+    });
+    expect(validateProductCandidate(connectorCandidate, [source()], [connectorFact])).toMatchObject(
+      {
+        status: 'valid',
+        ok: true,
+      },
+    );
+  });
+
+  it('keeps connector and connector-association targets distinct', () => {
+    const connector = fact({
+      id: 'example.connector',
+      topology_target: { kind: 'physical_connector', id: 'can-1' },
+    });
+    const association = fact({
+      id: 'example.association',
+      topology_target: {
+        kind: 'physical_connector_association',
+        id: 'can-1-to-can',
+      },
+      source_locator: { page: 2 },
+    });
+    expect(validateProductFacts([connector, association], [source()])).toMatchObject({
+      status: 'valid',
       ok: true,
     });
   });

@@ -34,7 +34,18 @@ const syntheticTopologyComponent = (): Record<string, unknown> => ({
 
 const topologyFact = (
   id: string,
-  kind: 'capability' | 'port' | 'power_path',
+  kind:
+    | 'capability'
+    | 'port'
+    | 'power_path'
+    | 'connection_point'
+    | 'conductive_relationship'
+    | 'switching_configuration'
+    | 'protection_instance'
+    | 'measurement_instance'
+    | 'interaction_endpoint'
+    | 'physical_connector'
+    | 'physical_connector_association',
   targetId: string,
 ): ProductFact => ({
   schema_version: '1.0',
@@ -778,6 +789,7 @@ describe('canonical amendment workflow', () => {
         ],
       },
     });
+
     expect(missingEvidence.issues.map((item) => item.code)).toContain(
       'amendment_topology_missing_evidence',
     );
@@ -870,6 +882,168 @@ describe('canonical amendment workflow', () => {
     await rm(root, { recursive: true, force: true });
   });
 
+  it('adds a reviewed switching configuration without duplicating connectivity', () => {
+    const current = {
+      ...syntheticTopologyComponent(),
+      ports: [
+        { id: 'input', domain: 'dc', direction: 'bidirectional' },
+        { id: 'output', domain: 'dc', direction: 'bidirectional' },
+      ],
+      conductive_relationships: [
+        {
+          id: 'contact',
+          participants: [
+            { kind: 'port', id: 'input' },
+            { kind: 'port', id: 'output' },
+          ],
+        },
+      ],
+      switching: {
+        controlled_relationship_ids: ['contact'],
+        configurations: [{ id: 'configuration-a', active_relationship_ids: [] }],
+      },
+    };
+    const switching = topologyFact('fact.switching', 'switching_configuration', 'configuration-b');
+    const result = proposeCanonicalAmendment({
+      current,
+      candidate: {
+        fact_ids: ['fact.switching'],
+        facts: [switching],
+        topology_evidence: {
+          'switching_configuration:configuration-b': ['fact.switching'],
+        },
+      },
+      review: topologyReviewFor(current, [
+        {
+          operation: 'add',
+          kind: 'switching_configuration',
+          id: 'configuration-b',
+          value: { id: 'configuration-b', active_relationship_ids: ['contact'] },
+          evidence: ['fact.switching'],
+        },
+      ]),
+    });
+
+    expect(result.status).toBe('proposed');
+    expect(result.proposal?.switching).toMatchObject({
+      controlled_relationship_ids: ['contact'],
+      configurations: [
+        { id: 'configuration-a', active_relationship_ids: [] },
+        { id: 'configuration-b', active_relationship_ids: ['contact'] },
+      ],
+    });
+  });
+
+  it('adds a reviewed protection instance with a stable topology target', () => {
+    const current = {
+      ...syntheticTopologyComponent(),
+      ports: [
+        { id: 'input', domain: 'dc', direction: 'bidirectional' },
+        { id: 'output', domain: 'dc', direction: 'bidirectional' },
+      ],
+      conductive_relationships: [
+        {
+          id: 'inline',
+          participants: [
+            { kind: 'port', id: 'input' },
+            { kind: 'port', id: 'output' },
+          ],
+        },
+      ],
+    };
+    const protection = topologyFact('fact.protection', 'protection_instance', 'branch-fuse');
+    const result = proposeCanonicalAmendment({
+      current,
+      candidate: {
+        fact_ids: ['fact.protection'],
+        facts: [protection],
+        topology_evidence: {
+          'protection_instance:branch-fuse': ['fact.protection'],
+        },
+      },
+      review: topologyReviewFor(current, [
+        {
+          operation: 'add',
+          kind: 'protection_instance',
+          id: 'branch-fuse',
+          value: {
+            id: 'branch-fuse',
+            application: 'external_circuit',
+            function: 'overcurrent',
+            target: { kind: 'conductive_relationship', id: 'inline' },
+          },
+          evidence: ['fact.protection'],
+        },
+      ]),
+    });
+
+    expect(result.status).toBe('proposed');
+    expect(result.proposal?.protection).toEqual({
+      instances: [
+        {
+          id: 'branch-fuse',
+          application: 'external_circuit',
+          function: 'overcurrent',
+          target: { kind: 'conductive_relationship', id: 'inline' },
+        },
+      ],
+    });
+  });
+
+  it('adds a reviewed measurement instance with a stable topology target', () => {
+    const current = {
+      ...syntheticTopologyComponent(),
+      ports: [
+        { id: 'input', domain: 'dc', direction: 'bidirectional' },
+        { id: 'output', domain: 'dc', direction: 'bidirectional' },
+      ],
+      conductive_relationships: [
+        {
+          id: 'shunt-path',
+          participants: [
+            { kind: 'port', id: 'input' },
+            { kind: 'port', id: 'output' },
+          ],
+        },
+      ],
+    };
+    const measurement = topologyFact('fact.measurement', 'measurement_instance', 'path-current');
+    const result = proposeCanonicalAmendment({
+      current,
+      candidate: {
+        fact_ids: ['fact.measurement'],
+        facts: [measurement],
+        topology_evidence: {
+          'measurement_instance:path-current': ['fact.measurement'],
+        },
+      },
+      review: topologyReviewFor(current, [
+        {
+          operation: 'add',
+          kind: 'measurement_instance',
+          id: 'path-current',
+          value: {
+            id: 'path-current',
+            quantity: 'current',
+            target: { kind: 'conductive_relationship', id: 'shunt-path' },
+          },
+          evidence: ['fact.measurement'],
+        },
+      ]),
+    });
+
+    expect(result.status).toBe('proposed');
+    expect(result.proposal?.measurement).toEqual({
+      instances: [
+        {
+          id: 'path-current',
+          quantity: 'current',
+          target: { kind: 'conductive_relationship', id: 'shunt-path' },
+        },
+      ],
+    });
+  });
+
   it.each(['expected_snapshot', 'expected_current_snapshot'] as const)(
     'rejects a topology amendment with a stale %s',
     (snapshotField) => {
@@ -899,6 +1073,155 @@ describe('canonical amendment workflow', () => {
       expect(result.issues.map((item) => item.code)).toContain('canonical_snapshot_mismatch');
     },
   );
+
+  it('promotes a reviewed interaction endpoint without creating compatibility semantics', () => {
+    const current = syntheticTopologyComponent();
+    const endpoint = topologyFact('fact.endpoint', 'interaction_endpoint', 'bms-link');
+    const result = proposeCanonicalAmendment({
+      current,
+      candidate: {
+        facts: [endpoint],
+        fact_ids: [endpoint.id],
+        topology_evidence: { 'interaction_endpoint:bms-link': [endpoint.id] },
+      },
+      review: topologyReviewFor(current, [
+        {
+          operation: 'add',
+          kind: 'interaction_endpoint',
+          id: 'bms-link',
+          value: { id: 'bms-link', kind: 'communication' },
+          evidence: [endpoint.id],
+        },
+      ]),
+    });
+
+    expect(result.status).toBe('proposed');
+    expect(result.proposal?.interaction_endpoints).toEqual([
+      { id: 'bms-link', kind: 'communication' },
+    ]);
+  });
+
+  it('promotes reviewed physical connector instances through stable topology targets', () => {
+    const current = syntheticTopologyComponent();
+    const connector = topologyFact('fact.connector', 'physical_connector', 'can-1');
+    const result = proposeCanonicalAmendment({
+      current,
+      candidate: {
+        facts: [connector],
+        fact_ids: [connector.id],
+        topology_evidence: { 'physical_connector:can-1': [connector.id] },
+      },
+      review: topologyReviewFor(current, [
+        {
+          operation: 'add',
+          kind: 'physical_connector',
+          id: 'can-1',
+          value: { id: 'can-1', type: 'source-backed description' },
+          evidence: [connector.id],
+        },
+      ]),
+    });
+
+    expect(result.status).toBe('proposed');
+    expect(result.proposal?.physical_connectors).toEqual([
+      { id: 'can-1', type: 'source-backed description' },
+    ]);
+  });
+
+  it('promotes connector associations independently and records stable history', () => {
+    const current = {
+      ...syntheticTopologyComponent(),
+      physical_connectors: [{ id: 'can-1' }],
+      interaction_endpoints: [{ id: 'can', kind: 'communication' }],
+    };
+    const association = topologyFact(
+      'fact.association',
+      'physical_connector_association',
+      'can-1-to-can',
+    );
+    const result = proposeCanonicalAmendment({
+      current,
+      candidate: {
+        facts: [association],
+        fact_ids: [association.id],
+        topology_evidence: {
+          'physical_connector_association:can-1-to-can': [association.id],
+        },
+      },
+      review: topologyReviewFor(current, [
+        {
+          operation: 'add',
+          kind: 'physical_connector_association',
+          id: 'can-1-to-can',
+          value: {
+            id: 'can-1-to-can',
+            connector_id: 'can-1',
+            target: { kind: 'interaction_endpoint', id: 'can' },
+          },
+          evidence: [association.id],
+        },
+      ]),
+    });
+
+    expect(result.status).toBe('proposed');
+    expect(result.proposal?.physical_connector_associations).toEqual([
+      {
+        id: 'can-1-to-can',
+        connector_id: 'can-1',
+        target: { kind: 'interaction_endpoint', id: 'can' },
+      },
+    ]);
+    expect(result.topology_changes).toEqual([
+      expect.objectContaining({
+        kind: 'physical_connector_association',
+        id: 'can-1-to-can',
+        fact_ids: [association.id],
+      }),
+    ]);
+  });
+
+  it.each([
+    [
+      'missing connector',
+      { connector_id: 'missing', target: { kind: 'interaction_endpoint', id: 'can' } },
+    ],
+    [
+      'missing endpoint',
+      { connector_id: 'can-1', target: { kind: 'interaction_endpoint', id: 'missing' } },
+    ],
+  ])('rejects association with %s', (_label, value) => {
+    const current = {
+      ...syntheticTopologyComponent(),
+      physical_connectors: [{ id: 'can-1' }],
+      interaction_endpoints: [{ id: 'can', kind: 'communication' }],
+    };
+    const association = topologyFact(
+      'fact.invalid-association',
+      'physical_connector_association',
+      'bad',
+    );
+    const result = proposeCanonicalAmendment({
+      current,
+      candidate: {
+        facts: [association],
+        fact_ids: [association.id],
+        topology_evidence: { 'physical_connector_association:bad': [association.id] },
+      },
+      review: topologyReviewFor(current, [
+        {
+          operation: 'add',
+          kind: 'physical_connector_association',
+          id: 'bad',
+          value: { id: 'bad', ...value },
+          evidence: [association.id],
+        },
+      ]),
+    });
+    expect(result.status).toBe('blocked');
+    expect(result.issues.map((item) => item.code)).toContain(
+      'amendment_topology_invalid_reference',
+    );
+  });
 
   it('protects a successfully written topology amendment from replay', async () => {
     const current = syntheticTopologyComponent();
