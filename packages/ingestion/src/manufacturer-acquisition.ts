@@ -678,7 +678,7 @@ export const acquireManufacturerRecord = (
       ],
     };
   }
-  if (!request.captured_source.media_type.toLowerCase().includes('html')) {
+  if (!request.captured_source.media_type?.toLowerCase().includes('html')) {
     return {
       status: 'invalid',
       ...base,

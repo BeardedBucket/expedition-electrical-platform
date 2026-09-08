@@ -8,15 +8,24 @@ import type {
 export interface CapturedSource {
   readonly requested_uri: string;
   readonly final_uri: string;
-  readonly media_type: string;
+  readonly media_type?: string;
   readonly retrieved_at: string;
   readonly response_status?: number;
+  readonly redirect_chain?: readonly RedirectHop[];
   readonly title?: string;
   readonly body: {
     readonly bytes: Uint8Array;
     readonly text?: string;
   };
   readonly content_hash?: string;
+  readonly metadata?: Readonly<Record<string, string>>;
+}
+
+export interface RedirectHop {
+  readonly requested_uri: string;
+  readonly response_status: number;
+  readonly location: string;
+  readonly destination_uri: string;
   readonly metadata?: Readonly<Record<string, string>>;
 }
 

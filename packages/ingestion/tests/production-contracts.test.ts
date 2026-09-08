@@ -313,4 +313,32 @@ describe('production ingestion contracts', () => {
     expect(validateArtifactReferences([reference], new Set())).toEqual([reference.digest]);
     expect(capture.response_status).toBeUndefined();
   });
+
+  it('rejects authoritative captures with typed content rejection reasons', () => {
+    expect(
+      validateSourceCapture({
+        ...capture,
+        disposition: 'authoritative',
+        reason_codes: ['challenge_detected'],
+      }),
+    ).toContain('authoritative captures cannot carry content rejection reasons');
+  });
+
+  it('preserves typed redirect and reason fields without provenance recovery', () => {
+    const persisted: SourceCaptureArtifact = {
+      ...capture,
+      redirect_chain: [
+        {
+          requested_uri: 'https://example.com/old',
+          response_status: 302,
+          location: '/new',
+          destination_uri: 'https://example.com/new',
+        },
+      ],
+      reason_codes: ['content_type_mismatch'],
+    };
+    expect(persisted.redirect_chain?.[0].destination_uri).toBe('https://example.com/new');
+    expect(persisted.reason_codes).toEqual(['content_type_mismatch']);
+    expect(persisted.source_provenance).toBeUndefined();
+  });
 });

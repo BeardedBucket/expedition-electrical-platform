@@ -17,6 +17,44 @@
   "$defs": {
     "version": { "const": "1.0" },
     "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "captureReasonCode": {
+      "enum": [
+        "invalid_uri",
+        "unsupported_scheme",
+        "blocked_host",
+        "network_error",
+        "aborted",
+        "response_too_large",
+        "redirect_limit_exceeded",
+        "invalid_redirect",
+        "missing_body",
+        "http_status",
+        "content_type_mismatch",
+        "challenge_detected",
+        "authentication_wall",
+        "consent_interstitial",
+        "soft_404",
+        "empty_content",
+        "expected_content_missing",
+        "snapshot_write_failure",
+        "snapshot_digest_mismatch"
+      ]
+    },
+    "redirectHop": {
+      "type": "object",
+      "required": ["requested_uri", "response_status", "location", "destination_uri"],
+      "properties": {
+        "requested_uri": { "type": "string", "format": "uri" },
+        "response_status": { "type": "integer", "minimum": 300, "maximum": 399 },
+        "location": { "type": "string", "minLength": 1 },
+        "destination_uri": { "type": "string", "format": "uri" },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
     "artifactRef": {
       "type": "object",
       "required": ["kind", "reference_schema_version", "digest", "digest_algorithm"],
@@ -150,6 +188,15 @@
         "media_type": { "type": "string", "minLength": 1 },
         "response_status": { "type": "integer", "minimum": 100, "maximum": 599 },
         "disposition": { "enum": ["authoritative", "non_authoritative", "failed", "empty"] },
+        "redirect_chain": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/redirectHop" }
+        },
+        "reason_codes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/captureReasonCode" },
+          "uniqueItems": true
+        },
         "content_digest": { "$ref": "#/$defs/digest" },
         "digest_algorithm": { "const": "sha256" },
         "snapshot": { "$ref": "#/$defs/artifactRef" },
@@ -182,6 +229,27 @@
             }
           },
           "then": { "required": ["content_digest", "digest_algorithm"] }
+        },
+        {
+          "if": {
+            "properties": {
+              "disposition": { "const": "authoritative" },
+              "reason_codes": {
+                "contains": {
+                  "enum": [
+                    "content_type_mismatch",
+                    "challenge_detected",
+                    "authentication_wall",
+                    "consent_interstitial",
+                    "soft_404",
+                    "empty_content",
+                    "expected_content_missing"
+                  ]
+                }
+              }
+            }
+          },
+          "then": false
         }
       ],
       "additionalProperties": false

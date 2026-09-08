@@ -62,6 +62,34 @@ export interface ProductIntake {
 
 export type CaptureDisposition = 'authoritative' | 'non_authoritative' | 'failed' | 'empty';
 export type RetentionStatus = 'retained' | 'not_retained' | 'not_permitted' | 'unknown';
+export type CaptureReasonCode =
+  | 'invalid_uri'
+  | 'unsupported_scheme'
+  | 'blocked_host'
+  | 'network_error'
+  | 'aborted'
+  | 'response_too_large'
+  | 'redirect_limit_exceeded'
+  | 'invalid_redirect'
+  | 'missing_body'
+  | 'http_status'
+  | 'content_type_mismatch'
+  | 'challenge_detected'
+  | 'authentication_wall'
+  | 'consent_interstitial'
+  | 'soft_404'
+  | 'empty_content'
+  | 'expected_content_missing'
+  | 'snapshot_write_failure'
+  | 'snapshot_digest_mismatch';
+
+export interface PersistedRedirectHop {
+  readonly requested_uri: string;
+  readonly response_status: number;
+  readonly location: string;
+  readonly destination_uri: string;
+  readonly metadata?: Readonly<Record<string, string>>;
+}
 
 export interface SourceCaptureArtifact {
   readonly schema_version: typeof PRODUCTION_SCHEMA_VERSION;
@@ -73,6 +101,8 @@ export interface SourceCaptureArtifact {
   readonly media_type?: string;
   readonly response_status?: number;
   readonly disposition: CaptureDisposition;
+  readonly redirect_chain?: readonly PersistedRedirectHop[];
+  readonly reason_codes?: readonly CaptureReasonCode[];
   readonly content_digest?: string;
   readonly digest_algorithm?: typeof PRODUCTION_HASH_ALGORITHM;
   readonly snapshot?: ArtifactReference;
@@ -316,6 +346,20 @@ export const validateSourceCapture = (capture: SourceCaptureArtifact): readonly 
     capture.content_digest === undefined
   )
     issues.push('captured content requires a digest');
+  const rejectionReasons = new Set<CaptureReasonCode>([
+    'content_type_mismatch',
+    'challenge_detected',
+    'authentication_wall',
+    'consent_interstitial',
+    'soft_404',
+    'empty_content',
+    'expected_content_missing',
+  ]);
+  if (
+    capture.disposition === 'authoritative' &&
+    capture.reason_codes?.some((reason) => rejectionReasons.has(reason))
+  )
+    issues.push('authoritative captures cannot carry content rejection reasons');
   return issues;
 };
 

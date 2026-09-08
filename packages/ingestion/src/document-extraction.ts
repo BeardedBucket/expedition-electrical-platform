@@ -36,14 +36,14 @@ const walk = (node: ParentNode, visit: (node: Element) => void): void => {
 };
 
 export const extractHtmlDocument = (source: CapturedSource): ExtractedDocument => {
-  if (!source.media_type.includes('html')) {
+  if (!source.media_type?.includes('html')) {
     return {
       source,
       blocks: [],
       warnings: [
         {
           code: 'unsupported_media_type',
-          message: `No HTML extractor supports '${source.media_type}'.`,
+          message: `No HTML extractor supports '${source.media_type ?? 'unknown'}'.`,
         },
       ],
     };
@@ -148,18 +148,18 @@ export const extractHtmlDocument = (source: CapturedSource): ExtractedDocument =
 };
 
 export const extractDocument = (source: CapturedSource): ExtractedDocument => {
-  if (source.media_type.includes('html')) return extractHtmlDocument(source);
+  if (source.media_type?.includes('html')) return extractHtmlDocument(source);
+  const mediaType = source.media_type ?? 'unknown';
   return {
     source,
     blocks: [],
     warnings: [
       {
-        code:
-          source.media_type === 'application/pdf' ? 'pdf_unsupported' : 'unsupported_media_type',
+        code: mediaType === 'application/pdf' ? 'pdf_unsupported' : 'unsupported_media_type',
         message:
-          source.media_type === 'application/pdf'
+          mediaType === 'application/pdf'
             ? 'PDF extraction is not implemented in this phase.'
-            : `No extractor supports '${source.media_type}'.`,
+            : `No extractor supports '${mediaType}'.`,
       },
     ],
   };
