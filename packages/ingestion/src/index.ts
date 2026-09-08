@@ -24,3 +24,4 @@ export * from './interaction-relationships.js';
 export * from './corpus-workflow.js';
 export * from './structured-fact-extraction.js';
 export * from './production-contracts.js';
+export * from './source-acquisition.js';

@@ -8,6 +8,7 @@ import {
   hasArtifactKind,
   reviewPackageSnapshot,
   sourceContentIdentity,
+  validateSourceAcquisition,
   validateSourceCapture,
   validateArtifactReferences,
   validateProductIntake,
@@ -340,5 +341,71 @@ describe('production ingestion contracts', () => {
     expect(persisted.redirect_chain?.[0].destination_uri).toBe('https://example.com/new');
     expect(persisted.reason_codes).toEqual(['content_type_mismatch']);
     expect(persisted.source_provenance).toBeUndefined();
+  });
+
+  it('validates independent candidate dimensions and digest-bound profile configuration', () => {
+    const candidate = {
+      id: 'candidate.example',
+      raw_discovered_uri: 'https://example.com/docs/example.pdf',
+      normalized_uri: 'https://example.com/docs/example.pdf',
+      discovery: {
+        parent_capture_id: capture.id,
+        parent_uri: capture.requested_uri,
+        raw_discovered_uri: 'https://example.com/docs/example.pdf',
+        normalized_uri: 'https://example.com/docs/example.pdf',
+        method: 'seed_page_anchor' as const,
+        profile_id: 'example.reviewed',
+        profile_rule_id: 'product-page-documents',
+      },
+      officiality: 'official' as const,
+      role: 'datasheet' as const,
+      selection_status: 'selected' as const,
+      capture_outcome: 'authoritative' as const,
+      content_equivalence: 'equivalent' as const,
+      capture: artifactReference('source_capture', capture),
+      capture_disposition: 'authoritative' as const,
+      content_digest: capture.content_digest,
+      equivalent_content_of_candidate_id: 'candidate.owner',
+    };
+    const owner = {
+      ...candidate,
+      id: 'candidate.owner',
+      content_equivalence: 'unique' as const,
+      equivalent_content_of_candidate_id: undefined,
+    };
+    const acquisition = {
+      schema_version: PRODUCTION_SCHEMA_VERSION,
+      artifact_kind: 'source_acquisition' as const,
+      id: 'acquisition.example',
+      intake: artifactReference('product_intake', intake),
+      seed_capture: artifactReference('source_capture', capture),
+      profile_binding: {
+        profile_id: 'example.reviewed',
+        profile_schema_version: '1.0',
+        profile_digest: artifactDigest({ profile: 'reviewed configuration' }),
+      },
+      officiality: 'official' as const,
+      status: 'acquired' as const,
+      candidates: [owner, candidate],
+      deterministic_snapshot: artifactDigest({ acquisition: 'example' }),
+    };
+    expect(validateSourceAcquisition(acquisition)).toEqual([]);
+    expect(
+      validateSourceAcquisition({
+        ...acquisition,
+        candidates: [{ ...candidate, selection_status: 'duplicate_uri' }],
+      }),
+    ).toEqual(
+      expect.arrayContaining([
+        "duplicate candidate 'candidate.example' requires a duplicate reference",
+        "equivalent candidate 'candidate.example' references an unknown candidate",
+      ]),
+    );
+    expect(
+      validateSourceAcquisition({
+        ...acquisition,
+        candidates: [{ ...owner, capture_outcome: 'not_attempted' }, candidate],
+      }),
+    ).toContain("unattempted candidate 'candidate.owner' cannot carry capture evidence");
   });
 });

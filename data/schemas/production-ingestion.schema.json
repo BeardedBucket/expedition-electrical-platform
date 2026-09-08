@@ -4,6 +4,7 @@
   "title": "Production ingestion artifacts",
   "oneOf": [
     { "$ref": "#/$defs/productIntake" },
+    { "$ref": "#/$defs/sourceAcquisition" },
     { "$ref": "#/$defs/sourceCapture" },
     { "$ref": "#/$defs/sourceRevision" },
     { "$ref": "#/$defs/documentExtraction" },
@@ -62,6 +63,7 @@
         "kind": {
           "enum": [
             "product_intake",
+            "source_acquisition",
             "source_capture",
             "source_revision",
             "document_extraction",
@@ -88,6 +90,12 @@
       "allOf": [
         { "$ref": "#/$defs/artifactRef" },
         { "properties": { "kind": { "const": "product_intake" } } }
+      ]
+    },
+    "sourceAcquisitionRef": {
+      "allOf": [
+        { "$ref": "#/$defs/artifactRef" },
+        { "properties": { "kind": { "const": "source_acquisition" } } }
       ]
     },
     "candidateRef": {
@@ -252,6 +260,181 @@
           "then": false
         }
       ],
+      "additionalProperties": false
+    },
+    "sourceRole": {
+      "enum": [
+        "product_page",
+        "datasheet",
+        "manual",
+        "installation_manual",
+        "technical_manual",
+        "specification_sheet",
+        "technical_drawing",
+        "dimensional_drawing",
+        "support_article",
+        "certificate",
+        "firmware_document",
+        "unknown"
+      ]
+    },
+    "sourceDiscoveryProvenance": {
+      "type": "object",
+      "required": [
+        "parent_capture_id",
+        "parent_uri",
+        "raw_discovered_uri",
+        "normalized_uri",
+        "method"
+      ],
+      "properties": {
+        "parent_capture_id": { "type": "string", "minLength": 1 },
+        "parent_uri": { "type": "string", "format": "uri" },
+        "raw_discovered_uri": { "type": "string", "minLength": 1 },
+        "normalized_uri": { "type": "string", "format": "uri" },
+        "method": {
+          "enum": [
+            "seed_page_anchor",
+            "html_link_element",
+            "structured_application_state",
+            "profile_rule",
+            "maintainer_hint"
+          ]
+        },
+        "locator": { "type": "string", "minLength": 1 },
+        "source_label": { "type": "string", "minLength": 1 },
+        "profile_id": { "type": "string", "minLength": 1 },
+        "profile_rule_id": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "sourceAcquisitionCandidate": {
+      "type": "object",
+      "required": [
+        "id",
+        "raw_discovered_uri",
+        "normalized_uri",
+        "discovery",
+        "officiality",
+        "role",
+        "selection_status",
+        "capture_outcome",
+        "content_equivalence"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "raw_discovered_uri": { "type": "string", "minLength": 1 },
+        "normalized_uri": { "type": "string", "format": "uri" },
+        "discovery": { "$ref": "#/$defs/sourceDiscoveryProvenance" },
+        "officiality": { "enum": ["official", "unresolved", "blocked", "unofficial"] },
+        "role": { "$ref": "#/$defs/sourceRole" },
+        "role_evidence": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "selection_status": {
+          "enum": ["discovered", "duplicate_uri", "excluded_by_policy"]
+        },
+        "capture_outcome": {
+          "enum": ["not_attempted", "authoritative", "non_authoritative", "failed"]
+        },
+        "content_equivalence": { "enum": ["unknown", "unique", "equivalent"] },
+        "duplicate_of_candidate_id": { "type": "string", "minLength": 1 },
+        "equivalent_content_of_candidate_id": { "type": "string", "minLength": 1 },
+        "capture": { "$ref": "#/$defs/sourceCaptureRef" },
+        "capture_disposition": {
+          "enum": ["authoritative", "non_authoritative", "failed", "empty"]
+        },
+        "capture_reason_codes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/captureReasonCode" },
+          "uniqueItems": true
+        },
+        "content_digest": { "$ref": "#/$defs/digest" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "selection_status": { "const": "duplicate_uri" } } },
+          "then": { "required": ["duplicate_of_candidate_id"] }
+        },
+        {
+          "if": {
+            "properties": {
+              "capture_outcome": { "enum": ["authoritative", "non_authoritative", "failed"] }
+            }
+          },
+          "then": { "required": ["capture", "capture_disposition"] }
+        },
+        {
+          "if": { "properties": { "capture_outcome": { "const": "not_attempted" } } },
+          "then": {
+            "not": {
+              "anyOf": [{ "required": ["capture"] }, { "required": ["capture_disposition"] }]
+            }
+          }
+        },
+        {
+          "if": { "properties": { "content_equivalence": { "const": "equivalent" } } },
+          "then": { "required": ["equivalent_content_of_candidate_id"] }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "sourceAcquisitionProfileBinding": {
+      "type": "object",
+      "required": ["profile_id", "profile_schema_version", "profile_digest"],
+      "properties": {
+        "profile_id": { "type": "string", "minLength": 1 },
+        "profile_schema_version": { "type": "string", "minLength": 1 },
+        "profile_digest": { "$ref": "#/$defs/digest" }
+      },
+      "additionalProperties": false
+    },
+    "sourceAcquisition": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "artifact_kind",
+        "id",
+        "intake",
+        "seed_capture",
+        "officiality",
+        "status",
+        "candidates",
+        "deterministic_snapshot"
+      ],
+      "properties": {
+        "schema_version": { "$ref": "#/$defs/version" },
+        "artifact_kind": { "const": "source_acquisition" },
+        "id": { "type": "string", "minLength": 1 },
+        "intake": { "$ref": "#/$defs/productIntakeRef" },
+        "seed_capture": { "$ref": "#/$defs/sourceCaptureRef" },
+        "profile_binding": { "$ref": "#/$defs/sourceAcquisitionProfileBinding" },
+        "officiality": { "enum": ["official", "unresolved", "blocked", "unofficial"] },
+        "status": {
+          "enum": [
+            "acquired",
+            "partially_acquired",
+            "insufficient_sources",
+            "unresolved_officiality",
+            "seed_failed",
+            "blocked",
+            "failed"
+          ]
+        },
+        "candidates": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/sourceAcquisitionCandidate" }
+        },
+        "unresolved_candidate_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "blocked_candidate_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "deterministic_snapshot": { "$ref": "#/$defs/digest" }
+      },
       "additionalProperties": false
     },
     "sourceRevision": {

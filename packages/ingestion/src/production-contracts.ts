@@ -6,6 +6,7 @@ export const PRODUCTION_HASH_ALGORITHM = 'sha256';
 
 export type ArtifactKind =
   | 'product_intake'
+  | 'source_acquisition'
   | 'source_capture'
   | 'source_revision'
   | 'document_extraction'
@@ -29,6 +30,7 @@ export interface ArtifactReference<K extends ArtifactKind = ArtifactKind> {
 }
 
 export type ProductIntakeReference = ArtifactReference<'product_intake'>;
+export type SourceAcquisitionReference = ArtifactReference<'source_acquisition'>;
 export type ProductCandidateReference = ArtifactReference<'product_candidate'>;
 export type SourceReference = ArtifactReference<
   'source_capture' | 'source_revision' | 'product_source'
@@ -58,6 +60,93 @@ export interface ProductIntake {
   readonly official_product_uri: string;
   readonly submitted_at?: string;
   readonly additional_official_source_uris?: readonly string[];
+}
+
+export type SourceRole =
+  | 'product_page'
+  | 'datasheet'
+  | 'manual'
+  | 'installation_manual'
+  | 'technical_manual'
+  | 'specification_sheet'
+  | 'technical_drawing'
+  | 'dimensional_drawing'
+  | 'support_article'
+  | 'certificate'
+  | 'firmware_document'
+  | 'unknown';
+
+export type SourceOfficiality = 'official' | 'unresolved' | 'blocked' | 'unofficial';
+export type SourceAcquisitionStatus =
+  | 'acquired'
+  | 'partially_acquired'
+  | 'insufficient_sources'
+  | 'unresolved_officiality'
+  | 'seed_failed'
+  | 'blocked'
+  | 'failed';
+export type SourceCandidateSelectionStatus =
+  'discovered' | 'selected' | 'excluded_by_policy' | 'duplicate_uri';
+export type SourceCandidateCaptureOutcome =
+  'not_attempted' | 'authoritative' | 'non_authoritative' | 'failed';
+export type SourceCandidateContentEquivalence = 'unknown' | 'unique' | 'equivalent';
+export type SourceDiscoveryMethod =
+  | 'seed_page_anchor'
+  | 'html_link_element'
+  | 'structured_application_state'
+  | 'profile_rule'
+  | 'maintainer_hint';
+
+export interface SourceDiscoveryProvenance {
+  readonly parent_capture_id: string;
+  readonly parent_uri: string;
+  readonly raw_discovered_uri: string;
+  readonly normalized_uri: string;
+  readonly method: SourceDiscoveryMethod;
+  readonly locator?: string;
+  readonly source_label?: string;
+  readonly profile_id?: string;
+  readonly profile_rule_id?: string;
+}
+
+export interface SourceAcquisitionProfileBinding {
+  readonly profile_id: string;
+  readonly profile_schema_version: string;
+  readonly profile_digest: string;
+}
+
+export interface SourceAcquisitionCandidate {
+  readonly id: string;
+  readonly raw_discovered_uri: string;
+  readonly normalized_uri: string;
+  readonly discovery: SourceDiscoveryProvenance;
+  readonly officiality: SourceOfficiality;
+  readonly role: SourceRole;
+  readonly role_evidence?: readonly string[];
+  readonly selection_status: SourceCandidateSelectionStatus;
+  readonly capture_outcome: SourceCandidateCaptureOutcome;
+  readonly content_equivalence: SourceCandidateContentEquivalence;
+  readonly duplicate_of_candidate_id?: string;
+  readonly equivalent_content_of_candidate_id?: string;
+  readonly capture?: ArtifactReference<'source_capture'>;
+  readonly capture_disposition?: CaptureDisposition;
+  readonly capture_reason_codes?: readonly CaptureReasonCode[];
+  readonly content_digest?: string;
+}
+
+export interface SourceAcquisitionArtifact {
+  readonly schema_version: typeof PRODUCTION_SCHEMA_VERSION;
+  readonly artifact_kind: 'source_acquisition';
+  readonly id: string;
+  readonly intake: ProductIntakeReference;
+  readonly seed_capture: ArtifactReference<'source_capture'>;
+  readonly profile_binding?: SourceAcquisitionProfileBinding;
+  readonly officiality: SourceOfficiality;
+  readonly status: SourceAcquisitionStatus;
+  readonly candidates: readonly SourceAcquisitionCandidate[];
+  readonly unresolved_candidate_ids?: readonly string[];
+  readonly blocked_candidate_ids?: readonly string[];
+  readonly deterministic_snapshot: string;
 }
 
 export type CaptureDisposition = 'authoritative' | 'non_authoritative' | 'failed' | 'empty';
@@ -360,6 +449,77 @@ export const validateSourceCapture = (capture: SourceCaptureArtifact): readonly 
     capture.reason_codes?.some((reason) => rejectionReasons.has(reason))
   )
     issues.push('authoritative captures cannot carry content rejection reasons');
+  return issues;
+};
+
+export const validateSourceAcquisition = (
+  acquisition: SourceAcquisitionArtifact,
+): readonly string[] => {
+  const issues: string[] = [];
+  if (acquisition.artifact_kind !== 'source_acquisition')
+    issues.push('source acquisition artifact_kind must be source_acquisition');
+  if (!acquisition.seed_capture || acquisition.seed_capture.kind !== 'source_capture')
+    issues.push('source acquisition requires a source_capture seed reference');
+  if (!acquisition.deterministic_snapshot.startsWith(`${PRODUCTION_HASH_ALGORITHM}:`))
+    issues.push('source acquisition deterministic_snapshot must be a sha256 digest');
+  if (
+    acquisition.profile_binding &&
+    (!acquisition.profile_binding.profile_id ||
+      !acquisition.profile_binding.profile_schema_version ||
+      !acquisition.profile_binding.profile_digest.startsWith(`${PRODUCTION_HASH_ALGORITHM}:`))
+  )
+    issues.push('source acquisition profile_binding must identify a digest-bound reviewed profile');
+  const ids = acquisition.candidates.map((candidate) => candidate.id);
+  if (new Set(ids).size !== ids.length)
+    issues.push('source acquisition candidate IDs must be unique');
+  const candidateIds = new Set(ids);
+  acquisition.candidates.forEach((candidate) => {
+    if (
+      candidate.capture_outcome === 'not_attempted' &&
+      (candidate.capture !== undefined || candidate.capture_disposition !== undefined)
+    )
+      issues.push(`unattempted candidate '${candidate.id}' cannot carry capture evidence`);
+    if (
+      candidate.capture_outcome !== 'not_attempted' &&
+      (!candidate.capture || candidate.capture_disposition === undefined)
+    )
+      issues.push(`captured candidate '${candidate.id}' requires capture evidence`);
+    if (
+      candidate.capture_outcome === 'authoritative' &&
+      candidate.capture_disposition !== 'authoritative'
+    )
+      issues.push(`authoritative candidate '${candidate.id}' requires authoritative disposition`);
+    if (
+      candidate.capture_outcome === 'non_authoritative' &&
+      candidate.capture_disposition !== 'non_authoritative'
+    )
+      issues.push(
+        `non-authoritative candidate '${candidate.id}' requires non-authoritative disposition`,
+      );
+    if (
+      candidate.capture_outcome === 'failed' &&
+      candidate.capture_disposition !== 'failed' &&
+      candidate.capture_disposition !== 'empty'
+    )
+      issues.push(`failed candidate '${candidate.id}' requires failed or empty disposition`);
+    if (candidate.selection_status === 'duplicate_uri' && !candidate.duplicate_of_candidate_id)
+      issues.push(`duplicate candidate '${candidate.id}' requires a duplicate reference`);
+    if (
+      candidate.duplicate_of_candidate_id &&
+      !candidateIds.has(candidate.duplicate_of_candidate_id)
+    )
+      issues.push(`duplicate candidate '${candidate.id}' references an unknown candidate`);
+    if (
+      candidate.content_equivalence === 'equivalent' &&
+      !candidate.equivalent_content_of_candidate_id
+    )
+      issues.push(`equivalent candidate '${candidate.id}' requires an equivalence reference`);
+    if (
+      candidate.equivalent_content_of_candidate_id &&
+      !candidateIds.has(candidate.equivalent_content_of_candidate_id)
+    )
+      issues.push(`equivalent candidate '${candidate.id}' references an unknown candidate`);
+  });
   return issues;
 };
 
