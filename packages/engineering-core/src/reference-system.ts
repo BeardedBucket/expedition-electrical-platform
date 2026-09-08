@@ -52,6 +52,16 @@ export interface ComponentInstance {
   readonly source_refs?: readonly ReferenceSource[];
 }
 
+export interface InstalledTerminalRef {
+  readonly instance_id: string;
+  readonly terminal_id: string;
+}
+
+export interface InstalledPhysicalConnectorRef {
+  readonly instance_id: string;
+  readonly connector_id: string;
+}
+
 export interface ReferenceNode {
   readonly id: string;
   readonly kind: NodeKind;
@@ -65,8 +75,7 @@ export interface ReferenceNode {
   readonly source_refs?: readonly ReferenceSource[];
 }
 
-export type ConnectionEndpoint =
-  { readonly instance_id: string; readonly terminal_id: string } | { readonly node_id: string };
+export type ConnectionEndpoint = InstalledTerminalRef | { readonly node_id: string };
 
 export interface ReferenceConnection {
   readonly id: string;
@@ -178,6 +187,9 @@ export type ReferenceSystemIssueCode =
   | 'invalid_interaction_state'
   | 'invalid_interaction_medium'
   | 'invalid_interaction_binding_target'
+  | 'duplicate_physical_connector_id'
+  | 'invalid_physical_connector_association'
+  | 'invalid_physical_connector_reference'
   | 'missing_interaction_configuration'
   | 'invalid_interaction_configuration_target'
   | 'missing_interaction_relationship'

@@ -751,6 +751,45 @@
         "additionalProperties": false
       }
     },
+    "physical_connectors": {
+      "type": "array",
+      "description": "Stable product-local physical connector or socket instances. Missing means unknown or unmodeled.",
+      "items": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]+$" },
+          "designation": { "type": ["string", "null"] },
+          "type": { "type": ["string", "null"] },
+          "notes": { "type": ["string", "null"] }
+        },
+        "additionalProperties": false
+      }
+    },
+    "physical_connector_associations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "connector_id", "target"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]+$" },
+          "connector_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]+$" },
+          "target": {
+            "type": "object",
+            "required": ["kind", "id"],
+            "properties": {
+              "kind": {
+                "enum": ["interaction_endpoint", "terminal", "connection_point", "port"]
+              },
+              "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]+$" }
+            },
+            "additionalProperties": false
+          },
+          "notes": { "type": ["string", "null"] }
+        },
+        "additionalProperties": false
+      }
+    },
     "cad": {
       "type": "array",
       "items": {

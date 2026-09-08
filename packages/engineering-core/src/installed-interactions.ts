@@ -1,7 +1,8 @@
 import type { ComponentLibraryRecord } from './component-library.js';
 import type {
   ComponentInstance,
-  ConnectionEndpoint,
+  InstalledPhysicalConnectorRef,
+  InstalledTerminalRef,
   ReferenceConnection,
   ReferenceSource,
   ReferenceSystemIssue,
@@ -30,8 +31,9 @@ export interface InstalledInteractionParticipant {
 }
 
 export type InstalledInteractionPhysicalBindingTarget =
-  | { readonly connection_id: string }
-  | { readonly instance_id: string; readonly terminal_id: string };
+  | { readonly kind: 'terminal'; readonly terminal: InstalledTerminalRef }
+  | { readonly kind: 'connector'; readonly connector: InstalledPhysicalConnectorRef }
+  | { readonly kind: 'connection'; readonly connection_id: string };
 
 export interface InstalledInteractionBinding {
   readonly id: string;
@@ -118,11 +120,21 @@ const isEndpoint = (value: unknown): value is InstalledInteractionEndpointRef =>
 
 const isBindingTarget = (value: unknown): value is InstalledInteractionPhysicalBindingTarget =>
   isRecord(value) &&
-  ((typeof value.connection_id === 'string' && value.connection_id.length > 0) ||
-    (typeof value.instance_id === 'string' &&
-      value.instance_id.length > 0 &&
-      typeof value.terminal_id === 'string' &&
-      value.terminal_id.length > 0));
+  ((value.kind === 'connection' &&
+    typeof value.connection_id === 'string' &&
+    value.connection_id.length > 0) ||
+    (value.kind === 'terminal' &&
+      isRecord(value.terminal) &&
+      typeof value.terminal.instance_id === 'string' &&
+      value.terminal.instance_id.length > 0 &&
+      typeof value.terminal.terminal_id === 'string' &&
+      value.terminal.terminal_id.length > 0) ||
+    (value.kind === 'connector' &&
+      isRecord(value.connector) &&
+      typeof value.connector.instance_id === 'string' &&
+      value.connector.instance_id.length > 0 &&
+      typeof value.connector.connector_id === 'string' &&
+      value.connector.connector_id.length > 0));
 
 const addCollectionDuplicates = (
   issues: ReferenceSystemIssue[],
@@ -217,6 +229,75 @@ export const validateInstalledInteractionArchitecture = (
           'must be a non-empty string.',
         ),
       );
+  });
+
+  const connectorIdsFor = (instance: ComponentInstance) => {
+    const component = input.catalogById.get(instance.component_id);
+    return new Set(component?.physical_connectors?.map((connector) => connector.id) ?? []);
+  };
+  input.component_instances.forEach((instance) => {
+    const component = input.catalogById.get(instance.component_id);
+    if (!component) return;
+    const connectors = component.physical_connectors;
+    const connectorIds = new Set<string>();
+    connectors?.forEach((connector, connectorIndex) => {
+      if (typeof connector?.id !== 'string' || connector.id.length === 0) {
+        issues.push(
+          makeIssue(
+            'invalid_schema_value',
+            'invalid',
+            `catalog.${component.id}.physical_connectors[${connectorIndex}].id`,
+            'must be a non-empty string.',
+          ),
+        );
+      } else if (connectorIds.has(connector.id)) {
+        issues.push(
+          makeIssue(
+            'duplicate_physical_connector_id',
+            'invalid',
+            `catalog.${component.id}.physical_connectors[${connectorIndex}].id`,
+            `duplicate physical connector ID '${connector.id}'.`,
+          ),
+        );
+      } else {
+        connectorIds.add(connector.id);
+      }
+    });
+    const associationIds = new Set<string>();
+    component.physical_connector_associations?.forEach((association, associationIndex) => {
+      const target = association?.target;
+      const targetIds =
+        target?.kind === 'interaction_endpoint'
+          ? new Set(component.interaction_endpoints?.map((item) => item.id) ?? [])
+          : target?.kind === 'terminal'
+            ? new Set(component.terminals?.flatMap((item) => (item.id ? [item.id] : [])) ?? [])
+            : target?.kind === 'connection_point'
+              ? new Set(component.connection_points?.map((item) => item.id) ?? [])
+              : target?.kind === 'port'
+                ? new Set(component.ports?.map((item) => item.id) ?? [])
+                : undefined;
+      if (
+        typeof association?.id !== 'string' ||
+        association.id.length === 0 ||
+        associationIds.has(association.id) ||
+        typeof association.connector_id !== 'string' ||
+        !connectorIds.has(association.connector_id) ||
+        !targetIds ||
+        typeof target?.id !== 'string' ||
+        !targetIds.has(target.id)
+      ) {
+        issues.push(
+          makeIssue(
+            'invalid_physical_connector_association',
+            'invalid',
+            `catalog.${component.id}.physical_connector_associations[${associationIndex}]`,
+            'must reference an existing connector and supported product-local target.',
+          ),
+        );
+      } else {
+        associationIds.add(association.id);
+      }
+    });
   });
 
   const validateEndpoint = (endpoint: unknown, path: string) => {
@@ -424,7 +505,7 @@ export const validateInstalledInteractionArchitecture = (
           'must reference a connection or installed terminal.',
         ),
       );
-    } else if ('connection_id' in binding.target) {
+    } else if (binding.target.kind === 'connection') {
       if (!connectionIds.has(binding.target.connection_id))
         issues.push(
           makeIssue(
@@ -434,8 +515,32 @@ export const validateInstalledInteractionArchitecture = (
             `missing electrical connection '${binding.target.connection_id}'.`,
           ),
         );
-    } else if ('instance_id' in binding.target) {
-      const terminalTarget = binding.target;
+    } else if (binding.target.kind === 'connector') {
+      const connectorTarget = binding.target.connector;
+      const instance = input.component_instances.find(
+        (item) => item.id === connectorTarget.instance_id,
+      );
+      if (!instanceIds.has(connectorTarget.instance_id)) {
+        issues.push(
+          makeIssue(
+            'missing_interaction_reference',
+            'invalid',
+            `interaction_bindings[${index}].target.connector.instance_id`,
+            `missing installed component instance '${connectorTarget.instance_id}'.`,
+          ),
+        );
+      } else if (!instance || !connectorIdsFor(instance).has(connectorTarget.connector_id)) {
+        issues.push(
+          makeIssue(
+            'invalid_physical_connector_reference',
+            'invalid',
+            `interaction_bindings[${index}].target.connector.connector_id`,
+            `unknown physical connector '${connectorTarget.connector_id}'.`,
+          ),
+        );
+      }
+    } else {
+      const terminalTarget = binding.target.terminal;
       const instance = input.component_instances.find(
         (item) => item.id === terminalTarget.instance_id,
       );
@@ -444,7 +549,7 @@ export const validateInstalledInteractionArchitecture = (
           makeIssue(
             'missing_interaction_reference',
             'invalid',
-            `interaction_bindings[${index}].target.instance_id`,
+            `interaction_bindings[${index}].target.terminal.instance_id`,
             `missing installed component instance '${terminalTarget.instance_id}'.`,
           ),
         );
@@ -457,7 +562,7 @@ export const validateInstalledInteractionArchitecture = (
           makeIssue(
             'invalid_terminal_reference',
             'invalid',
-            `interaction_bindings[${index}].target.terminal_id`,
+            `interaction_bindings[${index}].target.terminal.terminal_id`,
             `unknown terminal '${terminalTarget.terminal_id}'.`,
           ),
         );

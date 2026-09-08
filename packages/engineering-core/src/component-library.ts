@@ -258,6 +258,26 @@ export interface ComponentInteractionEndpoint {
   readonly notes?: string | null;
 }
 
+export interface ComponentPhysicalConnector {
+  readonly id: string;
+  readonly designation?: string | null;
+  readonly type?: string | null;
+  readonly notes?: string | null;
+}
+
+export type ComponentPhysicalConnectorAssociationTargetKind =
+  'interaction_endpoint' | 'terminal' | 'connection_point' | 'port';
+
+export interface ComponentPhysicalConnectorAssociation {
+  readonly id: string;
+  readonly connector_id: string;
+  readonly target: {
+    readonly kind: ComponentPhysicalConnectorAssociationTargetKind;
+    readonly id: string;
+  };
+  readonly notes?: string | null;
+}
+
 export interface ComponentLibraryServiceClearancesMm {
   /** Legacy directional keys are retained for compatibility; geometry uses local face keys. */
   readonly front?: number | null;
@@ -326,6 +346,8 @@ export interface ComponentLibraryRecord {
   readonly orientation_constraint?: OrientationConstraint | null;
   readonly interfaces?: readonly string[];
   readonly interaction_endpoints?: readonly ComponentInteractionEndpoint[];
+  readonly physical_connectors?: readonly ComponentPhysicalConnector[];
+  readonly physical_connector_associations?: readonly ComponentPhysicalConnectorAssociation[];
   readonly required_accessories?: ReadonlyArray<string | ComponentRequirementRef>;
   readonly required_converters?: ReadonlyArray<string | ComponentRequirementRef>;
   readonly advisory_refs?: readonly ComponentLibraryAdvisoryReference[];

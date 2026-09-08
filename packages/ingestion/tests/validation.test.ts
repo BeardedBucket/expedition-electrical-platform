@@ -378,6 +378,57 @@ describe('topology evidence contracts', () => {
     });
   });
 
+  it('accepts stable physical connector targets without inferring protocol semantics', () => {
+    const connectorFact = fact({
+      id: 'example.physical.connector',
+      field: 'physical_connectors',
+      topology_target: { kind: 'physical_connector', id: 'can-1' },
+    });
+
+    const connectorCandidate = candidate({
+      component_data: {
+        physical_connectors: [{ id: 'can-1', type: 'source-backed description' }],
+      },
+      topology_evidence: {
+        'physical_connector:can-1': [connectorFact.id],
+      },
+      fact_ids: [connectorFact.id],
+      field_evidence: { physical_connectors: [connectorFact.id] },
+      promotion_status: 'review_required',
+      review_status: 'pending',
+    });
+
+    expect(validateProductFacts([connectorFact], [source()])).toMatchObject({
+      status: 'valid',
+      ok: true,
+    });
+    expect(validateProductCandidate(connectorCandidate, [source()], [connectorFact])).toMatchObject(
+      {
+        status: 'valid',
+        ok: true,
+      },
+    );
+  });
+
+  it('keeps connector and connector-association targets distinct', () => {
+    const connector = fact({
+      id: 'example.connector',
+      topology_target: { kind: 'physical_connector', id: 'can-1' },
+    });
+    const association = fact({
+      id: 'example.association',
+      topology_target: {
+        kind: 'physical_connector_association',
+        id: 'can-1-to-can',
+      },
+      source_locator: { page: 2 },
+    });
+    expect(validateProductFacts([connector, association], [source()])).toMatchObject({
+      status: 'valid',
+      ok: true,
+    });
+  });
+
   it('rejects unknown topology ids, wrong kinds, and array-index identity', () => {
     const invalidFact = fact({
       id: 'example.invalid.target',

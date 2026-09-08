@@ -92,7 +92,9 @@ export type CanonicalTopologyKind =
   | 'switching_configuration'
   | 'protection_instance'
   | 'measurement_instance'
-  | 'interaction_endpoint';
+  | 'interaction_endpoint'
+  | 'physical_connector'
+  | 'physical_connector_association';
 
 export interface CanonicalTopologyAddOperation {
   readonly operation: 'add';
@@ -343,6 +345,8 @@ const topologyCollection = {
   protection_instance: 'protection.instances',
   measurement_instance: 'measurement.instances',
   interaction_endpoint: 'interaction_endpoints',
+  physical_connector: 'physical_connectors',
+  physical_connector_association: 'physical_connector_associations',
 } as const;
 
 const topologyTargetKey = (kind: CanonicalTopologyKind, id: string): string => `${kind}:${id}`;
@@ -354,6 +358,12 @@ const validateProposedTopology = (proposal: JsonObject): CanonicalAmendmentIssue
   const paths = Array.isArray(proposal.power_paths) ? proposal.power_paths : undefined;
   const connectionPoints = Array.isArray(proposal.connection_points)
     ? proposal.connection_points
+    : undefined;
+  const physicalConnectors = Array.isArray(proposal.physical_connectors)
+    ? proposal.physical_connectors
+    : undefined;
+  const physicalConnectorAssociations = Array.isArray(proposal.physical_connector_associations)
+    ? proposal.physical_connector_associations
     : undefined;
   const conductiveRelationships = Array.isArray(proposal.conductive_relationships)
     ? proposal.conductive_relationships
@@ -380,6 +390,8 @@ const validateProposedTopology = (proposal: JsonObject): CanonicalAmendmentIssue
   );
   const pathIds = ids(paths);
   const connectionPointIds = ids(connectionPoints);
+  const physicalConnectorIds = ids(physicalConnectors);
+  const physicalConnectorAssociationIds = ids(physicalConnectorAssociations);
   const conductiveRelationshipIds = ids(conductiveRelationships);
   const portIds = ids(ports);
   const switching = proposal.switching;
@@ -428,6 +440,82 @@ const validateProposedTopology = (proposal: JsonObject): CanonicalAmendmentIssue
       ),
     );
   }
+  if (physicalConnectors && physicalConnectorIds.size !== physicalConnectors.length) {
+    issues.push(
+      issue(
+        'amendment_topology_duplicate_id',
+        'physical_connectors',
+        'Physical connector IDs must be unique.',
+      ),
+    );
+  }
+  if (
+    physicalConnectorAssociations &&
+    physicalConnectorAssociationIds.size !== physicalConnectorAssociations.length
+  ) {
+    issues.push(
+      issue(
+        'amendment_topology_duplicate_id',
+        'physical_connector_associations',
+        'Physical connector association IDs must be unique.',
+      ),
+    );
+  }
+  (physicalConnectorAssociations ?? []).forEach((item, index) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return;
+    const connectorId = item.connector_id;
+    const target = item.target;
+    const targetKind =
+      target && typeof target === 'object' && !Array.isArray(target) ? target.kind : undefined;
+    const targetId =
+      target && typeof target === 'object' && !Array.isArray(target) ? target.id : undefined;
+    const targetIds =
+      targetKind === 'interaction_endpoint'
+        ? new Set(
+            (Array.isArray(proposal.interaction_endpoints)
+              ? proposal.interaction_endpoints
+              : []
+            ).flatMap((value) =>
+              value &&
+              typeof value === 'object' &&
+              !Array.isArray(value) &&
+              typeof value.id === 'string'
+                ? [value.id]
+                : [],
+            ),
+          )
+        : targetKind === 'terminal'
+          ? new Set(
+              (Array.isArray(proposal.terminals) ? proposal.terminals : []).flatMap((value) =>
+                value &&
+                typeof value === 'object' &&
+                !Array.isArray(value) &&
+                typeof value.id === 'string'
+                  ? [value.id]
+                  : [],
+              ),
+            )
+          : targetKind === 'connection_point'
+            ? connectionPointIds
+            : targetKind === 'port'
+              ? portIds
+              : undefined;
+    if (
+      typeof connectorId !== 'string' ||
+      !physicalConnectorIds.has(connectorId) ||
+      !targetIds ||
+      typeof targetId !== 'string' ||
+      !targetIds.has(targetId)
+    ) {
+      issues.push(
+        issue(
+          'amendment_topology_invalid_reference',
+          `physical_connector_associations[${index}]`,
+          'Physical connector association must reference an existing connector and supported target.',
+        ),
+      );
+    }
+  });
   if (
     conductiveRelationships &&
     conductiveRelationshipIds.size !== conductiveRelationships.length

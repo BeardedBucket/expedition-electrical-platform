@@ -82,6 +82,8 @@ export const topologyTargetFromKey = (value: string): TopologyTarget | undefined
       'protection_instance',
       'measurement_instance',
       'interaction_endpoint',
+      'physical_connector',
+      'physical_connector_association',
     ].includes(kind)
   )
     return undefined;
@@ -115,6 +117,8 @@ const validateTopologyTargetShape = (
       'protection_instance',
       'measurement_instance',
       'interaction_endpoint',
+      'physical_connector',
+      'physical_connector_association',
     ].includes(target.kind)
   ) {
     issues.push(
@@ -122,7 +126,7 @@ const validateTopologyTargetShape = (
         'topology_target_invalid',
         'invalid',
         path,
-        'Topology target kind must be capability, port, power_path, connection_point, conductive_relationship, switching_configuration, protection_instance, measurement_instance, or interaction_endpoint.',
+        'Topology target kind must be capability, port, power_path, connection_point, conductive_relationship, switching_configuration, protection_instance, measurement_instance, interaction_endpoint, physical_connector, or physical_connector_association.',
       ),
     );
   }
@@ -174,6 +178,8 @@ const validateTopologyTargetShape = (
     protection_instance: 'protection.instances',
     measurement_instance: 'measurement.instances',
     interaction_endpoint: 'interaction_endpoints',
+    physical_connector: 'physical_connectors',
+    physical_connector_association: 'physical_connector_associations',
   } as const;
   const containerName = refs[target.kind as keyof typeof refs];
   const values = containerName

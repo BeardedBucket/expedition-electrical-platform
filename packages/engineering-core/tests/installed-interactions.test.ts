@@ -4,6 +4,9 @@ import addFormats from 'ajv-formats';
 import {
   validateReferenceSystem,
   type ComponentLibraryRecord,
+  type ConnectionEndpoint,
+  type ComponentPhysicalConnector,
+  type InstalledTerminalRef,
   type ReferenceSystem,
 } from '../src/index.js';
 import referenceSystemSchema from '../../../data/schemas/reference-system.schema.json' with { type: 'json' };
@@ -16,6 +19,10 @@ const components: ComponentLibraryRecord[] = [
     category: 'monitor',
     verification_status: 'unverified',
     terminals: [{ id: 'connector', function: 'communication' }],
+    physical_connectors: [
+      { id: 'bus-1', type: 'RJ45', notes: 'Equivalent bus socket' },
+      { id: 'bus-2', type: 'RJ45', notes: 'Equivalent bus socket' },
+    ],
     interaction_endpoints: [
       { id: 'bus', kind: 'communication' },
       { id: 'control', kind: 'control' },
@@ -161,7 +168,10 @@ describe('installed interaction architecture validation', () => {
         {
           id: 'physical-binding',
           endpoint: endpoint('device-a'),
-          target: { instance_id: 'device-a', terminal_id: 'connector' },
+          target: {
+            kind: 'terminal',
+            terminal: { instance_id: 'device-a', terminal_id: 'connector' },
+          },
         },
       ],
       interaction_relationships: [
@@ -232,17 +242,28 @@ describe('installed interaction architecture validation', () => {
   });
 
   it('supports optional logical-to-physical bindings and shared physical connectors', () => {
+    const sharedTerminal: InstalledTerminalRef = {
+      instance_id: 'device-a',
+      terminal_id: 'connector',
+    };
+    const electricalEndpoint: ConnectionEndpoint = sharedTerminal;
     const system = baseSystem({
       interaction_bindings: [
         {
           id: 'binding-a',
           endpoint: endpoint('device-a'),
-          target: { instance_id: 'device-a', terminal_id: 'connector' },
+          target: {
+            kind: 'terminal',
+            terminal: electricalEndpoint,
+          },
         },
         {
           id: 'binding-b',
           endpoint: endpoint('device-b'),
-          target: { instance_id: 'device-a', terminal_id: 'connector' },
+          target: {
+            kind: 'terminal',
+            terminal: { instance_id: 'device-a', terminal_id: 'connector' },
+          },
         },
       ],
     });
@@ -263,12 +284,116 @@ describe('installed interaction architecture validation', () => {
         {
           id: 'connection-binding',
           endpoint: endpoint('device-a'),
-          target: { connection_id: 'physical-link' },
+          target: { kind: 'connection', connection_id: 'physical-link' },
         },
       ],
     });
     expect(validateReferenceSystem(system, { components }).ok).toBe(true);
     expect(validateSchema(system)).toBe(true);
+  });
+
+  it('keeps whole-connection association distinct from terminal endpoint identity', () => {
+    const system = baseSystem({
+      connections: [
+        {
+          id: 'physical-link',
+          from: { instance_id: 'device-a', terminal_id: 'connector' },
+          to: { instance_id: 'device-b', terminal_id: 'connector' },
+          status: 'installed',
+        },
+      ],
+      interaction_bindings: [
+        {
+          id: 'whole-link-association',
+          endpoint: endpoint('device-a'),
+          target: { kind: 'connection', connection_id: 'physical-link' },
+        },
+      ],
+    });
+    expect(validateReferenceSystem(system, { components }).ok).toBe(true);
+    expect(system.interaction_bindings?.[0]?.target).toEqual({
+      kind: 'connection',
+      connection_id: 'physical-link',
+    });
+  });
+
+  it('rejects node and artifact binding targets because they have no G6 physical endpoint semantics', () => {
+    const result = validateReferenceSystem(
+      baseSystem({
+        artifacts: [{ id: 'field-cable-1', kind: 'cable' }],
+        interaction_bindings: [
+          {
+            id: 'node-binding',
+            endpoint: endpoint('device-a'),
+            target: { kind: 'node', node_id: 'bus' } as never,
+          },
+          {
+            id: 'artifact-binding',
+            endpoint: endpoint('device-b'),
+            target: { kind: 'artifact', artifact_id: 'field-cable-1' } as never,
+          },
+        ],
+      }),
+      { components },
+    );
+    expect(
+      result.issues.filter((issue) => issue.code === 'invalid_interaction_binding_target'),
+    ).toHaveLength(2);
+  });
+
+  it('supports multiple physical terminal contacts without inventing contact identity', () => {
+    const system = baseSystem({
+      interaction_bindings: [
+        {
+          id: 'contact-a',
+          endpoint: endpoint('device-a'),
+          target: {
+            kind: 'terminal',
+            terminal: { instance_id: 'device-a', terminal_id: 'connector' },
+          },
+        },
+        {
+          id: 'contact-b',
+          endpoint: endpoint('device-a'),
+          target: {
+            kind: 'terminal',
+            terminal: { instance_id: 'device-b', terminal_id: 'connector' },
+          },
+        },
+      ],
+    });
+    expect(validateReferenceSystem(system, { components }).ok).toBe(true);
+  });
+
+  it('allows one physical electrical identity to be shared by power and data layers', () => {
+    const system = baseSystem({
+      connections: [
+        {
+          id: 'power-and-data-link',
+          from: { instance_id: 'device-a', terminal_id: 'connector' },
+          to: { instance_id: 'device-b', terminal_id: 'connector' },
+          domain: 'dc',
+          status: 'installed',
+        },
+      ],
+      interaction_relationships: [
+        {
+          id: 'data-over-link',
+          kind: 'direct',
+          participants: [{ endpoint: endpoint('device-a') }, { endpoint: endpoint('device-b') }],
+          state: 'connected',
+          medium: 'wired',
+        },
+      ],
+      interaction_bindings: [
+        {
+          id: 'data-link-binding',
+          endpoint: endpoint('device-a'),
+          target: { kind: 'connection', connection_id: 'power-and-data-link' },
+        },
+      ],
+    });
+    expect(validateReferenceSystem(system, { components }).ok).toBe(true);
   });
 
   it('rejects cross-type ID collisions and dangling interaction references', () => {
@@ -379,5 +504,104 @@ describe('installed interaction architecture validation', () => {
     const first = validateReferenceSystem(system, { components });
     const second = validateReferenceSystem(structuredClone(system), { components });
     expect(first.issues).toEqual(second.issues);
+  });
+
+  it('models repeated equivalent physical connectors with stable product-local IDs', () => {
+    const connector: ComponentPhysicalConnector = {
+      id: 'hub-1',
+      type: 'network-socket',
+    };
+    const repeatedComponent: ComponentLibraryRecord = {
+      ...components[0],
+      id: 'synthetic.hub',
+      physical_connectors: [
+        connector,
+        { ...connector, id: 'hub-2' },
+        { ...connector, id: 'hub-3' },
+      ],
+      physical_connector_associations: [
+        {
+          id: 'hub-1-bus',
+          connector_id: 'hub-1',
+          target: { kind: 'interaction_endpoint', id: 'bus' },
+        },
+        {
+          id: 'hub-2-bus',
+          connector_id: 'hub-2',
+          target: { kind: 'interaction_endpoint', id: 'bus' },
+        },
+        {
+          id: 'hub-3-bus',
+          connector_id: 'hub-3',
+          target: { kind: 'interaction_endpoint', id: 'bus' },
+        },
+      ],
+    };
+    const system = baseSystem({
+      component_instances: [
+        { id: 'hub-a', component_id: repeatedComponent.id, status: 'installed' },
+        { id: 'hub-b', component_id: repeatedComponent.id, status: 'installed' },
+      ],
+      interaction_bindings: [
+        {
+          id: 'hub-a-connector-1',
+          endpoint: endpoint('hub-a'),
+          target: { kind: 'connector', connector: { instance_id: 'hub-a', connector_id: 'hub-1' } },
+        },
+        {
+          id: 'hub-a-connector-2',
+          endpoint: endpoint('hub-a'),
+          target: { kind: 'connector', connector: { instance_id: 'hub-a', connector_id: 'hub-2' } },
+        },
+        {
+          id: 'hub-b-connector-1',
+          endpoint: endpoint('hub-b'),
+          target: { kind: 'connector', connector: { instance_id: 'hub-b', connector_id: 'hub-1' } },
+        },
+      ],
+    });
+    expect(
+      validateReferenceSystem(system, { components: [...components, repeatedComponent] }).ok,
+    ).toBe(true);
+    expect(system.interaction_bindings?.[0]?.target).not.toEqual(
+      system.interaction_bindings?.[1]?.target,
+    );
+  });
+
+  it('rejects duplicate and dangling physical connector references', () => {
+    const malformed: ComponentLibraryRecord = {
+      ...components[0],
+      id: 'synthetic.malformed',
+      physical_connectors: [{ id: 'duplicate' }, { id: 'duplicate' }],
+      physical_connector_associations: [
+        {
+          id: 'dangling',
+          connector_id: 'missing',
+          target: { kind: 'interaction_endpoint', id: 'bus' },
+        },
+      ],
+    };
+    const system = baseSystem({
+      component_instances: [{ id: 'malformed', component_id: malformed.id, status: 'installed' }],
+      interaction_bindings: [
+        {
+          id: 'missing-connector',
+          endpoint: endpoint('malformed'),
+          target: {
+            kind: 'connector',
+            connector: { instance_id: 'malformed', connector_id: 'missing' },
+          },
+        },
+      ],
+    });
+    const result = validateReferenceSystem(system, { components: [...components, malformed] });
+    expect(result.ok).toBe(false);
+    expect(result.issues.map((issue) => issue.code)).toEqual(
+      expect.arrayContaining([
+        'duplicate_physical_connector_id',
+        'invalid_physical_connector_association',
+        'invalid_physical_connector_reference',
+      ]),
+    );
   });
 });
