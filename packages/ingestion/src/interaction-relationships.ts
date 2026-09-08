@@ -27,6 +27,8 @@ export type {
   InteractionApplicability,
   InteractionPrerequisite,
   InteractionInformationClaimV2,
+  InteractionInformationDistribution,
+  InteractionControlClaim,
   InteractionEvidenceApplicabilityScope,
   InteractionInformationClaim,
   InteractionParticipantReferenceResolver,

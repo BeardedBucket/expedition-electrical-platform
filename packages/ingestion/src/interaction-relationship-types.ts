@@ -178,9 +178,39 @@ export interface InteractionInformationClaim {
 }
 
 export interface InteractionInformationClaimV2 {
+  readonly id: string;
   readonly direction: 'exposes' | 'consumes';
   readonly participant_id: string;
   readonly term: string;
+  readonly raw_wording?: string;
+}
+
+export type InteractionInformationDistribution =
+  | {
+      readonly id: string;
+      readonly kind: 'explicit_consumers';
+      readonly source_claim_id: string;
+      readonly consumer_claim_ids: readonly string[];
+      readonly source_ids: readonly string[];
+      readonly fact_ids: readonly string[];
+      readonly raw_wording?: string;
+    }
+  | {
+      readonly id: string;
+      readonly kind: 'shared_publication';
+      readonly source_claim_id: string;
+      readonly source_ids: readonly string[];
+      readonly fact_ids: readonly string[];
+      readonly raw_wording?: string;
+    };
+
+export interface InteractionControlClaim {
+  readonly id: string;
+  readonly controller_participant_id: string;
+  readonly target_participant_id: string;
+  readonly action: string;
+  readonly source_ids: readonly string[];
+  readonly fact_ids: readonly string[];
   readonly raw_wording?: string;
 }
 
@@ -208,6 +238,8 @@ export interface InteractionRelationship {
   readonly scope: InteractionRelationshipScope;
   readonly information?: readonly InteractionInformationClaim[];
   readonly normalized_information?: readonly InteractionInformationClaimV2[];
+  readonly information_distributions?: readonly InteractionInformationDistribution[];
+  readonly control_claims?: readonly InteractionControlClaim[];
   readonly conditions?: readonly InteractionRelationshipCondition[];
   readonly applicability?: readonly InteractionApplicability[];
   readonly prerequisites?: readonly InteractionPrerequisite[];
@@ -236,6 +268,14 @@ export interface InteractionRelationshipValidationIssue {
     | 'invalid_participant_id'
     | 'invalid_normalized_reference'
     | 'invalid_normalized_information_ref'
+    | 'missing_normalized_information_id'
+    | 'duplicate_normalized_information_id'
+    | 'invalid_information_distribution'
+    | 'duplicate_information_distribution_id'
+    | 'invalid_information_distribution_ref'
+    | 'duplicate_information_distribution_consumer_id'
+    | 'invalid_control_claim'
+    | 'duplicate_control_claim_id'
     | 'invalid_applicability_ref'
     | 'duplicate_applicability_id'
     | 'invalid_prerequisite_ref'

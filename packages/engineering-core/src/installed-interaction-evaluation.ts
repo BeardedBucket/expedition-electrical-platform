@@ -155,9 +155,28 @@ export interface ReviewedInteractionRelationship {
   readonly state: ReviewedInteractionState;
   readonly normalized_participants: readonly ReviewedInteractionParticipant[];
   readonly normalized_information?: readonly {
+    readonly id: string;
     readonly direction: 'exposes' | 'consumes';
     readonly participant_id: string;
     readonly term: string;
+  }[];
+  readonly information_distributions?: readonly {
+    readonly id: string;
+    readonly kind: 'explicit_consumers' | 'shared_publication';
+    readonly source_claim_id: string;
+    readonly consumer_claim_ids?: readonly string[];
+    readonly source_ids: readonly string[];
+    readonly fact_ids: readonly string[];
+    readonly raw_wording?: string;
+  }[];
+  readonly control_claims?: readonly {
+    readonly id: string;
+    readonly controller_participant_id: string;
+    readonly target_participant_id: string;
+    readonly action: string;
+    readonly source_ids: readonly string[];
+    readonly fact_ids: readonly string[];
+    readonly raw_wording?: string;
   }[];
   readonly applicability?: readonly ReviewedInteractionApplicability[];
   readonly prerequisites?: readonly ReviewedInteractionPrerequisite[];

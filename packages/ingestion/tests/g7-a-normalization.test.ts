@@ -32,7 +32,9 @@ const normalized = (overrides: Partial<InteractionRelationship> = {}): Interacti
     },
   ],
   scope: 'exact_product',
-  normalized_information: [{ direction: 'exposes', participant_id: 'producer', term: 'voltage' }],
+  normalized_information: [
+    { id: 'claim.voltage', direction: 'exposes', participant_id: 'producer', term: 'voltage' },
+  ],
   evidence: {
     source_ids: ['source.g7a'],
     fact_ids: ['fact.g7a'],
@@ -90,7 +92,12 @@ describe('G7-A canonical reviewed interaction normalization', () => {
               },
             ],
             normalized_information: [
-              { direction: 'exposes', participant_id: 'external', term: 'voltage' },
+              {
+                id: 'claim.voltage',
+                direction: 'exposes',
+                participant_id: 'external',
+                term: 'voltage',
+              },
             ],
           }),
         ],
@@ -126,7 +133,12 @@ describe('G7-A canonical reviewed interaction normalization', () => {
             { direction: 'exposes', participant_ref: 'missing-legacy-ref', term: 'legacy' },
           ],
           normalized_information: [
-            { direction: 'exposes', participant_id: 'producer', term: 'canonical' },
+            {
+              id: 'claim.canonical',
+              direction: 'exposes',
+              participant_id: 'producer',
+              term: 'canonical',
+            },
           ],
         }),
       ],
@@ -158,11 +170,179 @@ describe('G7-A canonical reviewed interaction normalization', () => {
     expect(validateInteractionRelationships([normalized()], validOptions).ok).toBe(true);
   });
 
+  it('requires stable information claim IDs and rejects duplicate IDs', () => {
+    const missingId = normalized({
+      normalized_information: [
+        { direction: 'exposes', participant_id: 'producer', term: 'voltage' },
+      ],
+    });
+    const duplicateIds = normalized({
+      normalized_information: [
+        { id: 'claim.voltage', direction: 'exposes', participant_id: 'producer', term: 'voltage' },
+        { id: 'claim.voltage', direction: 'consumes', participant_id: 'consumer', term: 'voltage' },
+      ] as unknown as InteractionRelationship['normalized_information'],
+    });
+    expect(validateInteractionRelationships([missingId], validOptions).issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'missing_normalized_information_id' }),
+      ]),
+    );
+    expect(validateInteractionRelationships([duplicateIds], validOptions).issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'duplicate_normalized_information_id' }),
+      ]),
+    );
+  });
+
+  it('validates explicit information distribution without synthesizing consumers', () => {
+    const relationship = normalized({
+      normalized_information: [
+        { id: 'claim.source', direction: 'exposes', participant_id: 'producer', term: 'voltage' },
+        {
+          id: 'claim.consumer',
+          direction: 'consumes',
+          participant_id: 'consumer',
+          term: 'voltage',
+        },
+      ] as unknown as InteractionRelationship['normalized_information'],
+      information_distributions: [
+        {
+          id: 'distribution.link',
+          kind: 'explicit_consumers',
+          source_claim_id: 'claim.source',
+          consumer_claim_ids: ['claim.consumer'],
+          source_ids: ['source.g7a'],
+          fact_ids: ['fact.g7a'],
+        },
+      ],
+    } as unknown as InteractionRelationship);
+    expect(validateInteractionRelationships([relationship], validOptions).ok).toBe(true);
+    expect(relationship.information_distributions).toHaveLength(1);
+  });
+
+  it('accepts shared publication without enumerated consumers', () => {
+    const relationship = normalized({
+      normalized_information: [
+        { id: 'claim.source', direction: 'exposes', participant_id: 'producer', term: 'voltage' },
+      ] as unknown as InteractionRelationship['normalized_information'],
+      information_distributions: [
+        {
+          id: 'distribution.shared',
+          kind: 'shared_publication',
+          source_claim_id: 'claim.source',
+          source_ids: ['source.g7a'],
+          fact_ids: ['fact.g7a'],
+        },
+      ],
+    } as unknown as InteractionRelationship);
+    expect(validateInteractionRelationships([relationship], validOptions).ok).toBe(true);
+  });
+
+  it('validates structured control claims independently of information claims', () => {
+    const relationship = normalized({
+      control_claims: [
+        {
+          id: 'control.limit',
+          controller_participant_id: 'producer',
+          target_participant_id: 'consumer',
+          action: 'set_charge_limit',
+          source_ids: ['source.g7a'],
+          fact_ids: ['fact.g7a'],
+        },
+      ],
+    } as unknown as InteractionRelationship);
+    expect(validateInteractionRelationships([relationship], validOptions).ok).toBe(true);
+  });
+
+  it('rejects invalid distribution and control references deterministically', () => {
+    const base = normalized({
+      normalized_information: [
+        { id: 'claim.source', direction: 'exposes', participant_id: 'producer', term: 'voltage' },
+        {
+          id: 'claim.consumer',
+          direction: 'consumes',
+          participant_id: 'consumer',
+          term: 'current',
+        },
+      ] as unknown as InteractionRelationship['normalized_information'],
+      information_distributions: [
+        {
+          id: 'distribution.invalid',
+          kind: 'explicit_consumers',
+          source_claim_id: 'claim.missing',
+          consumer_claim_ids: ['claim.consumer', 'claim.consumer'],
+          source_ids: ['source.g7a'],
+          fact_ids: ['fact.g7a'],
+        },
+      ],
+      control_claims: [
+        {
+          id: 'control.invalid',
+          controller_participant_id: 'missing',
+          target_participant_id: 'consumer',
+          action: '',
+          source_ids: ['source.g7a'],
+          fact_ids: ['fact.g7a'],
+        },
+        {
+          id: 'control.invalid',
+          controller_participant_id: 'producer',
+          target_participant_id: 'consumer',
+          action: 'set_limit',
+          source_ids: ['source.g7a'],
+          fact_ids: ['fact.g7a'],
+        },
+      ],
+    } as unknown as InteractionRelationship);
+    const result = validateInteractionRelationships([base], validOptions);
+    expect(result.issues.map((issue) => issue.code)).toEqual([
+      'invalid_information_distribution_ref',
+      'duplicate_information_distribution_consumer_id',
+      'invalid_control_claim',
+      'invalid_control_claim',
+      'duplicate_control_claim_id',
+    ]);
+  });
+
+  it('preserves local IDs and new facts in canonical snapshots', () => {
+    const relationship = normalized({
+      normalized_information: [
+        { id: 'claim.source', direction: 'exposes', participant_id: 'producer', term: 'voltage' },
+      ] as unknown as InteractionRelationship['normalized_information'],
+      information_distributions: [
+        {
+          id: 'distribution.shared',
+          kind: 'shared_publication',
+          source_claim_id: 'claim.source',
+          source_ids: ['source.g7a'],
+          fact_ids: ['fact.g7a'],
+        },
+      ],
+      control_claims: [
+        {
+          id: 'control.limit',
+          controller_participant_id: 'producer',
+          target_participant_id: 'consumer',
+          action: 'set_limit',
+          source_ids: ['source.g7a'],
+          fact_ids: ['fact.g7a'],
+        },
+      ],
+    } as unknown as InteractionRelationship);
+    const snapshot = canonicalInteractionRelationshipSnapshot(relationship);
+    expect(snapshot).toMatch(/^sha256:[0-9a-f]{64}$/);
+    expect(JSON.stringify(relationship)).toContain('claim.source');
+    expect(JSON.stringify(relationship)).toContain('distribution.shared');
+    expect(JSON.stringify(relationship)).toContain('control.limit');
+  });
+
   it('rejects dangling information participant IDs', () => {
     const result = validateInteractionRelationships(
       [
         normalized({
-          normalized_information: [{ direction: 'exposes', participant_id: 'missing', term: 'x' }],
+          normalized_information: [
+            { id: 'claim.missing', direction: 'exposes', participant_id: 'missing', term: 'x' },
+          ],
         }),
       ],
       validOptions,
@@ -471,7 +651,37 @@ describe('G7-A canonical reviewed interaction normalization', () => {
   });
 
   it('keeps normalized data deterministic through reviewed promotion', () => {
-    const current = normalized();
+    const current = normalized({
+      normalized_information: [
+        { id: 'claim.voltage', direction: 'exposes', participant_id: 'producer', term: 'voltage' },
+        {
+          id: 'claim.consumer',
+          direction: 'consumes',
+          participant_id: 'consumer',
+          term: 'voltage',
+        },
+      ],
+      information_distributions: [
+        {
+          id: 'distribution.voltage',
+          kind: 'explicit_consumers',
+          source_claim_id: 'claim.voltage',
+          consumer_claim_ids: ['claim.consumer'],
+          source_ids: ['source.g7a'],
+          fact_ids: ['fact.g7a'],
+        },
+      ],
+      control_claims: [
+        {
+          id: 'control.limit',
+          controller_participant_id: 'producer',
+          target_participant_id: 'consumer',
+          action: 'set_limit',
+          source_ids: ['source.g7a'],
+          fact_ids: ['fact.g7a'],
+        },
+      ],
+    });
     const result = proposeCanonicalInteractionRelationship({
       current,
       review: {
@@ -491,6 +701,9 @@ describe('G7-A canonical reviewed interaction normalization', () => {
     });
     expect(result.status).toBe('proposed');
     expect(result.proposal?.normalized_participants).toEqual(current.normalized_participants);
+    expect(result.proposal?.normalized_information).toEqual(current.normalized_information);
+    expect(result.proposal?.information_distributions).toEqual(current.information_distributions);
+    expect(result.proposal?.control_claims).toEqual(current.control_claims);
   });
 
   it('requires canonical reference validation before reviewed promotion', () => {

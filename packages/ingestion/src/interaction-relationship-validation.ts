@@ -144,14 +144,144 @@ export const validateInteractionRelationships = (
       }
     });
     const normalizedInformation = relationship.normalized_information ?? [];
+    const normalizedInformationIds = new Set<string>();
     normalizedInformation.forEach((claim, claimIndex) => {
+      const claimPath = `${path}.normalized_information[${claimIndex}]`;
+      if (typeof claim.id !== 'string' || !claim.id.trim()) {
+        issues.push(
+          issue(
+            'missing_normalized_information_id',
+            `${claimPath}.id`,
+            'Normalized information claim id is required.',
+          ),
+        );
+      } else if (normalizedInformationIds.has(claim.id)) {
+        issues.push(
+          issue(
+            'duplicate_normalized_information_id',
+            `${claimPath}.id`,
+            `Information claim id '${claim.id}' is duplicated.`,
+          ),
+        );
+      } else {
+        normalizedInformationIds.add(claim.id);
+      }
       if (!normalizedIds.has(claim.participant_id)) {
         issues.push(
           issue(
             'invalid_normalized_information_ref',
-            `${path}.normalized_information[${claimIndex}].participant_id`,
+            `${claimPath}.participant_id`,
             `Information participant '${claim.participant_id}' is not a normalized participant.`,
           ),
+        );
+      }
+    });
+    const claimsById = new Map(normalizedInformation.map((claim) => [claim.id, claim]));
+    const distributionIds = new Set<string>();
+    (relationship.information_distributions ?? []).forEach((distribution, distributionIndex) => {
+      const distributionPath = `${path}.information_distributions[${distributionIndex}]`;
+      if (!distribution.id.trim()) {
+        issues.push(
+          issue(
+            'invalid_information_distribution',
+            `${distributionPath}.id`,
+            'Information distribution id is required.',
+          ),
+        );
+      } else if (distributionIds.has(distribution.id)) {
+        issues.push(
+          issue(
+            'duplicate_information_distribution_id',
+            `${distributionPath}.id`,
+            `Information distribution id '${distribution.id}' is duplicated.`,
+          ),
+        );
+      } else {
+        distributionIds.add(distribution.id);
+      }
+      const sourceClaim = claimsById.get(distribution.source_claim_id);
+      if (!sourceClaim || sourceClaim.direction !== 'exposes') {
+        issues.push(
+          issue(
+            'invalid_information_distribution_ref',
+            `${distributionPath}.source_claim_id`,
+            'Distribution source claim must reference an exposes claim.',
+          ),
+        );
+      }
+      if (distribution.kind === 'explicit_consumers') {
+        const consumerIds = new Set<string>();
+        distribution.consumer_claim_ids.forEach((consumerClaimId, consumerIndex) => {
+          if (consumerIds.has(consumerClaimId)) {
+            issues.push(
+              issue(
+                'duplicate_information_distribution_consumer_id',
+                `${distributionPath}.consumer_claim_ids[${consumerIndex}]`,
+                `Consumer claim id '${consumerClaimId}' is duplicated.`,
+              ),
+            );
+          }
+          consumerIds.add(consumerClaimId);
+          const consumerClaim = claimsById.get(consumerClaimId);
+          if (!consumerClaim || consumerClaim.direction !== 'consumes') {
+            issues.push(
+              issue(
+                'invalid_information_distribution_ref',
+                `${distributionPath}.consumer_claim_ids[${consumerIndex}]`,
+                'Distribution consumer claim must reference a consumes claim.',
+              ),
+            );
+          } else if (sourceClaim && sourceClaim.term !== consumerClaim.term) {
+            issues.push(
+              issue(
+                'invalid_information_distribution',
+                `${distributionPath}.consumer_claim_ids[${consumerIndex}]`,
+                'Distribution source and consumer terms must match exactly.',
+              ),
+            );
+          }
+        });
+      }
+    });
+    const controlClaimIds = new Set<string>();
+    (relationship.control_claims ?? []).forEach((claim, claimIndex) => {
+      const claimPath = `${path}.control_claims[${claimIndex}]`;
+      if (!claim.id.trim()) {
+        issues.push(
+          issue('invalid_control_claim', `${claimPath}.id`, 'Control claim id is required.'),
+        );
+      } else if (controlClaimIds.has(claim.id)) {
+        issues.push(
+          issue(
+            'duplicate_control_claim_id',
+            `${claimPath}.id`,
+            `Control claim id '${claim.id}' is duplicated.`,
+          ),
+        );
+      } else {
+        controlClaimIds.add(claim.id);
+      }
+      if (!normalizedIds.has(claim.controller_participant_id)) {
+        issues.push(
+          issue(
+            'invalid_control_claim',
+            `${claimPath}.controller_participant_id`,
+            'Control controller participant must be a normalized participant.',
+          ),
+        );
+      }
+      if (!normalizedIds.has(claim.target_participant_id)) {
+        issues.push(
+          issue(
+            'invalid_control_claim',
+            `${claimPath}.target_participant_id`,
+            'Control target participant must be a normalized participant.',
+          ),
+        );
+      }
+      if (!claim.action.trim()) {
+        issues.push(
+          issue('invalid_control_claim', `${claimPath}.action`, 'Control action is required.'),
         );
       }
     });

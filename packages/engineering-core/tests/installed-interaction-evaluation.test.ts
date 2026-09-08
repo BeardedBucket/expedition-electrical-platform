@@ -652,7 +652,9 @@ describe('installed interaction evaluation', () => {
 
   it('preserves G5 information direction without inventing G6 topology direction', () => {
     const result = evaluate({
-      normalized_information: [{ direction: 'exposes', participant_id: 'source', term: 'state' }],
+      normalized_information: [
+        { id: 'claim.state', direction: 'exposes', participant_id: 'source', term: 'state' },
+      ],
     });
     expect(result).not.toHaveProperty('availability');
     expect(result).not.toHaveProperty('direction');
