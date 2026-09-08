@@ -154,7 +154,8 @@
                     "relational_headroom",
                     "nominal_design",
                     "nominal",
-                    "recovery_hysteresis"
+                    "recovery_hysteresis",
+                    "continuous_rating"
                   ]
                 },
                 "quantity": {
@@ -195,11 +196,24 @@
                   "type": "array",
                   "items": {
                     "type": "object",
-                    "required": ["path", "equals"],
+                    "required": ["path"],
                     "properties": {
                       "path": { "type": "string", "minLength": 1 },
-                      "equals": {}
+                      "equals": {},
+                      "reference": {
+                        "type": "object",
+                        "required": ["constraint_id", "relation"],
+                        "properties": {
+                          "constraint_id": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9][a-z0-9._-]+$"
+                          },
+                          "relation": { "enum": ["nominal"] }
+                        },
+                        "additionalProperties": false
+                      }
                     },
+                    "oneOf": [{ "required": ["equals"] }, { "required": ["reference"] }],
                     "additionalProperties": false
                   }
                 },
@@ -503,6 +517,53 @@
             "additionalProperties": true
           }
         ]
+      },
+      "default": []
+    },
+    "isolation_relationships": {
+      "type": "array",
+      "description": "Product-local separation properties. These are not conductive relationships and do not assert installed-system bonding or grounding.",
+      "items": {
+        "type": "object",
+        "required": ["id", "kind", "participants", "withstand"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]+$"
+          },
+          "kind": {
+            "enum": ["galvanic"]
+          },
+          "participants": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "object",
+              "required": ["kind", "id"],
+              "properties": {
+                "kind": { "enum": ["port", "case"] },
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9._-]+$"
+                }
+              },
+              "additionalProperties": false
+            },
+            "uniqueItems": true
+          },
+          "withstand": {
+            "type": "object",
+            "required": ["value", "unit", "basis"],
+            "properties": {
+              "value": { "type": "number", "minimum": 0 },
+              "unit": { "enum": ["V"] },
+              "basis": { "enum": ["dc"] }
+            },
+            "additionalProperties": false
+          },
+          "notes": { "type": ["string", "null"] }
+        },
+        "additionalProperties": false
       },
       "default": []
     },

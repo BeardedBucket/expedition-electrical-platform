@@ -294,6 +294,27 @@ const factsForCandidateValidation = (
   });
 };
 
+const topologyEvidenceForField = (
+  field: string,
+  topologyEvidence: Readonly<Record<string, readonly string[]>>,
+): readonly string[] => {
+  const prefixes: Readonly<Record<string, string>> = {
+    capabilities: 'capability:',
+    ports: 'port:',
+    isolation_relationships: 'isolation_relationship:',
+    power_paths: 'power_path:',
+  };
+  const prefix = prefixes[field];
+  if (!prefix) return [];
+  return [
+    ...new Set(
+      Object.entries(topologyEvidence)
+        .filter(([target]) => target.startsWith(prefix))
+        .flatMap(([, factIds]) => factIds),
+    ),
+  ].sort();
+};
+
 export const promoteCandidate = (
   candidate: ProductCandidate,
   sources: readonly ProductSource[],
@@ -410,7 +431,12 @@ export const promoteCandidate = (
     .filter((field) => approvedFields.has(field))
     .sort()
     .forEach((field) => {
-      const evidenceIds = candidate.field_evidence[field];
+      const evidenceIds =
+        candidate.field_evidence[field] ??
+        topologyEvidenceForField(
+          field,
+          review.topology_evidence ?? candidate.topology_evidence ?? {},
+        );
       if (!evidenceIds || evidenceIds.length === 0) {
         issues.push(
           issue(

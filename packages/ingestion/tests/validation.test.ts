@@ -223,6 +223,50 @@ describe('topology evidence contracts', () => {
     );
   });
 
+  it('represents isolation independently from connectivity and grounding', () => {
+    const isolationFact = fact({
+      id: 'example.isolation.fact',
+      field: 'isolation_relationships.converter-isolation',
+      topology_target: {
+        kind: 'isolation_relationship',
+        id: 'converter-isolation',
+      },
+    });
+    const isolationCandidate = candidate({
+      component_data: {
+        ports: [
+          { id: 'input', domain: 'dc', direction: 'input' },
+          { id: 'output', domain: 'dc', direction: 'output' },
+        ],
+        isolation_relationships: [
+          {
+            id: 'converter-isolation',
+            kind: 'galvanic',
+            participants: [
+              { kind: 'port', id: 'input' },
+              { kind: 'port', id: 'output' },
+              { kind: 'case', id: 'case' },
+            ],
+            withstand: { value: 200, unit: 'V', basis: 'dc' },
+          },
+        ],
+      },
+      topology_evidence: {
+        'isolation_relationship:converter-isolation': ['example.isolation.fact'],
+      },
+      fact_ids: ['example.isolation.fact'],
+      field_evidence: {},
+      promotion_status: 'review_required',
+      review_status: 'pending',
+    });
+    expect(validateProductCandidate(isolationCandidate, [source()], [isolationFact])).toEqual({
+      status: 'valid',
+      issues: [],
+      ok: true,
+    });
+    expect(isolationCandidate.component_data.conductive_relationships).toBeUndefined();
+  });
+
   it('accepts stable switching configuration targets', () => {
     const switchingFact = fact({
       id: 'example.switching.fact',

@@ -118,7 +118,8 @@ export type CanonicalTopologyKind =
   | 'measurement_instance'
   | 'interaction_endpoint'
   | 'physical_connector'
-  | 'physical_connector_association';
+  | 'physical_connector_association'
+  | 'isolation_relationship';
 
 export interface CanonicalTopologyAddOperation {
   readonly operation: 'add';
@@ -394,6 +395,7 @@ const topologyCollection = {
   interaction_endpoint: 'interaction_endpoints',
   physical_connector: 'physical_connectors',
   physical_connector_association: 'physical_connector_associations',
+  isolation_relationship: 'isolation_relationships',
 } as const;
 
 const topologyTargetKey = (kind: CanonicalTopologyKind, id: string): string => `${kind}:${id}`;
@@ -414,6 +416,9 @@ const validateProposedTopology = (proposal: JsonObject): CanonicalAmendmentIssue
     : undefined;
   const conductiveRelationships = Array.isArray(proposal.conductive_relationships)
     ? proposal.conductive_relationships
+    : undefined;
+  const isolationRelationships = Array.isArray(proposal.isolation_relationships)
+    ? proposal.isolation_relationships
     : undefined;
   const ids = (items: JsonValue[] | undefined): Set<string> =>
     new Set(
@@ -440,6 +445,7 @@ const validateProposedTopology = (proposal: JsonObject): CanonicalAmendmentIssue
   const physicalConnectorIds = ids(physicalConnectors);
   const physicalConnectorAssociationIds = ids(physicalConnectorAssociations);
   const conductiveRelationshipIds = ids(conductiveRelationships);
+  const isolationRelationshipIds = ids(isolationRelationships);
   const portIds = ids(ports);
   const switching = proposal.switching;
   const switchingConfigurations =
@@ -575,6 +581,15 @@ const validateProposedTopology = (proposal: JsonObject): CanonicalAmendmentIssue
       ),
     );
   }
+  if (isolationRelationships && isolationRelationshipIds.size !== isolationRelationships.length) {
+    issues.push(
+      issue(
+        'amendment_topology_duplicate_id',
+        'isolation_relationships',
+        'Isolation relationship IDs must be unique.',
+      ),
+    );
+  }
   if (
     switchingConfigurations &&
     switchingConfigurationIds.size !== switchingConfigurations.length
@@ -638,6 +653,26 @@ const validateProposedTopology = (proposal: JsonObject): CanonicalAmendmentIssue
           ),
         );
       }
+    });
+    (isolationRelationships ?? []).forEach((item, index) => {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) return;
+      const participants = item.participants;
+      if (!Array.isArray(participants)) return;
+      participants.forEach((participant, participantIndex) => {
+        if (!participant || typeof participant !== 'object' || Array.isArray(participant)) return;
+        const kind = participant.kind;
+        const id = participant.id;
+        const known = kind === 'case' || (kind === 'port' && portIds.has(id as string));
+        if (!known) {
+          issues.push(
+            issue(
+              'amendment_topology_invalid_reference',
+              `isolation_relationships[${index}].participants[${participantIndex}]`,
+              `Unknown ${String(kind)} '${String(id)}'.`,
+            ),
+          );
+        }
+      });
     });
   });
   (paths ?? []).forEach((item, index) => {

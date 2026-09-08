@@ -45,7 +45,8 @@ const topologyFact = (
     | 'measurement_instance'
     | 'interaction_endpoint'
     | 'physical_connector'
-    | 'physical_connector_association',
+    | 'physical_connector_association'
+    | 'isolation_relationship',
   targetId: string,
 ): ProductFact => ({
   schema_version: '1.0',
@@ -201,7 +202,94 @@ describe('canonical amendment workflow', () => {
         },
       ]),
     });
+
     expect(result.status).toBe('proposed');
+  });
+
+  it('represents affirmative isolation separately from conductive connectivity', () => {
+    const current = {
+      ...syntheticTopologyComponent(),
+      ports: [
+        { id: 'converter.input', domain: 'dc', direction: 'input' },
+        { id: 'converter.output', domain: 'dc', direction: 'output' },
+      ],
+    };
+    const fact = topologyFact(
+      'fact.isolation',
+      'isolation_relationship',
+      'converter.input-output-case-isolation',
+    );
+    const result = proposeCanonicalAmendment({
+      current,
+      candidate: { fact_ids: [fact.id], facts: [fact] },
+      facts: [fact],
+      review: topologyReviewFor(current, [
+        {
+          operation: 'add',
+          kind: 'isolation_relationship',
+          id: 'converter.input-output-case-isolation',
+          value: {
+            id: 'converter.input-output-case-isolation',
+            kind: 'galvanic',
+            participants: [
+              { kind: 'port', id: 'converter.input' },
+              { kind: 'port', id: 'converter.output' },
+              { kind: 'case', id: 'converter.case' },
+            ],
+            withstand: { value: 200, unit: 'V', basis: 'dc' },
+          },
+          evidence: [fact.id],
+        },
+      ]),
+    });
+    expect(result.status).toBe('proposed');
+    expect(result.proposal?.isolation_relationships).toEqual([
+      {
+        id: 'converter.input-output-case-isolation',
+        kind: 'galvanic',
+        participants: [
+          { kind: 'port', id: 'converter.input' },
+          { kind: 'port', id: 'converter.output' },
+          { kind: 'case', id: 'converter.case' },
+        ],
+        withstand: { value: 200, unit: 'V', basis: 'dc' },
+      },
+    ]);
+    expect(result.proposal?.conductive_relationships).toBeUndefined();
+  });
+
+  it('rejects duplicate isolation IDs and protects replay deterministically', () => {
+    const current = {
+      ...syntheticTopologyComponent(),
+      isolation_relationships: [
+        {
+          id: 'converter.input-output-case-isolation',
+          kind: 'galvanic',
+          participants: [{ kind: 'case', id: 'converter.case' }],
+          withstand: { value: 200, unit: 'V', basis: 'dc' },
+        },
+      ],
+    };
+    const fact = topologyFact(
+      'fact.isolation',
+      'isolation_relationship',
+      'converter.input-output-case-isolation',
+    );
+    const result = proposeCanonicalAmendment({
+      current,
+      candidate: { fact_ids: [fact.id], facts: [fact] },
+      facts: [fact],
+      review: topologyReviewFor(current, [
+        {
+          operation: 'add',
+          kind: 'isolation_relationship',
+          id: 'converter.input-output-case-isolation',
+          value: current.isolation_relationships[0],
+          evidence: [fact.id],
+        },
+      ]),
+    });
+    expect(result.issues.map((item) => item.code)).toContain('amendment_topology_duplicate_id');
   });
 
   it('preserves generic constraint semantics when proposed through an amendment', () => {
@@ -266,6 +354,7 @@ describe('canonical amendment workflow', () => {
         },
       ]),
     });
+
     expect(result.status).toBe('proposed');
     expect(result.proposal?.ports).toEqual([
       expect.objectContaining({
@@ -278,6 +367,97 @@ describe('canonical amendment workflow', () => {
         ]),
       }),
     ]);
+  });
+
+  it('preserves continuous rating conditions and provenance through an amendment', () => {
+    const current = {
+      ...syntheticTopologyComponent(),
+      ports: [
+        {
+          id: 'output',
+          domain: 'dc',
+          direction: 'output',
+          constraints: [
+            {
+              id: 'output.nominal-voltage',
+              kind: 'nominal',
+              quantity: 'voltage',
+              unit: 'V',
+              value: 24,
+            },
+          ],
+        },
+      ],
+    };
+    const fact = topologyFact('fact.continuous-current', 'port', 'output');
+    const result = proposeCanonicalAmendment({
+      current,
+      candidate: { fact_ids: [fact.id], facts: [fact] },
+      facts: [fact],
+      review: {
+        ...topologyReviewFor(current, []),
+        constraint_operations: [
+          {
+            operation: 'add',
+            port_id: 'output',
+            id: 'output.continuous-current',
+            value: {
+              id: 'output.continuous-current',
+              kind: 'continuous_rating',
+              quantity: 'current',
+              unit: 'A',
+              value: 15,
+              conditions: [
+                { path: 'temperature_c', equals: 40 },
+                {
+                  path: 'output_voltage',
+                  reference: {
+                    constraint_id: 'output.nominal-voltage',
+                    relation: 'nominal',
+                  },
+                },
+              ],
+            },
+            evidence: [fact.id],
+          },
+        ],
+      },
+    });
+    expect(result.status).toBe('proposed');
+    expect(result.proposal?.ports).toEqual([
+      {
+        id: 'output',
+        domain: 'dc',
+        direction: 'output',
+        constraints: [
+          {
+            id: 'output.nominal-voltage',
+            kind: 'nominal',
+            quantity: 'voltage',
+            unit: 'V',
+            value: 24,
+          },
+          {
+            id: 'output.continuous-current',
+            kind: 'continuous_rating',
+            quantity: 'current',
+            unit: 'A',
+            value: 15,
+            conditions: [
+              { path: 'temperature_c', equals: 40 },
+              {
+                path: 'output_voltage',
+                reference: {
+                  constraint_id: 'output.nominal-voltage',
+                  relation: 'nominal',
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+    expect(result.constraint_changes?.[0].fact_ids).toEqual([fact.id]);
   });
 
   it('adds only the approved dimensions without modifying unrelated fields', () => {

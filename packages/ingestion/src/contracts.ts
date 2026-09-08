@@ -86,7 +86,8 @@ export type TopologyTargetKind =
   | 'measurement_instance'
   | 'interaction_endpoint'
   | 'physical_connector'
-  | 'physical_connector_association';
+  | 'physical_connector_association'
+  | 'isolation_relationship';
 
 export interface TopologyTarget {
   readonly kind: TopologyTargetKind;

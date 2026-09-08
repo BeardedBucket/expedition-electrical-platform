@@ -23,6 +23,55 @@ const componentWith = (constraints: unknown[]) => ({
 });
 
 describe('generic electrical constraints', () => {
+  it('distinguishes continuous ratings and preserves temperature and nominal references', () => {
+    expect(
+      canonicalProposalSchemaValid(
+        componentWith([
+          {
+            id: 'output.nominal-voltage',
+            kind: 'nominal',
+            quantity: 'voltage',
+            unit: 'V',
+            value: 24,
+          },
+          {
+            id: 'output.continuous-current',
+            kind: 'continuous_rating',
+            quantity: 'current',
+            unit: 'A',
+            value: 15,
+            conditions: [
+              { path: 'temperature_c', equals: 40 },
+              {
+                path: 'output_voltage',
+                reference: {
+                  constraint_id: 'output.nominal-voltage',
+                  relation: 'nominal',
+                },
+              },
+            ],
+          },
+        ]),
+      ),
+    ).toBe(true);
+  });
+
+  it('does not default missing rating temperature or infer peak semantics', () => {
+    expect(
+      canonicalProposalSchemaValid(
+        componentWith([
+          {
+            id: 'output.continuous-power',
+            kind: 'continuous_rating',
+            quantity: 'power',
+            unit: 'W',
+            value: 360,
+          },
+        ]),
+      ),
+    ).toBe(true);
+  });
+
   it('distinguishes absolute maximum voltage from an operating range', () => {
     expect(
       canonicalProposalSchemaValid(
