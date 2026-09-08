@@ -315,6 +315,72 @@ const topologyEvidenceForField = (
   ].sort();
 };
 
+const topologyCollectionForKind: Readonly<Record<string, string>> = {
+  capability: 'capabilities',
+  port: 'ports',
+  power_path: 'power_paths',
+  connection_point: 'connection_points',
+  conductive_relationship: 'conductive_relationships',
+  switching_configuration: 'switching.configurations',
+  protection_instance: 'protection.instances',
+  measurement_instance: 'measurement.instances',
+  interaction_endpoint: 'interaction_endpoints',
+  physical_connector: 'physical_connectors',
+  physical_connector_association: 'physical_connector_associations',
+  isolation_relationship: 'isolation_relationships',
+};
+
+const topologyDataFor = (
+  componentData: JsonObject,
+  topologyEvidence: Readonly<Record<string, readonly string[]>>,
+): JsonObject => {
+  const selected: Record<string, JsonValue> = {};
+  Object.keys(topologyEvidence)
+    .sort()
+    .forEach((key) => {
+      const target = key.split(':');
+      const kind = target[0];
+      const id = target.slice(1).join(':');
+      const collectionPath = topologyCollectionForKind[kind];
+      if (!collectionPath) return;
+      const items = collectionPath
+        .split('.')
+        .reduce<JsonValue | undefined>(
+          (value, segment) =>
+            value && typeof value === 'object' && !Array.isArray(value)
+              ? value[segment]
+              : undefined,
+          componentData,
+        );
+      if (!Array.isArray(items)) return;
+      const item = items.find(
+        (value): value is JsonObject =>
+          value !== null && typeof value === 'object' && !Array.isArray(value) && value.id === id,
+      );
+      if (!item) return;
+      const canonicalItem =
+        kind === 'conductive_relationship'
+          ? Object.fromEntries(Object.entries(item).filter(([field]) => field !== 'directional'))
+          : item;
+      const [root, ...path] = collectionPath.split('.');
+      const existing = selected[root];
+      if (path.length === 0) {
+        const values: JsonValue[] = Array.isArray(existing) ? existing : [];
+        selected[root] = [...values, canonicalItem];
+        return;
+      }
+      const nested =
+        existing && typeof existing === 'object' && !Array.isArray(existing)
+          ? (existing as JsonObject)
+          : {};
+      const nestedValues: JsonValue[] = Array.isArray(nested[path[0]])
+        ? (nested[path[0]] as JsonValue[])
+        : [];
+      selected[root] = { ...nested, [path[0]]: [...nestedValues, canonicalItem] };
+    });
+  return selected;
+};
+
 export const promoteCandidate = (
   candidate: ProductCandidate,
   sources: readonly ProductSource[],
@@ -533,6 +599,7 @@ export const promoteCandidate = (
     };
 
   const topologyEvidence = review.topology_evidence ?? candidate.topology_evidence ?? {};
+  const approvedTopologyData = topologyDataFor(candidate.component_data, topologyEvidence);
   const reviewedEvidenceFactIds = (review.reviewed_evidence_fact_ids ?? []).filter((factId) =>
     candidate.fact_ids.includes(factId),
   );
@@ -571,6 +638,7 @@ export const promoteCandidate = (
     verification_status: 'unverified',
     source_refs: sourceRefsFor(sources, candidate, review, selectedFieldEvidence, topologyEvidence),
     ...proposalData,
+    ...approvedTopologyData,
   };
   if (!componentValidator(proposal)) return { status: 'invalid', issues: schemaIssues() };
 

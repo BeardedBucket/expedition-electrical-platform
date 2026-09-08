@@ -1,0 +1,669 @@
+{
+  "schema_version": "1.0",
+  "captured_at": "2026-09-08T15:30:00Z",
+  "checkpoint": "F",
+  "review_status": "pending_human_review",
+  "target": {
+    "manufacturer": "Victron Energy",
+    "product_family": "SmartShunt",
+    "model": "SmartShunt 500A/50mV",
+    "manufacturer_part_number": "SHU050150050"
+  },
+  "sources": [
+    {
+      "schema_version": "1.0",
+      "id": "victron.smartshunt.product-page",
+      "uri": "https://www.victronenergy.com/meters-and-sensors/smart-battery-shunt",
+      "source_type": "manufacturer_product_page",
+      "authority": "manufacturer_product",
+      "publisher": "Victron Energy",
+      "retrieved_at": "2026-09-08T15:20:00Z",
+      "content_hash": "sha256:148f5fb829766d94b10c491fa46bdb8890a420c2033b463244d5de963945ce7b",
+      "applicability": "explicitly_reviewed",
+      "applies_to": ["SHU050150050"],
+      "capture_status": "success",
+      "notes": "Live current product page lists SmartShunt 500A/50mV among the SmartShunt variants and describes Bluetooth, VictronConnect, VE.Direct, GX, auxiliary, and monitored-information behavior."
+    },
+    {
+      "schema_version": "1.0",
+      "id": "victron.smartshunt.manual.introduction",
+      "uri": "https://www.victronenergy.com/media/pg/SmartShunt/en/introduction.html",
+      "source_type": "manufacturer_manual",
+      "authority": "manufacturer_technical",
+      "publisher": "Victron Energy",
+      "retrieved_at": "2026-09-08T15:20:00Z",
+      "content_hash": "sha256:27dbf2f1cead944094d86437fcde91c0b3d19f90e1f6da937a0ddce707e94e71",
+      "applicability": "explicitly_reviewed",
+      "applies_to": ["SHU050150050"],
+      "capture_status": "success",
+      "notes": "Current official SmartShunt manual introduction states the four model sizes and shared product-family capabilities."
+    },
+    {
+      "schema_version": "1.0",
+      "id": "victron.smartshunt.manual.installation",
+      "uri": "https://www.victronenergy.com/media/pg/SmartShunt/en/installation.html",
+      "source_type": "manufacturer_manual",
+      "authority": "manufacturer_technical",
+      "publisher": "Victron Energy",
+      "retrieved_at": "2026-09-08T15:20:00Z",
+      "content_hash": "sha256:51ec26c2a4f6b2d74a775b32ec837d935d8dab19718afa3d1beb43e9203c170b",
+      "applicability": "explicitly_reviewed",
+      "applies_to": ["SHU050150050"],
+      "capture_status": "success",
+      "notes": "Current official manual installation sections identify the 500A M10 high-current terminals, Vbatt+, Aux, and mutually alternative auxiliary wiring modes."
+    },
+    {
+      "schema_version": "1.0",
+      "id": "victron.smartshunt.manual.operation",
+      "uri": "https://www.victronenergy.com/media/pg/SmartShunt/en/operation.html",
+      "source_type": "manufacturer_manual",
+      "authority": "manufacturer_technical",
+      "publisher": "Victron Energy",
+      "retrieved_at": "2026-09-08T15:20:00Z",
+      "content_hash": "sha256:a4acdd7b2414dd2b366fa9d3e749a966ec3e3ddb93835698457fbd42e9ad8c1a",
+      "applicability": "explicitly_reviewed",
+      "applies_to": ["SHU050150050"],
+      "capture_status": "success",
+      "notes": "Current official manual operation sections distinguish measured voltage/current from calculated power, state of charge, consumed Ah, time-to-go, and historical data."
+    },
+    {
+      "schema_version": "1.0",
+      "id": "victron.smartshunt.manual.interfacing",
+      "uri": "https://www.victronenergy.com/media/pg/SmartShunt/en/interfacing.html",
+      "source_type": "manufacturer_manual",
+      "authority": "manufacturer_technical",
+      "publisher": "Victron Energy",
+      "retrieved_at": "2026-09-08T15:20:00Z",
+      "content_hash": "sha256:1f97cbdddd16ad89680f6a178b1277963f64fdff51dc01404b7d8b3ac69c072a",
+      "applicability": "explicitly_reviewed",
+      "applies_to": ["SHU050150050"],
+      "capture_status": "success",
+      "notes": "Current official manual establishes Bluetooth, VE.Direct, USB adapter, GX, VRM, and VE.Smart interaction behavior."
+    },
+    {
+      "schema_version": "1.0",
+      "id": "victron.smartshunt.manual.technical-data",
+      "uri": "https://www.victronenergy.com/media/pg/SmartShunt/en/technical-data.html",
+      "source_type": "manufacturer_manual",
+      "authority": "manufacturer_technical",
+      "publisher": "Victron Energy",
+      "retrieved_at": "2026-09-08T15:20:00Z",
+      "content_hash": "sha256:f6c5d4348efc868d4d8fc6d5b2770354cd90108c45b7314bfd0ae0233157df14",
+      "applicability": "explicitly_reviewed",
+      "applies_to": ["SHU050150050"],
+      "capture_status": "success",
+      "notes": "Technical data is family-level where labelled SmartShunt 300A/500A/1000A/2000A and model-specific where a separate 500A row is present."
+    },
+    {
+      "schema_version": "1.0",
+      "id": "victron.smartshunt.manual.appendix",
+      "uri": "https://www.victronenergy.com/media/pg/SmartShunt/en/appendix.html",
+      "source_type": "manufacturer_drawing",
+      "authority": "manufacturer_technical",
+      "publisher": "Victron Energy",
+      "retrieved_at": "2026-09-08T15:20:00Z",
+      "content_hash": "sha256:89b3965d030c92bebefc12040181f6b5424f0665323f52b3bdcfdbd3f0291a41",
+      "applicability": "explicitly_reviewed",
+      "applies_to": ["SHU050150050"],
+      "capture_status": "success",
+      "notes": "Manual appendix contains the SmartShunt 500A dimension drawing section; no pin-level connector claims are extracted."
+    }
+  ],
+  "facts": [
+    {
+      "id": "extracted.fact.smartshunt.identity.500a-50mv",
+      "source_id": "victron.smartshunt.product-page",
+      "field": "identity",
+      "raw_label": "SmartShunt variant",
+      "raw_value": "SmartShunt 500A/50mV",
+      "source_locator": {"fragment": "product-variant-list"},
+      "extraction_method": "text",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "id": "extracted.fact.smartshunt.family.sizes",
+      "source_id": "victron.smartshunt.manual.introduction",
+      "field": "family_variants",
+      "raw_label": "SmartShunt sizes",
+      "raw_value": ["300A", "500A", "1000A", "2000A"],
+      "source_locator": {"section": "2.2. Why should I monitor my battery?"},
+      "extraction_method": "text",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "id": "extracted.fact.smartshunt.main-terminals",
+      "source_id": "victron.smartshunt.manual.installation",
+      "field": "connection_points",
+      "raw_label": "Main shunt terminals",
+      "raw_value": ["BATTERY MINUS", "SYSTEM MINUS"],
+      "normalized_value": "500A model uses M10 high-current bolts",
+      "source_locator": {"section": "3.4. Basic electrical connections", "paragraph": "1-2"},
+      "extraction_method": "text",
+      "fact_state": "provisional",
+      "review_required": true,
+      "topology_target": {"kind": "connection_point", "id": "smartshunt.battery-minus"}
+    },
+    {
+      "id": "extracted.fact.smartshunt.vbatt-plus",
+      "source_id": "victron.smartshunt.manual.installation",
+      "field": "connection_point",
+      "raw_label": "Vbatt+ terminal",
+      "raw_value": "Fused positive supply connection to the positive battery terminal",
+      "source_locator": {"section": "3.4. Basic electrical connections", "paragraph": "3-4"},
+      "extraction_method": "text",
+      "fact_state": "provisional",
+      "review_required": true,
+      "topology_target": {"kind": "connection_point", "id": "smartshunt.vbatt-plus"}
+    },
+    {
+      "id": "extracted.fact.smartshunt.aux",
+      "source_id": "victron.smartshunt.manual.installation",
+      "field": "auxiliary_input",
+      "raw_label": "Aux terminal",
+      "raw_value": "One configurable auxiliary connection for second-battery voltage, midpoint monitoring, or temperature monitoring",
+      "source_locator": {"section": "3.5. Auxiliary electrical connections", "paragraph": "opening text"},
+      "extraction_method": "text",
+      "fact_state": "provisional",
+      "review_required": true,
+      "topology_target": {"kind": "connection_point", "id": "smartshunt.aux"}
+    },
+    {
+      "id": "extracted.fact.smartshunt.direct-measurements",
+      "source_id": "victron.smartshunt.manual.operation",
+      "field": "measurements.direct",
+      "raw_label": "Direct measurements",
+      "raw_value": ["battery voltage", "battery current"],
+      "source_locator": {"section": "5.1. How does the battery monitor work?", "paragraph": "1; Voltage; Current"},
+      "extraction_method": "text",
+      "fact_state": "provisional",
+      "review_required": true,
+      "topology_target": {"kind": "measurement_instance", "id": "smartshunt.main-current"}
+    },
+    {
+      "id": "extracted.fact.smartshunt.aux-measurement",
+      "source_id": "victron.smartshunt.manual.operation",
+      "field": "measurements.auxiliary",
+      "raw_label": "Auxiliary input reading",
+      "raw_value": ["starter battery voltage", "battery temperature", "midpoint voltage deviation"],
+      "source_locator": {"section": "5.2. Readout overview", "paragraph": "Input"},
+      "extraction_method": "text",
+      "fact_state": "provisional",
+      "review_required": true,
+      "topology_target": {"kind": "measurement_instance", "id": "smartshunt.aux-reading"}
+    },
+    {
+      "id": "extracted.fact.smartshunt.derived-information",
+      "source_id": "victron.smartshunt.manual.operation",
+      "field": "information.derived",
+      "raw_label": "Calculated or accumulated information",
+      "raw_value": ["power", "state of charge", "consumed Ah", "time-to-go", "historical data"],
+      "source_locator": {"section": "5.1. How does the battery monitor work?", "paragraph": "opening; Power; Consumed Ah; Time remaining", "history": "5.5.2. History data"},
+      "extraction_method": "text",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "id": "extracted.fact.smartshunt.self-consumption",
+      "source_id": "victron.smartshunt.manual.technical-data",
+      "field": "self_consumption",
+      "raw_label": "Current draw",
+      "raw_value": "< 1 mA",
+      "normalized_value": {"max": 1, "comparison": "less_than"},
+      "normalized_unit": "mA",
+      "source_locator": {"section": "11.1. Technical data", "row": "Current draw"},
+      "extraction_method": "table",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "id": "extracted.fact.smartshunt.supply-range",
+      "source_id": "victron.smartshunt.manual.technical-data",
+      "field": "supply_voltage_range",
+      "raw_label": "Supply voltage range",
+      "raw_value": "6.5 - 70 VDC",
+      "normalized_value": {"min": 6.5, "max": 70},
+      "normalized_unit": "V",
+      "source_locator": {"section": "11.1. Technical data", "row": "Supply voltage range"},
+      "extraction_method": "table",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "id": "extracted.fact.smartshunt.aux-range",
+      "source_id": "victron.smartshunt.manual.technical-data",
+      "field": "auxiliary_voltage_range",
+      "raw_label": "Input voltage range, auxiliary battery",
+      "raw_value": "6.5 - 70 VDC",
+      "normalized_value": {"min": 6.5, "max": 70},
+      "normalized_unit": "V",
+      "source_locator": {"section": "11.1. Technical data", "row": "Input voltage range, auxiliary battery"},
+      "extraction_method": "table",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "id": "extracted.fact.smartshunt.capacity-range",
+      "source_id": "victron.smartshunt.manual.technical-data",
+      "field": "battery_capacity_configuration",
+      "raw_label": "Battery capacity (Ah)",
+      "raw_value": "1 - 9999 Ah",
+      "normalized_value": {"min": 1, "max": 9999},
+      "normalized_unit": "Ah",
+      "source_locator": {"section": "11.1. Technical data", "row": "Battery capacity (Ah)"},
+      "extraction_method": "table",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "id": "extracted.fact.smartshunt.temperature-range",
+      "source_id": "victron.smartshunt.manual.technical-data",
+      "field": "operating_temperature_range",
+      "raw_label": "Operating temperature range",
+      "raw_value": "-40 to +50 C",
+      "normalized_value": {"min": -40, "max": 50},
+      "normalized_unit": "C",
+      "source_locator": {"section": "11.1. Technical data", "row": "Operating temperature range"},
+      "extraction_method": "table",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "id": "extracted.fact.smartshunt.ve-direct",
+      "source_id": "victron.smartshunt.manual.technical-data",
+      "field": "interaction_endpoint",
+      "raw_label": "VE.Direct communication port",
+      "raw_value": "Yes",
+      "source_locator": {"section": "11.1. Technical data", "row": "VE.Direct communication port"},
+      "extraction_method": "table",
+      "fact_state": "provisional",
+      "review_required": true,
+      "topology_target": {"kind": "interaction_endpoint", "id": "smartshunt.ve-direct"}
+    },
+    {
+      "id": "extracted.fact.smartshunt.accuracy-resolution",
+      "source_id": "victron.smartshunt.manual.technical-data",
+      "field": "measurement_accuracy_resolution",
+      "raw_label": "Resolution and accuracy",
+      "raw_value": {
+        "current_resolution": "±0.01 A",
+        "voltage_resolution": "±0.01 V",
+        "amp_hours_resolution": "±0.1 Ah",
+        "state_of_charge_resolution": "±0.1%",
+        "time_to_go_resolution": "±1 min",
+        "temperature_resolution": "±1 C/F",
+        "current_accuracy": "±0.4%",
+        "voltage_accuracy": "±0.3%"
+      },
+      "source_locator": {"section": "11.1. Technical data", "table": "RESOLUTION & ACCURACY"},
+      "extraction_method": "table",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "id": "extracted.fact.smartshunt.model-specific-offset",
+      "source_id": "victron.smartshunt.manual.technical-data",
+      "field": "model_specific_offset",
+      "raw_label": "Offset",
+      "raw_value": "Less than 10 / 10 / 20 / 40 mA",
+      "source_locator": {"section": "11.1. Technical data", "row": "Offset"},
+      "extraction_method": "table",
+      "fact_state": "unresolved",
+      "review_required": true,
+      "notes": "The family table lists four values in model order but the captured HTML does not provide an explicit row-to-model mapping sufficient to assign the 500A value."
+    },
+    {
+      "id": "extracted.fact.smartshunt.500a-dimensions",
+      "source_id": "victron.smartshunt.manual.technical-data",
+      "field": "dimensions",
+      "raw_label": "Dimensions (h x w x d), 500A",
+      "raw_value": "46 x 120 x 54 mm",
+      "normalized_value": {"height": 46, "width": 120, "depth": 54},
+      "normalized_unit": "mm",
+      "source_locator": {"section": "11.1. Technical data", "row": "Dimensions (h x w x d), 500A"},
+      "extraction_method": "table",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "id": "extracted.fact.smartshunt.500a-m10",
+      "source_id": "victron.smartshunt.manual.technical-data",
+      "field": "high_current_terminal_size",
+      "raw_label": "Shunt connection bolts, 500A",
+      "raw_value": "M10",
+      "normalized_unit": "thread",
+      "source_locator": {"section": "11.1. Technical data", "row": "Shunt connection bolts"},
+      "extraction_method": "table",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "id": "extracted.fact.smartshunt.500a-rating",
+      "source_id": "victron.smartshunt.manual.appendix",
+      "field": "shunt_rating",
+      "raw_label": "Dimensions SmartShunt 500A",
+      "raw_value": "500A / 50mV drawing",
+      "source_locator": {"section": "12.2. Dimensions SmartShunt 500A"},
+      "extraction_method": "text",
+      "fact_state": "provisional",
+      "review_required": true,
+      "notes": "The product designation establishes the paired model rating; it does not establish continuous ampacity, absolute maximum current, or unrestricted measurement range."
+    },
+    {
+      "id": "extracted.fact.smartshunt.bluetooth",
+      "source_id": "victron.smartshunt.product-page",
+      "field": "interaction_endpoint",
+      "raw_label": "Bluetooth and VictronConnect",
+      "raw_value": "Connects via Bluetooth to the VictronConnect app",
+      "source_locator": {"fragment": "product-description"},
+      "extraction_method": "text",
+      "fact_state": "provisional",
+      "review_required": true,
+      "topology_target": {"kind": "interaction_endpoint", "id": "smartshunt.bluetooth"}
+    },
+    {
+      "id": "extracted.fact.smartshunt.gx",
+      "source_id": "victron.smartshunt.product-page",
+      "field": "information_exposure",
+      "raw_label": "GX and VRM connection",
+      "raw_value": "Can connect to and be read by a GX device via VE.Direct",
+      "source_locator": {"fragment": "product-description"},
+      "extraction_method": "text",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "id": "extracted.fact.smartshunt.current-sign",
+      "source_id": "victron.smartshunt.manual.operation",
+      "field": "measurement_sign_convention",
+      "raw_label": "Current direction sign",
+      "raw_value": "Negative current is taken from the battery; positive current goes into the battery",
+      "source_locator": {"section": "5.1. How does the battery monitor work?", "paragraph": "Current"},
+      "extraction_method": "text",
+      "fact_state": "provisional",
+      "review_required": true,
+      "notes": "This is a measurement sign convention, not an intrinsic directional conversion path."
+    },
+    {
+      "id": "extracted.fact.smartshunt.system-minus",
+      "source_id": "victron.smartshunt.manual.installation",
+      "field": "connection_point",
+      "raw_label": "System minus terminal",
+      "raw_value": "SYSTEM MINUS",
+      "source_locator": {"section": "3.4. Basic electrical connections", "paragraph": "2"},
+      "extraction_method": "text",
+      "fact_state": "provisional",
+      "review_required": true,
+      "topology_target": {"kind": "connection_point", "id": "smartshunt.system-minus"}
+    },
+    {
+      "id": "extracted.fact.smartshunt.conductive-relationship",
+      "source_id": "victron.smartshunt.manual.installation",
+      "field": "conductive_relationship",
+      "raw_label": "Main shunt conduction",
+      "raw_value": "BATTERY MINUS to SYSTEM MINUS through the shunt",
+      "source_locator": {"section": "3.4. Basic electrical connections", "paragraph": "1-2"},
+      "extraction_method": "text",
+      "fact_state": "provisional",
+      "review_required": true,
+      "topology_target": {"kind": "conductive_relationship", "id": "smartshunt.main-shunt-conduction"}
+    },
+    {
+      "id": "extracted.fact.smartshunt.battery-voltage-measurement",
+      "source_id": "victron.smartshunt.manual.operation",
+      "field": "measurement",
+      "raw_label": "Battery voltage measurement",
+      "raw_value": "Battery voltage measured at Vbatt+",
+      "source_locator": {"section": "5.1. How does the battery monitor work?", "paragraph": "Voltage"},
+      "extraction_method": "text",
+      "fact_state": "provisional",
+      "review_required": true,
+      "topology_target": {"kind": "measurement_instance", "id": "smartshunt.battery-voltage"}
+    },
+    {
+      "id": "extracted.fact.smartshunt.bluetooth-endpoint",
+      "source_id": "victron.smartshunt.product-page",
+      "field": "interaction_endpoint",
+      "raw_label": "Bluetooth interaction endpoint",
+      "raw_value": "Bluetooth connection to VictronConnect",
+      "source_locator": {"fragment": "product-description"},
+      "extraction_method": "text",
+      "fact_state": "provisional",
+      "review_required": true,
+      "topology_target": {"kind": "interaction_endpoint", "id": "smartshunt.bluetooth"}
+    },
+    {
+      "id": "extracted.fact.smartshunt.ve-direct-endpoint",
+      "source_id": "victron.smartshunt.manual.interfacing",
+      "field": "interaction_endpoint",
+      "raw_label": "VE.Direct interaction endpoint",
+      "raw_value": "Read data and change settings through VE.Direct",
+      "source_locator": {"section": "6.3. VE.Direct", "paragraph": "opening text"},
+      "extraction_method": "text",
+      "fact_state": "provisional",
+      "review_required": true,
+      "topology_target": {"kind": "interaction_endpoint", "id": "smartshunt.ve-direct"}
+    },
+    {
+      "id": "extracted.fact.smartshunt.ve-direct-connector",
+      "source_id": "victron.smartshunt.manual.technical-data",
+      "field": "physical_connectors",
+      "raw_label": "VE.Direct physical connector",
+      "raw_value": "VE.Direct communication port",
+      "source_locator": {"section": "11.1. Technical data", "row": "VE.Direct communication port"},
+      "extraction_method": "table",
+      "fact_state": "provisional",
+      "review_required": true,
+      "topology_target": {"kind": "physical_connector", "id": "smartshunt.ve-direct.connector"}
+    },
+    {
+      "id": "extracted.fact.smartshunt.ve-direct-association",
+      "source_id": "victron.smartshunt.manual.interfacing",
+      "field": "physical_connector_associations",
+      "raw_label": "VE.Direct connector association",
+      "raw_value": "VE.Direct connector provides the VE.Direct communication interface",
+      "source_locator": {"section": "6.3. VE.Direct", "paragraph": "opening text"},
+      "extraction_method": "text",
+      "fact_state": "provisional",
+      "review_required": true,
+      "topology_target": {"kind": "physical_connector_association", "id": "smartshunt.ve-direct.connector-association"}
+    },
+    {
+      "id": "extracted.fact.smartshunt.dimension-x",
+      "source_id": "victron.smartshunt.manual.technical-data",
+      "field": "dimensions_mm.x",
+      "raw_label": "Dimensions width",
+      "raw_value": 120,
+      "raw_unit": "mm",
+      "normalized_value": 120,
+      "normalized_unit": "mm",
+      "source_locator": {"section": "11.1. Technical data", "row": "Dimensions (h x w x d), 500A"},
+      "extraction_method": "table",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "id": "extracted.fact.smartshunt.dimension-y",
+      "source_id": "victron.smartshunt.manual.technical-data",
+      "field": "dimensions_mm.y",
+      "raw_label": "Dimensions depth",
+      "raw_value": 54,
+      "raw_unit": "mm",
+      "normalized_value": 54,
+      "normalized_unit": "mm",
+      "source_locator": {"section": "11.1. Technical data", "row": "Dimensions (h x w x d), 500A"},
+      "extraction_method": "table",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "id": "extracted.fact.smartshunt.dimension-z",
+      "source_id": "victron.smartshunt.manual.technical-data",
+      "field": "dimensions_mm.z",
+      "raw_label": "Dimensions height",
+      "raw_value": 46,
+      "raw_unit": "mm",
+      "normalized_value": 46,
+      "normalized_unit": "mm",
+      "source_locator": {"section": "11.1. Technical data", "row": "Dimensions (h x w x d), 500A"},
+      "extraction_method": "table",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "id": "extracted.fact.smartshunt.supply-range-canonical",
+      "source_id": "victron.smartshunt.manual.technical-data",
+      "field": "electrical.input_voltage_range_v",
+      "raw_label": "Supply voltage range",
+      "raw_value": "6.5 - 70 VDC",
+      "normalized_value": {"min": 6.5, "max": 70},
+      "normalized_unit": "V",
+      "source_locator": {"section": "11.1. Technical data", "row": "Supply voltage range"},
+      "extraction_method": "table",
+      "fact_state": "provisional",
+      "review_required": true
+    }
+  ],
+  "candidate": {
+    "schema_version": "1.0",
+    "id": "victron.smartshunt.shu050150050",
+    "identity_status": "verified",
+    "identity": {
+      "manufacturer": "Victron Energy",
+      "product_family": "SmartShunt",
+      "model": "SmartShunt 500A/50mV",
+      "manufacturer_part_number": "SHU050150050",
+      "lifecycle_status": "unknown"
+    },
+    "review_status": "pending",
+    "promotion_status": "review_required",
+    "source_ids": [
+      "victron.smartshunt.product-page",
+      "victron.smartshunt.manual.introduction",
+      "victron.smartshunt.manual.installation",
+      "victron.smartshunt.manual.operation",
+      "victron.smartshunt.manual.interfacing",
+      "victron.smartshunt.manual.technical-data",
+      "victron.smartshunt.manual.appendix"
+    ],
+    "identity_source_ids": [
+      "victron.smartshunt.product-page",
+      "victron.smartshunt.manual.introduction",
+      "victron.smartshunt.manual.appendix"
+    ],
+    "fact_ids": [
+      "extracted.fact.smartshunt.identity.500a-50mv",
+      "extracted.fact.smartshunt.family.sizes",
+      "extracted.fact.smartshunt.main-terminals",
+      "extracted.fact.smartshunt.vbatt-plus",
+      "extracted.fact.smartshunt.aux",
+      "extracted.fact.smartshunt.direct-measurements",
+      "extracted.fact.smartshunt.aux-measurement",
+      "extracted.fact.smartshunt.derived-information",
+      "extracted.fact.smartshunt.self-consumption",
+      "extracted.fact.smartshunt.supply-range",
+      "extracted.fact.smartshunt.aux-range",
+      "extracted.fact.smartshunt.capacity-range",
+      "extracted.fact.smartshunt.temperature-range",
+      "extracted.fact.smartshunt.ve-direct",
+      "extracted.fact.smartshunt.accuracy-resolution",
+      "extracted.fact.smartshunt.model-specific-offset",
+      "extracted.fact.smartshunt.500a-dimensions",
+      "extracted.fact.smartshunt.500a-m10",
+      "extracted.fact.smartshunt.500a-rating",
+      "extracted.fact.smartshunt.bluetooth",
+      "extracted.fact.smartshunt.gx",
+    "extracted.fact.smartshunt.current-sign",
+    "extracted.fact.smartshunt.system-minus",
+    "extracted.fact.smartshunt.conductive-relationship",
+    "extracted.fact.smartshunt.battery-voltage-measurement",
+    "extracted.fact.smartshunt.bluetooth-endpoint",
+    "extracted.fact.smartshunt.ve-direct-endpoint",
+    "extracted.fact.smartshunt.ve-direct-connector",
+    "extracted.fact.smartshunt.ve-direct-association",
+    "extracted.fact.smartshunt.dimension-x",
+    "extracted.fact.smartshunt.dimension-y",
+    "extracted.fact.smartshunt.dimension-z",
+    "extracted.fact.smartshunt.supply-range-canonical"
+    ],
+    "component_data": {
+      "category": "monitor",
+      "product_role": "monitor",
+      "connection_points": [
+        {"id": "smartshunt.battery-minus", "notes": "BATTERY MINUS; 500A high-current terminal uses M10."},
+        {"id": "smartshunt.system-minus", "notes": "SYSTEM MINUS; 500A high-current terminal uses M10."},
+        {"id": "smartshunt.vbatt-plus", "notes": "Vbatt+ fused positive supply connection."},
+        {"id": "smartshunt.aux", "notes": "Aux configurable input."}
+      ],
+      "conductive_relationships": [
+        {
+          "id": "smartshunt.main-shunt-conduction",
+          "participants": [
+            {"kind": "connection_point", "id": "smartshunt.battery-minus"},
+            {"kind": "connection_point", "id": "smartshunt.system-minus"}
+          ],
+          "directional": false
+        }
+      ],
+      "measurement": {
+        "instances": [
+          {
+            "id": "smartshunt.main-current",
+            "quantity": "current",
+            "target": {"kind": "conductive_relationship", "id": "smartshunt.main-shunt-conduction"}
+          },
+          {
+            "id": "smartshunt.battery-voltage",
+            "quantity": "voltage",
+            "target": {"kind": "connection_point", "id": "smartshunt.vbatt-plus"}
+          }
+        ]},
+        "electrical": {
+          "input_voltage_range_v": {"min": 6.5, "max": 70}
+        },
+        "dimensions_mm": {"x": 120, "y": 54, "z": 46},
+        "interaction_endpoints": [
+          {"id": "smartshunt.bluetooth", "kind": "communication", "notes": "Bluetooth / VictronConnect."},
+          {"id": "smartshunt.ve-direct", "kind": "communication", "notes": "VE.Direct data and settings interface."}
+        ],
+        "physical_connectors": [
+          {"id": "smartshunt.ve-direct.connector", "designation": "VE.Direct", "type": "communication"}
+        ],
+        "physical_connector_associations": [
+          {
+            "id": "smartshunt.ve-direct.connector-association",
+            "connector_id": "smartshunt.ve-direct.connector",
+            "target": {"kind": "interaction_endpoint", "id": "smartshunt.ve-direct"}
+          }
+        ]
+      },
+      "field_evidence": {
+        "dimensions_mm.x": ["extracted.fact.smartshunt.dimension-x"],
+        "dimensions_mm.y": ["extracted.fact.smartshunt.dimension-y"],
+        "dimensions_mm.z": ["extracted.fact.smartshunt.dimension-z"],
+        "electrical.input_voltage_range_v": ["extracted.fact.smartshunt.supply-range-canonical"],
+        "physical_connectors": ["extracted.fact.smartshunt.ve-direct-connector"],
+        "physical_connector_associations": ["extracted.fact.smartshunt.ve-direct-association"]
+      },
+      "topology_evidence": {
+        "connection_point:smartshunt.battery-minus": ["extracted.fact.smartshunt.main-terminals"],
+        "connection_point:smartshunt.system-minus": ["extracted.fact.smartshunt.system-minus"],
+        "connection_point:smartshunt.vbatt-plus": ["extracted.fact.smartshunt.vbatt-plus"],
+        "connection_point:smartshunt.aux": ["extracted.fact.smartshunt.aux"],
+        "conductive_relationship:smartshunt.main-shunt-conduction": ["extracted.fact.smartshunt.conductive-relationship"],
+        "measurement_instance:smartshunt.main-current": ["extracted.fact.smartshunt.direct-measurements"],
+        "measurement_instance:smartshunt.battery-voltage": ["extracted.fact.smartshunt.battery-voltage-measurement"],
+        "interaction_endpoint:smartshunt.bluetooth": ["extracted.fact.smartshunt.bluetooth-endpoint"],
+        "interaction_endpoint:smartshunt.ve-direct": ["extracted.fact.smartshunt.ve-direct-endpoint"],
+        "physical_connector:smartshunt.ve-direct.connector": ["extracted.fact.smartshunt.ve-direct-connector"],
+        "physical_connector_association:smartshunt.ve-direct.connector-association": ["extracted.fact.smartshunt.ve-direct-association"]
+      },
+    "review_reasons": [
+      "exact_product_review_required",
+      "canonical promotion prohibited until human review",
+      "derived and configured information remains evidence-backed pending semantic destination review",
+      "offset row is unresolved because family table mapping is not explicit in captured HTML"
+    ]
+  }
+}

@@ -1,0 +1,92 @@
+{
+  "schema_version": "1.0",
+  "id": "review.human.smartshunt.shu050150050",
+  "candidate_id": "victron.smartshunt.shu050150050",
+  "candidate_snapshot": "sha256:3f03763fdff3646e4f131468883c3e766fe6262a8b7942827844c11c56186d36",
+  "decision": "approved",
+  "reviewer_id": "repository-review",
+  "reviewed_at": "2026-09-08T15:50:56.261Z",
+  "approved_fields": [
+    "dimensions_mm.x",
+    "dimensions_mm.y",
+    "dimensions_mm.z",
+    "electrical.input_voltage_range_v",
+    "physical_connectors",
+    "physical_connector_associations"
+  ],
+  "topology_evidence": {
+    "connection_point:smartshunt.battery-minus": [
+      "extracted.fact.smartshunt.main-terminals"
+    ],
+    "connection_point:smartshunt.system-minus": [
+      "extracted.fact.smartshunt.system-minus"
+    ],
+    "connection_point:smartshunt.vbatt-plus": [
+      "extracted.fact.smartshunt.vbatt-plus"
+    ],
+    "connection_point:smartshunt.aux": [
+      "extracted.fact.smartshunt.aux"
+    ],
+    "conductive_relationship:smartshunt.main-shunt-conduction": [
+      "extracted.fact.smartshunt.conductive-relationship"
+    ],
+    "measurement_instance:smartshunt.main-current": [
+      "extracted.fact.smartshunt.direct-measurements"
+    ],
+    "measurement_instance:smartshunt.battery-voltage": [
+      "extracted.fact.smartshunt.battery-voltage-measurement"
+    ],
+    "interaction_endpoint:smartshunt.bluetooth": [
+      "extracted.fact.smartshunt.bluetooth-endpoint"
+    ],
+    "interaction_endpoint:smartshunt.ve-direct": [
+      "extracted.fact.smartshunt.ve-direct-endpoint"
+    ],
+    "physical_connector:smartshunt.ve-direct.connector": [
+      "extracted.fact.smartshunt.ve-direct-connector"
+    ],
+    "physical_connector_association:smartshunt.ve-direct.connector-association": [
+      "extracted.fact.smartshunt.ve-direct-association"
+    ]
+  },
+  "reviewed_evidence_fact_ids": [
+    "extracted.fact.smartshunt.identity.500a-50mv",
+    "extracted.fact.smartshunt.family.sizes",
+    "extracted.fact.smartshunt.main-terminals",
+    "extracted.fact.smartshunt.vbatt-plus",
+    "extracted.fact.smartshunt.aux",
+    "extracted.fact.smartshunt.direct-measurements",
+    "extracted.fact.smartshunt.aux-measurement",
+    "extracted.fact.smartshunt.derived-information",
+    "extracted.fact.smartshunt.self-consumption",
+    "extracted.fact.smartshunt.supply-range",
+    "extracted.fact.smartshunt.aux-range",
+    "extracted.fact.smartshunt.capacity-range",
+    "extracted.fact.smartshunt.temperature-range",
+    "extracted.fact.smartshunt.ve-direct",
+    "extracted.fact.smartshunt.accuracy-resolution",
+    "extracted.fact.smartshunt.model-specific-offset",
+    "extracted.fact.smartshunt.500a-dimensions",
+    "extracted.fact.smartshunt.500a-m10",
+    "extracted.fact.smartshunt.500a-rating",
+    "extracted.fact.smartshunt.bluetooth",
+    "extracted.fact.smartshunt.gx",
+    "extracted.fact.smartshunt.current-sign",
+    "extracted.fact.smartshunt.system-minus",
+    "extracted.fact.smartshunt.conductive-relationship",
+    "extracted.fact.smartshunt.battery-voltage-measurement",
+    "extracted.fact.smartshunt.bluetooth-endpoint",
+    "extracted.fact.smartshunt.ve-direct-endpoint",
+    "extracted.fact.smartshunt.ve-direct-connector",
+    "extracted.fact.smartshunt.ve-direct-association",
+    "extracted.fact.smartshunt.dimension-x",
+    "extracted.fact.smartshunt.dimension-y",
+    "extracted.fact.smartshunt.dimension-z",
+    "extracted.fact.smartshunt.supply-range-canonical"
+  ],
+  "evidence_acknowledged": true,
+  "product_role": "monitor",
+  "category": "monitor",
+  "rationale": "Approve only the exact corrected canonical fields and topology objects represented by the candidate contract. Preserve all other reviewed facts as evidence-only because no exact generic canonical destination exists or the approved semantics prohibit flattening.",
+  "notes": "The review binds to the semantic promotion snapshot, not the raw candidate artifact hash."
+}

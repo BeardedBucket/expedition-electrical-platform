@@ -417,6 +417,7 @@ export const validateProductCandidate = (
   const factById = new Map(facts.map((fact) => [fact.id, fact]));
   const candidateFactIds = new Set(candidate.fact_ids);
   const fieldPath = /^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)*$/;
+  const fieldEvidence = candidate.field_evidence ?? {};
 
   candidate.source_ids.forEach((sourceId, index) => {
     if (!sourceIds.has(sourceId))
@@ -462,7 +463,7 @@ export const validateProductCandidate = (
   });
 
   const referencedFactIds = new Set<string>();
-  for (const [field, factIds] of Object.entries(candidate.field_evidence)) {
+  for (const [field, factIds] of Object.entries(fieldEvidence)) {
     if (!fieldPath.test(field))
       issues.push(
         issue(
@@ -640,7 +641,7 @@ export const validateProductCandidate = (
           'must be a dot-separated canonical field path.',
         ),
       );
-    if (!candidate.field_evidence[field]) {
+    if (!fieldEvidence[field]) {
       issues.push(
         issue(
           'missing_field_evidence',
