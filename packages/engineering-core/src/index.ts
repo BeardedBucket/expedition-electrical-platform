@@ -10,6 +10,7 @@ export { orchestrateRecommendations } from './orchestrator.js';
 export * from './reference-system.js';
 export * from './installed-interactions.js';
 export * from './installed-interaction-evaluation.js';
+export * from './installed-communication-interpretation.js';
 export * from './geometry.js';
 export * from './battery-power.js';
 export * from './load-demand.js';
