@@ -41,6 +41,104 @@ export interface InteractionRelationshipParticipant {
   readonly display_name?: string;
 }
 
+export type InteractionEngineeringParticipantReference =
+  | { readonly kind: 'component'; readonly component_id: string }
+  | {
+      readonly kind: 'interaction_endpoint';
+      readonly component_id: string;
+      readonly endpoint_id: string;
+    }
+  | { readonly kind: 'unresolved_external'; readonly reference: string };
+
+export interface InteractionRelationshipParticipantV2 {
+  readonly id: string;
+  readonly reference: InteractionEngineeringParticipantReference;
+  readonly role: string;
+  readonly display_name?: string;
+}
+
+export type InteractionEvidenceScopeKind =
+  | 'exact_product'
+  | 'model'
+  | 'family'
+  | 'ecosystem'
+  | 'product_series'
+  | 'accessory_scope'
+  | 'unresolved'
+  | 'other';
+
+export interface InteractionEvidenceScope {
+  readonly id: string;
+  readonly kind: InteractionEvidenceScopeKind;
+  readonly source_reference: string;
+  readonly source_wording?: string;
+  readonly source_ids: readonly string[];
+  readonly fact_ids: readonly string[];
+  readonly resolution: 'resolved' | 'partially_resolved' | 'unresolved';
+  readonly resolved_component_ids?: readonly string[];
+}
+
+export type InteractionApplicability =
+  | {
+      readonly id: string;
+      readonly target_participant_id: string;
+      readonly kind: 'firmware' | 'hardware_revision';
+      readonly operator: 'equals';
+      readonly value: string;
+      readonly source_ids: readonly string[];
+      readonly fact_ids: readonly string[];
+      readonly raw_wording?: string;
+    }
+  | {
+      readonly id: string;
+      readonly target_participant_id?: string;
+      readonly kind: 'other';
+      readonly raw_value: string;
+      readonly source_ids: readonly string[];
+      readonly fact_ids: readonly string[];
+    };
+
+export type InteractionConfigurationValue = string | number | boolean | null;
+
+export type InteractionPrerequisite =
+  | {
+      readonly id: string;
+      readonly kind: 'intermediate';
+      readonly participant_id: string;
+      readonly source_ids: readonly string[];
+      readonly fact_ids: readonly string[];
+      readonly raw_wording?: string;
+    }
+  | {
+      readonly id: string;
+      readonly kind: 'configuration';
+      readonly target:
+        | { readonly kind: 'participant'; readonly participant_id: string }
+        | { readonly kind: 'relationship' };
+      readonly key: string;
+      readonly operator: 'equals' | 'present';
+      readonly value?: InteractionConfigurationValue;
+      readonly source_ids: readonly string[];
+      readonly fact_ids: readonly string[];
+      readonly raw_wording?: string;
+    }
+  | {
+      readonly id: string;
+      readonly kind: 'connection';
+      readonly participant_ids: readonly [string, string];
+      readonly topology: 'direct' | 'shared_network' | 'direct_or_shared_network';
+      readonly source_ids: readonly string[];
+      readonly fact_ids: readonly string[];
+      readonly raw_wording?: string;
+    }
+  | {
+      readonly id: string;
+      readonly kind: 'other';
+      readonly raw_value: string;
+      readonly source_ids: readonly string[];
+      readonly fact_ids: readonly string[];
+    };
+
 export interface InteractionRelationshipCondition {
   readonly kind:
     | 'accessory_required'
@@ -53,7 +151,7 @@ export interface InteractionRelationshipCondition {
   readonly value: string;
 }
 
-export type InteractionEvidenceScope =
+export type InteractionEvidenceApplicabilityScope =
   | 'exact_product'
   | 'product_model'
   | 'product_family'
@@ -63,7 +161,7 @@ export type InteractionEvidenceScope =
   | 'other';
 
 export interface InteractionEvidenceApplicability {
-  readonly scope: InteractionEvidenceScope;
+  readonly scope: InteractionEvidenceApplicabilityScope;
   readonly ref?: string;
   readonly manufacturer?: string;
   readonly model?: string;
@@ -75,6 +173,13 @@ export interface InteractionEvidenceApplicability {
 export interface InteractionInformationClaim {
   readonly direction: 'exposes' | 'consumes';
   readonly participant_ref: string;
+  readonly term: string;
+  readonly raw_wording?: string;
+}
+
+export interface InteractionInformationClaimV2 {
+  readonly direction: 'exposes' | 'consumes';
+  readonly participant_id: string;
   readonly term: string;
   readonly raw_wording?: string;
 }
@@ -98,10 +203,15 @@ export interface InteractionRelationship {
   readonly relationship_kind: InteractionRelationshipKind;
   readonly assertion?: 'positive' | 'negative';
   readonly participants: readonly InteractionRelationshipParticipant[];
+  readonly normalized_participants?: readonly InteractionRelationshipParticipantV2[];
   readonly required_intermediates?: readonly string[];
   readonly scope: InteractionRelationshipScope;
   readonly information?: readonly InteractionInformationClaim[];
+  readonly normalized_information?: readonly InteractionInformationClaimV2[];
   readonly conditions?: readonly InteractionRelationshipCondition[];
+  readonly applicability?: readonly InteractionApplicability[];
+  readonly prerequisites?: readonly InteractionPrerequisite[];
+  readonly evidence_scopes?: readonly InteractionEvidenceScope[];
   readonly notes?: string;
   readonly evidence: {
     readonly source_ids: readonly string[];
@@ -121,7 +231,20 @@ export interface InteractionRelationshipValidationIssue {
     | 'invalid_intermediate_ref'
     | 'invalid_information_ref'
     | 'missing_evidence'
-    | 'canonical_identity_unresolved';
+    | 'canonical_identity_unresolved'
+    | 'duplicate_participant_id'
+    | 'invalid_participant_id'
+    | 'invalid_normalized_reference'
+    | 'invalid_normalized_information_ref'
+    | 'invalid_applicability_ref'
+    | 'duplicate_applicability_id'
+    | 'invalid_prerequisite_ref'
+    | 'duplicate_prerequisite_id'
+    | 'invalid_configuration_predicate'
+    | 'invalid_connection_topology'
+    | 'invalid_evidence_scope'
+    | 'invalid_evidence_scope_component'
+    | 'legacy_normalized_conflict';
   readonly path: string;
   readonly message: string;
 }
@@ -217,6 +340,8 @@ export interface CanonicalInteractionRelationshipRequest {
   readonly filename?: string;
   readonly filesystem?: CanonicalInteractionRelationshipFilesystem;
   readonly participantReferenceResolver?: InteractionParticipantReferenceResolver;
+  readonly componentReferenceResolver?: (componentId: string) => boolean;
+  readonly endpointReferenceResolver?: (componentId: string, endpointId: string) => boolean;
 }
 
 export interface CanonicalInteractionRelationshipResult {

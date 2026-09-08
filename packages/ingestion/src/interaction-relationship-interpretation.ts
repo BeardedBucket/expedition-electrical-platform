@@ -1,5 +1,9 @@
 import type {
   InteractionInformationClaim,
+  InteractionInformationClaimV2,
+  InteractionApplicability,
+  InteractionPrerequisite,
+  InteractionRelationshipParticipantV2,
   InteractionRelationship,
   InteractionRelationshipCondition,
   InteractionRelationshipKind,
@@ -40,6 +44,10 @@ export interface InteractionInterpretationResult {
     readonly source_ids: readonly string[];
     readonly fact_ids: readonly string[];
   };
+  readonly normalized_participants: readonly InteractionRelationshipParticipantV2[];
+  readonly normalized_information: readonly InteractionInformationClaimV2[];
+  readonly applicability: readonly InteractionApplicability[];
+  readonly prerequisites: readonly InteractionPrerequisite[];
 }
 
 const matchesParticipantQuery = (
@@ -132,6 +140,10 @@ export const interpretInteractionRelationship = (
       conditions: [...(relationship.conditions ?? [])],
       unresolved: buildUnresolved(relationship),
       evidence,
+      normalized_participants: [...(relationship.normalized_participants ?? [])],
+      normalized_information: [...(relationship.normalized_information ?? [])],
+      applicability: [...(relationship.applicability ?? [])],
+      prerequisites: [...(relationship.prerequisites ?? [])],
     };
   }
 
@@ -148,6 +160,10 @@ export const interpretInteractionRelationship = (
       conditions: [...(relationship.conditions ?? [])],
       unresolved: ['relationship_assertion_missing', ...buildUnresolved(relationship)],
       evidence,
+      normalized_participants: [...(relationship.normalized_participants ?? [])],
+      normalized_information: [...(relationship.normalized_information ?? [])],
+      applicability: [...(relationship.applicability ?? [])],
+      prerequisites: [...(relationship.prerequisites ?? [])],
     };
   }
 
@@ -164,6 +180,10 @@ export const interpretInteractionRelationship = (
       conditions: [...(relationship.conditions ?? [])],
       unresolved: buildUnresolved(relationship),
       evidence,
+      normalized_participants: [...(relationship.normalized_participants ?? [])],
+      normalized_information: [...(relationship.normalized_information ?? [])],
+      applicability: [...(relationship.applicability ?? [])],
+      prerequisites: [...(relationship.prerequisites ?? [])],
     };
   }
 
@@ -179,6 +199,10 @@ export const interpretInteractionRelationship = (
     conditions: [...(relationship.conditions ?? [])],
     unresolved: buildUnresolved(relationship),
     evidence,
+    normalized_participants: [...(relationship.normalized_participants ?? [])],
+    normalized_information: [...(relationship.normalized_information ?? [])],
+    applicability: [...(relationship.applicability ?? [])],
+    prerequisites: [...(relationship.prerequisites ?? [])],
   };
 };
 
@@ -201,6 +225,10 @@ export const interpretInteractionRelationships = (
         conditions: [],
         unresolved: ['no_applicable_reviewed_relationship'],
         evidence: { source_ids: [], fact_ids: [] },
+        normalized_participants: [],
+        normalized_information: [],
+        applicability: [],
+        prerequisites: [],
       },
     ];
   }

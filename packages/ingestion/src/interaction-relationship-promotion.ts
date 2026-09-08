@@ -22,7 +22,10 @@ import {
   type InteractionRelationship,
   type InteractionRelationshipPromotionHistoryEntry,
 } from './interaction-relationship-types.js';
-import { validateInteractionRelationships } from './interaction-relationship-validation.js';
+import {
+  usesNormalizedInteractionAuthority,
+  validateInteractionRelationships,
+} from './interaction-relationship-validation.js';
 
 const stableInteractionRelationshipValue = (value: unknown): unknown => {
   if (Array.isArray(value)) return value.map(stableInteractionRelationshipValue);
@@ -171,6 +174,8 @@ export const proposeCanonicalInteractionRelationship = ({
   candidate,
   review,
   participantReferenceResolver,
+  componentReferenceResolver,
+  endpointReferenceResolver,
 }: CanonicalInteractionRelationshipRequest): CanonicalInteractionRelationshipResult => {
   const issues: CanonicalInteractionRelationshipIssue[] = [];
   const expectedSnapshot = review.expected_snapshot ?? review.expected_current_snapshot;
@@ -338,30 +343,31 @@ export const proposeCanonicalInteractionRelationship = ({
       ),
     );
   }
-
-  const participantRefs = new Set(current.participants.map((participant) => participant.ref));
-  current.required_intermediates?.forEach((ref, index) => {
-    if (!participantRefs.has(ref)) {
-      issues.push(
-        canonicalInteractionRelationshipIssue(
-          'invalid_intermediate_ref',
-          `required_intermediates[${index}]`,
-          `Required intermediate '${ref}' is not a participant in the relationship.`,
-        ),
-      );
-    }
-  });
-  current.information?.forEach((claim, index) => {
-    if (!participantRefs.has(claim.participant_ref)) {
-      issues.push(
-        canonicalInteractionRelationshipIssue(
-          'invalid_information_ref',
-          `information[${index}].participant_ref`,
-          `Information participant '${claim.participant_ref}' is not a participant.`,
-        ),
-      );
-    }
-  });
+  if (!usesNormalizedInteractionAuthority(current)) {
+    const participantRefs = new Set(current.participants.map((participant) => participant.ref));
+    current.required_intermediates?.forEach((ref, index) => {
+      if (!participantRefs.has(ref)) {
+        issues.push(
+          canonicalInteractionRelationshipIssue(
+            'invalid_intermediate_ref',
+            `required_intermediates[${index}]`,
+            `Required intermediate '${ref}' is not a participant in the relationship.`,
+          ),
+        );
+      }
+    });
+    current.information?.forEach((claim, index) => {
+      if (!participantRefs.has(claim.participant_ref)) {
+        issues.push(
+          canonicalInteractionRelationshipIssue(
+            'invalid_information_ref',
+            `information[${index}].participant_ref`,
+            `Information participant '${claim.participant_ref}' is not a participant in the relationship.`,
+          ),
+        );
+      }
+    });
+  }
 
   const proposal = JSON.parse(JSON.stringify(current)) as InteractionRelationship;
   const invalidState =
@@ -379,6 +385,8 @@ export const proposeCanonicalInteractionRelationship = ({
   }
   const validationIssues = validateInteractionRelationships([proposal], {
     participantReferenceResolver,
+    componentReferenceResolver,
+    endpointReferenceResolver,
   });
   if (validationIssues.status === 'invalid') {
     issues.push(
