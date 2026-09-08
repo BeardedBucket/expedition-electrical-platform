@@ -23,7 +23,12 @@ unresolved, or conflicting candidates never promote, and
 The function validates the candidate using the existing ingestion validation,
 retains source and the fact identifiers supporting approved canonical fields in
 `source_refs` and its audit result, while omitted/evidence-only fact identifiers
-remain available in the ingestion artifact, and
+remain available in the ingestion artifact and promotion audit. Reviews may
+record such accepted-but-unmapped facts in `reviewed_evidence_fact_ids`;
+`excluded_fact_ids` remains available for facts not approved for use. Canonical
+`source_refs.fact_ids` contains only facts supporting canonical fields or
+approved topology evidence. The promotion result
+keeps promoted facts `unverified` unless a separate reviewed data process establishes verification.
 keeps promoted facts `unverified` unless a separate reviewed data process
 establishes verification. Reviewer resolutions must select an existing
 candidate fact and include rationale; dimensions remain omitted when their

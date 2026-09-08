@@ -1,0 +1,98 @@
+{
+  "schema_version": "1.0",
+  "id": "review.human.scc075015060r.d-r",
+  "component_id": "victron-energy.scc075015060r",
+  "candidate_id": "victron.smartsolar-mppt-75-15.scc075015060r.d-r",
+  "decision": "approved",
+  "reviewer_id": "repository-review",
+  "reviewed_at": "2026-09-08T06:07:09.917Z",
+  "approved_fields": [],
+  "field_actions": {},
+  "approved_topology_targets": [
+    "capability:smartsolar.pv-to-battery-charge",
+    "port:smartsolar.pv-input",
+    "port:smartsolar.battery-output",
+    "power_path:smartsolar.pv-to-battery-charge"
+  ],
+  "topology_evidence": {
+    "capability:smartsolar.pv-to-battery-charge": ["extracted.fact.chargecapability"],
+    "port:smartsolar.pv-input": ["extracted.fact.pvport"],
+    "port:smartsolar.battery-output": ["extracted.fact.batteryport"],
+    "power_path:smartsolar.pv-to-battery-charge": ["extracted.fact.chargepath"]
+  },
+  "topology_operations": [
+    {
+      "operation": "add",
+      "kind": "capability",
+      "id": "smartsolar.pv-to-battery-charge",
+      "value": {
+        "id": "smartsolar.pv-to-battery-charge",
+        "type": "solar_energy_conversion",
+        "name": "PV to battery charging"
+      },
+      "evidence": ["extracted.fact.chargecapability"]
+    },
+    {
+      "operation": "add",
+      "kind": "port",
+      "id": "smartsolar.pv-input",
+      "value": {
+        "id": "smartsolar.pv-input",
+        "domain": "dc",
+        "direction": "input",
+        "constraints": [
+          {
+            "id": "smartsolar.pv-input.max-pv-voc",
+            "kind": "absolute_maximum",
+            "quantity": "voltage",
+            "unit": "V",
+            "value": 75
+          }
+        ]
+      },
+      "evidence": ["extracted.fact.pvport"]
+    },
+    {
+      "operation": "add",
+      "kind": "port",
+      "id": "smartsolar.battery-output",
+      "value": {
+        "id": "smartsolar.battery-output",
+        "domain": "dc",
+        "direction": "output"
+      },
+      "evidence": ["extracted.fact.batteryport"]
+    },
+    {
+      "operation": "add",
+      "kind": "power_path",
+      "id": "smartsolar.pv-to-battery-charge",
+      "value": {
+        "id": "smartsolar.pv-to-battery-charge",
+        "capability_id": "smartsolar.pv-to-battery-charge",
+        "from_port": "smartsolar.pv-input",
+        "to_port": "smartsolar.battery-output"
+      },
+      "evidence": ["extracted.fact.chargepath"]
+    }
+  ],
+  "reviewed_evidence_fact_ids": [
+    "extracted.fact.46e26422cb2ad502",
+    "extracted.fact.89fdce21d19d1776",
+    "extracted.fact.867bebba68349009",
+    "extracted.fact.cb138b497cf13404",
+    "extracted.fact.f2dc7ad1a395ead2",
+    "extracted.fact.f6fee013b4ada60d",
+    "extracted.fact.e60800807e1b1b5f",
+    "extracted.fact.75pvtopology"
+  ],
+  "candidate_snapshot": "sha256:522609bbaafc266b3b416131f3ab318b5769d6618dd4609baa84275e807fc336",
+  "evidence_acknowledged": true,
+  "product_role": "solar_charge_controller",
+  "category": "solar_charge_controller",
+  "rationale": "Human D-R approval authorizes only the evidence-backed PV input, battery charging interface, directional power path, and 75 V absolute maximum PV open-circuit voltage constraint. Nominal/design voltage relationship, overvoltage recovery hysteresis, conditional nominal PV power, and PV short-circuit current remain reviewed evidence and are not forced into canonical constraint fields.",
+  "notes": "The candidate snapshot is bound at execution time to the current canonical amendment snapshot and recorded in the applied amendment history.",
+  "expected_snapshot": "sha256:522609bbaafc266b3b416131f3ab318b5769d6618dd4609baa84275e807fc336",
+  "applied_snapshot": "sha256:da5ee9308657cdc7848fa1b6801827b4ba82d6baa10e99200fe9d20d9db35559",
+  "applied_status": "written"
+}

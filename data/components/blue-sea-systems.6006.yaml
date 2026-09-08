@@ -1,0 +1,191 @@
+category: disconnect
+conductive_relationships:
+  - constraints:
+      - domain: dc
+        id: bluesea.6006.contact-continuous
+        kind: continuous_rating
+        notes: Manufacturer contact-path continuous rating; 4/0 AWG cable basis is
+          informational evidence, not ampacity.
+        quantity: current
+        unit: A
+        value: 300
+      - domain: dc
+        id: bluesea.6006.contact-maximum-voltage
+        kind: absolute_maximum
+        notes: Manufacturer maximum DC voltage rating.
+        quantity: voltage
+        unit: V
+        value: 48
+    id: bluesea.6006.main-contact
+    participants:
+      - id: bluesea.6006.terminal-1
+        kind: connection_point
+      - id: bluesea.6006.terminal-2
+        kind: connection_point
+connection_points:
+  - id: bluesea.6006.terminal-1
+    notes: Main switched terminal; 3/8-16 (M10) tin-plated copper stud.
+  - id: bluesea.6006.terminal-2
+    notes: Main switched terminal; 3/8-16 (M10) tin-plated copper stud.
+id: blue-sea-systems.6006
+manufacturer: Blue Sea Systems
+model: m-Series Mini On-Off Battery Switch with Knob - Red
+part_number: "6006"
+product_family: m-Series
+product_role: disconnect
+source_refs:
+  - candidate_id: bluesea.mseries.6006
+    content_hash: sha256:0d61fee8fde4b90f438a4e83cc72ee702f3bcc22445b33fda871bbc6640782f1
+    fact_ids:
+      - extracted.fact.bluesea.6006.cable-basis
+      - extracted.fact.bluesea.6006.category
+      - extracted.fact.bluesea.6006.continuous-rating
+      - extracted.fact.bluesea.6006.family
+      - extracted.fact.bluesea.6006.main-contact
+      - extracted.fact.bluesea.6006.main-terminals
+      - extracted.fact.bluesea.6006.manufacturer
+      - extracted.fact.bluesea.6006.max-voltage
+      - extracted.fact.bluesea.6006.model
+      - extracted.fact.bluesea.6006.off-evidence
+      - extracted.fact.bluesea.6006.on-behavior
+      - extracted.fact.bluesea.6006.part-number
+      - extracted.fact.bluesea.6006.product-role
+      - extracted.fact.bluesea.6006.switch-positions
+      - extracted.fact.bluesea.6006.terminal-2
+    id: bluesea.mseries.6006.990520240
+    publisher: Blue Sea Systems
+    retrieved_at: 2026-09-08T19:20:00Z
+    review_id: review.human.bluesea.mseries.6006
+    type: manufacturer_manual
+    uri: https://d2pyqmyd3fw2i.cloudfront.net/files/resources/instructions/990520240.pdf
+  - candidate_id: bluesea.mseries.6006
+    content_hash: sha256:7cc74f7fbfefeb04505edb6118d069b5733d724e912a46875f926bb305f3f980
+    fact_ids:
+      - extracted.fact.bluesea.6006.cable-basis
+      - extracted.fact.bluesea.6006.category
+      - extracted.fact.bluesea.6006.continuous-rating
+      - extracted.fact.bluesea.6006.family
+      - extracted.fact.bluesea.6006.main-contact
+      - extracted.fact.bluesea.6006.main-terminals
+      - extracted.fact.bluesea.6006.manufacturer
+      - extracted.fact.bluesea.6006.max-voltage
+      - extracted.fact.bluesea.6006.model
+      - extracted.fact.bluesea.6006.off-evidence
+      - extracted.fact.bluesea.6006.on-behavior
+      - extracted.fact.bluesea.6006.part-number
+      - extracted.fact.bluesea.6006.product-role
+      - extracted.fact.bluesea.6006.switch-positions
+      - extracted.fact.bluesea.6006.terminal-2
+    id: bluesea.mseries.6006.dimensioned-drawing
+    publisher: Blue Sea Systems
+    retrieved_at: 2026-09-08T18:45:00Z
+    review_id: review.human.bluesea.mseries.6006
+    type: manufacturer_drawing
+    uri: https://d2pyqmyd3fw2i.cloudfront.net/files/resources/dimensioned_drawing/M_Switch_Knob.pdf
+  - candidate_id: bluesea.mseries.6006
+    content_hash: sha256:1618923f816efde20d21492fc4b756e113831098cbcb18abea7329b3e71b1f83
+    fact_ids:
+      - extracted.fact.bluesea.6006.cable-basis
+      - extracted.fact.bluesea.6006.category
+      - extracted.fact.bluesea.6006.continuous-rating
+      - extracted.fact.bluesea.6006.family
+      - extracted.fact.bluesea.6006.main-contact
+      - extracted.fact.bluesea.6006.main-terminals
+      - extracted.fact.bluesea.6006.manufacturer
+      - extracted.fact.bluesea.6006.max-voltage
+      - extracted.fact.bluesea.6006.model
+      - extracted.fact.bluesea.6006.off-evidence
+      - extracted.fact.bluesea.6006.on-behavior
+      - extracted.fact.bluesea.6006.part-number
+      - extracted.fact.bluesea.6006.product-role
+      - extracted.fact.bluesea.6006.switch-positions
+      - extracted.fact.bluesea.6006.terminal-2
+    id: bluesea.mseries.6006.instructions
+    publisher: Blue Sea Systems
+    retrieved_at: 2026-09-08T18:45:00Z
+    review_id: review.human.bluesea.mseries.6006
+    type: manufacturer_manual
+    uri: https://d2pyqmyd3fw2i.cloudfront.net/files/resources/instructions/6006_web_version.pdf
+  - candidate_id: bluesea.mseries.6006
+    fact_ids:
+      - extracted.fact.bluesea.6006.cable-basis
+      - extracted.fact.bluesea.6006.category
+      - extracted.fact.bluesea.6006.continuous-rating
+      - extracted.fact.bluesea.6006.family
+      - extracted.fact.bluesea.6006.main-contact
+      - extracted.fact.bluesea.6006.main-terminals
+      - extracted.fact.bluesea.6006.manufacturer
+      - extracted.fact.bluesea.6006.max-voltage
+      - extracted.fact.bluesea.6006.model
+      - extracted.fact.bluesea.6006.off-evidence
+      - extracted.fact.bluesea.6006.on-behavior
+      - extracted.fact.bluesea.6006.part-number
+      - extracted.fact.bluesea.6006.product-role
+      - extracted.fact.bluesea.6006.switch-positions
+      - extracted.fact.bluesea.6006.terminal-2
+    id: bluesea.mseries.6006.product-page
+    publisher: Blue Sea Systems
+    retrieved_at: 2026-09-08T18:45:00Z
+    review_id: review.human.bluesea.mseries.6006
+    type: manufacturer_product_page
+    uri: https://www.bluesea.com/products/6006/m-Series_Battery_Switch
+  - candidate_id: bluesea.mseries.6006
+    content_hash: sha256:38df2a287a69f10e6e141eeab3abde852f44c135d240f4c59a9b4c5cc4273f13
+    fact_ids:
+      - extracted.fact.bluesea.6006.cable-basis
+      - extracted.fact.bluesea.6006.category
+      - extracted.fact.bluesea.6006.continuous-rating
+      - extracted.fact.bluesea.6006.family
+      - extracted.fact.bluesea.6006.main-contact
+      - extracted.fact.bluesea.6006.main-terminals
+      - extracted.fact.bluesea.6006.manufacturer
+      - extracted.fact.bluesea.6006.max-voltage
+      - extracted.fact.bluesea.6006.model
+      - extracted.fact.bluesea.6006.off-evidence
+      - extracted.fact.bluesea.6006.on-behavior
+      - extracted.fact.bluesea.6006.part-number
+      - extracted.fact.bluesea.6006.product-role
+      - extracted.fact.bluesea.6006.switch-positions
+      - extracted.fact.bluesea.6006.terminal-2
+    id: bluesea.mseries.6006.ul-certificate
+    publisher: Blue Sea Systems
+    retrieved_at: 2026-09-08T18:45:00Z
+    review_id: review.human.bluesea.mseries.6006
+    type: manufacturer_certificate
+    uri: https://d2pyqmyd3fw2i.cloudfront.net/files/resources/certificates/mSeries-UL.pdf
+  - candidate_id: bluesea.mseries.6006
+    content_hash: sha256:172387ee3a412c4d445da353972b08c48720c2ef227b6f9f2c8daab00ae7a641
+    fact_ids:
+      - extracted.fact.bluesea.6006.cable-basis
+      - extracted.fact.bluesea.6006.category
+      - extracted.fact.bluesea.6006.continuous-rating
+      - extracted.fact.bluesea.6006.family
+      - extracted.fact.bluesea.6006.main-contact
+      - extracted.fact.bluesea.6006.main-terminals
+      - extracted.fact.bluesea.6006.manufacturer
+      - extracted.fact.bluesea.6006.max-voltage
+      - extracted.fact.bluesea.6006.model
+      - extracted.fact.bluesea.6006.off-evidence
+      - extracted.fact.bluesea.6006.on-behavior
+      - extracted.fact.bluesea.6006.part-number
+      - extracted.fact.bluesea.6006.product-role
+      - extracted.fact.bluesea.6006.switch-positions
+      - extracted.fact.bluesea.6006.terminal-2
+    id: bluesea.mseries.operation-diagrams
+    publisher: Blue Sea Systems
+    retrieved_at: 2026-09-08T18:45:00Z
+    review_id: review.human.bluesea.mseries.6006
+    type: manufacturer_manual
+    uri: https://d2pyqmyd3fw2i.cloudfront.net/files/resources/reference/all-switches.pdf
+switching:
+  configurations:
+    - active_relationship_ids: []
+      id: bluesea.6006.off
+      label: OFF
+    - active_relationship_ids:
+        - bluesea.6006.main-contact
+      id: bluesea.6006.on
+      label: ON
+  controlled_relationship_ids:
+    - bluesea.6006.main-contact
+verification_status: unverified

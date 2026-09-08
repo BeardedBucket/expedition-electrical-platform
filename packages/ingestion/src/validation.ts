@@ -84,6 +84,8 @@ export const topologyTargetFromKey = (value: string): TopologyTarget | undefined
       'interaction_endpoint',
       'physical_connector',
       'physical_connector_association',
+      'isolation_relationship',
+      'isolation_relationship',
     ].includes(kind)
   )
     return undefined;
@@ -119,6 +121,7 @@ const validateTopologyTargetShape = (
       'interaction_endpoint',
       'physical_connector',
       'physical_connector_association',
+      'isolation_relationship',
     ].includes(target.kind)
   ) {
     issues.push(
@@ -126,7 +129,7 @@ const validateTopologyTargetShape = (
         'topology_target_invalid',
         'invalid',
         path,
-        'Topology target kind must be capability, port, power_path, connection_point, conductive_relationship, switching_configuration, protection_instance, measurement_instance, interaction_endpoint, physical_connector, or physical_connector_association.',
+        'Topology target kind must be capability, port, power_path, connection_point, conductive_relationship, isolation_relationship, switching_configuration, protection_instance, measurement_instance, interaction_endpoint, physical_connector, or physical_connector_association.',
       ),
     );
   }
@@ -180,6 +183,7 @@ const validateTopologyTargetShape = (
     interaction_endpoint: 'interaction_endpoints',
     physical_connector: 'physical_connectors',
     physical_connector_association: 'physical_connector_associations',
+    isolation_relationship: 'isolation_relationships',
   } as const;
   const containerName = refs[target.kind as keyof typeof refs];
   const values = containerName
@@ -413,6 +417,7 @@ export const validateProductCandidate = (
   const factById = new Map(facts.map((fact) => [fact.id, fact]));
   const candidateFactIds = new Set(candidate.fact_ids);
   const fieldPath = /^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)*$/;
+  const fieldEvidence = candidate.field_evidence ?? {};
 
   candidate.source_ids.forEach((sourceId, index) => {
     if (!sourceIds.has(sourceId))
@@ -458,7 +463,7 @@ export const validateProductCandidate = (
   });
 
   const referencedFactIds = new Set<string>();
-  for (const [field, factIds] of Object.entries(candidate.field_evidence)) {
+  for (const [field, factIds] of Object.entries(fieldEvidence)) {
     if (!fieldPath.test(field))
       issues.push(
         issue(
@@ -541,7 +546,6 @@ export const validateProductCandidate = (
     });
   }
 
-  const topologyFactIds = new Set<string>();
   for (const [key, factIds] of Object.entries(candidate.topology_evidence ?? {})) {
     const target = topologyTargetFromKey(key);
     if (!target) {
@@ -569,17 +573,6 @@ export const validateProductCandidate = (
       );
     }
     factIds.forEach((factId, index) => {
-      if (topologyFactIds.has(factId)) {
-        issues.push(
-          issue(
-            'duplicate_topology_fact_reference',
-            'invalid',
-            `topology_evidence.${key}[${index}]`,
-            `fact '${factId}' is referenced more than once across topology evidence.`,
-          ),
-        );
-      }
-      topologyFactIds.add(factId);
       const fact = factById.get(factId);
       if (!fact) {
         issues.push(
@@ -634,6 +627,7 @@ export const validateProductCandidate = (
         'switching',
         'protection',
         'measurement',
+        'isolation_relationships',
         'interaction_endpoints',
       ].includes(base)
     )
@@ -647,7 +641,7 @@ export const validateProductCandidate = (
           'must be a dot-separated canonical field path.',
         ),
       );
-    if (!candidate.field_evidence[field]) {
+    if (!fieldEvidence[field]) {
       issues.push(
         issue(
           'missing_field_evidence',

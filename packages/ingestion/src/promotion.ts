@@ -21,6 +21,8 @@ export type PromotionIssueCode =
   | 'promotion_invalid_component'
   | 'promotion_evidence_missing'
   | 'promotion_dangling_resolution'
+  | 'promotion_reviewed_evidence_missing'
+  | 'promotion_reviewed_evidence_conflict'
   | 'promotion_candidate_validation_failed'
   | 'promotion_snapshot_missing'
   | 'promotion_snapshot_mismatch'
@@ -51,6 +53,11 @@ export interface PromotionReview {
   readonly approved_fields: readonly string[];
   readonly excluded_fields?: readonly string[];
   readonly excluded_fact_ids?: readonly string[];
+  /**
+   * Facts accepted as source evidence but intentionally not mapped to
+   * canonical component fields.
+   */
+  readonly reviewed_evidence_fact_ids?: readonly string[];
   readonly field_resolutions?: Readonly<Record<string, PromotionFieldResolution>>;
   readonly topology_evidence?: Readonly<Record<string, readonly string[]>>;
   readonly evidence_acknowledged: boolean;
@@ -77,6 +84,7 @@ export interface PromotionAudit {
   readonly topology_evidence?: Readonly<Record<string, readonly string[]>>;
   readonly omitted_fields: readonly string[];
   readonly unverified_fact_ids: readonly string[];
+  readonly reviewed_evidence_fact_ids: readonly string[];
 }
 
 export interface PromotionResult {
@@ -180,6 +188,7 @@ export const promotionCandidateSnapshot = (
         fact_state: fact.fact_state,
         review_required: fact.review_required ?? false,
         ...(fact.topology_target ? { topology_target: fact.topology_target } : {}),
+        ...(fact.target ? { target: fact.target } : {}),
       })),
     sources: sources
       .filter((source) => candidate.source_ids.includes(source.id))
@@ -284,6 +293,184 @@ const factsForCandidateValidation = (
     const field = fieldByFactId.get(fact.id);
     return field ? { ...fact, field } : fact;
   });
+};
+
+const topologyEvidenceForField = (
+  field: string,
+  topologyEvidence: Readonly<Record<string, readonly string[]>>,
+): readonly string[] => {
+  const prefixes: Readonly<Record<string, string>> = {
+    capabilities: 'capability:',
+    ports: 'port:',
+    isolation_relationships: 'isolation_relationship:',
+    power_paths: 'power_path:',
+  };
+  const prefix = prefixes[field];
+  if (!prefix) return [];
+  return [
+    ...new Set(
+      Object.entries(topologyEvidence)
+        .filter(([target]) => target.startsWith(prefix))
+        .flatMap(([, factIds]) => factIds),
+    ),
+  ].sort();
+};
+
+const topologyCollectionForKind: Readonly<Record<string, string>> = {
+  capability: 'capabilities',
+  port: 'ports',
+  power_path: 'power_paths',
+  connection_point: 'connection_points',
+  conductive_relationship: 'conductive_relationships',
+  switching_configuration: 'switching.configurations',
+  protection_instance: 'protection.instances',
+  measurement_instance: 'measurement.instances',
+  interaction_endpoint: 'interaction_endpoints',
+  physical_connector: 'physical_connectors',
+  physical_connector_association: 'physical_connector_associations',
+  isolation_relationship: 'isolation_relationships',
+};
+
+const topologyDataFor = (
+  componentData: JsonObject,
+  topologyEvidence: Readonly<Record<string, readonly string[]>>,
+): JsonObject => {
+  const selected: Record<string, JsonValue> = {};
+  Object.keys(topologyEvidence)
+    .sort()
+    .forEach((key) => {
+      const target = key.split(':');
+      const kind = target[0];
+      const id = target.slice(1).join(':');
+      const collectionPath = topologyCollectionForKind[kind];
+      if (!collectionPath) return;
+      const items = collectionPath
+        .split('.')
+        .reduce<JsonValue | undefined>(
+          (value, segment) =>
+            value && typeof value === 'object' && !Array.isArray(value)
+              ? value[segment]
+              : undefined,
+          componentData,
+        );
+      if (!Array.isArray(items)) return;
+      const item = items.find(
+        (value): value is JsonObject =>
+          value !== null && typeof value === 'object' && !Array.isArray(value) && value.id === id,
+      );
+      if (!item) return;
+      const canonicalItem =
+        kind === 'conductive_relationship'
+          ? Object.fromEntries(
+              Object.entries(item)
+                .filter(([field]) => field !== 'directional')
+                .map(([field, value]) => [
+                  field,
+                  field === 'constraints' && Array.isArray(value)
+                    ? value.map((constraint) => {
+                        if (
+                          constraint === null ||
+                          typeof constraint !== 'object' ||
+                          Array.isArray(constraint)
+                        )
+                          return constraint;
+                        return Object.fromEntries(
+                          Object.entries(constraint).filter(
+                            ([constraintField]) => constraintField !== 'target',
+                          ),
+                        );
+                      })
+                    : value,
+                ]),
+            )
+          : item;
+      const [root, ...path] = collectionPath.split('.');
+      const existing = selected[root];
+      if (path.length === 0) {
+        const values: JsonValue[] = Array.isArray(existing) ? existing : [];
+        selected[root] = [...values, canonicalItem];
+        return;
+      }
+      const nested =
+        existing && typeof existing === 'object' && !Array.isArray(existing)
+          ? (existing as JsonObject)
+          : {};
+      const nestedValues: JsonValue[] = Array.isArray(nested[path[0]])
+        ? (nested[path[0]] as JsonValue[])
+        : [];
+      selected[root] = { ...nested, [path[0]]: [...nestedValues, canonicalItem] };
+    });
+  const switching = componentData.switching;
+  const projectedSwitching = selected.switching;
+  if (
+    switching &&
+    typeof switching === 'object' &&
+    !Array.isArray(switching) &&
+    projectedSwitching &&
+    typeof projectedSwitching === 'object' &&
+    !Array.isArray(projectedSwitching)
+  ) {
+    const sourceControlled = switching.controlled_relationship_ids;
+    const configurations = projectedSwitching.configurations;
+    if (Array.isArray(sourceControlled) && Array.isArray(configurations)) {
+      selected.switching = {
+        ...(projectedSwitching as JsonObject),
+        controlled_relationship_ids: sourceControlled,
+      };
+    }
+  }
+  return selected;
+};
+
+const topologyProjectionIssues = (
+  componentData: JsonObject,
+  projected: JsonObject,
+): PromotionIssue[] => {
+  const switching = projected.switching;
+  if (!switching || typeof switching !== 'object' || Array.isArray(switching)) return [];
+  const controlled = switching.controlled_relationship_ids;
+  const configurations = switching.configurations;
+  const relationships = projected.conductive_relationships;
+  if (!Array.isArray(controlled) || !Array.isArray(configurations) || !Array.isArray(relationships))
+    return [];
+  const relationshipIds = new Set(
+    relationships
+      .filter(
+        (item): item is JsonObject =>
+          item !== null && typeof item === 'object' && !Array.isArray(item),
+      )
+      .map((item) => item.id)
+      .filter((id): id is string => typeof id === 'string'),
+  );
+  const controlledIds = new Set(controlled.filter((id): id is string => typeof id === 'string'));
+  const issues: PromotionIssue[] = [];
+  for (const id of controlledIds) {
+    if (!relationshipIds.has(id))
+      issues.push(
+        issue(
+          'promotion_invalid_component',
+          'switching.controlled_relationship_ids',
+          `Controlled relationship '${id}' was not approved for promotion.`,
+        ),
+      );
+  }
+  for (const configuration of configurations) {
+    if (configuration === null || typeof configuration !== 'object' || Array.isArray(configuration))
+      continue;
+    const activeIds = configuration.active_relationship_ids;
+    if (!Array.isArray(activeIds)) continue;
+    for (const id of activeIds) {
+      if (typeof id === 'string' && !controlledIds.has(id))
+        issues.push(
+          issue(
+            'promotion_invalid_component',
+            'switching.configurations.active_relationship_ids',
+            `Active relationship '${id}' is not controlled by the projected switching parent.`,
+          ),
+        );
+    }
+  }
+  return issues;
 };
 
 export const promoteCandidate = (
@@ -402,7 +589,12 @@ export const promoteCandidate = (
     .filter((field) => approvedFields.has(field))
     .sort()
     .forEach((field) => {
-      const evidenceIds = candidate.field_evidence[field];
+      const evidenceIds =
+        candidate.field_evidence[field] ??
+        topologyEvidenceForField(
+          field,
+          review.topology_evidence ?? candidate.topology_evidence ?? {},
+        );
       if (!evidenceIds || evidenceIds.length === 0) {
         issues.push(
           issue(
@@ -499,6 +691,36 @@ export const promoteCandidate = (
     };
 
   const topologyEvidence = review.topology_evidence ?? candidate.topology_evidence ?? {};
+  const approvedTopologyData = topologyDataFor(candidate.component_data, topologyEvidence);
+  const topologyIssues = topologyProjectionIssues(candidate.component_data, approvedTopologyData);
+  if (topologyIssues.length > 0) return { status: 'invalid', issues: topologyIssues };
+  const reviewedEvidenceFactIds = (review.reviewed_evidence_fact_ids ?? []).filter((factId) =>
+    candidate.fact_ids.includes(factId),
+  );
+  const requestedReviewedEvidenceFactIds = review.reviewed_evidence_fact_ids ?? [];
+  requestedReviewedEvidenceFactIds
+    .filter((factId) => !candidate.fact_ids.includes(factId))
+    .forEach((factId) =>
+      issues.push(
+        issue(
+          'promotion_reviewed_evidence_missing',
+          'review.reviewed_evidence_fact_ids',
+          `Reviewed evidence fact '${factId}' is not present in the candidate.`,
+        ),
+      ),
+    );
+  const approvedFactIds = new Set(Object.values(selectedFieldEvidence).flat());
+  reviewedEvidenceFactIds
+    .filter((factId) => approvedFactIds.has(factId))
+    .forEach((factId) =>
+      issues.push(
+        issue(
+          'promotion_reviewed_evidence_conflict',
+          'review.reviewed_evidence_fact_ids',
+          `Fact '${factId}' cannot be both canonical-approved and evidence-only.`,
+        ),
+      ),
+    );
   const proposal: JsonObject = {
     id: canonicalId,
     manufacturer: canonicalManufacturer,
@@ -510,6 +732,7 @@ export const promoteCandidate = (
     verification_status: 'unverified',
     source_refs: sourceRefsFor(sources, candidate, review, selectedFieldEvidence, topologyEvidence),
     ...proposalData,
+    ...approvedTopologyData,
   };
   if (!componentValidator(proposal)) return { status: 'invalid', issues: schemaIssues() };
 
@@ -526,6 +749,7 @@ export const promoteCandidate = (
       .filter((fact) => fact.fact_state !== 'verified')
       .map((fact) => fact.id)
       .sort(),
+    reviewed_evidence_fact_ids: [...reviewedEvidenceFactIds].sort(),
   };
   return { status: 'success', issues: [], proposal, audit };
 };

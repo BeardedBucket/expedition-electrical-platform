@@ -154,6 +154,7 @@ export interface ComponentLogicalPort {
   readonly voltage_v?: number | ComponentLibraryRange | null;
   readonly current_a?: number | ComponentLibraryRange | null;
   readonly power_w?: number | ComponentLibraryRange | null;
+  readonly constraints?: readonly ComponentElectricalConstraint[];
   readonly notes?: string | null;
   readonly [key: string]: unknown;
 }
@@ -181,6 +182,64 @@ export interface ComponentConductiveParticipant {
 export interface ComponentConductiveRelationship {
   readonly id: string;
   readonly participants: readonly ComponentConductiveParticipant[];
+  readonly constraints?: readonly ComponentElectricalConstraint[];
+  readonly interruption_capabilities?: readonly ComponentInterruptionCapability[];
+  readonly notes?: string | null;
+}
+
+export type ComponentInterruptionCapabilityKind =
+  'load_current_switching' | 'fault_current_interrupting';
+
+export interface ComponentInterruptionCapability {
+  readonly id: string;
+  readonly kind: ComponentInterruptionCapabilityKind;
+  readonly domain: 'dc' | 'ac';
+  readonly voltage?: number | ComponentLibraryRange | null;
+  readonly current?: number | ComponentLibraryRange | null;
+  readonly notes?: string | null;
+}
+
+export type ComponentElectricalConstraintKind =
+  | 'absolute_maximum'
+  | 'absolute_minimum'
+  | 'operating_range'
+  | 'startup_threshold'
+  | 'shutdown_threshold'
+  | 'recommended_range'
+  | 'relational_headroom'
+  | 'nominal_design'
+  | 'nominal'
+  | 'recovery_hysteresis'
+  | 'continuous_rating';
+
+export interface ComponentElectricalConstraint {
+  readonly id: string;
+  readonly kind: ComponentElectricalConstraintKind;
+  readonly quantity: 'voltage' | 'current' | 'power';
+  readonly unit: 'V' | 'A' | 'W';
+  readonly domain?: 'dc' | 'ac';
+  readonly basis?: 'open_circuit' | 'short_circuit' | 'operating';
+  readonly value?: number;
+  readonly range?: { readonly min: number; readonly max: number };
+  readonly reference?: {
+    readonly port_id: string;
+    readonly relation: 'greater_than_or_equal' | 'less_than_or_equal';
+    readonly offset: number;
+  };
+  readonly conditions?: readonly {
+    readonly path: string;
+    readonly equals?: unknown;
+    readonly reference?: {
+      readonly constraint_id: string;
+      readonly relation: 'nominal';
+    };
+  }[];
+  readonly recovery?: {
+    readonly constraint_id: string;
+    readonly event: string;
+    readonly relation: 'greater_than_or_equal' | 'less_than_or_equal';
+    readonly offset: number;
+  };
   readonly notes?: string | null;
 }
 

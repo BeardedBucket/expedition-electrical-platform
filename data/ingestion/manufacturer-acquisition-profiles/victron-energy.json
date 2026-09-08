@@ -16,7 +16,23 @@
         "script": { "id": "__NEXT_DATA__", "media_type": "application/json" },
         "json_path": "$.props.pageProps",
         "record_collection_path": "$.products",
-        "identity_property": "sku"
+        "identity_property": "sku",
+        "fact_mappings": [
+          {
+            "source_path": "battery_voltage",
+            "raw_label": "Supported battery voltage"
+          },
+          {
+            "source_path": "rated_charge_current",
+            "raw_label": "Continuous charge current",
+            "source_unit": "A"
+          },
+          {
+            "source_path": "max_pv_voltage",
+            "raw_label": "Maximum PV open-circuit voltage",
+            "source_unit": "V"
+          }
+        ]
       },
       "document_link_discovery": {
         "link_attribute": "href",

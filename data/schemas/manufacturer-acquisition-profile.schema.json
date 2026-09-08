@@ -67,7 +67,20 @@
               },
               "json_path": { "type": "string", "minLength": 1 },
               "record_collection_path": { "type": "string", "minLength": 1 },
-              "identity_property": { "type": "string", "pattern": "^[A-Za-z_$][A-Za-z0-9_$-]*$" }
+              "identity_property": { "type": "string", "pattern": "^[A-Za-z_$][A-Za-z0-9_$-]*$" },
+              "fact_mappings": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["source_path", "raw_label"],
+                  "properties": {
+                    "source_path": { "type": "string", "minLength": 1 },
+                    "raw_label": { "type": "string", "minLength": 1 },
+                    "source_unit": { "type": "string", "minLength": 1 }
+                  }
+                }
+              }
             }
           },
           "document_link_discovery": {

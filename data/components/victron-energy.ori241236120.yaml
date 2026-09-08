@@ -1,0 +1,123 @@
+capabilities:
+  - id: orion.dc-to-dc-conversion
+    type: dc_to_dc_conversion
+category: dc_dc_converter
+id: victron-energy.ori241236120
+isolation_relationships:
+  - id: orion.input-output-case-isolation
+    kind: galvanic
+    participants:
+      - id: orion.input
+        kind: port
+      - id: orion.output
+        kind: port
+      - id: orion.case
+        kind: case
+    withstand:
+      basis: dc
+      unit: V
+      value: 200
+manufacturer: Victron Energy
+model: Orion-Tr Smart 24/12-30A (360W) Isolated
+part_number: ORI241236120
+ports:
+  - constraints:
+      - id: orion.input.operating-voltage
+        kind: operating_range
+        quantity: voltage
+        range:
+          max: 35
+          min: 16
+        unit: V
+    direction: input
+    domain: dc
+    id: orion.input
+    voltage_v:
+      max: 35
+      min: 16
+  - constraints:
+      - id: orion.output.nominal-voltage
+        kind: nominal
+        quantity: voltage
+        unit: V
+        value: 12
+      - conditions:
+          - equals: 40
+            path: temperature_c
+          - path: output_voltage
+            reference:
+              constraint_id: orion.output.nominal-voltage
+              relation: nominal
+        id: orion.output.continuous-current
+        kind: continuous_rating
+        quantity: current
+        unit: A
+        value: 30
+      - conditions:
+          - equals: 40
+            path: temperature_c
+        id: orion.output.continuous-power
+        kind: continuous_rating
+        quantity: power
+        unit: W
+        value: 360
+    current_a: 30
+    direction: output
+    domain: dc
+    id: orion.output
+    power_w: 360
+    voltage_v: 12
+power_paths:
+  - capability_id: orion.dc-to-dc-conversion
+    from_port: orion.input
+    id: orion.input-to-output
+    to_port: orion.output
+product_family: Orion-Tr Smart
+product_role: dc_dc_converter
+source_refs:
+  - candidate_id: victron.orion-tr-smart.ori241236120
+    content_hash: sha256:7b9b069dc1937cff6c5e157c722ef7e9d4185a0da33d09be3b8e455af83d6bb2
+    fact_ids:
+      - extracted.fact.orion.241236120.input-voltage
+      - extracted.fact.orion.241236120.output-current
+      - extracted.fact.orion.241236120.output-voltage
+      - extracted.fact.orion.241236120.power
+      - extracted.fact.orion.pair.direction
+      - extracted.fact.orion.pair.isolation
+    id: victron.orion-tr-smart.isolated-datasheet
+    publisher: Victron Energy
+    retrieved_at: 2026-09-08T00:00:00Z
+    review_id: review.human.ori241236120.e-r3
+    type: manufacturer_datasheet
+    uri: https://www.victronenergy.com/upload/documents/Datasheet-Orion-Tr-Smart-DC-DC-chargers-isolated-250-400W-EN-.pdf
+  - candidate_id: victron.orion-tr-smart.ori241236120
+    content_hash: sha256:72f25089f86e52d047a78ec22a5a2c7d1e01f745b55f89c3d47ccf48865824c3
+    fact_ids:
+      - extracted.fact.orion.241236120.input-voltage
+      - extracted.fact.orion.241236120.output-current
+      - extracted.fact.orion.241236120.output-voltage
+      - extracted.fact.orion.241236120.power
+      - extracted.fact.orion.pair.direction
+      - extracted.fact.orion.pair.isolation
+    id: victron.orion-tr-smart.isolated-manual-rev14
+    publisher: Victron Energy
+    retrieved_at: 2026-09-08T00:00:00Z
+    review_id: review.human.ori241236120.e-r3
+    type: manufacturer_manual
+    uri: https://www.victronenergy.com/upload/documents/Orion-Tr_Smart_DC-DC_Charger_-_Isolated/34439-Orion-Tr_Smart_DC-DC_Charger-pdf-en.pdf
+  - candidate_id: victron.orion-tr-smart.ori241236120
+    content_hash: sha256:2ffc3316a5446490111a38757f38943eefc1806a1e1bda2eeb1d6400ec6fb1c6
+    fact_ids:
+      - extracted.fact.orion.241236120.input-voltage
+      - extracted.fact.orion.241236120.output-current
+      - extracted.fact.orion.241236120.output-voltage
+      - extracted.fact.orion.241236120.power
+      - extracted.fact.orion.pair.direction
+      - extracted.fact.orion.pair.isolation
+    id: victron.orion-tr-smart.product-page
+    publisher: Victron Energy
+    retrieved_at: 2026-09-08T00:00:00Z
+    review_id: review.human.ori241236120.e-r3
+    type: manufacturer_product_page
+    uri: https://www.victronenergy.com/dc-dc-converters/orion-tr-smart
+verification_status: unverified

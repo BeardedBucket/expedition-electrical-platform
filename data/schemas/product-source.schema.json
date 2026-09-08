@@ -23,6 +23,7 @@
         "manufacturer_datasheet",
         "manufacturer_manual",
         "manufacturer_drawing",
+        "manufacturer_certificate",
         "manufacturer_cad_metadata",
         "manufacturer_support_article",
         "manufacturer_api",

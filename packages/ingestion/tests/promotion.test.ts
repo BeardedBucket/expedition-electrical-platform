@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import pilot from '../../../data/ingestion/victron-multiplus-24-2000-50-50-120v.json' with { type: 'json' };
 import epochPilot from '../../../data/ingestion/epoch-24v-100ah-b24100a-c.json' with { type: 'json' };
+import blueSeaPilot from '../../../data/ingestion/blue-sea-systems-m-series-6006.json' with { type: 'json' };
+import blueSeaReview from '../../../data/ingestion/blue-sea-systems-m-series-6006.review.json' with { type: 'json' };
 import type { ProductCandidate } from '../src/contracts.js';
 import {
   promotionCandidateSnapshot,
@@ -304,6 +306,94 @@ describe('reviewed candidate promotion', () => {
         topologyReview,
       ).issues.map((item) => item.code),
     ).toContain('promotion_snapshot_mismatch');
+  });
+
+  it('projects candidate relationship targets away while retaining domain semantics', () => {
+    const result = promoteCandidate(
+      blueSeaPilot.candidate,
+      blueSeaPilot.sources,
+      blueSeaPilot.facts,
+      blueSeaReview,
+    );
+    expect(result.status).toBe('success');
+    const relationship = (
+      result.proposal?.conductive_relationships as Array<Record<string, unknown>>
+    )[0];
+    const constraints = relationship.constraints as Array<Record<string, unknown>>;
+    expect(constraints).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'continuous_rating',
+          domain: 'dc',
+          quantity: 'current',
+          unit: 'A',
+          value: 300,
+        }),
+        expect.objectContaining({
+          kind: 'absolute_maximum',
+          domain: 'dc',
+          quantity: 'voltage',
+          unit: 'V',
+          value: 48,
+        }),
+      ]),
+    );
+    expect(
+      constraints.every(
+        (constraint) => !Object.prototype.hasOwnProperty.call(constraint, 'target'),
+      ),
+    ).toBe(true);
+  });
+
+  it('preserves reviewed switching parent metadata generically', () => {
+    const result = promoteCandidate(
+      blueSeaPilot.candidate,
+      blueSeaPilot.sources,
+      blueSeaPilot.facts,
+      blueSeaReview,
+    );
+    expect(result.status).toBe('success');
+    expect(result.proposal?.switching).toEqual({
+      controlled_relationship_ids: ['bluesea.6006.main-contact'],
+      configurations: [
+        { id: 'bluesea.6006.off', label: 'OFF', active_relationship_ids: [] },
+        {
+          id: 'bluesea.6006.on',
+          label: 'ON',
+          active_relationship_ids: ['bluesea.6006.main-contact'],
+        },
+      ],
+    });
+  });
+
+  it('rejects switching metadata that references an unprojected relationship', () => {
+    const candidateWithInvalidSwitching = {
+      ...blueSeaPilot.candidate,
+      component_data: {
+        ...blueSeaPilot.candidate.component_data,
+        switching: {
+          ...blueSeaPilot.candidate.component_data.switching,
+          controlled_relationship_ids: ['unreviewed.relationship'],
+        },
+      },
+    };
+    const result = promoteCandidate(
+      candidateWithInvalidSwitching,
+      blueSeaPilot.sources,
+      blueSeaPilot.facts,
+      {
+        ...blueSeaReview,
+        candidate_snapshot: promotionCandidateSnapshot(
+          candidateWithInvalidSwitching,
+          blueSeaPilot.sources,
+          blueSeaPilot.facts,
+        ),
+      },
+    );
+    expect(result.status).toBe('invalid');
+    expect(result.issues.map((item) => item.path)).toContain(
+      'switching.controlled_relationship_ids',
+    );
   });
 });
 

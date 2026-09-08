@@ -1,0 +1,610 @@
+{
+  "schema_version": "1.0",
+  "captured_at": "2026-09-08T00:00:00Z",
+  "checkpoint": "E",
+  "review_status": "approved_human_review",
+  "targets": [
+    {
+      "manufacturer": "Victron Energy",
+      "product_family": "Orion-Tr Smart",
+      "model": "Orion-Tr Smart 12/24-15A (360W) Isolated",
+      "manufacturer_part_number": "ORI122436120",
+      "direction": "12 V input to 24 V output"
+    },
+    {
+      "manufacturer": "Victron Energy",
+      "product_family": "Orion-Tr Smart",
+      "model": "Orion-Tr Smart 24/12-30A (360W) Isolated",
+      "manufacturer_part_number": "ORI241236120",
+      "direction": "24 V input to 12 V output"
+    }
+  ],
+  "sources": [
+    {
+      "schema_version": "1.0",
+      "id": "victron.orion-tr-smart.product-page",
+      "uri": "https://www.victronenergy.com/dc-dc-converters/orion-tr-smart",
+      "source_type": "manufacturer_product_page",
+      "authority": "manufacturer_product",
+      "publisher": "Victron Energy",
+      "retrieved_at": "2026-09-08T00:00:00Z",
+      "content_hash": "sha256:2ffc3316a5446490111a38757f38943eefc1806a1e1bda2eeb1d6400ec6fb1c6",
+      "applicability": "direct_identity",
+      "applies_to": ["ORI122436120", "ORI241236120"],
+      "redistribution_status": "link_only",
+      "notes": "The exact product page identifies both requested isolated 360 W variants and links the current manual and datasheet."
+    },
+    {
+      "schema_version": "1.0",
+      "id": "victron.orion-tr-smart.isolated-manual-rev14",
+      "uri": "https://www.victronenergy.com/upload/documents/Orion-Tr_Smart_DC-DC_Charger_-_Isolated/34439-Orion-Tr_Smart_DC-DC_Charger-pdf-en.pdf",
+      "source_type": "manufacturer_manual",
+      "authority": "manufacturer_technical",
+      "publisher": "Victron Energy",
+      "retrieved_at": "2026-09-08T00:00:00Z",
+      "title": "Orion-Tr Smart DC-DC Charger Isolated",
+      "document_revision": "Rev 14 - 02/2026",
+      "content_hash": "sha256:72f25089f86e52d047a78ec22a5a2c7d1e01f745b55f89c3d47ccf48865824c3",
+      "applicability": "explicitly_reviewed",
+      "applies_to": ["ORI122436120", "ORI241236120"],
+      "redistribution_status": "link_only",
+      "notes": "The 360-400 W specifications table contains both exact rows. The manual is family-level but the selected rows are exact MPN/model matches."
+    },
+    {
+      "schema_version": "1.0",
+      "id": "victron.orion-tr-smart.isolated-datasheet",
+      "uri": "https://www.victronenergy.com/upload/documents/Datasheet-Orion-Tr-Smart-DC-DC-chargers-isolated-250-400W-EN-.pdf",
+      "source_type": "manufacturer_datasheet",
+      "authority": "manufacturer_technical",
+      "publisher": "Victron Energy",
+      "retrieved_at": "2026-09-08T00:00:00Z",
+      "content_hash": "sha256:7b9b069dc1937cff6c5e157c722ef7e9d4185a0da33d09be3b8e455af83d6bb2",
+      "applicability": "explicitly_reviewed",
+      "applies_to": ["ORI122436120", "ORI241236120"],
+      "redistribution_status": "link_only",
+      "notes": "Current official datasheet linked by the product page. The PDF is retained as source evidence; exact tabular facts below use the text-extractable Rev 14 manual where the row/column locators are unambiguous."
+    }
+  ],
+  "facts": [
+    {
+      "id": "extracted.fact.orion.122436120.identity",
+      "source_id": "victron.orion-tr-smart.isolated-manual-rev14",
+      "applies_to": ["ORI122436120"],
+      "field": "identity",
+      "raw_label": "Orion-Tr Smart DC-DC Charger Isolated 360-400 Watt",
+      "raw_value": "Orion-Tr Smart 12/24-15A (360W) Isolated",
+      "source_locator": {
+        "page": 21,
+        "section": "8. Specifications",
+        "table": "360-400 W specification table",
+        "column": "12/24-15 (360 W)"
+      },
+      "extraction_method": "table",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "id": "extracted.fact.orion.241236120.identity",
+      "source_id": "victron.orion-tr-smart.isolated-manual-rev14",
+      "applies_to": ["ORI241236120"],
+      "field": "identity",
+      "raw_label": "Orion-Tr Smart DC-DC Charger Isolated 360-400 Watt",
+      "raw_value": "Orion-Tr Smart 24/12-30A (360W) Isolated",
+      "source_locator": {
+        "page": 21,
+        "section": "8. Specifications",
+        "table": "360-400 W specification table",
+        "column": "24/12-30 (360 W)"
+      },
+      "extraction_method": "table",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "id": "extracted.fact.orion.122436120.input-voltage",
+      "source_id": "victron.orion-tr-smart.isolated-manual-rev14",
+      "applies_to": ["ORI122436120"],
+      "field": "input_voltage_range",
+      "raw_label": "Input voltage range (1)",
+      "raw_value": "8-17 V",
+      "normalized_value": { "min": 8, "max": 17 },
+      "normalized_unit": "V",
+      "source_locator": {
+        "page": 21,
+        "section": "8. Specifications",
+        "table": "360-400 W specification table",
+        "row": "Input voltage range (1)",
+        "column": "12/24-15 (360 W)"
+      },
+      "extraction_method": "table",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "id": "extracted.fact.orion.241236120.input-voltage",
+      "source_id": "victron.orion-tr-smart.isolated-manual-rev14",
+      "applies_to": ["ORI241236120"],
+      "field": "input_voltage_range",
+      "raw_label": "Input voltage range (1)",
+      "raw_value": "16-35 V",
+      "normalized_value": { "min": 16, "max": 35 },
+      "normalized_unit": "V",
+      "source_locator": {
+        "page": 21,
+        "section": "8. Specifications",
+        "table": "360-400 W specification table",
+        "row": "Input voltage range (1)",
+        "column": "24/12-30 (360 W)"
+      },
+      "extraction_method": "table",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "id": "extracted.fact.orion.122436120.output-voltage",
+      "source_id": "victron.orion-tr-smart.isolated-manual-rev14",
+      "applies_to": ["ORI122436120"],
+      "field": "output_voltage",
+      "raw_label": "Nominal output voltage",
+      "raw_value": "24 V",
+      "normalized_value": 24,
+      "normalized_unit": "V",
+      "source_locator": {
+        "page": 21,
+        "section": "8. Specifications",
+        "table": "360-400 W specification table",
+        "row": "Nominal output voltage",
+        "column": "12/24-15 (360 W)"
+      },
+      "extraction_method": "table",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "id": "extracted.fact.orion.241236120.output-voltage",
+      "source_id": "victron.orion-tr-smart.isolated-manual-rev14",
+      "applies_to": ["ORI241236120"],
+      "field": "output_voltage",
+      "raw_label": "Nominal output voltage",
+      "raw_value": "12 V",
+      "normalized_value": 12,
+      "normalized_unit": "V",
+      "source_locator": {
+        "page": 21,
+        "section": "8. Specifications",
+        "table": "360-400 W specification table",
+        "row": "Nominal output voltage",
+        "column": "24/12-30 (360 W)"
+      },
+      "extraction_method": "table",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "id": "extracted.fact.orion.122436120.output-current",
+      "source_id": "victron.orion-tr-smart.isolated-manual-rev14",
+      "applies_to": ["ORI122436120"],
+      "field": "continuous_output_current",
+      "raw_label": "Cont. output current at nominal output voltage and 40°C",
+      "raw_value": "15 A",
+      "normalized_value": 15,
+      "normalized_unit": "A",
+      "source_locator": {
+        "page": 22,
+        "section": "8. Specifications",
+        "table": "360-400 W specification table",
+        "row": "Cont. output current at nominal output voltage and 40°C",
+        "column": "12/24-15 (360 W)"
+      },
+      "extraction_method": "table",
+      "fact_state": "provisional",
+      "review_required": true,
+      "transformation_notes": "Output-side current; do not copy to input current."
+    },
+    {
+      "id": "extracted.fact.orion.241236120.output-current",
+      "source_id": "victron.orion-tr-smart.isolated-manual-rev14",
+      "applies_to": ["ORI241236120"],
+      "field": "continuous_output_current",
+      "raw_label": "Cont. output current at nominal output voltage and 40°C",
+      "raw_value": "30 A",
+      "normalized_value": 30,
+      "normalized_unit": "A",
+      "source_locator": {
+        "page": 22,
+        "section": "8. Specifications",
+        "table": "360-400 W specification table",
+        "row": "Cont. output current at nominal output voltage and 40°C",
+        "column": "24/12-30 (360 W)"
+      },
+      "extraction_method": "table",
+      "fact_state": "provisional",
+      "review_required": true,
+      "transformation_notes": "Output-side current; do not copy to input current."
+    },
+    {
+      "id": "extracted.fact.orion.122436120.power",
+      "source_id": "victron.orion-tr-smart.isolated-manual-rev14",
+      "applies_to": ["ORI122436120"],
+      "field": "continuous_output_power",
+      "raw_label": "Cont. output power at 40°C",
+      "raw_value": "360 W",
+      "normalized_value": 360,
+      "normalized_unit": "W",
+      "source_locator": {
+        "page": 22,
+        "section": "8. Specifications",
+        "table": "360-400 W specification table",
+        "row": "Cont. output power at 40°C",
+        "column": "12/24-15 (360 W)"
+      },
+      "extraction_method": "table",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "id": "extracted.fact.orion.241236120.power",
+      "source_id": "victron.orion-tr-smart.isolated-manual-rev14",
+      "applies_to": ["ORI241236120"],
+      "field": "continuous_output_power",
+      "raw_label": "Cont. output power at 40°C",
+      "raw_value": "360 W",
+      "normalized_value": 360,
+      "normalized_unit": "W",
+      "source_locator": {
+        "page": 22,
+        "section": "8. Specifications",
+        "table": "360-400 W specification table",
+        "row": "Cont. output power at 40°C",
+        "column": "24/12-30 (360 W)"
+      },
+      "extraction_method": "table",
+      "fact_state": "provisional",
+      "review_required": true
+    },
+    {
+      "id": "extracted.fact.orion.pair.isolation",
+      "source_id": "victron.orion-tr-smart.isolated-manual-rev14",
+      "applies_to": ["ORI122436120", "ORI241236120"],
+      "field": "galvanic_isolation",
+      "raw_label": "Galvanic isolation",
+      "raw_value": "200 V dc between input, output and case",
+      "source_locator": {
+        "page": 22,
+        "section": "8. Specifications",
+        "table": "360-400 W specification table",
+        "row": "Galvanic isolation"
+      },
+      "extraction_method": "table",
+      "fact_state": "provisional",
+      "review_required": true,
+      "transformation_notes": "Mapped only to the generic product-local isolation relationship under human review. This does not infer conductor bonding, protective-earth behavior, or installed-system grounding."
+    },
+    {
+      "id": "extracted.fact.orion.pair.configuration",
+      "source_id": "victron.orion-tr-smart.isolated-manual-rev14",
+      "applies_to": ["ORI122436120", "ORI241236120"],
+      "field": "configuration",
+      "raw_label": "Configuring and monitoring",
+      "raw_value": "Bluetooth Smart built-in; wireless solution to set up, monitor and update the controller. Several parameters can be customized with the VictronConnect App.",
+      "source_locator": {
+        "page": 3,
+        "section": "3. Features",
+        "paragraph": "Configuring and monitoring"
+      },
+      "extraction_method": "text",
+      "fact_state": "provisional",
+      "review_required": true,
+      "transformation_notes": "Configuration/communication capability only; does not establish any particular adjustable voltage range beyond the specification table."
+    },
+    {
+      "id": "extracted.fact.orion.pair.direction",
+      "source_id": "victron.orion-tr-smart.isolated-manual-rev14",
+      "applies_to": ["ORI122436120", "ORI241236120"],
+      "field": "directional_conversion",
+      "raw_label": "Orion-Tr Smart DC-DC Charger Isolated model rows",
+      "raw_value": "The exact 12/24 and 24/12 rows are separate unidirectional product variants.",
+      "source_locator": {
+        "page": 21,
+        "section": "8. Specifications",
+        "table": "360-400 W specification table"
+      },
+      "extraction_method": "table",
+      "fact_state": "provisional",
+      "review_required": true,
+      "transformation_notes": "Do not infer bidirectionality from the existence of both variants."
+    }
+  ],
+  "unsupported_or_unresolved": [
+    {
+      "field": "input_current",
+      "reason": "No exact manufacturer input-current value captured; do not derive from power divided by nominal voltage."
+    },
+    { "field": "peak_input_current", "reason": "Not established for either exact MPN." },
+    {
+      "field": "bidirectional_operation",
+      "reason": "Not supported; the exact model rows establish separate directional variants."
+    },
+    {
+      "field": "common_negative_or_chassis_bonding",
+      "reason": "Galvanic isolation does not establish conductor or grounding topology."
+    },
+    {
+      "field": "installed_system_bonding",
+      "reason": "Product-local galvanic isolation does not establish installer bonding, chassis, negative, or protective-earth behavior."
+    }
+  ],
+  "sibling_exclusion": {
+    "status": "review_required",
+    "excluded_rows": [
+      "Orion-Tr Smart 12/24-10A (240W) Isolated",
+      "Orion-Tr Smart 24/12-20A (240W) Isolated",
+      "Orion-Tr Smart 12/12-30A (360W) Isolated",
+      "Orion-Tr Smart 24/24-17A (400W) Isolated",
+      "Orion-Tr Smart 12/48-8A (360W) Isolated",
+      "Orion-Tr Smart 24/48-8.5A (400W) Isolated",
+      "Orion-Tr Smart non-isolated variants",
+      "Orion XS variants",
+      "Orion-Tr non-Smart variants"
+    ],
+    "notes": "Only the 12/24-15A and 24/12-30A 360 W columns are selected for the requested MPNs."
+  },
+  "candidate_proposals": [
+    {
+      "id": "victron.orion-tr-smart.ori122436120",
+      "schema_version": "1.0",
+      "identity_status": "verified",
+      "review_status": "approved",
+      "promotion_status": "eligible",
+      "identity": {
+        "manufacturer": "Victron Energy",
+        "product_family": "Orion-Tr Smart",
+        "model": "Orion-Tr Smart 12/24-15A (360W) Isolated",
+        "manufacturer_part_number": "ORI122436120"
+      },
+      "source_ids": [
+        "victron.orion-tr-smart.product-page",
+        "victron.orion-tr-smart.isolated-manual-rev14",
+        "victron.orion-tr-smart.isolated-datasheet"
+      ],
+      "identity_source_ids": [
+        "victron.orion-tr-smart.product-page",
+        "victron.orion-tr-smart.isolated-manual-rev14"
+      ],
+      "fact_ids": [
+        "extracted.fact.orion.122436120.identity",
+        "extracted.fact.orion.122436120.input-voltage",
+        "extracted.fact.orion.122436120.output-voltage",
+        "extracted.fact.orion.122436120.output-current",
+        "extracted.fact.orion.122436120.power",
+        "extracted.fact.orion.pair.isolation",
+        "extracted.fact.orion.pair.configuration",
+        "extracted.fact.orion.pair.direction"
+      ],
+      "component_data": {
+        "capabilities": [{ "id": "orion.dc-to-dc-conversion", "type": "dc_to_dc_conversion" }],
+        "ports": [
+          {
+            "id": "orion.input",
+            "domain": "dc",
+            "direction": "input",
+            "voltage_v": { "min": 8, "max": 17 },
+            "constraints": [
+              {
+                "id": "orion.input.operating-voltage",
+                "kind": "operating_range",
+                "quantity": "voltage",
+                "unit": "V",
+                "range": { "min": 8, "max": 17 }
+              }
+            ]
+          },
+          {
+            "id": "orion.output",
+            "domain": "dc",
+            "direction": "output",
+            "voltage_v": 24,
+            "current_a": 15,
+            "power_w": 360,
+            "constraints": [
+              {
+                "id": "orion.output.nominal-voltage",
+                "kind": "nominal",
+                "quantity": "voltage",
+                "unit": "V",
+                "value": 24
+              },
+              {
+                "id": "orion.output.continuous-current",
+                "kind": "continuous_rating",
+                "quantity": "current",
+                "unit": "A",
+                "value": 15,
+                "conditions": [
+                  { "path": "temperature_c", "equals": 40 },
+                  {
+                    "path": "output_voltage",
+                    "reference": {
+                      "constraint_id": "orion.output.nominal-voltage",
+                      "relation": "nominal"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "orion.output.continuous-power",
+                "kind": "continuous_rating",
+                "quantity": "power",
+                "unit": "W",
+                "value": 360,
+                "conditions": [{ "path": "temperature_c", "equals": 40 }]
+              }
+            ]
+          }
+        ],
+        "isolation_relationships": [
+          {
+            "id": "orion.input-output-case-isolation",
+            "kind": "galvanic",
+            "participants": [
+              { "kind": "port", "id": "orion.input" },
+              { "kind": "port", "id": "orion.output" },
+              { "kind": "case", "id": "orion.case" }
+            ],
+            "withstand": { "value": 200, "unit": "V", "basis": "dc" }
+          }
+        ],
+        "power_paths": [
+          {
+            "id": "orion.input-to-output",
+            "capability_id": "orion.dc-to-dc-conversion",
+            "from_port": "orion.input",
+            "to_port": "orion.output"
+          }
+        ]
+      },
+      "field_evidence": {},
+      "topology_evidence": {
+        "capability:orion.dc-to-dc-conversion": ["extracted.fact.orion.pair.direction"],
+        "port:orion.input": ["extracted.fact.orion.122436120.input-voltage"],
+        "port:orion.output": [
+          "extracted.fact.orion.122436120.output-voltage",
+          "extracted.fact.orion.122436120.output-current",
+          "extracted.fact.orion.122436120.power"
+        ],
+        "isolation_relationship:orion.input-output-case-isolation": [
+          "extracted.fact.orion.pair.isolation"
+        ],
+        "power_path:orion.input-to-output": ["extracted.fact.orion.pair.direction"]
+      }
+    },
+    {
+      "id": "victron.orion-tr-smart.ori241236120",
+      "schema_version": "1.0",
+      "identity_status": "verified",
+      "review_status": "approved",
+      "promotion_status": "eligible",
+      "identity": {
+        "manufacturer": "Victron Energy",
+        "product_family": "Orion-Tr Smart",
+        "model": "Orion-Tr Smart 24/12-30A (360W) Isolated",
+        "manufacturer_part_number": "ORI241236120"
+      },
+      "source_ids": [
+        "victron.orion-tr-smart.product-page",
+        "victron.orion-tr-smart.isolated-manual-rev14",
+        "victron.orion-tr-smart.isolated-datasheet"
+      ],
+      "identity_source_ids": [
+        "victron.orion-tr-smart.product-page",
+        "victron.orion-tr-smart.isolated-manual-rev14"
+      ],
+      "fact_ids": [
+        "extracted.fact.orion.241236120.identity",
+        "extracted.fact.orion.241236120.input-voltage",
+        "extracted.fact.orion.241236120.output-voltage",
+        "extracted.fact.orion.241236120.output-current",
+        "extracted.fact.orion.241236120.power",
+        "extracted.fact.orion.pair.isolation",
+        "extracted.fact.orion.pair.configuration",
+        "extracted.fact.orion.pair.direction"
+      ],
+      "component_data": {
+        "capabilities": [{ "id": "orion.dc-to-dc-conversion", "type": "dc_to_dc_conversion" }],
+        "ports": [
+          {
+            "id": "orion.input",
+            "domain": "dc",
+            "direction": "input",
+            "voltage_v": { "min": 16, "max": 35 },
+            "constraints": [
+              {
+                "id": "orion.input.operating-voltage",
+                "kind": "operating_range",
+                "quantity": "voltage",
+                "unit": "V",
+                "range": { "min": 16, "max": 35 }
+              }
+            ]
+          },
+          {
+            "id": "orion.output",
+            "domain": "dc",
+            "direction": "output",
+            "voltage_v": 12,
+            "current_a": 30,
+            "power_w": 360,
+            "constraints": [
+              {
+                "id": "orion.output.nominal-voltage",
+                "kind": "nominal",
+                "quantity": "voltage",
+                "unit": "V",
+                "value": 12
+              },
+              {
+                "id": "orion.output.continuous-current",
+                "kind": "continuous_rating",
+                "quantity": "current",
+                "unit": "A",
+                "value": 30,
+                "conditions": [
+                  { "path": "temperature_c", "equals": 40 },
+                  {
+                    "path": "output_voltage",
+                    "reference": {
+                      "constraint_id": "orion.output.nominal-voltage",
+                      "relation": "nominal"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "orion.output.continuous-power",
+                "kind": "continuous_rating",
+                "quantity": "power",
+                "unit": "W",
+                "value": 360,
+                "conditions": [{ "path": "temperature_c", "equals": 40 }]
+              }
+            ]
+          }
+        ],
+        "isolation_relationships": [
+          {
+            "id": "orion.input-output-case-isolation",
+            "kind": "galvanic",
+            "participants": [
+              { "kind": "port", "id": "orion.input" },
+              { "kind": "port", "id": "orion.output" },
+              { "kind": "case", "id": "orion.case" }
+            ],
+            "withstand": { "value": 200, "unit": "V", "basis": "dc" }
+          }
+        ],
+        "power_paths": [
+          {
+            "id": "orion.input-to-output",
+            "capability_id": "orion.dc-to-dc-conversion",
+            "from_port": "orion.input",
+            "to_port": "orion.output"
+          }
+        ]
+      },
+      "field_evidence": {},
+      "topology_evidence": {
+        "capability:orion.dc-to-dc-conversion": ["extracted.fact.orion.pair.direction"],
+        "port:orion.input": ["extracted.fact.orion.241236120.input-voltage"],
+        "port:orion.output": [
+          "extracted.fact.orion.241236120.output-voltage",
+          "extracted.fact.orion.241236120.output-current",
+          "extracted.fact.orion.241236120.power"
+        ],
+        "isolation_relationship:orion.input-output-case-isolation": [
+          "extracted.fact.orion.pair.isolation"
+        ],
+        "power_path:orion.input-to-output": ["extracted.fact.orion.pair.direction"]
+      }
+    }
+  ]
+}

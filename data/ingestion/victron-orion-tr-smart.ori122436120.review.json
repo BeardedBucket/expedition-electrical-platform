@@ -1,0 +1,50 @@
+{
+  "schema_version": "1.0",
+  "id": "review.human.ori122436120.e-r3",
+  "component_id": "victron-energy.ori122436120",
+  "candidate_id": "victron.orion-tr-smart.ori122436120",
+  "candidate_snapshot": "sha256:e0c42cd7c792ea20788f140bf1812b86162b661f7050f194db6cfd18d0ca0b61",
+  "decision": "approved",
+  "reviewer_id": "repository-review",
+  "reviewed_at": "2026-09-08T06:53:00.000Z",
+  "approved_fields": [
+    "capabilities",
+    "isolation_relationships",
+    "ports",
+    "power_paths"
+  ],
+  "topology_evidence": {
+    "capability:orion.dc-to-dc-conversion": [
+      "extracted.fact.orion.pair.direction"
+    ],
+    "port:orion.input": [
+      "extracted.fact.orion.122436120.input-voltage"
+    ],
+    "port:orion.output": [
+      "extracted.fact.orion.122436120.output-voltage",
+      "extracted.fact.orion.122436120.output-current",
+      "extracted.fact.orion.122436120.power"
+    ],
+    "isolation_relationship:orion.input-output-case-isolation": [
+      "extracted.fact.orion.pair.isolation"
+    ],
+    "power_path:orion.input-to-output": [
+      "extracted.fact.orion.pair.direction"
+    ]
+  },
+  "reviewed_evidence_fact_ids": [
+    "extracted.fact.orion.122436120.identity",
+    "extracted.fact.orion.122436120.input-voltage",
+    "extracted.fact.orion.122436120.output-voltage",
+    "extracted.fact.orion.122436120.output-current",
+    "extracted.fact.orion.122436120.power",
+    "extracted.fact.orion.pair.isolation",
+    "extracted.fact.orion.pair.configuration",
+    "extracted.fact.orion.pair.direction"
+  ],
+  "evidence_acknowledged": true,
+  "product_role": "dc_dc_converter",
+  "category": "dc_dc_converter",
+  "rationale": "Human E-R3 approval authorizes only the exact reviewed ORI122436120 identity, input operating range, nominal output voltage, continuous output current and power conditions, directional DC conversion topology, and affirmative product-local galvanic isolation. Input current, bidirectionality, grounding, thermal derating, and other unreviewed facts remain unasserted.",
+  "notes": "The pre-existing untracked historical YAML is not authoritative. The canonical writer must remain create-only and must not overwrite it."
+}

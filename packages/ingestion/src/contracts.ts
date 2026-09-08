@@ -9,6 +9,7 @@ export type ProductSourceType =
   | 'manufacturer_datasheet'
   | 'manufacturer_manual'
   | 'manufacturer_drawing'
+  | 'manufacturer_certificate'
   | 'manufacturer_cad_metadata'
   | 'manufacturer_support_article'
   | 'manufacturer_api'
@@ -86,12 +87,19 @@ export type TopologyTargetKind =
   | 'measurement_instance'
   | 'interaction_endpoint'
   | 'physical_connector'
-  | 'physical_connector_association';
+  | 'physical_connector_association'
+  | 'isolation_relationship';
 
 export interface TopologyTarget {
   readonly kind: TopologyTargetKind;
   readonly id: string;
   readonly field?: string;
+}
+
+export interface ConstraintTarget {
+  readonly kind: 'conductive_relationship';
+  readonly id: string;
+  readonly field: string;
 }
 
 export interface ProductFact {
@@ -111,6 +119,7 @@ export interface ProductFact {
   readonly notes?: string;
   readonly fact_state: FactState;
   readonly topology_target?: TopologyTarget;
+  readonly target?: ConstraintTarget;
 }
 
 export type IdentityStatus = 'verified' | 'provisional' | 'unresolved' | 'conflicting';

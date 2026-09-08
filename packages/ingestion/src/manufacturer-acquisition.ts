@@ -43,12 +43,19 @@ export interface ManufacturerAcquisitionStrategy {
     readonly json_path: string;
     readonly record_collection_path: string;
     readonly identity_property: string;
+    readonly fact_mappings?: readonly StructuredFactMapping[];
   };
   readonly document_link_discovery: {
     readonly link_attribute: 'href';
     readonly allowed_extensions: readonly string[];
     readonly path_prefix: string;
   };
+}
+
+export interface StructuredFactMapping {
+  readonly source_path: string;
+  readonly raw_label: string;
+  readonly source_unit?: string;
 }
 
 export type ManufacturerAcquisitionStrategyResolution =

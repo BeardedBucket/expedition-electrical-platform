@@ -1,0 +1,236 @@
+amendment_history:
+  - candidate_id: victron.smartsolar-mppt-75-15.scc075015060r.d-r
+    expected_snapshot: sha256:522609bbaafc266b3b416131f3ab318b5769d6618dd4609baa84275e807fc336
+    fields: []
+    review_id: review.human.scc075015060r.d-r
+    source_ids:
+      - victron.smartsolar-mppt-75-15.product-page
+      - victron.smartsolar-mppt-75-15.manual-rev10
+      - victron.smartsolar-charge-controller-overview-datasheet
+    topology_operations:
+      - fact_ids:
+          - extracted.fact.chargecapability
+        id: smartsolar.pv-to-battery-charge
+        kind: capability
+        operation: add
+        review_id: review.human.scc075015060r.d-r
+        value:
+          id: smartsolar.pv-to-battery-charge
+          name: PV to battery charging
+          type: solar_energy_conversion
+      - fact_ids:
+          - extracted.fact.pvport
+        id: smartsolar.pv-input
+        kind: port
+        operation: add
+        review_id: review.human.scc075015060r.d-r
+        value:
+          constraints:
+            - id: smartsolar.pv-input.max-pv-voc
+              kind: absolute_maximum
+              quantity: voltage
+              unit: V
+              value: 75
+          direction: input
+          domain: dc
+          id: smartsolar.pv-input
+      - fact_ids:
+          - extracted.fact.batteryport
+        id: smartsolar.battery-output
+        kind: port
+        operation: add
+        review_id: review.human.scc075015060r.d-r
+        value:
+          direction: output
+          domain: dc
+          id: smartsolar.battery-output
+      - fact_ids:
+          - extracted.fact.chargepath
+        id: smartsolar.pv-to-battery-charge
+        kind: power_path
+        operation: add
+        review_id: review.human.scc075015060r.d-r
+        value:
+          capability_id: smartsolar.pv-to-battery-charge
+          from_port: smartsolar.pv-input
+          id: smartsolar.pv-to-battery-charge
+          to_port: smartsolar.battery-output
+  - candidate_id: victron.smartsolar-mppt-75-15.scc075015060r.d-r2
+    constraint_operations:
+      - fact_ids:
+          - extracted.fact.46e26422cb2ad502
+        id: smartsolar.pv-input.nominal-pv-battery-voltage
+        operation: add
+        port_id: smartsolar.pv-input
+        review_id: review.human.scc075015060r.d-r2
+        value:
+          id: smartsolar.pv-input.nominal-pv-battery-voltage
+          kind: nominal_design
+          quantity: voltage
+          reference:
+            offset: 5
+            port_id: smartsolar.battery-output
+            relation: greater_than_or_equal
+          unit: V
+      - fact_ids:
+          - extracted.fact.89fdce21d19d1776
+        id: smartsolar.pv-input.overvoltage-recovery
+        operation: add
+        port_id: smartsolar.pv-input
+        review_id: review.human.scc075015060r.d-r2
+        value:
+          id: smartsolar.pv-input.overvoltage-recovery
+          kind: recovery_hysteresis
+          quantity: voltage
+          recovery:
+            constraint_id: smartsolar.pv-input.max-pv-voc
+            event: overvoltage
+            offset: -5
+            relation: less_than_or_equal
+          unit: V
+      - fact_ids:
+          - extracted.fact.867bebba68349009
+        id: smartsolar.pv-input.nominal-pv-power-12v
+        operation: add
+        port_id: smartsolar.pv-input
+        review_id: review.human.scc075015060r.d-r2
+        value:
+          conditions:
+            - equals: 12
+              path: electrical.nominal_voltage_v
+          id: smartsolar.pv-input.nominal-pv-power-12v
+          kind: nominal
+          quantity: power
+          unit: W
+          value: 220
+      - fact_ids:
+          - extracted.fact.cb138b497cf13404
+        id: smartsolar.pv-input.nominal-pv-power-24v
+        operation: add
+        port_id: smartsolar.pv-input
+        review_id: review.human.scc075015060r.d-r2
+        value:
+          conditions:
+            - equals: 24
+              path: electrical.nominal_voltage_v
+          id: smartsolar.pv-input.nominal-pv-power-24v
+          kind: nominal
+          quantity: power
+          unit: W
+          value: 440
+      - fact_ids:
+          - extracted.fact.f2dc7ad1a395ead2
+        id: smartsolar.pv-input.max-pv-isc
+        operation: add
+        port_id: smartsolar.pv-input
+        review_id: review.human.scc075015060r.d-r2
+        value:
+          basis: short_circuit
+          id: smartsolar.pv-input.max-pv-isc
+          kind: absolute_maximum
+          quantity: current
+          unit: A
+          value: 15
+      - fact_ids:
+          - extracted.fact.e60800807e1b1b5f
+          - extracted.fact.f6fee013b4ada60d
+        id: smartsolar.pv-input.max-pv-voc
+        operation: enrich
+        port_id: smartsolar.pv-input
+        review_id: review.human.scc075015060r.d-r2
+        value:
+          basis: open_circuit
+    expected_snapshot: sha256:da5ee9308657cdc7848fa1b6801827b4ba82d6baa10e99200fe9d20d9db35559
+    fields: []
+    review_id: review.human.scc075015060r.d-r2
+    source_ids:
+      - victron.smartsolar-mppt-75-15.product-page
+      - victron.smartsolar-mppt-75-15.manual-rev10
+      - victron.smartsolar-charge-controller-overview-datasheet
+capabilities:
+  - id: smartsolar.pv-to-battery-charge
+    name: PV to battery charging
+    type: solar_energy_conversion
+category: solar_charge_controller
+electrical:
+  continuous_charge_current_a: 15
+  nominal_voltage_v:
+    - 12
+    - 24
+id: victron-energy.scc075015060r
+manufacturer: Victron Energy
+model: SmartSolar MPPT 75/15 Retail
+part_number: SCC075015060R
+ports:
+  - constraints:
+      - basis: open_circuit
+        id: smartsolar.pv-input.max-pv-voc
+        kind: absolute_maximum
+        quantity: voltage
+        unit: V
+        value: 75
+      - id: smartsolar.pv-input.nominal-pv-battery-voltage
+        kind: nominal_design
+        quantity: voltage
+        reference:
+          offset: 5
+          port_id: smartsolar.battery-output
+          relation: greater_than_or_equal
+        unit: V
+      - id: smartsolar.pv-input.overvoltage-recovery
+        kind: recovery_hysteresis
+        quantity: voltage
+        recovery:
+          constraint_id: smartsolar.pv-input.max-pv-voc
+          event: overvoltage
+          offset: -5
+          relation: less_than_or_equal
+        unit: V
+      - conditions:
+          - equals: 12
+            path: electrical.nominal_voltage_v
+        id: smartsolar.pv-input.nominal-pv-power-12v
+        kind: nominal
+        quantity: power
+        unit: W
+        value: 220
+      - conditions:
+          - equals: 24
+            path: electrical.nominal_voltage_v
+        id: smartsolar.pv-input.nominal-pv-power-24v
+        kind: nominal
+        quantity: power
+        unit: W
+        value: 440
+      - basis: short_circuit
+        id: smartsolar.pv-input.max-pv-isc
+        kind: absolute_maximum
+        quantity: current
+        unit: A
+        value: 15
+    direction: input
+    domain: dc
+    id: smartsolar.pv-input
+  - direction: output
+    domain: dc
+    id: smartsolar.battery-output
+power_paths:
+  - capability_id: smartsolar.pv-to-battery-charge
+    from_port: smartsolar.pv-input
+    id: smartsolar.pv-to-battery-charge
+    to_port: smartsolar.battery-output
+product_family: SmartSolar
+product_role: solar_charge_controller
+source_refs:
+  - candidate_id: victron.smartsolar-mppt-75-15.scc075015060r
+    content_hash: sha256:c4bbc6836d5139861ad30d73c448e831e86f9338feade96989c66e2e13242ed2
+    fact_ids:
+      - extracted.fact.82a15570f5ae2c12
+      - extracted.fact.e965f29baa026619
+    id: victron.smartsolar-mppt-75-15.product-page
+    publisher: Victron Energy
+    retrieved_at: 2026-09-07T06:05:12.490Z
+    review_id: review.human.scc075015060r
+    type: manufacturer_product_page
+    uri: https://www.victronenergy.com/solar-charge-controllers/smartsolar-mppt-75-10-75-15-100-15-100-20
+verification_status: unverified

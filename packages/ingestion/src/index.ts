@@ -20,3 +20,5 @@ export * from './promotion-write.js';
 export * from './canonical-amendment.js';
 export * from './manufacturer-acquisition.js';
 export * from './interaction-relationships.js';
+export * from './corpus-workflow.js';
+export * from './structured-fact-extraction.js';

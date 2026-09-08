@@ -409,6 +409,6 @@ describe('manufacturer acquisition profiles', () => {
           ),
         )
         .digest('hex'),
-    ).toBe('4bbe763c8f376a6fd65a4e340f30914d1f24b876705c46365e08b4779a034217');
+    ).toBe('72450b1aa307b1d9a6b5fbfad7e1de87a5af1e6cfc94c09975080f833733688e');
   });
 });

@@ -1,0 +1,230 @@
+category: monitor
+conductive_relationships:
+  - id: smartshunt.main-shunt-conduction
+    participants:
+      - id: smartshunt.battery-minus
+        kind: connection_point
+      - id: smartshunt.system-minus
+        kind: connection_point
+connection_points:
+  - id: smartshunt.aux
+    notes: Aux configurable input.
+  - id: smartshunt.battery-minus
+    notes: BATTERY MINUS; 500A high-current terminal uses M10.
+  - id: smartshunt.system-minus
+    notes: SYSTEM MINUS; 500A high-current terminal uses M10.
+  - id: smartshunt.vbatt-plus
+    notes: Vbatt+ fused positive supply connection.
+dimensions_mm:
+  x: 120
+  y: 54
+  z: 46
+electrical:
+  input_voltage_range_v:
+    max: 70
+    min: 6.5
+id: victron-energy.shu050150050
+interaction_endpoints:
+  - id: smartshunt.bluetooth
+    kind: communication
+    notes: Bluetooth / VictronConnect.
+  - id: smartshunt.ve-direct
+    kind: communication
+    notes: VE.Direct data and settings interface.
+manufacturer: Victron Energy
+measurement:
+  instances:
+    - id: smartshunt.battery-voltage
+      quantity: voltage
+      target:
+        id: smartshunt.vbatt-plus
+        kind: connection_point
+    - id: smartshunt.main-current
+      quantity: current
+      target:
+        id: smartshunt.main-shunt-conduction
+        kind: conductive_relationship
+model: SmartShunt 500A/50mV
+part_number: SHU050150050
+physical_connector_associations:
+  - connector_id: smartshunt.ve-direct.connector
+    id: smartshunt.ve-direct.connector-association
+    target:
+      id: smartshunt.ve-direct
+      kind: interaction_endpoint
+physical_connectors:
+  - designation: VE.Direct
+    id: smartshunt.ve-direct.connector
+    type: communication
+product_family: SmartShunt
+product_role: monitor
+source_refs:
+  - candidate_id: victron.smartshunt.shu050150050
+    content_hash: sha256:89b3965d030c92bebefc12040181f6b5424f0665323f52b3bdcfdbd3f0291a41
+    fact_ids:
+      - extracted.fact.smartshunt.aux
+      - extracted.fact.smartshunt.battery-voltage-measurement
+      - extracted.fact.smartshunt.bluetooth-endpoint
+      - extracted.fact.smartshunt.conductive-relationship
+      - extracted.fact.smartshunt.dimension-x
+      - extracted.fact.smartshunt.dimension-y
+      - extracted.fact.smartshunt.dimension-z
+      - extracted.fact.smartshunt.direct-measurements
+      - extracted.fact.smartshunt.main-terminals
+      - extracted.fact.smartshunt.supply-range-canonical
+      - extracted.fact.smartshunt.system-minus
+      - extracted.fact.smartshunt.vbatt-plus
+      - extracted.fact.smartshunt.ve-direct-association
+      - extracted.fact.smartshunt.ve-direct-connector
+      - extracted.fact.smartshunt.ve-direct-endpoint
+    id: victron.smartshunt.manual.appendix
+    publisher: Victron Energy
+    retrieved_at: 2026-09-08T15:20:00Z
+    review_id: review.human.smartshunt.shu050150050
+    type: manufacturer_drawing
+    uri: https://www.victronenergy.com/media/pg/SmartShunt/en/appendix.html
+  - candidate_id: victron.smartshunt.shu050150050
+    content_hash: sha256:51ec26c2a4f6b2d74a775b32ec837d935d8dab19718afa3d1beb43e9203c170b
+    fact_ids:
+      - extracted.fact.smartshunt.aux
+      - extracted.fact.smartshunt.battery-voltage-measurement
+      - extracted.fact.smartshunt.bluetooth-endpoint
+      - extracted.fact.smartshunt.conductive-relationship
+      - extracted.fact.smartshunt.dimension-x
+      - extracted.fact.smartshunt.dimension-y
+      - extracted.fact.smartshunt.dimension-z
+      - extracted.fact.smartshunt.direct-measurements
+      - extracted.fact.smartshunt.main-terminals
+      - extracted.fact.smartshunt.supply-range-canonical
+      - extracted.fact.smartshunt.system-minus
+      - extracted.fact.smartshunt.vbatt-plus
+      - extracted.fact.smartshunt.ve-direct-association
+      - extracted.fact.smartshunt.ve-direct-connector
+      - extracted.fact.smartshunt.ve-direct-endpoint
+    id: victron.smartshunt.manual.installation
+    publisher: Victron Energy
+    retrieved_at: 2026-09-08T15:20:00Z
+    review_id: review.human.smartshunt.shu050150050
+    type: manufacturer_manual
+    uri: https://www.victronenergy.com/media/pg/SmartShunt/en/installation.html
+  - candidate_id: victron.smartshunt.shu050150050
+    content_hash: sha256:1f97cbdddd16ad89680f6a178b1277963f64fdff51dc01404b7d8b3ac69c072a
+    fact_ids:
+      - extracted.fact.smartshunt.aux
+      - extracted.fact.smartshunt.battery-voltage-measurement
+      - extracted.fact.smartshunt.bluetooth-endpoint
+      - extracted.fact.smartshunt.conductive-relationship
+      - extracted.fact.smartshunt.dimension-x
+      - extracted.fact.smartshunt.dimension-y
+      - extracted.fact.smartshunt.dimension-z
+      - extracted.fact.smartshunt.direct-measurements
+      - extracted.fact.smartshunt.main-terminals
+      - extracted.fact.smartshunt.supply-range-canonical
+      - extracted.fact.smartshunt.system-minus
+      - extracted.fact.smartshunt.vbatt-plus
+      - extracted.fact.smartshunt.ve-direct-association
+      - extracted.fact.smartshunt.ve-direct-connector
+      - extracted.fact.smartshunt.ve-direct-endpoint
+    id: victron.smartshunt.manual.interfacing
+    publisher: Victron Energy
+    retrieved_at: 2026-09-08T15:20:00Z
+    review_id: review.human.smartshunt.shu050150050
+    type: manufacturer_manual
+    uri: https://www.victronenergy.com/media/pg/SmartShunt/en/interfacing.html
+  - candidate_id: victron.smartshunt.shu050150050
+    content_hash: sha256:27dbf2f1cead944094d86437fcde91c0b3d19f90e1f6da937a0ddce707e94e71
+    fact_ids:
+      - extracted.fact.smartshunt.aux
+      - extracted.fact.smartshunt.battery-voltage-measurement
+      - extracted.fact.smartshunt.bluetooth-endpoint
+      - extracted.fact.smartshunt.conductive-relationship
+      - extracted.fact.smartshunt.dimension-x
+      - extracted.fact.smartshunt.dimension-y
+      - extracted.fact.smartshunt.dimension-z
+      - extracted.fact.smartshunt.direct-measurements
+      - extracted.fact.smartshunt.main-terminals
+      - extracted.fact.smartshunt.supply-range-canonical
+      - extracted.fact.smartshunt.system-minus
+      - extracted.fact.smartshunt.vbatt-plus
+      - extracted.fact.smartshunt.ve-direct-association
+      - extracted.fact.smartshunt.ve-direct-connector
+      - extracted.fact.smartshunt.ve-direct-endpoint
+    id: victron.smartshunt.manual.introduction
+    publisher: Victron Energy
+    retrieved_at: 2026-09-08T15:20:00Z
+    review_id: review.human.smartshunt.shu050150050
+    type: manufacturer_manual
+    uri: https://www.victronenergy.com/media/pg/SmartShunt/en/introduction.html
+  - candidate_id: victron.smartshunt.shu050150050
+    content_hash: sha256:a4acdd7b2414dd2b366fa9d3e749a966ec3e3ddb93835698457fbd42e9ad8c1a
+    fact_ids:
+      - extracted.fact.smartshunt.aux
+      - extracted.fact.smartshunt.battery-voltage-measurement
+      - extracted.fact.smartshunt.bluetooth-endpoint
+      - extracted.fact.smartshunt.conductive-relationship
+      - extracted.fact.smartshunt.dimension-x
+      - extracted.fact.smartshunt.dimension-y
+      - extracted.fact.smartshunt.dimension-z
+      - extracted.fact.smartshunt.direct-measurements
+      - extracted.fact.smartshunt.main-terminals
+      - extracted.fact.smartshunt.supply-range-canonical
+      - extracted.fact.smartshunt.system-minus
+      - extracted.fact.smartshunt.vbatt-plus
+      - extracted.fact.smartshunt.ve-direct-association
+      - extracted.fact.smartshunt.ve-direct-connector
+      - extracted.fact.smartshunt.ve-direct-endpoint
+    id: victron.smartshunt.manual.operation
+    publisher: Victron Energy
+    retrieved_at: 2026-09-08T15:20:00Z
+    review_id: review.human.smartshunt.shu050150050
+    type: manufacturer_manual
+    uri: https://www.victronenergy.com/media/pg/SmartShunt/en/operation.html
+  - candidate_id: victron.smartshunt.shu050150050
+    content_hash: sha256:f6c5d4348efc868d4d8fc6d5b2770354cd90108c45b7314bfd0ae0233157df14
+    fact_ids:
+      - extracted.fact.smartshunt.aux
+      - extracted.fact.smartshunt.battery-voltage-measurement
+      - extracted.fact.smartshunt.bluetooth-endpoint
+      - extracted.fact.smartshunt.conductive-relationship
+      - extracted.fact.smartshunt.dimension-x
+      - extracted.fact.smartshunt.dimension-y
+      - extracted.fact.smartshunt.dimension-z
+      - extracted.fact.smartshunt.direct-measurements
+      - extracted.fact.smartshunt.main-terminals
+      - extracted.fact.smartshunt.supply-range-canonical
+      - extracted.fact.smartshunt.system-minus
+      - extracted.fact.smartshunt.vbatt-plus
+      - extracted.fact.smartshunt.ve-direct-association
+      - extracted.fact.smartshunt.ve-direct-connector
+      - extracted.fact.smartshunt.ve-direct-endpoint
+    id: victron.smartshunt.manual.technical-data
+    publisher: Victron Energy
+    retrieved_at: 2026-09-08T15:20:00Z
+    review_id: review.human.smartshunt.shu050150050
+    type: manufacturer_manual
+    uri: https://www.victronenergy.com/media/pg/SmartShunt/en/technical-data.html
+  - candidate_id: victron.smartshunt.shu050150050
+    content_hash: sha256:148f5fb829766d94b10c491fa46bdb8890a420c2033b463244d5de963945ce7b
+    fact_ids:
+      - extracted.fact.smartshunt.aux
+      - extracted.fact.smartshunt.battery-voltage-measurement
+      - extracted.fact.smartshunt.bluetooth-endpoint
+      - extracted.fact.smartshunt.conductive-relationship
+      - extracted.fact.smartshunt.dimension-x
+      - extracted.fact.smartshunt.dimension-y
+      - extracted.fact.smartshunt.dimension-z
+      - extracted.fact.smartshunt.direct-measurements
+      - extracted.fact.smartshunt.main-terminals
+      - extracted.fact.smartshunt.supply-range-canonical
+      - extracted.fact.smartshunt.system-minus
+      - extracted.fact.smartshunt.vbatt-plus
+      - extracted.fact.smartshunt.ve-direct-association
+      - extracted.fact.smartshunt.ve-direct-connector
+      - extracted.fact.smartshunt.ve-direct-endpoint
+    id: victron.smartshunt.product-page
+    publisher: Victron Energy
+    retrieved_at: 2026-09-08T15:20:00Z
+    review_id: review.human.smartshunt.shu050150050
+    type: manufacturer_product_page
+    uri: https://www.victronenergy.com/meters-and-sensors/smart-battery-shunt
+verification_status: unverified
