@@ -1,0 +1,58 @@
+{
+  "schema_version": "1.0",
+  "purpose": "Coordination-only work items for the first real-product corpus backbone.",
+  "items": [
+    {
+      "id": "victron.smartsolar.scc075015060r",
+      "manufacturer": "Victron Energy",
+      "acquisition_profile_id": "victron-energy.web.acquisition-profile",
+      "source_uri": "https://www.victronenergy.com/solar-charge-controllers/smartsolar-mppt-75-10-75-15-100-15-100-20",
+      "requested_identity": { "manufacturer_part_number": "SCC075015060R" },
+      "expected_component_id": "victron-energy.smartsolar-scc075015060r",
+      "artifact_paths": {
+        "source": "data/ingestion/victron-smartsolar-scc075015060r.json",
+        "review": "data/ingestion/victron-smartsolar-scc075015060r.review.json"
+      }
+    },
+    {
+      "id": "victron.orion.ori122436120",
+      "manufacturer": "Victron Energy",
+      "source_uri": "https://www.victronenergy.com/dc-dc-converters/orion-tr-smart",
+      "requested_identity": { "manufacturer_part_number": "ORI122436120" },
+      "expected_component_id": "victron-energy.ori122436120",
+      "artifact_paths": {}
+    },
+    {
+      "id": "victron.orion.ori241236120",
+      "manufacturer": "Victron Energy",
+      "source_uri": "https://www.victronenergy.com/dc-dc-converters/orion-tr-smart",
+      "requested_identity": { "manufacturer_part_number": "ORI241236120" },
+      "expected_component_id": "victron-energy.ori241236120",
+      "artifact_paths": {}
+    },
+    {
+      "id": "victron.smartshunt.shu050150050",
+      "manufacturer": "Victron Energy",
+      "source_uri": "https://www.victronenergy.com/battery-monitors/smart-battery-shunt",
+      "requested_identity": { "manufacturer_part_number": "SHU050150050" },
+      "expected_component_id": "victron-energy.smartshunt-shu050150050",
+      "artifact_paths": {}
+    },
+    {
+      "id": "victron.ekrano.bpp900480100",
+      "manufacturer": "Victron Energy",
+      "source_uri": "https://www.victronenergy.com/communication-centres/ekrano-gx",
+      "requested_identity": { "manufacturer_part_number": "BPP900480100" },
+      "expected_component_id": "victron-energy.ekrano-gx-bpp900480100",
+      "artifact_paths": {}
+    },
+    {
+      "id": "blue-sea.m-series.6006",
+      "manufacturer": "Blue Sea Systems",
+      "source_uri": "https://www.bluesea.com/products/6006/m-Series_Battery_Switch_-_On_Off",
+      "requested_identity": { "manufacturer_part_number": "6006" },
+      "expected_component_id": "blue-sea-systems.m-series-6006",
+      "artifact_paths": {}
+    }
+  ]
+}
