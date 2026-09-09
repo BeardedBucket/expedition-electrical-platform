@@ -6,6 +6,7 @@ import profileSchema from '../../../data/schemas/manufacturer-acquisition-profil
 import type { CapturedSource } from './capture-types.js';
 import { createProductSource } from './capture-types.js';
 import type { JsonObject, JsonValue, ProductIdentityClaim, ProductSource } from './contracts.js';
+import { artifactDigest } from './production-contracts.js';
 
 type ChildNode = DefaultTreeAdapterTypes.ChildNode;
 type Document = DefaultTreeAdapterTypes.Document;
@@ -22,12 +23,26 @@ export interface ManufacturerAcquisitionProfile {
   readonly manufacturer: string;
   readonly publisher: string;
   readonly official_domains: readonly string[];
+  readonly approved_subdomains?: readonly string[];
+  readonly allowed_document_domains?: readonly string[];
+  readonly allowed_document_subdomains?: readonly string[];
   readonly strategies: readonly ManufacturerAcquisitionStrategy[];
   readonly provenance: {
     readonly source_artifact: string;
     readonly observed_source_content_hash: string;
   };
 }
+
+/**
+ * Identifies the reviewed executable configuration without binding source-file
+ * location or other provenance metadata to the acquisition run.
+ */
+export const manufacturerAcquisitionProfileDigest = (
+  profile: ManufacturerAcquisitionProfile,
+): string => {
+  const { provenance: _provenance, ...configuration } = profile;
+  return artifactDigest(configuration);
+};
 
 export interface ManufacturerAcquisitionStrategy {
   readonly id: string;
@@ -49,6 +64,31 @@ export interface ManufacturerAcquisitionStrategy {
     readonly link_attribute: 'href';
     readonly allowed_extensions: readonly string[];
     readonly path_prefix: string;
+    readonly document_urls?: readonly string[];
+    readonly role_hints?: readonly {
+      readonly pattern: string;
+      readonly role:
+        | 'product_page'
+        | 'datasheet'
+        | 'manual'
+        | 'installation_manual'
+        | 'technical_manual'
+        | 'specification_sheet'
+        | 'technical_drawing'
+        | 'dimensional_drawing'
+        | 'support_article'
+        | 'certificate'
+        | 'firmware_document'
+        | 'unknown';
+    }[];
+    readonly expected_content?: readonly (
+      | {
+          readonly kind: 'text_includes';
+          readonly value: string;
+          readonly case_sensitive?: boolean;
+        }
+      | { readonly kind: 'json_path_exists'; readonly path: string }
+    )[];
   };
 }
 
@@ -263,7 +303,28 @@ const isSafeJsonPath = (path: unknown): path is string =>
 const isOfficialUriForDomains = (domains: readonly string[], uri: string): boolean => {
   try {
     const parsed = new URL(uri);
-    return parsed.protocol === 'https:' && domains.includes(parsed.hostname);
+    return parsed.protocol === 'https:' && domains.some((domain) => domain === parsed.hostname);
+  } catch {
+    return false;
+  }
+};
+
+const isUriForProfileDomains = (
+  domains: readonly string[],
+  subdomains: readonly string[],
+  uri: string,
+): boolean => {
+  try {
+    const parsed = new URL(uri);
+    if (parsed.protocol !== 'https:') return false;
+    const host = parsed.hostname.toLowerCase().replace(/\.$/, '');
+    return (
+      domains.some((domain) => domain.toLowerCase().replace(/\.$/, '') === host) ||
+      subdomains.some((domain) => {
+        const root = domain.toLowerCase().replace(/^\./, '').replace(/\.$/, '');
+        return host === root || host.endsWith(`.${root}`);
+      })
+    );
   } catch {
     return false;
   }
@@ -425,6 +486,20 @@ export const validateManufacturerAcquisitionProfile = (
         ),
       );
     }
+    for (const field of [
+      'approved_subdomains',
+      'allowed_document_domains',
+      'allowed_document_subdomains',
+    ] as const) {
+      if (isJsonObject(profile) && Array.isArray(profile[field])) {
+        const values = profile[field].filter((value): value is string => typeof value === 'string');
+        if (values.join('\u0000') !== [...values].sort().join('\u0000')) {
+          issues.push(
+            issue(`unordered_${field}`, field, `${field} must be in deterministic lexical order.`),
+          );
+        }
+      }
+    }
   }
   const sortedIssues = [...issues].sort(issueCompare);
   return {
@@ -499,7 +574,8 @@ export const resolveManufacturerAcquisitionProfile = (
 export const isOfficialManufacturerUri = (
   profile: ManufacturerAcquisitionProfile,
   uri: string,
-): boolean => isOfficialUriForDomains(profile.official_domains, uri);
+): boolean =>
+  isUriForProfileDomains(profile.official_domains, profile.approved_subdomains ?? [], uri);
 
 export const resolveManufacturerAcquisitionStrategy = (
   profile: ManufacturerAcquisitionProfile,
@@ -678,7 +754,7 @@ export const acquireManufacturerRecord = (
       ],
     };
   }
-  if (!request.captured_source.media_type.toLowerCase().includes('html')) {
+  if (!request.captured_source.media_type?.toLowerCase().includes('html')) {
     return {
       status: 'invalid',
       ...base,

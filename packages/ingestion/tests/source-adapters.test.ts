@@ -35,12 +35,14 @@ const response = (body: string, init: ResponseInit = {}) =>
 
 const redirect = (location?: string, status = 302) =>
   new Response(null, { status, headers: location ? { location } : {} });
+const resolvePublicHost = async (): Promise<readonly string[]> => ['93.184.216.34'];
 
 describe('HTTP source capture', () => {
   it('captures bounded HTTPS content with explicit metadata and a deterministic hash', async () => {
     const adapter = new HttpSourceCaptureAdapter(
       async () => response('hello'),
       () => '2026-09-05T12:00:00Z',
+      resolvePublicHost,
     );
     const result = await adapter.capture({ uri: 'https://example.invalid/page' });
     expect(result.status).toBe('success');
@@ -65,6 +67,8 @@ describe('HTTP source capture', () => {
           status: 404,
           headers: { 'content-type': 'application/pdf' },
         }),
+      undefined,
+      resolvePublicHost,
     );
     const result = await adapter.capture({
       uri: 'http://example.invalid/old',
@@ -85,6 +89,8 @@ describe('HTTP source capture', () => {
           status: 200,
           headers: { 'content-type': 'application/octet-stream' },
         }),
+      undefined,
+      resolvePublicHost,
     );
     const result = await adapter.capture({ uri: 'https://example.invalid/binary' });
     expect(result.status).toBe('success');
@@ -103,7 +109,11 @@ describe('HTTP source capture', () => {
   it('returns structured abort and response-size failures', async () => {
     const abortController = new AbortController();
     abortController.abort();
-    const abortAdapter = new HttpSourceCaptureAdapter(async () => response('never used'));
+    const abortAdapter = new HttpSourceCaptureAdapter(
+      async () => response('never used'),
+      undefined,
+      resolvePublicHost,
+    );
     await expect(
       abortAdapter.capture({
         uri: 'https://example.invalid/slow',
@@ -114,7 +124,11 @@ describe('HTTP source capture', () => {
       issues: [{ code: 'aborted' }],
     });
 
-    const largeAdapter = new HttpSourceCaptureAdapter(async () => response('0123456789'));
+    const largeAdapter = new HttpSourceCaptureAdapter(
+      async () => response('0123456789'),
+      undefined,
+      resolvePublicHost,
+    );
     await expect(
       largeAdapter.capture({ uri: 'https://example.invalid/large', max_bytes: 5 }),
     ).resolves.toMatchObject({
@@ -125,12 +139,16 @@ describe('HTTP source capture', () => {
 
   it('validates every redirect hop and preserves the final URI', async () => {
     const calls: string[] = [];
-    const adapter = new HttpSourceCaptureAdapter(async (input) => {
-      calls.push(String(input));
-      return calls.length === 1
-        ? redirect('/relative')
-        : response('redirected', { headers: { 'content-type': 'text/plain' } });
-    });
+    const adapter = new HttpSourceCaptureAdapter(
+      async (input) => {
+        calls.push(String(input));
+        return calls.length === 1
+          ? redirect('/relative')
+          : response('redirected', { headers: { 'content-type': 'text/plain' } });
+      },
+      undefined,
+      resolvePublicHost,
+    );
     const result = await adapter.capture({ uri: 'https://example.invalid/start' });
     expect(result.status).toBe('success');
     expect(calls).toEqual(['https://example.invalid/start', 'https://example.invalid/relative']);
@@ -143,29 +161,59 @@ describe('HTTP source capture', () => {
     ['http://169.254.1.10/private', 'blocked_host'],
   ])('rejects redirect to %s before fetching it', async (location, code) => {
     const calls: string[] = [];
-    const adapter = new HttpSourceCaptureAdapter(async (input) => {
-      calls.push(String(input));
-      return redirect(location);
-    });
+    const adapter = new HttpSourceCaptureAdapter(
+      async (input) => {
+        calls.push(String(input));
+        return redirect(location);
+      },
+      undefined,
+      resolvePublicHost,
+    );
     const result = await adapter.capture({ uri: 'https://example.invalid/start' });
     expect(result).toMatchObject({ status: 'invalid', issues: [{ code }] });
     expect(calls).toEqual(['https://example.invalid/start']);
   });
 
+  it('blocks publicly-named hosts that resolve to private or loopback addresses', async () => {
+    const adapter = new HttpSourceCaptureAdapter(
+      async () => response('unreachable'),
+      undefined,
+      async () => ['127.0.0.1'],
+    );
+    await expect(
+      adapter.capture({ uri: 'https://example.invalid/private-dns' }),
+    ).resolves.toMatchObject({
+      status: 'invalid',
+      issues: [{ code: 'blocked_host' }],
+    });
+  });
+
   it('reports redirect limits, missing locations, and malformed locations explicitly', async () => {
-    const loop = new HttpSourceCaptureAdapter(async () => redirect('/loop'));
+    const loop = new HttpSourceCaptureAdapter(
+      async () => redirect('/loop'),
+      undefined,
+      resolvePublicHost,
+    );
     await expect(
       loop.capture({ uri: 'https://example.invalid/start', max_redirects: 1 }),
     ).resolves.toMatchObject({
       status: 'failed',
       issues: [{ code: 'redirect_limit_exceeded' }],
     });
-    const missing = new HttpSourceCaptureAdapter(async () => redirect());
+    const missing = new HttpSourceCaptureAdapter(
+      async () => redirect(),
+      undefined,
+      resolvePublicHost,
+    );
     await expect(missing.capture({ uri: 'https://example.invalid/start' })).resolves.toMatchObject({
       status: 'failed',
       issues: [{ code: 'invalid_redirect' }],
     });
-    const malformed = new HttpSourceCaptureAdapter(async () => redirect('http://[invalid'));
+    const malformed = new HttpSourceCaptureAdapter(
+      async () => redirect('http://[invalid'),
+      undefined,
+      resolvePublicHost,
+    );
     await expect(
       malformed.capture({ uri: 'https://example.invalid/start' }),
     ).resolves.toMatchObject({
