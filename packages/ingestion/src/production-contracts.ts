@@ -1,5 +1,10 @@
 import { createHash } from 'node:crypto';
 import type { JsonObject, JsonValue } from './contracts.js';
+import type {
+  ExtractionCapabilityState,
+  ExtractionRemediationState,
+  ExtractedDocument,
+} from './capture-types.js';
 
 export const PRODUCTION_SCHEMA_VERSION = '1.0';
 export const PRODUCTION_HASH_ALGORITHM = 'sha256';
@@ -215,26 +220,303 @@ export interface SourceRevisionArtifact {
   readonly relations?: readonly SourceRevisionRelationTarget[];
 }
 
-export type DocumentBlockKind = 'text' | 'table' | 'structured' | 'unsupported' | 'unresolved';
+export type DocumentBlockKind =
+  | 'document_title'
+  | 'heading'
+  | 'paragraph'
+  | 'list_item'
+  | 'definition_term'
+  | 'definition_value'
+  | 'table'
+  | 'table_caption'
+  | 'table_header'
+  | 'table_row'
+  | 'table_cell'
+  | 'figure_caption'
+  | 'note'
+  | 'text_block'
+  | 'link_reference'
+  | 'unknown_text'
+  | 'definition'
+  | 'list'
+  | 'text'
+  | 'structured'
+  | 'unsupported'
+  | 'unresolved';
+
+export type DocumentExtractionStatus =
+  | 'extracted'
+  | 'partially_extracted'
+  | 'no_extractable_content'
+  | 'unsupported'
+  | 'source_unavailable'
+  | 'source_non_authoritative'
+  | 'source_empty'
+  | 'corrupt_source'
+  | 'failed'
+  | 'input_limit_reached'
+  | 'item_limit_reached'
+  | 'table_cell_limit_reached'
+  | 'text_limit_reached'
+  | 'snapshot_read_failure';
+
+export type DocumentDiagnosticCode =
+  | 'unsupported_media_type'
+  | 'missing_text_body'
+  | 'snapshot_missing'
+  | 'snapshot_digest_mismatch'
+  | 'parser_failure'
+  | 'no_extractable_text'
+  | 'likely_image_only'
+  | 'malformed_html_structure'
+  | 'table_extraction_unsupported'
+  | 'partial_table_extraction'
+  | 'unsupported_embedded_content'
+  | 'pdf_unsupported'
+  | 'source_unavailable'
+  | 'source_non_authoritative'
+  | 'source_empty'
+  | 'corrupt_source'
+  | 'failed'
+  | 'input_limit_reached'
+  | 'item_limit_reached'
+  | 'table_cell_limit_reached'
+  | 'page_limit_reached'
+  | 'page_limit_reached'
+  | 'text_limit_reached'
+  | 'snapshot_read_failure';
+
+export interface DocumentSourceLocation {
+  readonly kind: 'html' | 'pdf' | 'generic';
+  readonly path?: string;
+  readonly fragment?: string;
+  readonly section?: string;
+  readonly page?: number;
+  readonly ordinal?: number;
+  readonly row?: number;
+  readonly column?: number;
+  readonly table?: string;
+}
+
+export interface DocumentDiagnostic {
+  readonly code: DocumentDiagnosticCode;
+  readonly message: string;
+  readonly recoverable?: boolean;
+}
 
 export interface DocumentBlock {
   readonly id: string;
   readonly kind: DocumentBlockKind;
-  readonly locator: string;
+  readonly locator: DocumentSourceLocation;
   readonly content?: string;
+  readonly heading_level?: number;
   readonly rows?: readonly { readonly label: string; readonly value: string }[];
+  readonly cells?: readonly {
+    readonly label: string;
+    readonly value: string;
+    readonly kind: 'header' | 'data';
+    readonly row: number;
+    readonly column: number;
+    readonly source_location: DocumentSourceLocation;
+  }[];
   readonly reason?: string;
+  readonly source_location?: DocumentSourceLocation;
 }
+
+export type DocumentCapabilityState = ExtractionCapabilityState;
+export type DocumentRemediationState = ExtractionRemediationState;
 
 export interface DocumentExtractionArtifact {
   readonly schema_version: typeof PRODUCTION_SCHEMA_VERSION;
   readonly artifact_kind: 'document_extraction';
   readonly id: string;
   readonly source_capture: ArtifactReference;
+  readonly source_acquisition: ArtifactReference<'source_acquisition'>;
+  readonly acquisition_candidate_id?: string;
+  readonly observed_media_type?: string;
+  readonly title?: string;
+  readonly page_count?: number;
+  readonly status: DocumentExtractionStatus;
+  readonly capability_state: DocumentCapabilityState;
+  readonly remediation_state: DocumentRemediationState;
   readonly extractor: string;
   readonly extractor_version: string;
+  readonly diagnostics?: readonly DocumentDiagnostic[];
   readonly blocks: readonly DocumentBlock[];
 }
+
+export interface DocumentExtractionArtifactOptions {
+  readonly source_acquisition: ArtifactReference<'source_acquisition'>;
+  readonly acquisition_candidate_id?: string;
+  readonly source_authoritative?: boolean;
+}
+
+const documentLocation = (
+  location: ExtractedDocument['blocks'][number]['source_location'],
+  locator: ExtractedDocument['blocks'][number]['locator'],
+): DocumentSourceLocation => ({
+  kind: location?.kind ?? 'generic',
+  ...((location?.path ?? locator.path) ? { path: location?.path ?? locator.path } : {}),
+  ...((location?.fragment ?? locator.fragment)
+    ? { fragment: location?.fragment ?? locator.fragment }
+    : {}),
+  ...((location?.section ?? locator.section)
+    ? { section: location?.section ?? locator.section }
+    : {}),
+  ...((location?.page ?? locator.page) ? { page: location?.page ?? locator.page } : {}),
+  ...(location?.ordinal !== undefined ? { ordinal: location.ordinal } : {}),
+  ...(location?.row !== undefined ? { row: location.row } : {}),
+  ...((location?.column ?? locator.column) ? { column: location?.column ?? locator.column } : {}),
+  ...((location?.table ?? locator.table) ? { table: location?.table ?? locator.table } : {}),
+});
+
+const inferCapabilityState = (
+  status: DocumentExtractionStatus | undefined,
+  diagnostics: readonly DocumentDiagnostic[] | undefined,
+): DocumentCapabilityState => {
+  const hasHumanReviewIndicator = diagnostics?.some((diagnostic) =>
+    ['likely_image_only', 'no_extractable_text'].includes(diagnostic.code),
+  );
+  switch (status) {
+    case 'extracted':
+      return 'automatic_extraction_available';
+    case 'partially_extracted':
+      return hasHumanReviewIndicator ? 'capability_not_enabled' : 'automatic_extraction_available';
+    case 'unsupported':
+      return diagnostics?.some((diagnostic) =>
+        ['unsupported_media_type', 'pdf_unsupported'].includes(diagnostic.code),
+      )
+        ? 'capability_not_implemented'
+        : 'capability_not_enabled';
+    case 'source_unavailable':
+    case 'source_empty':
+      return 'no_known_automatic_path';
+    case 'corrupt_source':
+      return 'no_known_automatic_path';
+    case 'failed':
+      return diagnostics?.some((diagnostic) => diagnostic.code === 'snapshot_missing')
+        ? 'no_known_automatic_path'
+        : hasHumanReviewIndicator
+          ? 'capability_not_enabled'
+          : 'capability_not_implemented';
+    case 'source_non_authoritative':
+      return 'automatic_extraction_available';
+    default:
+      return 'unknown';
+  }
+};
+
+const inferRemediationState = (
+  status: DocumentExtractionStatus | undefined,
+  diagnostics: readonly DocumentDiagnostic[] | undefined,
+): DocumentRemediationState => {
+  const hasHumanReviewIndicator = diagnostics?.some((diagnostic) =>
+    ['likely_image_only', 'no_extractable_text'].includes(diagnostic.code),
+  );
+  switch (status) {
+    case 'extracted':
+      return 'none_required';
+    case 'partially_extracted':
+      return hasHumanReviewIndicator ? 'human_review_required' : 'none_required';
+    case 'unsupported':
+      return diagnostics?.some((diagnostic) =>
+        ['unsupported_media_type', 'pdf_unsupported'].includes(diagnostic.code),
+      )
+        ? 'implementation_required'
+        : hasHumanReviewIndicator
+          ? 'human_review_required'
+          : 'enable_capability';
+    case 'source_unavailable':
+    case 'source_empty':
+      return 'source_reacquisition_required';
+    case 'corrupt_source':
+      return 'source_repair_required';
+    case 'failed':
+      return diagnostics?.some((diagnostic) => diagnostic.code === 'snapshot_missing')
+        ? 'source_reacquisition_required'
+        : hasHumanReviewIndicator
+          ? 'human_review_required'
+          : 'implementation_required';
+    case 'source_non_authoritative':
+      return 'none_required';
+    default:
+      return 'human_review_required';
+  }
+};
+
+export const buildDocumentExtractionArtifact = (
+  document: ExtractedDocument,
+  sourceCapture: ArtifactReference<'source_capture'>,
+  options: DocumentExtractionArtifactOptions,
+): DocumentExtractionArtifact => {
+  const status =
+    options.source_authoritative === false
+      ? 'source_non_authoritative'
+      : (document.status ?? (document.blocks.length ? 'extracted' : 'partially_extracted'));
+  const capability_state =
+    document.capability_state ?? inferCapabilityState(status, document.diagnostics);
+  const remediation_state =
+    document.remediation_state ?? inferRemediationState(status, document.diagnostics);
+  const identity = artifactDigest({
+    source_capture: sourceCapture.digest,
+    source_acquisition: options.source_acquisition.digest,
+    acquisition_candidate_id: options.acquisition_candidate_id,
+    extractor: document.extractor ?? 'unknown',
+    extractor_version: document.extractor_version ?? 'unknown',
+    status,
+    capability_state,
+    remediation_state,
+    observed_media_type: document.source.media_type,
+    title: document.title,
+    page_count: document.page_count,
+    diagnostics: document.diagnostics,
+    blocks: document.blocks,
+  });
+  return {
+    schema_version: PRODUCTION_SCHEMA_VERSION,
+    artifact_kind: 'document_extraction',
+    id: `document-extraction.${identity.slice('sha256:'.length, 'sha256:'.length + 24)}`,
+    source_capture: sourceCapture,
+    source_acquisition: options.source_acquisition,
+    ...(options.acquisition_candidate_id
+      ? { acquisition_candidate_id: options.acquisition_candidate_id }
+      : {}),
+    ...(document.source.media_type ? { observed_media_type: document.source.media_type } : {}),
+    ...(document.title ? { title: document.title } : {}),
+    ...(document.page_count !== undefined ? { page_count: document.page_count } : {}),
+    status,
+    capability_state,
+    remediation_state,
+    extractor: document.extractor ?? 'unknown',
+    extractor_version: document.extractor_version ?? 'unknown',
+    ...(document.diagnostics?.length ? { diagnostics: document.diagnostics } : {}),
+    blocks: document.blocks.map((block) => ({
+      id: block.id ?? `block.${identity}`,
+      kind: block.kind,
+      locator: documentLocation(block.source_location, block.locator),
+      content: block.text,
+      ...(block.heading_level !== undefined ? { heading_level: block.heading_level } : {}),
+      ...(block.rows?.length
+        ? { rows: block.rows.map(({ label, value }) => ({ label, value })) }
+        : {}),
+      ...(block.cells?.length
+        ? {
+            cells: block.cells.map((cell) => ({
+              label: cell.label,
+              value: cell.value,
+              kind: cell.kind,
+              row: cell.row,
+              column: cell.column,
+              source_location: cell.source_location,
+            })),
+          }
+        : {}),
+      ...(block.source_location
+        ? { source_location: documentLocation(block.source_location, block.locator) }
+        : {}),
+    })),
+  };
+};
 
 export type ApplicabilityKind =
   | 'exact_sku'
@@ -520,6 +802,161 @@ export const validateSourceAcquisition = (
     )
       issues.push(`equivalent candidate '${candidate.id}' references an unknown candidate`);
   });
+  return issues;
+};
+
+export const validateDocumentExtraction = (
+  artifact: DocumentExtractionArtifact,
+): readonly string[] => {
+  const issues: string[] = [];
+  const statuses = new Set<DocumentExtractionStatus>([
+    'extracted',
+    'partially_extracted',
+    'no_extractable_content',
+    'unsupported',
+    'source_unavailable',
+    'source_non_authoritative',
+    'source_empty',
+    'corrupt_source',
+    'failed',
+  ]);
+  const capabilityStates = new Set<DocumentCapabilityState>([
+    'automatic_extraction_available',
+    'capability_not_implemented',
+    'capability_not_enabled',
+    'no_known_automatic_path',
+    'unknown',
+  ]);
+  const remediationStates = new Set<DocumentRemediationState>([
+    'none_required',
+    'implementation_required',
+    'enable_capability',
+    'source_reacquisition_required',
+    'source_repair_required',
+    'human_review_required',
+  ]);
+  const diagnosticCodes = new Set<DocumentDiagnosticCode>([
+    'unsupported_media_type',
+    'missing_text_body',
+    'snapshot_missing',
+    'snapshot_digest_mismatch',
+    'parser_failure',
+    'no_extractable_text',
+    'likely_image_only',
+    'malformed_html_structure',
+    'table_extraction_unsupported',
+    'partial_table_extraction',
+    'unsupported_embedded_content',
+    'pdf_unsupported',
+    'source_unavailable',
+    'source_non_authoritative',
+    'source_empty',
+    'corrupt_source',
+    'failed',
+    'input_limit_reached',
+    'item_limit_reached',
+    'table_cell_limit_reached',
+    'text_limit_reached',
+    'snapshot_read_failure',
+  ]);
+  const blockKinds = new Set<DocumentBlockKind>([
+    'document_title',
+    'heading',
+    'paragraph',
+    'list_item',
+    'definition_term',
+    'definition_value',
+    'table',
+    'table_caption',
+    'table_header',
+    'table_row',
+    'table_cell',
+    'figure_caption',
+    'note',
+    'text_block',
+    'link_reference',
+    'unknown_text',
+    'definition',
+    'list',
+    'text',
+    'structured',
+    'unsupported',
+    'unresolved',
+  ]);
+  const validateLocation = (location: DocumentSourceLocation | undefined, path: string): void => {
+    if (!location) return;
+    if (!['html', 'pdf', 'generic'].includes(location.kind))
+      issues.push(`${path}.kind is not recognized`);
+    for (const [name, value] of [
+      ['page', location.page],
+      ['ordinal', location.ordinal],
+      ['row', location.row],
+      ['column', location.column],
+    ] as const) {
+      if (value !== undefined && (!Number.isInteger(value) || value < 1))
+        issues.push(`${path}.${name} must be a positive integer`);
+    }
+  };
+  if (artifact.artifact_kind !== 'document_extraction') {
+    issues.push('document extraction artifact_kind must be document_extraction');
+  }
+  if (artifact.schema_version !== PRODUCTION_SCHEMA_VERSION)
+    issues.push('document extraction schema_version is not supported');
+  if (!/^document-extraction\.[a-f0-9]{24}$/.test(artifact.id))
+    issues.push('document extraction id is not a deterministic extraction ID');
+  if (!artifact.source_capture || artifact.source_capture.kind !== 'source_capture') {
+    issues.push('document extraction requires a source_capture reference');
+  }
+  if (
+    artifact.source_acquisition !== undefined &&
+    artifact.source_acquisition.kind !== 'source_acquisition'
+  )
+    issues.push('document extraction source_acquisition must reference source_acquisition');
+  if (
+    artifact.acquisition_candidate_id !== undefined &&
+    !/^[A-Za-z0-9._-]+$/.test(artifact.acquisition_candidate_id)
+  )
+    issues.push('document extraction acquisition_candidate_id has invalid shape');
+  if (!artifact.extractor.trim() || !artifact.extractor_version.trim()) {
+    issues.push('document extraction requires extractor identity and version');
+  }
+  if (!statuses.has(artifact.status)) {
+    issues.push('document extraction status is not recognized');
+  }
+  if (artifact.capability_state !== undefined && !capabilityStates.has(artifact.capability_state)) {
+    issues.push('document extraction capability_state is not recognized');
+  }
+  if (
+    artifact.remediation_state !== undefined &&
+    !remediationStates.has(artifact.remediation_state)
+  ) {
+    issues.push('document extraction remediation_state is not recognized');
+  }
+  artifact.diagnostics?.forEach((diagnostic, index) => {
+    if (!diagnostic.message.trim()) issues.push(`diagnostics[${index}].message is required`);
+    if (!diagnosticCodes.has(diagnostic.code))
+      issues.push(`diagnostics[${index}].code is not recognized`);
+  });
+  artifact.blocks.forEach((block, index) => {
+    if (!block.id.trim()) issues.push(`blocks[${index}].id is required`);
+    if (!blockKinds.has(block.kind)) issues.push(`blocks[${index}].kind is not recognized`);
+    validateLocation(block.locator, `blocks[${index}].locator`);
+    validateLocation(block.source_location, `blocks[${index}].source_location`);
+    block.cells?.forEach((cell, cellIndex) => {
+      if (!Number.isInteger(cell.row) || cell.row < 1)
+        issues.push(`blocks[${index}].cells[${cellIndex}].row must be positive`);
+      if (!Number.isInteger(cell.column) || cell.column < 1)
+        issues.push(`blocks[${index}].cells[${cellIndex}].column must be positive`);
+      validateLocation(
+        cell.source_location,
+        `blocks[${index}].cells[${cellIndex}].source_location`,
+      );
+    });
+  });
+  if (artifact.status === 'extracted' && artifact.blocks.length === 0)
+    issues.push('extracted document extraction requires blocks');
+  if (artifact.status === 'unsupported' && artifact.blocks.length > 0)
+    issues.push('unsupported document extraction cannot contain blocks');
   return issues;
 };
 

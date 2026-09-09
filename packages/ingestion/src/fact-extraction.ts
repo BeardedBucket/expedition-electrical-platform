@@ -19,14 +19,36 @@ const rawUnit = (value: string): string | undefined => {
   return match?.[1];
 };
 
+const toSourceLocator = (
+  locator: ExtractedDocument['blocks'][number]['locator'] | undefined,
+  row?: string,
+) => {
+  if (!locator) return undefined;
+  const filtered = {
+    ...(locator.fragment !== undefined ? { fragment: locator.fragment } : {}),
+    ...(locator.section !== undefined ? { section: locator.section } : {}),
+    ...(locator.table !== undefined ? { table: locator.table } : {}),
+    ...(locator.paragraph !== undefined ? { paragraph: locator.paragraph } : {}),
+    ...(locator.page !== undefined ? { page: locator.page } : {}),
+    ...(row !== undefined ? { row } : {}),
+  };
+  return Object.keys(filtered).length ? filtered : undefined;
+};
+
 export const extractProductFacts = (
   document: ExtractedDocument,
   context: ProductFactExtractionContext,
 ): FactExtractionResult => {
+  const unsupportedWarnings = new Set([
+    'pdf_unsupported',
+    'unsupported_media_type',
+    'source_empty',
+    'missing_text_body',
+  ]);
   if (
-    document.warnings.some(
-      (warning) => warning.code === 'pdf_unsupported' || warning.code === 'unsupported_media_type',
-    )
+    document.status === 'unsupported' ||
+    document.warnings.some((warning) => unsupportedWarnings.has(warning.code)) ||
+    (document.source.media_type !== 'text/html' && !document.blocks.length)
   ) {
     return { status: 'unsupported', facts: [], warnings: document.warnings };
   }
@@ -43,7 +65,9 @@ export const extractProductFacts = (
           raw_label: row.label,
           raw_value: row.value,
           ...(rawUnitValue ? { raw_unit: rawUnitValue } : {}),
-          source_locator: { ...block.locator, row: String(rowIndex + 1) },
+          ...(toSourceLocator(block.locator, String(rowIndex + 1))
+            ? { source_locator: toSourceLocator(block.locator, String(rowIndex + 1)) }
+            : {}),
           extraction_method:
             context.extraction_method ?? (block.kind === 'table' ? 'table' : 'structured'),
           review_required: true,
@@ -64,7 +88,9 @@ export const extractProductFacts = (
         field: 'unmapped',
         raw_label: block.kind,
         raw_value: block.text,
-        source_locator: block.locator,
+        ...(toSourceLocator(block.locator)
+          ? { source_locator: toSourceLocator(block.locator) }
+          : {}),
         extraction_method: 'text',
         review_required: true,
         transformation_notes:

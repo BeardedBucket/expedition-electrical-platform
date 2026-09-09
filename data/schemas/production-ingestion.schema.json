@@ -78,6 +78,7 @@
             "product_run"
           ]
         },
+        "heading_level": { "type": "integer", "minimum": 1, "maximum": 6 },
         "reference_schema_version": { "$ref": "#/$defs/version" },
         "referenced_artifact_schema_version": { "type": "string", "minLength": 1 },
         "digest": { "$ref": "#/$defs/digest" },
@@ -494,6 +495,10 @@
         "artifact_kind",
         "id",
         "source_capture",
+        "source_acquisition",
+        "status",
+        "capability_state",
+        "remediation_state",
         "extractor",
         "extractor_version",
         "blocks"
@@ -502,9 +507,85 @@
         "schema_version": { "$ref": "#/$defs/version" },
         "artifact_kind": { "const": "document_extraction" },
         "id": { "type": "string", "minLength": 1 },
-        "source_capture": { "$ref": "#/$defs/sourceRef" },
+        "source_capture": { "$ref": "#/$defs/sourceCaptureRef" },
+        "source_acquisition": { "$ref": "#/$defs/sourceAcquisitionRef" },
+        "acquisition_candidate_id": { "type": "string", "minLength": 1 },
+        "observed_media_type": { "type": "string", "minLength": 1 },
+        "title": { "type": "string" },
+        "page_count": { "type": "integer", "minimum": 0 },
+        "status": {
+          "enum": [
+            "extracted",
+            "partially_extracted",
+            "no_extractable_content",
+            "unsupported",
+            "source_unavailable",
+            "source_non_authoritative",
+            "source_empty",
+            "corrupt_source",
+            "failed"
+          ]
+        },
+        "capability_state": {
+          "enum": [
+            "automatic_extraction_available",
+            "capability_not_implemented",
+            "capability_not_enabled",
+            "no_known_automatic_path",
+            "unknown"
+          ]
+        },
+        "remediation_state": {
+          "enum": [
+            "none_required",
+            "implementation_required",
+            "enable_capability",
+            "source_reacquisition_required",
+            "source_repair_required",
+            "human_review_required"
+          ]
+        },
         "extractor": { "type": "string", "minLength": 1 },
         "extractor_version": { "type": "string", "minLength": 1 },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["code", "message"],
+            "properties": {
+              "code": {
+                "enum": [
+                  "unsupported_media_type",
+                  "missing_text_body",
+                  "snapshot_missing",
+                  "snapshot_digest_mismatch",
+                  "parser_failure",
+                  "no_extractable_text",
+                  "likely_image_only",
+                  "malformed_html_structure",
+                  "table_extraction_unsupported",
+                  "partial_table_extraction",
+                  "unsupported_embedded_content",
+                  "pdf_unsupported",
+                  "source_unavailable",
+                  "source_non_authoritative",
+                  "source_empty",
+                  "corrupt_source",
+                  "failed",
+                  "input_limit_reached",
+                  "item_limit_reached",
+                  "table_cell_limit_reached",
+                  "page_limit_reached",
+                  "text_limit_reached",
+                  "snapshot_read_failure"
+                ]
+              },
+              "message": { "type": "string", "minLength": 1 },
+              "recoverable": { "type": "boolean" }
+            },
+            "additionalProperties": false
+          }
+        },
         "blocks": {
           "type": "array",
           "items": {
@@ -512,8 +593,48 @@
             "required": ["id", "kind", "locator"],
             "properties": {
               "id": { "type": "string" },
-              "kind": { "enum": ["text", "table", "structured", "unsupported", "unresolved"] },
-              "locator": { "type": "string" },
+              "kind": {
+                "enum": [
+                  "document_title",
+                  "heading",
+                  "paragraph",
+                  "list_item",
+                  "definition_term",
+                  "definition_value",
+                  "table",
+                  "table_caption",
+                  "table_header",
+                  "table_row",
+                  "table_cell",
+                  "figure_caption",
+                  "note",
+                  "text_block",
+                  "link_reference",
+                  "unknown_text",
+                  "definition",
+                  "list",
+                  "text",
+                  "table",
+                  "structured",
+                  "unsupported",
+                  "unresolved"
+                ]
+              },
+              "locator": {
+                "type": "object",
+                "required": ["kind"],
+                "properties": {
+                  "kind": { "enum": ["html", "pdf", "generic"] },
+                  "fragment": { "type": "string" },
+                  "section": { "type": "string" },
+                  "table": { "type": "string" },
+                  "row": { "type": "string" },
+                  "path": { "type": "string" },
+                  "page": { "type": "integer", "minimum": 1 },
+                  "column": { "type": "integer", "minimum": 1 }
+                },
+                "additionalProperties": false
+              },
               "content": { "type": "string" },
               "rows": {
                 "type": "array",
@@ -522,12 +643,61 @@
                   "required": ["label", "value"],
                   "properties": {
                     "label": { "type": "string" },
-                    "value": { "type": "string" }
+                    "value": { "type": "string" },
+                    "kind": { "enum": ["header", "data"] },
+                    "row": { "type": "integer", "minimum": 1 },
+                    "column": { "type": "integer", "minimum": 1 }
                   },
                   "additionalProperties": false
                 }
               },
-              "reason": { "type": "string" }
+              "cells": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["label", "value", "kind", "row", "column", "source_location"],
+                  "properties": {
+                    "label": { "type": "string" },
+                    "value": { "type": "string" },
+                    "row": { "type": "integer", "minimum": 1 },
+                    "column": { "type": "integer", "minimum": 1 },
+                    "source_location": {
+                      "type": "object",
+                      "required": ["kind"],
+                      "properties": {
+                        "kind": { "enum": ["html", "pdf", "generic"] },
+                        "path": { "type": "string" },
+                        "fragment": { "type": "string" },
+                        "section": { "type": "string" },
+                        "page": { "type": "integer", "minimum": 1 },
+                        "ordinal": { "type": "integer", "minimum": 1 },
+                        "row": { "type": "integer", "minimum": 1 },
+                        "column": { "type": "integer", "minimum": 1 },
+                        "table": { "type": "string" }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "reason": { "type": "string" },
+              "source_location": {
+                "type": "object",
+                "required": ["kind"],
+                "properties": {
+                  "kind": { "enum": ["html", "pdf", "generic"] },
+                  "path": { "type": "string" },
+                  "fragment": { "type": "string" },
+                  "section": { "type": "string" },
+                  "page": { "type": "integer", "minimum": 1 },
+                  "ordinal": { "type": "integer", "minimum": 1 },
+                  "row": { "type": "integer", "minimum": 1 },
+                  "column": { "type": "integer", "minimum": 1 },
+                  "table": { "type": "string" }
+                },
+                "additionalProperties": false
+              }
             },
             "additionalProperties": false
           }
