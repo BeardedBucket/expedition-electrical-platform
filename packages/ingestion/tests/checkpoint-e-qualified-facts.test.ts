@@ -833,4 +833,75 @@ describe('checkpoint-e-qualified-facts', () => {
       result.diagnostics.some((diagnostic) => diagnostic.code === 'applicability_unresolved'),
     ).toBe(true);
   });
+
+  it('checkpoint e populates value-independent labels from structured source labels', () => {
+    const document = makeDocumentExtractionArtifact({
+      blocks: [
+        {
+          id: 'def-label',
+          kind: 'definition',
+          locator: { kind: 'generic', page: 1 },
+          rows: [{ label: 'Maximum voltage', value: '24 V' }],
+        },
+      ],
+    });
+
+    const result = qualifyDocumentExtraction(document, { target_identifier: 'MODEL-B' });
+    expect(result.facts).toHaveLength(1);
+    expect(result.facts[0].metadata.source_wording).toBe('Maximum voltage');
+    expect(result.facts[0].metadata.source_label).toBe('Maximum voltage');
+    expect(result.facts[0].metadata.raw_value).toBe('24');
+  });
+
+  it('checkpoint e populates value-independent labels from table headers', () => {
+    const document = makeDocumentExtractionArtifact({
+      blocks: [
+        {
+          id: 'table-label',
+          kind: 'table',
+          locator: { kind: 'generic', page: 1 },
+          cells: [
+            {
+              label: 'Model',
+              value: 'MODEL-B',
+              kind: 'header',
+              row: 1,
+              column: 1,
+              source_location: { kind: 'generic', page: 1, row: 1, column: 1 },
+            },
+            {
+              label: 'Max voltage',
+              value: 'Max voltage',
+              kind: 'header',
+              row: 1,
+              column: 2,
+              source_location: { kind: 'generic', page: 1, row: 1, column: 2 },
+            },
+            {
+              label: 'MODEL-B',
+              value: 'MODEL-B',
+              kind: 'data',
+              row: 2,
+              column: 1,
+              source_location: { kind: 'generic', page: 1, row: 2, column: 1 },
+            },
+            {
+              label: 'Max voltage',
+              value: '24 V',
+              kind: 'data',
+              row: 2,
+              column: 2,
+              source_location: { kind: 'generic', page: 1, row: 2, column: 2 },
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = qualifyDocumentExtraction(document, { target_identifier: 'MODEL-B' });
+    expect(result.facts).toHaveLength(1);
+    expect(result.facts[0].metadata.source_wording).toBe('Max voltage');
+    expect(result.facts[0].metadata.source_label).toBe('Max voltage');
+    expect(result.facts[0].metadata.raw_value).toBe('24');
+  });
 });

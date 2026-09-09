@@ -1,9 +1,15 @@
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import Ajv2020 from 'ajv/dist/2020.js';
+import addFormats from 'ajv-formats';
 import { describe, expect, it } from 'vitest';
 import {
   PRODUCTION_SCHEMA_VERSION,
   approvalMatchesReviewPackage,
   artifactDigest,
   artifactReference,
+  buildQualifiedFactArtifact,
   deterministicSerialize,
   hasArtifactKind,
   reviewPackageSnapshot,
@@ -12,11 +18,28 @@ import {
   validateSourceCapture,
   validateArtifactReferences,
   validateProductIntake,
+  validateQualifiedFact,
   type ProductIntake,
   type ReviewPackage,
   type SourceCaptureArtifact,
 } from '../src/production-contracts.js';
 import type { ProductCandidate } from '../src/contracts.js';
+
+const productionIngestionSchemaPath = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '..',
+  '..',
+  '..',
+  'data',
+  'schemas',
+  'production-ingestion.schema.json',
+);
+const productionIngestionSchema = JSON.parse(
+  readFileSync(productionIngestionSchemaPath, 'utf8'),
+) as Record<string, unknown>;
+const productionIngestionAjv = addFormats(new Ajv2020({ allErrors: true, strict: false }));
+const validateProductionIngestionArtifact =
+  productionIngestionAjv.compile(productionIngestionSchema);
 
 const intake: ProductIntake = {
   schema_version: PRODUCTION_SCHEMA_VERSION,
@@ -407,5 +430,50 @@ describe('production ingestion contracts', () => {
         candidates: [{ ...owner, capture_outcome: 'not_attempted' }, candidate],
       }),
     ).toContain("unattempted candidate 'candidate.owner' cannot carry capture evidence");
+  });
+
+  it('accepts a persisted qualified_fact with a valid non-empty source_label while keeping it optional', () => {
+    const withLabel = buildQualifiedFactArtifact({
+      source_capture: artifactReference('source_capture', capture),
+      metadata: {
+        source_wording: 'Maximum voltage: 24 V',
+        source_label: 'Maximum voltage',
+        raw_value: '24',
+        source_unit: 'V',
+        applicability: { kind: 'exact_product', value: 'EX-1' },
+      },
+    });
+    expect(validateQualifiedFact(withLabel)).toEqual([]);
+    expect(validateProductionIngestionArtifact(withLabel)).toBe(true);
+
+    const withoutLabel = buildQualifiedFactArtifact({
+      source_capture: artifactReference('source_capture', capture),
+      metadata: {
+        source_wording: 'Maximum voltage: 24 V',
+        raw_value: '24',
+        source_unit: 'V',
+        applicability: { kind: 'exact_product', value: 'EX-1' },
+      },
+    });
+    expect('source_label' in withoutLabel.metadata).toBe(false);
+    expect(validateQualifiedFact(withoutLabel)).toEqual([]);
+    expect(validateProductionIngestionArtifact(withoutLabel)).toBe(true);
+  });
+
+  it('rejects an empty source_label at both the runtime and persisted schema boundary', () => {
+    const emptyLabel = buildQualifiedFactArtifact({
+      source_capture: artifactReference('source_capture', capture),
+      metadata: {
+        source_wording: 'Maximum voltage: 24 V',
+        source_label: '',
+        raw_value: '24',
+        source_unit: 'V',
+        applicability: { kind: 'exact_product', value: 'EX-1' },
+      },
+    });
+    expect(validateQualifiedFact(emptyLabel)).toContain(
+      'qualified fact source_label must be non-empty when present',
+    );
+    expect(validateProductionIngestionArtifact(emptyLabel)).toBe(false);
   });
 });

@@ -776,6 +776,7 @@
           "required": ["source_wording", "raw_value", "applicability"],
           "properties": {
             "source_wording": { "type": "string", "minLength": 1 },
+            "source_label": { "type": "string", "minLength": 1 },
             "raw_value": {},
             "source_unit": { "type": "string" },
             "conditions": { "type": "array", "items": { "type": "string" } },

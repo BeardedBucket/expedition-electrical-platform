@@ -558,6 +558,17 @@ export type QualifiedFactQualificationState =
 
 export interface QualifiedFactMetadata {
   readonly source_wording: string;
+  /**
+   * The exact manufacturer label / structural statement identity that excludes
+   * the value being asserted (e.g. the extracted label or table header only).
+   * This field exists so reconciliation can group facts for comparison without
+   * risking that a value-bearing `source_wording` accidentally separates two
+   * facts that assert different values for the same manufacturer statement.
+   * `source_wording` is preserved unchanged as broader source evidence; this
+   * field is not a replacement for it and may be absent when no safe
+   * value-independent label could be established.
+   */
+  readonly source_label?: string;
   readonly raw_value: JsonValue;
   readonly source_unit?: string;
   readonly conditions?: readonly string[];
@@ -844,6 +855,8 @@ export const validateQualifiedFact = (fact: QualifiedFactArtifact): readonly str
     issues.push('qualified fact document_extraction must reference document_extraction');
   if (!fact.metadata?.source_wording || !fact.metadata.source_wording.trim())
     issues.push('qualified fact source_wording is required');
+  if (fact.metadata?.source_label !== undefined && !fact.metadata.source_label.trim())
+    issues.push('qualified fact source_label must be non-empty when present');
   if (fact.metadata?.raw_value === undefined) issues.push('qualified fact raw_value is required');
   const validApplicabilityKinds = new Set<ApplicabilityKind>([
     'exact_product',
@@ -1281,6 +1294,7 @@ const qualifyFromBlock = (
         ];
     const metadata: QualifiedFactMetadata = {
       source_wording: label,
+      source_label: label,
       raw_value,
       ...(source_unit ? { source_unit } : {}),
       applicability: result.applicability,
