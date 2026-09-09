@@ -330,7 +330,7 @@ export interface DocumentExtractionArtifact {
   readonly schema_version: typeof PRODUCTION_SCHEMA_VERSION;
   readonly artifact_kind: 'document_extraction';
   readonly id: string;
-  readonly source_capture: ArtifactReference;
+  readonly source_capture: ArtifactReference<'source_capture'>;
   readonly source_acquisition: ArtifactReference<'source_acquisition'>;
   readonly acquisition_candidate_id?: string;
   readonly observed_media_type?: string;
@@ -518,20 +518,43 @@ export const buildDocumentExtractionArtifact = (
   };
 };
 
-export type ApplicabilityKind =
-  | 'exact_sku'
-  | 'model'
+export type IdentityQualificationKind =
+  | 'exact_product'
+  | 'exact_mpn_or_sku'
+  | 'named_variant'
   | 'family'
-  | 'variant'
-  | 'hardware_revision'
-  | 'unresolved'
-  | 'not_applicable';
+  | 'document_global'
+  | 'explicitly_multiple_products'
+  | 'unresolved';
+
+export type LegacyApplicabilityKind =
+  'exact_sku' | 'model' | 'variant' | 'hardware_revision' | 'not_applicable';
+
+export type ApplicabilityKind = IdentityQualificationKind | LegacyApplicabilityKind;
 
 export interface ApplicabilityBinding {
   readonly kind: ApplicabilityKind;
   readonly value?: string;
   readonly reason?: string;
 }
+
+export type QualifiedFactEvidenceRole =
+  'value' | 'label' | 'subject' | 'applicability' | 'qualifier' | 'context';
+
+export interface QualifiedFactEvidence {
+  readonly role: QualifiedFactEvidenceRole;
+  readonly source_reference?: ArtifactReference<
+    'document_extraction' | 'source_capture' | 'source_acquisition'
+  >;
+  readonly block_id?: string;
+  readonly cell_id?: string;
+  readonly locator?: DocumentSourceLocation;
+  readonly text?: string;
+  readonly note?: string;
+}
+
+export type QualifiedFactQualificationState =
+  'exact' | 'structurally_supported' | 'ambiguous' | 'unresolved' | 'rejected';
 
 export interface QualifiedFactMetadata {
   readonly source_wording: string;
@@ -545,6 +568,9 @@ export interface QualifiedFactMetadata {
   readonly derived_value?: JsonValue;
   readonly derivation?: string;
   readonly alternative_interpretations?: readonly string[];
+  readonly raw_identifier?: string;
+  readonly normalized_identifier?: string;
+  readonly normalization_method?: string;
 }
 
 export interface QualifiedFactArtifact {
@@ -552,8 +578,50 @@ export interface QualifiedFactArtifact {
   readonly artifact_kind: 'qualified_fact';
   readonly id: string;
   readonly source_capture: ArtifactReference;
-  readonly document_extraction?: ArtifactReference;
+  readonly source_acquisition?: ArtifactReference<'source_acquisition'>;
+  readonly document_extraction?: ArtifactReference<'document_extraction'>;
+  readonly acquisition_candidate_id?: string;
   readonly metadata: QualifiedFactMetadata;
+  readonly evidence?: readonly QualifiedFactEvidence[];
+  readonly qualifier?: string;
+  readonly qualifier_version?: string;
+  readonly qualification_state?: QualifiedFactQualificationState;
+}
+
+export type QualificationOutcome =
+  | 'qualified'
+  | 'no_qualifiable_facts'
+  | 'source_incomplete'
+  | 'identity_unresolved'
+  | 'identity_mismatch'
+  | 'non_authoritative_source'
+  | 'qualification_failed';
+
+export interface QualificationDiagnostic {
+  readonly code:
+    | 'missing_value'
+    | 'missing_label'
+    | 'source_not_qualifiable'
+    | 'unsupported_structure'
+    | 'partial_source'
+    | 'non_authoritative_source'
+    | 'identity_mismatch'
+    | 'identity_unresolved'
+    | 'applicability_unresolved';
+  readonly message: string;
+}
+
+export interface DocumentQualificationResult {
+  readonly outcome: QualificationOutcome;
+  readonly completeness: 'complete' | 'partial' | 'incomplete';
+  readonly facts: readonly QualifiedFactArtifact[];
+  readonly diagnostics: readonly QualificationDiagnostic[];
+}
+
+export interface DocumentQualificationTarget {
+  readonly manufacturer_part_number?: string;
+  readonly product_model?: string;
+  readonly target_identifier?: string;
 }
 
 export type ProposalDisposition =
@@ -705,6 +773,122 @@ export const hasArtifactKind = <K extends ArtifactKind>(
 export const sourceContentIdentity = (
   capture: Pick<SourceCaptureArtifact, 'content_digest'>,
 ): string | undefined => capture.content_digest;
+
+export const buildQualifiedFactArtifact = ({
+  source_capture,
+  source_acquisition,
+  document_extraction,
+  acquisition_candidate_id,
+  metadata,
+  evidence,
+  qualifier = 'production-qualified-fact',
+  qualifier_version = PRODUCTION_SCHEMA_VERSION,
+  qualification_state = 'structurally_supported',
+}: {
+  readonly source_capture: ArtifactReference<'source_capture'>;
+  readonly source_acquisition?: ArtifactReference<'source_acquisition'>;
+  readonly document_extraction?: ArtifactReference<'document_extraction'>;
+  readonly acquisition_candidate_id?: string;
+  readonly metadata: QualifiedFactMetadata;
+  readonly evidence?: readonly QualifiedFactEvidence[];
+  readonly qualifier?: string;
+  readonly qualifier_version?: string;
+  readonly qualification_state?: QualifiedFactQualificationState;
+}): QualifiedFactArtifact => {
+  const artifact: QualifiedFactArtifact = {
+    schema_version: PRODUCTION_SCHEMA_VERSION,
+    artifact_kind: 'qualified_fact',
+    id: `qualified-fact.${artifactDigest({
+      source_capture: source_capture.digest,
+      source_acquisition: source_acquisition?.digest,
+      document_extraction: document_extraction?.digest,
+      acquisition_candidate_id,
+      metadata,
+      evidence,
+      qualifier,
+      qualifier_version,
+      qualification_state,
+    }).slice('sha256:'.length, 'sha256:'.length + 24)}`,
+    source_capture,
+    ...(source_acquisition ? { source_acquisition } : {}),
+    ...(document_extraction ? { document_extraction } : {}),
+    ...(acquisition_candidate_id ? { acquisition_candidate_id } : {}),
+    metadata,
+    ...(evidence?.length ? { evidence } : {}),
+    qualifier,
+    qualifier_version,
+    qualification_state,
+  };
+  return artifact;
+};
+
+export const validateQualifiedFact = (fact: QualifiedFactArtifact): readonly string[] => {
+  const issues: string[] = [];
+  if (fact.artifact_kind !== 'qualified_fact')
+    issues.push('qualified fact artifact_kind must be qualified_fact');
+  if (fact.schema_version !== PRODUCTION_SCHEMA_VERSION)
+    issues.push('qualified fact schema_version is not supported');
+  if (!/^qualified-fact\.[a-f0-9]{24}$/.test(fact.id))
+    issues.push('qualified fact id is not a deterministic qualified fact ID');
+  if (!fact.source_capture || fact.source_capture.kind !== 'source_capture')
+    issues.push('qualified fact requires a source_capture reference');
+  if (
+    fact.source_acquisition !== undefined &&
+    fact.source_acquisition.kind !== 'source_acquisition'
+  )
+    issues.push('qualified fact source_acquisition must reference source_acquisition');
+  if (
+    fact.document_extraction !== undefined &&
+    fact.document_extraction.kind !== 'document_extraction'
+  )
+    issues.push('qualified fact document_extraction must reference document_extraction');
+  if (!fact.metadata?.source_wording || !fact.metadata.source_wording.trim())
+    issues.push('qualified fact source_wording is required');
+  if (fact.metadata?.raw_value === undefined) issues.push('qualified fact raw_value is required');
+  const validApplicabilityKinds = new Set<ApplicabilityKind>([
+    'exact_product',
+    'exact_mpn_or_sku',
+    'named_variant',
+    'family',
+    'document_global',
+    'explicitly_multiple_products',
+    'unresolved',
+    'exact_sku',
+    'model',
+    'variant',
+    'hardware_revision',
+    'not_applicable',
+  ]);
+  if (!validApplicabilityKinds.has(fact.metadata.applicability.kind))
+    issues.push('qualified fact applicability.kind is not recognized');
+  if (fact.qualification_state !== undefined) {
+    const validStates = new Set<QualifiedFactQualificationState>([
+      'exact',
+      'structurally_supported',
+      'ambiguous',
+      'unresolved',
+      'rejected',
+    ]);
+    if (!validStates.has(fact.qualification_state))
+      issues.push('qualified fact qualification_state is not recognized');
+  }
+  fact.evidence?.forEach((evidence, index) => {
+    if (
+      !['value', 'label', 'subject', 'applicability', 'qualifier', 'context'].includes(
+        evidence.role,
+      )
+    )
+      issues.push(`evidence[${index}].role is not recognized`);
+    if (
+      evidence.source_reference &&
+      !['document_extraction', 'source_capture', 'source_acquisition'].includes(
+        evidence.source_reference.kind,
+      )
+    )
+      issues.push(`evidence[${index}].source_reference.kind is not recognized`);
+  });
+  return issues;
+};
 
 export const validateSourceCapture = (capture: SourceCaptureArtifact): readonly string[] => {
   const issues: string[] = [];
@@ -958,6 +1142,418 @@ export const validateDocumentExtraction = (
   if (artifact.status === 'unsupported' && artifact.blocks.length > 0)
     issues.push('unsupported document extraction cannot contain blocks');
   return issues;
+};
+
+const normalizeIdentityForComparison = (value?: string): string | undefined => {
+  if (typeof value !== 'string') return undefined;
+  return value.trim();
+};
+
+const parseRawValueAndUnit = (
+  value: string,
+): { readonly raw_value: string; readonly source_unit?: string } => {
+  const trimmed = value.trim();
+  if (!trimmed) return { raw_value: '' };
+  const match = trimmed.match(/^([-+]?\d[\d.,]*)\s*([A-Za-z°%ΩµmWVAJFp]?[A-Za-z°%ΩµmWVAJFp]*)$/);
+  if (match) {
+    const rawValue = match[1];
+    const unit = match[2]?.trim();
+    return { raw_value: rawValue, ...(unit ? { source_unit: unit } : {}) };
+  }
+  return { raw_value: trimmed };
+};
+
+const buildEvidence = (
+  role: QualifiedFactEvidenceRole,
+  text: string,
+  document: DocumentExtractionArtifact,
+  locator?: DocumentSourceLocation,
+): QualifiedFactEvidence => ({
+  role,
+  text,
+  source_reference: document.source_capture,
+  locator,
+});
+
+const determineApplicability = (
+  target: DocumentQualificationTarget,
+  rowIdentity?: string,
+  explicitSourceIdentity?: string,
+): {
+  readonly applicability: ApplicabilityBinding;
+  readonly diagnostic?: QualificationDiagnostic;
+} => {
+  const directTarget =
+    normalizeIdentityForComparison(target.target_identifier) ??
+    normalizeIdentityForComparison(target.manufacturer_part_number) ??
+    normalizeIdentityForComparison(target.product_model);
+
+  if (!directTarget) {
+    return {
+      applicability: { kind: 'unresolved', reason: 'missing target identity' },
+      diagnostic: { code: 'identity_unresolved', message: 'target identity is missing' },
+    };
+  }
+
+  if (typeof explicitSourceIdentity === 'string' && explicitSourceIdentity.trim()) {
+    const normalizedSource = normalizeIdentityForComparison(explicitSourceIdentity);
+    if (normalizedSource && normalizedSource !== directTarget) {
+      return {
+        applicability: { kind: 'unresolved', reason: 'explicit source identity mismatch' },
+        diagnostic: {
+          code: 'identity_mismatch',
+          message: `source identity '${normalizedSource}' does not match target '${directTarget}'`,
+        },
+      };
+    }
+  }
+
+  if (!rowIdentity) {
+    return {
+      applicability: { kind: 'unresolved', reason: 'no row-level identity evidence' },
+      diagnostic: {
+        code: 'applicability_unresolved',
+        message: 'no explicit row/identity applicability could be proven',
+      },
+    };
+  }
+
+  const normalizedRow = normalizeIdentityForComparison(rowIdentity);
+  if (normalizedRow === directTarget) {
+    return { applicability: { kind: 'exact_mpn_or_sku', value: directTarget } };
+  }
+
+  if (normalizedRow && normalizedRow.toLowerCase().startsWith(directTarget.toLowerCase())) {
+    return {
+      applicability: { kind: 'unresolved', reason: 'prefix-only match is not exact identity' },
+      diagnostic: {
+        code: 'applicability_unresolved',
+        message: 'prefix similarity is not exact target identity',
+      },
+    };
+  }
+
+  return {
+    applicability: { kind: 'unresolved', reason: 'target row not matched' },
+    diagnostic: {
+      code: 'applicability_unresolved',
+      message: `row identity '${rowIdentity}' does not match requested target '${directTarget}'`,
+    },
+  };
+};
+
+const qualifyFromBlock = (
+  document: DocumentExtractionArtifact,
+  block: DocumentBlock,
+  target: DocumentQualificationTarget,
+  qualifiers: { readonly qualifier: string; readonly qualifier_version: string },
+): { readonly facts: QualifiedFactArtifact[]; readonly diagnostics: QualificationDiagnostic[] } => {
+  const facts: QualifiedFactArtifact[] = [];
+  const diagnostics: QualificationDiagnostic[] = [];
+
+  const addFact = (
+    label: string,
+    value: string,
+    rowIdentity?: string,
+    explicitSourceIdentity?: string,
+    locator?: DocumentSourceLocation,
+    evidenceOverride?: readonly QualifiedFactEvidence[],
+  ): void => {
+    if (!label?.trim()) {
+      diagnostics.push({ code: 'missing_label', message: 'a fact label is missing' });
+      return;
+    }
+    if (!value?.trim()) {
+      diagnostics.push({ code: 'missing_value', message: `missing raw value for '${label}'` });
+      return;
+    }
+    const { raw_value, source_unit } = parseRawValueAndUnit(value);
+    const result = determineApplicability(target, rowIdentity, explicitSourceIdentity);
+    const evidence: QualifiedFactEvidence[] = evidenceOverride
+      ? [...evidenceOverride]
+      : [
+          buildEvidence('label', label, document, locator),
+          buildEvidence('value', value, document, locator),
+          ...(rowIdentity ? [buildEvidence('subject', rowIdentity, document, locator)] : []),
+          ...(explicitSourceIdentity
+            ? [buildEvidence('applicability', explicitSourceIdentity, document, locator)]
+            : []),
+        ];
+    const metadata: QualifiedFactMetadata = {
+      source_wording: label,
+      raw_value,
+      ...(source_unit ? { source_unit } : {}),
+      applicability: result.applicability,
+      ...(explicitSourceIdentity ? { raw_identifier: explicitSourceIdentity } : {}),
+    };
+    facts.push(
+      buildQualifiedFactArtifact({
+        source_capture: document.source_capture,
+        source_acquisition: document.source_acquisition,
+        document_extraction: artifactReference('document_extraction', document),
+        acquisition_candidate_id: document.acquisition_candidate_id,
+        metadata,
+        evidence,
+        qualifier: qualifiers.qualifier,
+        qualifier_version: qualifiers.qualifier_version,
+        qualification_state: 'structurally_supported',
+      }),
+    );
+    if (result.diagnostic) diagnostics.push(result.diagnostic);
+  };
+
+  if (block.kind === 'table' && block.cells?.length) {
+    const directTarget =
+      normalizeIdentityForComparison(target.target_identifier) ??
+      normalizeIdentityForComparison(target.manufacturer_part_number) ??
+      normalizeIdentityForComparison(target.product_model);
+    const identityCell = directTarget
+      ? block.cells.find(
+          (cell) =>
+            cell.kind === 'data' &&
+            (normalizeIdentityForComparison(cell.value) === directTarget ||
+              normalizeIdentityForComparison(cell.label) === directTarget),
+        )
+      : undefined;
+    if (!directTarget || !identityCell) {
+      diagnostics.push({
+        code: 'applicability_unresolved',
+        message: directTarget
+          ? `no exact target identity cell match for '${directTarget}' in table evidence`
+          : 'no target identity available for table qualification',
+      });
+      return { facts, diagnostics };
+    }
+    const identityText =
+      normalizeIdentityForComparison(identityCell.value) === directTarget
+        ? identityCell.value
+        : identityCell.label;
+    const valueCells = block.cells.filter(
+      (cell) =>
+        cell.kind === 'data' &&
+        cell.row === identityCell.row &&
+        cell !== identityCell &&
+        cell.value.trim(),
+    );
+    for (const valueCell of valueCells) {
+      const headerCell = block.cells.find(
+        (cell) => cell.kind === 'header' && cell.column === valueCell.column && cell.value.trim(),
+      );
+      const label =
+        (headerCell?.label ?? '').trim() || (headerCell?.value ?? '').trim() || 'table value';
+      const evidence: QualifiedFactEvidence[] = [
+        buildEvidence('subject', identityText, document, identityCell.source_location),
+        buildEvidence('label', label, document, headerCell?.source_location ?? block.locator),
+        buildEvidence('value', valueCell.value, document, valueCell.source_location),
+      ];
+      addFact(
+        label,
+        valueCell.value,
+        directTarget,
+        directTarget,
+        valueCell.source_location,
+        evidence,
+      );
+    }
+    return { facts, diagnostics };
+  }
+
+  if (block.rows?.length) {
+    const directTarget =
+      normalizeIdentityForComparison(target.target_identifier) ??
+      normalizeIdentityForComparison(target.manufacturer_part_number) ??
+      normalizeIdentityForComparison(target.product_model);
+    if (block.kind === 'table' && directTarget) {
+      const exactTargetRow = block.rows.find(
+        (row) => normalizeIdentityForComparison(row.label) === directTarget,
+      );
+      if (exactTargetRow) {
+        addFact(
+          exactTargetRow.label,
+          exactTargetRow.value,
+          exactTargetRow.label,
+          exactTargetRow.label,
+          block.locator,
+        );
+        return { facts, diagnostics };
+      }
+      diagnostics.push({
+        code: 'applicability_unresolved',
+        message: `no exact target row match for '${directTarget}' in table evidence`,
+      });
+      return { facts, diagnostics };
+    }
+    for (const row of block.rows) {
+      addFact(row.label, row.value, undefined, undefined, block.locator);
+    }
+    return { facts, diagnostics };
+  }
+
+  return { facts, diagnostics };
+};
+
+export const qualifyDocumentExtraction = (
+  document: DocumentExtractionArtifact,
+  target: DocumentQualificationTarget = {},
+  qualifiers: { readonly qualifier?: string; readonly qualifier_version?: string } = {},
+): DocumentQualificationResult => {
+  const outcomeByStatus: Partial<
+    Record<
+      DocumentExtractionStatus,
+      {
+        outcome: QualificationOutcome;
+        completeness: 'complete' | 'partial' | 'incomplete';
+        diagnostics: QualificationDiagnostic[];
+      }
+    >
+  > = {
+    extracted: { outcome: 'qualified', completeness: 'complete', diagnostics: [] },
+    partially_extracted: {
+      outcome: 'source_incomplete',
+      completeness: 'partial',
+      diagnostics: [
+        {
+          code: 'partial_source',
+          message: 'partial document extraction preserved only usable structures',
+        },
+      ],
+    },
+    no_extractable_content: {
+      outcome: 'no_qualifiable_facts',
+      completeness: 'incomplete',
+      diagnostics: [
+        { code: 'source_not_qualifiable', message: 'document has no extractable content' },
+      ],
+    },
+    unsupported: {
+      outcome: 'no_qualifiable_facts',
+      completeness: 'incomplete',
+      diagnostics: [
+        {
+          code: 'source_not_qualifiable',
+          message: 'document format is unsupported for automatic qualification',
+        },
+      ],
+    },
+    source_unavailable: {
+      outcome: 'no_qualifiable_facts',
+      completeness: 'incomplete',
+      diagnostics: [
+        {
+          code: 'source_not_qualifiable',
+          message: 'source is unavailable for automatic qualification',
+        },
+      ],
+    },
+    source_non_authoritative: {
+      outcome: 'non_authoritative_source',
+      completeness: 'incomplete',
+      diagnostics: [
+        {
+          code: 'non_authoritative_source',
+          message:
+            'source provenance is non-authoritative and not promoted as authoritative evidence',
+        },
+      ],
+    },
+    source_empty: {
+      outcome: 'no_qualifiable_facts',
+      completeness: 'incomplete',
+      diagnostics: [{ code: 'source_not_qualifiable', message: 'source content is empty' }],
+    },
+    corrupt_source: {
+      outcome: 'no_qualifiable_facts',
+      completeness: 'incomplete',
+      diagnostics: [
+        { code: 'source_not_qualifiable', message: 'source content is corrupt and not qualified' },
+      ],
+    },
+    failed: {
+      outcome: 'qualification_failed',
+      completeness: 'incomplete',
+      diagnostics: [
+        {
+          code: 'source_not_qualifiable',
+          message: 'document extraction failed and no facts were fabricated',
+        },
+      ],
+    },
+  };
+
+  const statusResult = outcomeByStatus[document.status];
+  if (statusResult) {
+    if (document.status === 'source_non_authoritative') return { ...statusResult, facts: [] };
+    if (
+      document.status === 'unsupported' ||
+      document.status === 'no_extractable_content' ||
+      document.status === 'source_unavailable' ||
+      document.status === 'source_empty' ||
+      document.status === 'corrupt_source' ||
+      document.status === 'failed'
+    ) {
+      return { ...statusResult, facts: [] };
+    }
+  }
+
+  const truncationSignals = new Set<string>([
+    'input_limit_reached',
+    'item_limit_reached',
+    'table_cell_limit_reached',
+    'page_limit_reached',
+    'text_limit_reached',
+    'snapshot_read_failure',
+  ]);
+  const coverageTruncated =
+    truncationSignals.has(document.status) ||
+    (document.diagnostics?.some((diagnostic) => truncationSignals.has(diagnostic.code)) ?? false);
+
+  const facts: QualifiedFactArtifact[] = [];
+  const diagnostics: QualificationDiagnostic[] = [];
+  for (const block of document.blocks) {
+    const qualified = qualifyFromBlock(document, block, target, {
+      qualifier: qualifiers.qualifier ?? 'production-qualified-fact',
+      qualifier_version: qualifiers.qualifier_version ?? PRODUCTION_SCHEMA_VERSION,
+    });
+    facts.push(...qualified.facts);
+    diagnostics.push(...qualified.diagnostics);
+  }
+
+  if (coverageTruncated) {
+    diagnostics.push({
+      code: 'partial_source',
+      message: 'document extraction was bounded or truncated; qualification coverage is incomplete',
+    });
+  }
+
+  const baseOutcome = facts.length ? 'qualified' : 'no_qualifiable_facts';
+  const statusOutcome =
+    document.status === 'partially_extracted'
+      ? 'source_incomplete'
+      : document.status === 'source_non_authoritative'
+        ? 'non_authoritative_source'
+        : baseOutcome;
+  const statusCompleteness =
+    document.status === 'partially_extracted' || (coverageTruncated && facts.length)
+      ? 'partial'
+      : facts.length
+        ? 'complete'
+        : 'incomplete';
+  const resultDiagnostics: QualificationDiagnostic[] = facts.length
+    ? diagnostics
+    : [
+        {
+          code: 'source_not_qualifiable',
+          message: 'document blocks did not yield a deterministically qualifiable fact',
+        },
+        ...diagnostics,
+      ];
+
+  return {
+    outcome: statusOutcome,
+    completeness: statusCompleteness,
+    facts,
+    diagnostics: resultDiagnostics,
+  };
 };
 
 export const validateProductIntake = (value: unknown): readonly string[] => {

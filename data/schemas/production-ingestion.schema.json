@@ -711,17 +711,52 @@
       "properties": {
         "kind": {
           "enum": [
+            "exact_product",
+            "exact_mpn_or_sku",
+            "named_variant",
+            "family",
+            "document_global",
+            "explicitly_multiple_products",
+            "unresolved",
             "exact_sku",
             "model",
-            "family",
             "variant",
             "hardware_revision",
-            "unresolved",
             "not_applicable"
           ]
         },
         "value": { "type": "string" },
         "reason": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "qualifiedEvidence": {
+      "type": "object",
+      "required": ["role"],
+      "properties": {
+        "role": { "enum": ["value", "label", "subject", "applicability", "qualifier", "context"] },
+        "source_reference": { "$ref": "#/$defs/artifactRef" },
+        "block_id": { "type": "string" },
+        "cell_id": { "type": "string" },
+        "locator": { "$ref": "#/$defs/documentLocation" },
+        "text": { "type": "string" },
+        "note": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "documentLocation": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": { "enum": ["html", "pdf", "generic"] },
+        "path": { "type": "string" },
+        "fragment": { "type": "string" },
+        "section": { "type": "string" },
+        "page": { "type": "integer", "minimum": 1 },
+        "ordinal": { "type": "integer", "minimum": 1 },
+        "row": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 1 },
+        "table": { "type": "string" }
       },
       "additionalProperties": false
     },
@@ -733,7 +768,9 @@
         "artifact_kind": { "const": "qualified_fact" },
         "id": { "type": "string", "minLength": 1 },
         "source_capture": { "$ref": "#/$defs/sourceRef" },
+        "source_acquisition": { "$ref": "#/$defs/sourceAcquisitionRef" },
         "document_extraction": { "$ref": "#/$defs/artifactRef" },
+        "acquisition_candidate_id": { "type": "string" },
         "metadata": {
           "type": "object",
           "required": ["source_wording", "raw_value", "applicability"],
@@ -748,9 +785,21 @@
             "revision_context": { "type": "string" },
             "derived_value": {},
             "derivation": { "type": "string" },
-            "alternative_interpretations": { "type": "array", "items": { "type": "string" } }
+            "alternative_interpretations": { "type": "array", "items": { "type": "string" } },
+            "raw_identifier": { "type": "string" },
+            "normalized_identifier": { "type": "string" },
+            "normalization_method": { "type": "string" }
           },
           "additionalProperties": false
+        },
+        "evidence": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/qualifiedEvidence" }
+        },
+        "qualifier": { "type": "string" },
+        "qualifier_version": { "type": "string" },
+        "qualification_state": {
+          "enum": ["exact", "structurally_supported", "ambiguous", "unresolved", "rejected"]
         }
       },
       "additionalProperties": false
