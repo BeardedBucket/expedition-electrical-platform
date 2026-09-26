@@ -896,6 +896,42 @@
       },
       "additionalProperties": false
     },
+    "productionPromotionDecisions": {
+      "type": "object",
+      "required": ["approved_fields", "evidence_acknowledged", "product_role", "category"],
+      "properties": {
+        "approved_fields": { "$ref": "#/$defs/nonemptyStringArray" },
+        "excluded_fields": { "$ref": "#/$defs/nonemptyStringArray" },
+        "excluded_fact_ids": { "$ref": "#/$defs/nonemptyStringArray" },
+        "reviewed_evidence_fact_ids": { "$ref": "#/$defs/nonemptyStringArray" },
+        "field_resolutions": {
+          "type": "object",
+          "propertyNames": { "minLength": 1, "pattern": "\\S" },
+          "additionalProperties": {
+            "type": "object",
+            "required": ["selected_fact_id", "rationale"],
+            "properties": {
+              "selected_fact_id": { "type": "string", "minLength": 1, "pattern": "\\S" },
+              "rationale": { "type": "string", "minLength": 1, "pattern": "\\S" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "topology_evidence": {
+          "type": "object",
+          "propertyNames": { "minLength": 1, "pattern": "\\S" },
+          "additionalProperties": { "$ref": "#/$defs/nonemptyStringArray" }
+        },
+        "evidence_acknowledged": { "type": "boolean" },
+        "product_role": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "category": { "type": "string", "minLength": 1, "pattern": "\\S" }
+      },
+      "additionalProperties": false
+    },
+    "nonemptyStringArray": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "pattern": "\\S" }
+    },
     "approval": {
       "type": "object",
       "required": [
@@ -919,7 +955,8 @@
         "reviewer_id": { "type": "string", "minLength": 1 },
         "decision": { "enum": ["approved", "rejected", "deferred"] },
         "reviewed_at": { "type": "string", "format": "date-time" },
-        "reviewed_decisions": { "type": "array", "items": { "type": "string" } }
+        "reviewed_decisions": { "type": "array", "items": { "type": "string" } },
+        "promotion_decisions": { "$ref": "#/$defs/productionPromotionDecisions" }
       },
       "additionalProperties": false
     },

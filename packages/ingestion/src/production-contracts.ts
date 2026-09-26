@@ -1,4 +1,7 @@
+import Ajv2020 from 'ajv/dist/2020.js';
+import addFormats from 'ajv-formats';
 import { createHash } from 'node:crypto';
+import productionIngestionSchema from '../../../data/schemas/production-ingestion.schema.json' with { type: 'json' };
 import type { JsonObject, JsonValue } from './contracts.js';
 import type {
   ExtractionCapabilityState,
@@ -8,6 +11,19 @@ import type {
 
 export const PRODUCTION_SCHEMA_VERSION = '1.0';
 export const PRODUCTION_HASH_ALGORITHM = 'sha256';
+
+type ProductionArtifactValidator = ((_value: unknown) => boolean) & {
+  errors?: readonly { instancePath?: string; message?: string }[];
+};
+const ProductionAjv = Ajv2020 as unknown as new (options?: Record<string, unknown>) => {
+  compile: (_schema: unknown) => ProductionArtifactValidator;
+};
+const productionAjv = new ProductionAjv({ allErrors: true, strict: false });
+const registerProductionFormats = addFormats as unknown as (instance: {
+  addFormat?: (...args: unknown[]) => void;
+}) => void;
+registerProductionFormats(productionAjv as unknown as { addFormat?: (...args: unknown[]) => void });
+const validateProductionArtifact = productionAjv.compile(productionIngestionSchema);
 
 export type ArtifactKind =
   | 'product_intake'
@@ -690,6 +706,21 @@ export interface ReviewPackage {
 
 export type ApprovalDecision = 'approved' | 'rejected' | 'deferred';
 
+/** Human selections for a later new-product promotion review. */
+export interface ProductionPromotionDecisions {
+  readonly approved_fields: readonly string[];
+  readonly excluded_fields?: readonly string[];
+  readonly excluded_fact_ids?: readonly string[];
+  readonly reviewed_evidence_fact_ids?: readonly string[];
+  readonly field_resolutions?: Readonly<
+    Record<string, { readonly selected_fact_id: string; readonly rationale: string }>
+  >;
+  readonly topology_evidence?: Readonly<Record<string, readonly string[]>>;
+  readonly evidence_acknowledged: boolean;
+  readonly product_role: string;
+  readonly category: string;
+}
+
 export interface ProductionApproval {
   readonly schema_version: typeof PRODUCTION_SCHEMA_VERSION;
   readonly artifact_kind: 'approval';
@@ -701,6 +732,7 @@ export interface ProductionApproval {
   readonly decision: ApprovalDecision;
   readonly reviewed_at: string;
   readonly reviewed_decisions?: readonly string[];
+  readonly promotion_decisions?: ProductionPromotionDecisions;
 }
 
 export type ProductRunState =
@@ -1589,6 +1621,92 @@ export const validateProductIntake = (value: unknown): readonly string[] => {
 
 export const reviewPackageSnapshot = (reviewPackage: ReviewPackage): string =>
   artifactDigest(reviewPackage);
+
+const nonempty = (value: unknown): value is string =>
+  typeof value === 'string' && value.trim().length > 0;
+
+const stringArray = (value: unknown): value is readonly string[] =>
+  Array.isArray(value) && value.every(nonempty);
+
+const record = (value: unknown): value is Record<string, unknown> =>
+  value !== null && typeof value === 'object' && !Array.isArray(value);
+
+/** Validate the optional human selections without treating package approval as field approval. */
+export const validateProductionApproval = (value: unknown): readonly string[] => {
+  const errors: string[] = validateProductionArtifact(value)
+    ? []
+    : ['approval does not satisfy production-ingestion schema'];
+  if (!record(value)) return [...errors, 'approval must be an object'];
+  if (value.artifact_kind !== 'approval') errors.push('artifact_kind must be approval');
+  if (!['approved', 'rejected', 'deferred'].includes(value.decision as string))
+    errors.push('decision must be approved, rejected, or deferred');
+  const decisions = value.promotion_decisions;
+  if (decisions === undefined) return errors;
+  if (!record(decisions)) return [...errors, 'promotion_decisions must be an object'];
+  const requiredKeys = ['approved_fields', 'evidence_acknowledged', 'product_role', 'category'];
+  const allowedKeys = new Set([
+    ...requiredKeys,
+    'excluded_fields',
+    'excluded_fact_ids',
+    'reviewed_evidence_fact_ids',
+    'field_resolutions',
+    'topology_evidence',
+  ]);
+  for (const key of Object.keys(decisions)) {
+    if (!allowedKeys.has(key)) errors.push(`promotion_decisions.${key} is not supported`);
+  }
+  for (const key of [
+    'approved_fields',
+    'excluded_fields',
+    'excluded_fact_ids',
+    'reviewed_evidence_fact_ids',
+  ]) {
+    if ((key === 'approved_fields' || decisions[key] !== undefined) && !stringArray(decisions[key]))
+      errors.push(`promotion_decisions.${key} must be an array of nonempty strings`);
+  }
+  if (typeof decisions.evidence_acknowledged !== 'boolean')
+    errors.push('promotion_decisions.evidence_acknowledged must be a boolean');
+  for (const key of ['product_role', 'category']) {
+    if (!nonempty(decisions[key])) errors.push(`promotion_decisions.${key} must be nonempty`);
+  }
+  if (decisions.field_resolutions !== undefined) {
+    if (!record(decisions.field_resolutions))
+      errors.push('promotion_decisions.field_resolutions must be an object');
+    else
+      for (const [field, resolution] of Object.entries(decisions.field_resolutions)) {
+        if (
+          !nonempty(field) ||
+          !record(resolution) ||
+          !nonempty(resolution.selected_fact_id) ||
+          !nonempty(resolution.rationale) ||
+          Object.keys(resolution).some((key) => !['selected_fact_id', 'rationale'].includes(key))
+        )
+          errors.push(`promotion_decisions.field_resolutions.${field} is invalid`);
+      }
+  }
+  if (decisions.topology_evidence !== undefined) {
+    if (!record(decisions.topology_evidence))
+      errors.push('promotion_decisions.topology_evidence must be an object');
+    else
+      for (const [target, factIds] of Object.entries(decisions.topology_evidence)) {
+        if (!nonempty(target) || !stringArray(factIds))
+          errors.push(`promotion_decisions.topology_evidence.${target} is invalid`);
+      }
+  }
+  return errors;
+};
+
+/** An approved package remains insufficient for promotion until selections are explicit. */
+export const validateProductionApprovalForPromotion = (value: unknown): readonly string[] => {
+  const errors = validateProductionApproval(value);
+  if (record(value)) {
+    if (value.decision !== 'approved')
+      return [...errors, 'approval decision must be approved for promotion'];
+    if (value.promotion_decisions === undefined)
+      return [...errors, 'promotion_decisions are required for approved promotion'];
+  }
+  return errors;
+};
 
 export const approvalMatchesReviewPackage = (
   approval: ProductionApproval,

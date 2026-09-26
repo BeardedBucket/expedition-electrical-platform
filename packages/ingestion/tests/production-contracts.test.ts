@@ -19,6 +19,9 @@ import {
   validateArtifactReferences,
   validateProductIntake,
   validateQualifiedFact,
+  validateProductionApproval,
+  validateProductionApprovalForPromotion,
+  type ProductionApproval,
   type ProductIntake,
   type ReviewPackage,
   type SourceCaptureArtifact,
@@ -62,6 +65,172 @@ const capture: SourceCaptureArtifact = {
   content_digest: artifactDigest('manufacturer bytes'),
   digest_algorithm: 'sha256',
 };
+
+const approvalPackage: ReviewPackage = {
+  schema_version: PRODUCTION_SCHEMA_VERSION,
+  artifact_kind: 'review_package',
+  id: 'review.structured',
+  intake: artifactReference('product_intake', intake),
+  source_refs: [],
+  fact_refs: [],
+  proposal_refs: [],
+  semantic_snapshot: artifactDigest({ semantic: 'structured' }),
+};
+const productionApproval = (overrides: Partial<ProductionApproval> = {}): ProductionApproval => ({
+  schema_version: PRODUCTION_SCHEMA_VERSION,
+  artifact_kind: 'approval',
+  id: 'approval.structured',
+  review_package: artifactReference('review_package', approvalPackage),
+  review_package_snapshot: reviewPackageSnapshot(approvalPackage),
+  semantic_snapshot: approvalPackage.semantic_snapshot,
+  reviewer_id: 'human.reviewer',
+  decision: 'approved',
+  reviewed_at: '2026-09-08T00:01:00Z',
+  ...overrides,
+});
+const promotionDecisions = (): NonNullable<ProductionApproval['promotion_decisions']> => ({
+  approved_fields: ['electrical.nominal_voltage'],
+  evidence_acknowledged: true,
+  product_role: 'battery',
+  category: 'battery',
+});
+
+describe('structured production approval decisions', () => {
+  it('accepts an approved production approval with explicit structured promotion decisions', () => {
+    const approval = productionApproval({ promotion_decisions: promotionDecisions() });
+    expect(validateProductionApprovalForPromotion(approval)).toEqual([]);
+    expect(approvalMatchesReviewPackage(approval, approvalPackage)).toBe(true);
+  });
+
+  it('preserves package approval separately from approved field selections', () => {
+    const approval = productionApproval();
+    expect(validateProductionApproval(approval)).toEqual([]);
+    expect(validateProductionApprovalForPromotion(approval)).toContain(
+      'promotion_decisions are required for approved promotion',
+    );
+    expect(
+      productionApproval({ promotion_decisions: promotionDecisions() }).promotion_decisions
+        ?.approved_fields,
+    ).toEqual(['electrical.nominal_voltage']);
+  });
+
+  it('preserves free-form reviewed decisions separately from structured decisions', () => {
+    const approval = productionApproval({
+      reviewed_decisions: ['Checked installation notes'],
+      promotion_decisions: promotionDecisions(),
+    });
+    expect(approval.reviewed_decisions).toEqual(['Checked installation notes']);
+    expect(approval.promotion_decisions?.approved_fields).toEqual(['electrical.nominal_voltage']);
+  });
+
+  it('represents explicit product role and category as human review decisions', () => {
+    const decisions = {
+      ...promotionDecisions(),
+      product_role: 'charger',
+      category: 'power_conversion',
+    };
+    expect(
+      validateProductionApprovalForPromotion(
+        productionApproval({ promotion_decisions: decisions }),
+      ),
+    ).toEqual([]);
+    expect(decisions).toMatchObject({ product_role: 'charger', category: 'power_conversion' });
+  });
+
+  it('represents explicit exclusions evidence acknowledgements and field resolutions when supported', () => {
+    const decisions = {
+      ...promotionDecisions(),
+      excluded_fields: ['electrical.maximum_voltage'],
+      excluded_fact_ids: ['fact.rejected'],
+      reviewed_evidence_fact_ids: ['fact.context'],
+      field_resolutions: {
+        'electrical.nominal_voltage': {
+          selected_fact_id: 'fact.selected',
+          rationale: 'Reviewed source revision',
+        },
+      },
+      topology_evidence: { 'port:dc': ['fact.port'] },
+    };
+    expect(
+      validateProductionApprovalForPromotion(
+        productionApproval({ promotion_decisions: decisions }),
+      ),
+    ).toEqual([]);
+    expect(decisions.excluded_fact_ids).toEqual(['fact.rejected']);
+  });
+
+  it('keeps rejected approval valid without promotion-only structured selections', () => {
+    for (const decision of ['rejected', 'deferred'] as const) {
+      const approval = productionApproval({ decision });
+      expect(validateProductionApproval(approval)).toEqual([]);
+      expect(validateProductionApprovalForPromotion(approval)).toContain(
+        'approval decision must be approved for promotion',
+      );
+    }
+  });
+
+  it('rejects malformed base approvals before promotion readiness', () => {
+    const valid = productionApproval({ promotion_decisions: promotionDecisions() });
+    const malformed = [
+      { ...valid, review_package: undefined },
+      { ...valid, review_package_snapshot: 'stale' },
+      { ...valid, semantic_snapshot: undefined },
+      { ...valid, reviewer_id: undefined },
+      { ...valid, reviewed_at: 'not-a-date' },
+    ];
+    for (const approval of malformed) {
+      expect(validateProductionIngestionArtifact(approval)).toBe(false);
+      expect(validateProductionApproval(approval)).toContain(
+        'approval does not satisfy production-ingestion schema',
+      );
+      expect(validateProductionApprovalForPromotion(approval)).toContain(
+        'approval does not satisfy production-ingestion schema',
+      );
+    }
+  });
+
+  it('rejects malformed structured review decisions at runtime', () => {
+    const malformed = productionApproval({
+      promotion_decisions: {
+        ...promotionDecisions(),
+        approved_fields: [42] as unknown as string[],
+        field_resolutions: { voltage: { selected_fact_id: '', rationale: '' } },
+      },
+    });
+    expect(validateProductionApprovalForPromotion(malformed)).toContain(
+      'promotion_decisions.approved_fields must be an array of nonempty strings',
+    );
+    expect(validateProductionApprovalForPromotion(malformed)).toContain(
+      'promotion_decisions.field_resolutions.voltage is invalid',
+    );
+  });
+
+  it('keeps persisted schema in parity with structured production approval decisions', () => {
+    const valid = productionApproval({ promotion_decisions: promotionDecisions() });
+    expect(validateProductionIngestionArtifact(valid)).toBe(true);
+    expect(validateProductionIngestionArtifact(productionApproval({ decision: 'rejected' }))).toBe(
+      true,
+    );
+    expect(
+      validateProductionIngestionArtifact({
+        ...valid,
+        promotion_decisions: {
+          ...promotionDecisions(),
+          approved_fields: [42],
+        },
+      }),
+    ).toBe(false);
+    expect(
+      validateProductionIngestionArtifact({
+        ...valid,
+        promotion_decisions: {
+          ...promotionDecisions(),
+          inferred_fields: ['voltage'],
+        },
+      }),
+    ).toBe(false);
+  });
+});
 
 describe('production ingestion contracts', () => {
   it('represents ordinary intake without invented defaults', () => {
