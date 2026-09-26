@@ -1,4 +1,4 @@
-import type { JsonObject, ProductCandidate } from './contracts.js';
+import type { JsonObject } from './contracts.js';
 import type { ProductionCandidateBridgeResult } from './production-candidate-bridge.js';
 import {
   approvalMatchesReviewPackage,
