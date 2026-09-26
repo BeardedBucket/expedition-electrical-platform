@@ -28,3 +28,4 @@ export * from './source-acquisition.js';
 export * from './production-semantic-bridge.js';
 export * from './production-candidate-bridge.js';
 export * from './production-review-package.js';
+export * from './production-approval-bridge.js';
