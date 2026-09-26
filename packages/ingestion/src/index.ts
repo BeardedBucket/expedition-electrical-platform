@@ -26,3 +26,4 @@ export * from './structured-fact-extraction.js';
 export * from './production-contracts.js';
 export * from './source-acquisition.js';
 export * from './production-semantic-bridge.js';
+export * from './production-candidate-bridge.js';
