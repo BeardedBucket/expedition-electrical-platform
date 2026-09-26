@@ -41,7 +41,9 @@ Builder-specific mode applies only after global engineering and advisory eligibi
 
 Advisory evaluation receives an explicit `evaluatedAt` from the app boundary. The engineering core does not implicitly consult the wall clock when deterministic advisory state is required.
 
-Deferred work remains future-facing: real product and catalog ingestion, live advisory feeds, and embed/widget integration for later phases.
+Product ingestion is a first-class backend subsystem responsible for acquiring and capturing source evidence, extracting, qualifying, and reconciling claims, preparing proposals for review, and promoting reviewed facts while preserving provenance and historical revisions. It keeps uncertainty and review status explicit and remains separate from installed-system engineering, compatibility, architecture generation, recommendation, and UI concerns.
+
+Deferred work remains future-facing: live advisory feeds and embed/widget integration for later phases.
 
 ## Domain profiles
 

@@ -11,6 +11,6 @@ Requirements:
 - origin/source attribution must be visible in diagnostics
 - configuration should support builder display name, allowed branding fields, inventory overlay, services, and inquiry destination
 - protect against arbitrary redirect injection
-- generic fallback if an unknown builder ID is supplied
+- unresolved or unknown builder identity remains explicit; do not infer a builder relationship or silently fall back to generic/DIY mode, which is available only when explicitly selected or intentionally entered
 - document versioning/cache strategy so existing embeds receive compatible stable updates
 - include a minimal example HTML page
