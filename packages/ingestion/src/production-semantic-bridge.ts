@@ -51,20 +51,25 @@ export const buildProductionSemanticProposals = (
     });
     const label = facts[0]?.metadata.source_label;
     const mapping = label ? resolveCanonicalField(label) : undefined;
-    const target = mapping?.canonical_field ??
-      (label ? `source_label:${label.trim().replace(/\s+/g, ' ').toLowerCase()}` : 'source_label:unavailable');
-    const unsafe = facts.some((fact) =>
-      (fact.qualification_state !== 'exact' &&
-        fact.qualification_state !== 'structurally_supported') ||
-      fact.metadata.conditions !== undefined ||
-      fact.metadata.duration !== undefined ||
-      fact.metadata.temperature_context !== undefined ||
-      fact.metadata.revision_context !== undefined ||
-      fact.metadata.derived_value !== undefined ||
-      fact.metadata.derivation !== undefined ||
-      fact.metadata.alternative_interpretations !== undefined ||
-      /\b(?:vac|vdc)\b/i.test(fact.metadata.source_unit ?? '') ||
-      (typeof fact.metadata.raw_value === 'string' && /\b(?:vac|vdc)\b/i.test(fact.metadata.raw_value)),
+    const target =
+      mapping?.canonical_field ??
+      (label
+        ? `source_label:${label.trim().replace(/\s+/g, ' ').toLowerCase()}`
+        : 'source_label:unavailable');
+    const unsafe = facts.some(
+      (fact) =>
+        (fact.qualification_state !== 'exact' &&
+          fact.qualification_state !== 'structurally_supported') ||
+        fact.metadata.conditions !== undefined ||
+        fact.metadata.duration !== undefined ||
+        fact.metadata.temperature_context !== undefined ||
+        fact.metadata.revision_context !== undefined ||
+        fact.metadata.derived_value !== undefined ||
+        fact.metadata.derivation !== undefined ||
+        fact.metadata.alternative_interpretations !== undefined ||
+        /\b(?:vac|vdc)\b/i.test(fact.metadata.source_unit ?? '') ||
+        (typeof fact.metadata.raw_value === 'string' &&
+          /\b(?:vac|vdc)\b/i.test(fact.metadata.raw_value)),
     );
 
     let disposition: SemanticProposal['disposition'] = 'unresolved';
@@ -98,7 +103,9 @@ export const buildProductionSemanticProposals = (
         if (
           values.every((value) => value !== undefined) &&
           (mapping.value_kind !== 'structured' ||
-            values.every((value) => deterministicSerialize(value) === deterministicSerialize(values[0])))
+            values.every(
+              (value) => deterministicSerialize(value) === deterministicSerialize(values[0]),
+            ))
         ) {
           disposition = 'mapped';
           proposedValue = values[0];
@@ -116,35 +123,41 @@ export const buildProductionSemanticProposals = (
       fact.source_capture,
       ...(fact.source_acquisition ? [fact.source_acquisition] : []),
       ...(fact.document_extraction ? [fact.document_extraction] : []),
-      ...(fact.evidence?.flatMap((evidence) => evidence.source_reference ? [evidence.source_reference] : []) ?? []),
+      ...(fact.evidence?.flatMap((evidence) =>
+        evidence.source_reference ? [evidence.source_reference] : [],
+      ) ?? []),
     ]);
-    const stableRefs = [...new Map(evidenceRefs.map((ref) =>
-      [`${ref.kind}:${ref.digest}`, ref] as const,
-    )).values()].sort((left, right) =>
+    const stableRefs = [
+      ...new Map(evidenceRefs.map((ref) => [`${ref.kind}:${ref.digest}`, ref] as const)).values(),
+    ].sort((left, right) =>
       `${left.kind}:${left.digest}`.localeCompare(`${right.kind}:${right.digest}`),
     );
-    const inputDigests = [...new Set([
-      ...factRefs.map((ref) => ref.digest),
-      ...acquisitionDigests,
-      reconciliationDigest,
-    ])].sort();
-    const alternatives = disposition === 'conflicting' || disposition === 'unresolved'
-      ? facts.map((fact) => ({
-          value: fact.metadata.raw_value,
-          rationale: `Qualified fact ${fact.id}; state=${fact.qualification_state ?? 'unknown'}; ` +
-            `source wording=${fact.metadata.source_wording}; ` +
-            `context=${deterministicSerialize({
-              source_unit: fact.metadata.source_unit,
-              conditions: fact.metadata.conditions,
-              duration: fact.metadata.duration,
-              temperature_context: fact.metadata.temperature_context,
-              revision_context: fact.metadata.revision_context,
-              derived_value: fact.metadata.derived_value,
-              derivation: fact.metadata.derivation,
-              alternative_interpretations: fact.metadata.alternative_interpretations,
-            })}`,
-        }))
-      : undefined;
+    const inputDigests = [
+      ...new Set([
+        ...factRefs.map((ref) => ref.digest),
+        ...acquisitionDigests,
+        reconciliationDigest,
+      ]),
+    ].sort();
+    const alternatives =
+      disposition === 'conflicting' || disposition === 'unresolved'
+        ? facts.map((fact) => ({
+            value: fact.metadata.raw_value,
+            rationale:
+              `Qualified fact ${fact.id}; state=${fact.qualification_state ?? 'unknown'}; ` +
+              `source wording=${fact.metadata.source_wording}; ` +
+              `context=${deterministicSerialize({
+                source_unit: fact.metadata.source_unit,
+                conditions: fact.metadata.conditions,
+                duration: fact.metadata.duration,
+                temperature_context: fact.metadata.temperature_context,
+                revision_context: fact.metadata.revision_context,
+                derived_value: fact.metadata.derived_value,
+                derivation: fact.metadata.derivation,
+                alternative_interpretations: fact.metadata.alternative_interpretations,
+              })}`,
+          }))
+        : undefined;
     const content = {
       target,
       disposition,
