@@ -102,6 +102,23 @@ export class IngestionJobService {
     return this.dependencies.store.load(id);
   }
 
+  async listJobs(): Promise<readonly IngestionJob[]> {
+    if (!this.dependencies.store.listJobIds) throw new Error('Job listing is not supported.');
+    const jobs: IngestionJob[] = [];
+    for (const id of await this.dependencies.store.listJobIds()) jobs.push(await this.getJob(id));
+    return jobs.sort((left, right) =>
+      left.updated_at === right.updated_at
+        ? left.id < right.id
+          ? -1
+          : left.id > right.id
+            ? 1
+            : 0
+        : left.updated_at > right.updated_at
+          ? -1
+          : 1,
+    );
+  }
+
   async prepareJob(id: string): Promise<IngestionJob> {
     return this.exclusive(id, async () => {
       const job = await this.getJob(id);

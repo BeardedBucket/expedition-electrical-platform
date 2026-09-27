@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdir, open, readFile, rename, rm } from 'node:fs/promises';
+import { mkdir, open, readdir, readFile, rename, rm } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { deserializeJob, serializeJob } from './codec.js';
 import type { IngestionJob } from './job-service.js';
@@ -8,6 +8,7 @@ export interface IngestionJobStore {
   create(job: IngestionJob): Promise<void>;
   load(id: string): Promise<IngestionJob>;
   save(job: IngestionJob): Promise<void>;
+  listJobIds?(): Promise<readonly string[]>;
 }
 
 const validId = (id: string): boolean => /^[0-9a-f-]{36}$/.test(id);
@@ -112,6 +113,20 @@ export class FileIngestionJobStore implements IngestionJobStore {
   private path(id: string): string {
     if (!validId(id)) throw new Error(`Invalid ingestion job ID: ${id}`);
     return join(this.root, `${id}.json`);
+  }
+
+  async listJobIds(): Promise<readonly string[]> {
+    try {
+      const entries = await readdir(this.root, { withFileTypes: true });
+      return entries
+        .filter((entry) => entry.isFile() && entry.name.endsWith('.json'))
+        .map((entry) => entry.name.slice(0, -5))
+        .filter(validId)
+        .sort();
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+      throw error;
+    }
   }
 
   async create(job: IngestionJob): Promise<void> {

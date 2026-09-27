@@ -4,6 +4,7 @@
     { "path": "./packages/engineering-core" },
     { "path": "./packages/ingestion" },
     { "path": "./packages/ingestion-runtime" },
-    { "path": "./apps/configurator" }
+    { "path": "./apps/configurator" },
+    { "path": "./apps/ingestion-admin" }
   ]
 }

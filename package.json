@@ -10,9 +10,11 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build --workspace @expedition/engineering-core && npm run build --workspace @expedition/ingestion && npm run build --workspace @expedition/ingestion-runtime && npm run build --workspace @expedition/configurator",
+    "build": "npm run build --workspace @expedition/engineering-core && npm run build --workspace @expedition/ingestion && npm run build --workspace @expedition/ingestion-runtime && npm run build --workspace @expedition/configurator && npm run build --workspace @expedition/ingestion-admin",
     "build:embed": "npm run build:embed --workspace @expedition/configurator",
     "dev": "npm run dev --workspace @expedition/configurator",
+    "dev:ingestion-admin": "npm run dev --workspace @expedition/ingestion-admin",
+    "start:ingestion-api": "npm run start:api --workspace @expedition/ingestion-admin",
     "format": "prettier --write .",
     "format:check": "prettier --check \"package.json\" \"tsconfig.json\" \".prettierrc.json\" \"eslint.config.js\" \"vitest.config.ts\" \".github/workflows/**/*.yml\" \"scripts/**/*.mjs\" \"data/rules/**/*.json\" \"data/engineering/**/*.json\" \"data/schemas/**/*.json\" \"apps/**/*.{json,ts,tsx,css,html}\" \"packages/**/*.{json,ts}\"",
     "lint": "eslint .",
