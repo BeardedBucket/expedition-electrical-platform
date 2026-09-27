@@ -28,6 +28,251 @@ const intake = (overrides: Partial<ProductIntake> = {}): ProductIntake => ({
   ...overrides,
 });
 
+describe('one-level manual child-document discovery', () => {
+  const seed = intake().official_product_uri;
+  const index = 'https://example.test/media/pg/device/en/index-en.html';
+  const specs = 'https://example.test/media/pg/device/en/technical-specifications.html';
+  const installation = 'https://example.test/media/pg/device/en/installation.html';
+  const html = (links: string) =>
+    `<html><body>${'Example device information. '.repeat(100)}${links}</body></html>`;
+  const seedLinks = (extra = '') =>
+    html(`<h2>Product Manuals</h2><ul><li><a href="${index}">HTML5</a></li></ul>${extra}`);
+  const indexLinks = (extra = '') =>
+    html(
+      `<a href="technical-specifications.html">Technical specifications</a><a href="installation.html">Installation</a>${extra}`,
+    );
+  const fixtures = (seedHtml = seedLinks(), indexHtml = indexLinks()) => ({
+    [seed]: source(seed, bytes(seedHtml), 'text/html'),
+    [index]: source(index, bytes(indexHtml), 'text/html'),
+    [specs]: source(specs, bytes(html('<a href="grandchild-manual.html">Manual</a>')), 'text/html'),
+    [installation]: source(installation, bytes(html('Installation instructions')), 'text/html'),
+  });
+  const run = (
+    responses = fixtures(),
+    policy: {
+      max_recursion_depth?: number;
+      max_discovered_candidates?: number;
+      max_captured_candidates?: number;
+    } = {},
+  ) =>
+    acquireOfficialSources({
+      intake: intake(),
+      profile: noStrategyProfile,
+      adapter: adapterFor(responses),
+      policy,
+    });
+
+  it('keeps child discovery disabled at default depth zero', async () => {
+    const result = await run();
+    expect(result.candidates.map(({ candidate }) => candidate.normalized_uri)).toEqual([index]);
+  });
+
+  it('expands an authoritative structurally admitted HTML index with an unknown role', async () => {
+    const result = await run(fixtures(), { max_recursion_depth: 1 });
+    expect(result.candidates[0]?.candidate.role).toBe('unknown');
+    expect(result.candidates.map(({ candidate }) => candidate.normalized_uri)).toEqual([
+      index,
+      installation,
+      specs,
+    ]);
+  });
+
+  it('expands a Manual-labelled HTML index in the same bounded context', async () => {
+    const result = await run(fixtures(seedLinks().replace('HTML5', 'Manual')), {
+      max_recursion_depth: 1,
+    });
+    expect(result.candidates[0]?.candidate.role).toBe('manual');
+    expect(result.candidates.some(({ candidate }) => candidate.normalized_uri === specs)).toBe(
+      true,
+    );
+  });
+
+  it('does not expand an ordinary technical HTML link outside manual context', async () => {
+    const support = 'https://example.test/support/technical.html';
+    const result = await run(
+      {
+        ...fixtures(html(`<a href="${support}">Technical support</a>`)),
+        [support]: source(support, bytes(indexLinks()), 'text/html'),
+      },
+      { max_recursion_depth: 1 },
+    );
+    expect(result.candidates.map(({ candidate }) => candidate.normalized_uri)).toEqual([support]);
+  });
+
+  it('offers a child a capture slot before later seed work exhausts the global budget', async () => {
+    const later = 'https://example.test/z-technical.html';
+    const result = await run(
+      {
+        ...fixtures(seedLinks(`<a href="${later}">Technical document</a>`)),
+        [later]: source(later, bytes(html('Later technical source')), 'text/html'),
+      },
+      { max_recursion_depth: 1, max_captured_candidates: 2, max_discovered_candidates: 4 },
+    );
+    expect(result.candidates.map(({ candidate }) => candidate.normalized_uri)).toEqual([
+      index,
+      installation,
+      specs,
+      later,
+    ]);
+    expect(
+      result.candidates
+        .filter(({ capture }) => capture)
+        .map(({ candidate }) => candidate.normalized_uri),
+    ).toEqual([index, installation]);
+    expect(result.candidates[3]?.candidate.selection_status).toBe('discovered');
+  });
+
+  it('filters technical chapter links and excludes ordinary navigation', async () => {
+    const result = await run(
+      fixtures(seedLinks(), indexLinks('<a href="/home">Home</a><a href="next.html">Next</a>')),
+      { max_recursion_depth: 1 },
+    );
+    expect(result.candidates.map(({ candidate }) => candidate.normalized_uri)).toEqual([
+      index,
+      installation,
+      specs,
+    ]);
+  });
+
+  it('does not expand depth-one HTML chapters', async () => {
+    const result = await run(fixtures(), { max_recursion_depth: 1 });
+    expect(
+      result.candidates.some(({ candidate }) => candidate.normalized_uri.includes('grandchild')),
+    ).toBe(false);
+  });
+
+  it('does not expand a failed or non-authoritative index', async () => {
+    const failed = await run({ ...fixtures(), [index]: 'failed' }, { max_recursion_depth: 1 });
+    const challenged = source(
+      index,
+      bytes(html(`Cloudflare checking your browser cf-ray ${'challenge '.repeat(20)}`)),
+      'text/html',
+    );
+    const nonAuthoritative = await run(
+      { ...fixtures(), [index]: challenged },
+      { max_recursion_depth: 1 },
+    );
+    expect(failed.candidates).toHaveLength(1);
+    expect(nonAuthoritative.candidates).toHaveLength(1);
+  });
+
+  it('applies official-domain policy to each child', async () => {
+    const offDomain = 'https://other.test/technical-specifications.html';
+    const result = await run(
+      fixtures(seedLinks(), indexLinks(`<a href="${offDomain}">Technical specifications</a>`)),
+      { max_recursion_depth: 1 },
+    );
+    expect(
+      result.candidates.find(({ candidate }) => candidate.normalized_uri === offDomain)?.candidate,
+    ).toMatchObject({ officiality: 'blocked', selection_status: 'excluded_by_policy' });
+  });
+
+  it('suppresses normalized seed cycles while preserving other children', async () => {
+    const result = await run(
+      fixtures(
+        seedLinks(),
+        indexLinks(`<a href="${seed}#top">Product manual</a><a href="${index}#again">Manual</a>`),
+      ),
+      { max_recursion_depth: 1 },
+    );
+    expect(result.candidates.some(({ candidate }) => candidate.normalized_uri === seed)).toBe(
+      false,
+    );
+    expect(
+      result.candidates.filter(({ candidate }) => candidate.normalized_uri === index),
+    ).toHaveLength(2);
+    expect(
+      result.candidates.find(
+        ({ candidate }) =>
+          candidate.normalized_uri === index && candidate.discovery.parent_uri === index,
+      )?.candidate.selection_status,
+    ).toBe('duplicate_uri');
+  });
+
+  it('captures a direct and child link to the same URI only once', async () => {
+    let captures = 0;
+    const adapter = adapterFor(
+      fixtures(seedLinks(`<a href="${specs}">Technical specifications</a>`)),
+    );
+    const result = await acquireOfficialSources({
+      intake: intake(),
+      profile: noStrategyProfile,
+      adapter: {
+        async capture(request) {
+          if (request.uri === specs) captures += 1;
+          return adapter.capture(request);
+        },
+      },
+      policy: { max_recursion_depth: 1 },
+    });
+    expect(captures).toBe(1);
+    expect(
+      result.candidates
+        .filter(({ candidate }) => candidate.normalized_uri === specs)
+        .map(({ candidate }) => candidate.selection_status),
+    ).toEqual(['selected', 'duplicate_uri']);
+    expect(
+      result.candidates.find(
+        ({ candidate }) =>
+          candidate.normalized_uri === specs && candidate.selection_status === 'duplicate_uri',
+      )?.candidate.discovery.parent_capture_id,
+    ).toBe(result.seed_capture.artifact.id);
+  });
+
+  it('shares the discovered-candidate budget across seed and child links', async () => {
+    const result = await run(fixtures(), { max_recursion_depth: 1, max_discovered_candidates: 2 });
+    expect(result.candidates.map(({ candidate }) => candidate.normalized_uri)).toEqual([
+      index,
+      installation,
+    ]);
+  });
+
+  it('shares the capture budget across seed and child links', async () => {
+    const result = await run(fixtures(), { max_recursion_depth: 1, max_captured_candidates: 1 });
+    expect(result.candidates.filter(({ capture }) => capture)).toHaveLength(1);
+    expect(
+      result.candidates
+        .slice(1)
+        .every(({ candidate }) => candidate.capture_outcome === 'not_attempted'),
+    ).toBe(true);
+  });
+
+  it('retains immediate-parent provenance for children and seed links', async () => {
+    const result = await run(fixtures(seedLinks(`<a href="/docs/datasheet.pdf">Datasheet</a>`)), {
+      max_recursion_depth: 1,
+    });
+    const parent = result.candidates.find(({ candidate }) => candidate.normalized_uri === index);
+    const child = result.candidates.find(({ candidate }) => candidate.normalized_uri === specs);
+    const direct = result.candidates.find(({ candidate }) =>
+      candidate.normalized_uri.endsWith('/docs/datasheet.pdf'),
+    );
+    expect(child?.candidate.discovery).toMatchObject({
+      parent_capture_id: parent?.capture?.artifact.id,
+      parent_uri: index,
+      raw_discovered_uri: 'technical-specifications.html',
+      source_label: 'Technical specifications',
+    });
+    expect(direct?.candidate.discovery.parent_capture_id).toBe(result.seed_capture.artifact.id);
+  });
+
+  it('orders equivalent link sets deterministically and rejects unsupported depth', async () => {
+    const first = await run(fixtures(seedLinks(), indexLinks()), { max_recursion_depth: 1 });
+    const reversed = await run(
+      fixtures(
+        seedLinks(),
+        html(
+          '<a href="installation.html">Installation</a><a href="technical-specifications.html">Technical specifications</a>',
+        ),
+      ),
+      { max_recursion_depth: 1 },
+    );
+    expect(first.candidates.map(({ candidate }) => candidate.normalized_uri)).toEqual(
+      reversed.candidates.map(({ candidate }) => candidate.normalized_uri),
+    );
+    expect((await run(fixtures(), { max_recursion_depth: 2 })).status).toBe('blocked');
+  });
+});
+
 const profile: ManufacturerAcquisitionProfile = {
   schema_version: '1.2',
   id: 'example.reviewed',

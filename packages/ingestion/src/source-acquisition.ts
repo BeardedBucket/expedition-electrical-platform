@@ -78,6 +78,7 @@ interface DiscoveredLink {
   readonly role_hints?: readonly { readonly pattern: string; readonly role: SourceRole }[];
   readonly profile_id?: string;
   readonly profile_rule_id?: string;
+  readonly manual_document_context?: boolean;
 }
 
 interface DomainPolicy {
@@ -123,7 +124,7 @@ const manualDocumentContextFor = (anchor: Element): string => {
   let parent = anchor.parentNode;
   while (parent && 'tagName' in parent) {
     if (parent.tagName === 'li') {
-      const itemText = textOf(parent);
+      const itemText = textOf(parent).replace(textOf(anchor), '');
       const list = parent.parentNode;
       if (list && 'tagName' in list && (list.tagName === 'ul' || list.tagName === 'ol')) {
         const container = list.parentNode;
@@ -363,10 +364,12 @@ const discoverLinks = (
   intake: ProductIntake,
   profile: ManufacturerAcquisitionProfile | undefined,
   strategy: ManufacturerAcquisitionStrategy | undefined,
+  includeSeedLinks = true,
 ): readonly DiscoveredLink[] => {
   const output: DiscoveredLink[] = [];
   const base = captured.final_uri;
-  for (const raw of strategy?.document_link_discovery.document_urls ?? []) {
+  for (const raw of (includeSeedLinks ? strategy?.document_link_discovery.document_urls : []) ??
+    []) {
     const normalized = normalizeUri(raw, base);
     if (!normalized) continue;
     output.push({
@@ -390,10 +393,9 @@ const discoverLinks = (
         textOf(element).replace(/\s+/g, ' ').trim() ||
         attr(element, 'aria-label') ||
         attr(element, 'title');
-      const structuralContext =
-        element.tagName === 'a' && DOCUMENT_FORMAT_LABEL.test(label ?? '')
-          ? manualDocumentContextFor(element)
-          : '';
+      const structuralContext = element.tagName === 'a' ? manualDocumentContextFor(element) : '';
+      const manualDocumentContext =
+        TECHNICAL_TERMS.test(structuralContext) && DOCUMENT_CONTEXT_TERMS.test(structuralContext);
       if (!isTechnicalCandidate(raw, label ?? '', strategy, structuralContext)) return;
       const normalized = normalizeUri(raw, base);
       if (!normalized) return;
@@ -406,6 +408,7 @@ const discoverLinks = (
         profile_id: profile?.id,
         profile_rule_id: strategy?.id,
         role_hints: roleHintFor(strategy),
+        ...(manualDocumentContext ? { manual_document_context: true } : {}),
       });
       linkIndex += 1;
     });
@@ -435,7 +438,7 @@ const discoverLinks = (
       }
     }
   }
-  (intake.additional_official_source_uris ?? []).forEach((raw) => {
+  (includeSeedLinks ? (intake.additional_official_source_uris ?? []) : []).forEach((raw) => {
     const normalized = normalizeUri(raw, base);
     if (!normalized) return;
     output.push({
@@ -455,6 +458,7 @@ const compareLinks = (left: DiscoveredLink, right: DiscoveredLink): number => {
   if (method) return method;
   return (
     left.raw_uri.localeCompare(right.raw_uri) ||
+    (left.source_label ?? '').localeCompare(right.source_label ?? '') ||
     (left.locator ?? '').localeCompare(right.locator ?? '')
   );
 };
@@ -687,36 +691,48 @@ export const acquireOfficialSources = async (
       issues: ['authoritative seed capture did not include source content'],
     };
   }
-  if (maxDepth < 0 || !Number.isInteger(maxDepth)) {
+  if (maxDepth < 0 || maxDepth > 1 || !Number.isInteger(maxDepth)) {
     const status = 'blocked' as const;
     return {
       status,
       artifact: buildAcquisitionArtifact(request.intake, seed, profile, status, 'official', []),
       seed_capture: seed,
       candidates: [],
-      issues: ['source discovery recursion is bounded to depth 0 in Checkpoint C'],
+      issues: ['source discovery supports only depth 0 or 1'],
     };
   }
+  const discoveredLimit =
+    Number.isInteger(maxDiscovered) && maxDiscovered >= 0 ? maxDiscovered : DEFAULT_MAX_DISCOVERED;
   const links = discoverLinks(seedSource, request.intake, profile, strategy)
     .filter((link) => link.normalized_uri !== seedSource.final_uri)
     .sort(compareLinks)
-    .slice(
-      0,
-      Number.isInteger(maxDiscovered) && maxDiscovered >= 0
-        ? maxDiscovered
-        : DEFAULT_MAX_DISCOVERED,
-    );
+    .slice(0, discoveredLimit);
   const byUri = new Map<string, string>();
   const candidateResults: SourceAcquisitionCandidateResult[] = [];
   const digestOwners = new Map<string, string>();
+  const pending: {
+    link: DiscoveredLink;
+    parent: CapturedSource;
+    parentCaptureId: string;
+    depth: 0 | 1;
+  }[] = links.map((link) => ({
+    link,
+    parent: seedSource,
+    parentCaptureId: seed.artifact.id,
+    depth: 0,
+  }));
   let capturedCount = 0;
-  for (const [index, link] of links.entries()) {
-    const id = makeCandidateId(request.intake.id, index);
+  for (let position = 0; position < pending.length; position += 1) {
+    if (candidateResults.length >= discoveredLimit) break;
+    const { link, parent, parentCaptureId, depth } = pending[position];
+    if (link.normalized_uri === seedSource.final_uri || link.normalized_uri === seedUri.toString())
+      continue;
+    const id = makeCandidateId(request.intake.id, candidateResults.length);
     const officiality = candidateOfficiality(link.normalized_uri, domain);
     const duplicateOf = byUri.get(link.normalized_uri);
     const provenance: SourceDiscoveryProvenance = {
-      parent_capture_id: seed.artifact.id,
-      parent_uri: seedSource.final_uri,
+      parent_capture_id: parentCaptureId,
+      parent_uri: parent.final_uri,
       raw_discovered_uri: link.raw_uri,
       normalized_uri: link.normalized_uri,
       method: link.method,
@@ -725,7 +741,7 @@ export const acquireOfficialSources = async (
       ...(link.profile_id ? { profile_id: link.profile_id } : {}),
       ...(link.profile_rule_id ? { profile_rule_id: link.profile_rule_id } : {}),
     };
-    const classified = classifyRole(link, strategy);
+    const classified = classifyRole(link, depth === 0 ? strategy : undefined);
     let candidate: SourceAcquisitionCandidate = {
       id,
       raw_discovered_uri: link.raw_uri,
@@ -808,7 +824,40 @@ export const acquireOfficialSources = async (
       } else if (digest) {
         digestOwners.set(digest, id);
       }
+      if (capture.source) {
+        const finalUri = normalizeUri(capture.source.final_uri);
+        if (finalUri && !byUri.has(finalUri)) byUri.set(finalUri, id);
+      }
       candidateResults.push({ candidate, capture });
+      if (
+        depth === 0 &&
+        maxDepth === 1 &&
+        link.manual_document_context &&
+        capture.disposition === 'authoritative' &&
+        capture.source &&
+        capture.source.media_type?.toLowerCase().includes('html') &&
+        finalOfficiality === 'official'
+      ) {
+        const childParent = capture.source;
+        const children = [...discoverLinks(childParent, request.intake, profile, undefined, false)]
+          .filter(
+            (child) =>
+              child.normalized_uri !== seedSource.final_uri &&
+              child.normalized_uri !== seedUri.toString(),
+          )
+          .sort(compareLinks)
+          .slice(0, discoveredLimit - candidateResults.length);
+        pending.splice(
+          position + 1,
+          0,
+          ...children.map((child) => ({
+            link: child,
+            parent: childParent,
+            parentCaptureId: capture.artifact.id,
+            depth: 1 as const,
+          })),
+        );
+      }
       continue;
     }
     candidateResults.push({ candidate });
