@@ -3,6 +3,7 @@
   "references": [
     { "path": "./packages/engineering-core" },
     { "path": "./packages/ingestion" },
+    { "path": "./packages/ingestion-runtime" },
     { "path": "./apps/configurator" }
   ]
 }
