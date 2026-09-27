@@ -188,6 +188,84 @@ describe('production-safe source capture classification', () => {
 
   it.each([
     [
+      'keeps a login interstitial with password form non-authoritative',
+      '<!doctype html><html><body><main><h1>Sign in</h1><p>Sign in to continue.</p><form><input type="password" /></form></main></body></html>',
+      'non_authoritative',
+    ],
+    [
+      'does not classify public product content with login and account navigation as an authentication wall',
+      '<!doctype html><html><body><header><nav><span>login</span><button aria-label="account menu">Account</button></nav></header><main><h1>Portable power controller</h1><p>This controller provides monitoring and configuration for a public installation guide, with connection details and operating information available on this page.</p></main></body></html>',
+      'authoritative',
+    ],
+    [
+      'does not classify an optional account password modal as a wall when substantive public content is present',
+      '<!doctype html><html><body><main><h1>Power distribution unit</h1><p>Review the published connection layout, operating modes, physical dimensions, and installation information before selecting this unit for a system.</p></main><div role="dialog" aria-modal="true"><h2>Account login</h2><form><input type="password" /></form></div></body></html>',
+      'authoritative',
+    ],
+    [
+      'keeps authentication-gated content non-authoritative when product text is only incidental',
+      '<!doctype html><html><head><title>Portable power controller</title></head><body><nav>Portable power controller</nav><main><h1>Sign in</h1><p>Log in to view the requested product information.</p><form><input type="password" /></form></main></body></html>',
+      'non_authoritative',
+    ],
+  ] as const)('%s', async (_name, html, expectedDisposition) => {
+    const capture = await captureSourceForProduction(
+      adapter(async () => response(html)),
+      {
+        capture_id: 'capture.authentication-context',
+        uri: 'https://example.invalid/product',
+        retention_status: 'not_retained',
+        retrieved_at: fixedTimestamp,
+      },
+    );
+    expect(capture.disposition).toBe(expectedDisposition);
+    if (expectedDisposition === 'non_authoritative') {
+      expect(capture.artifact.reason_codes).toContain('authentication_wall');
+    } else {
+      expect(capture.artifact.disposition).toBe('authoritative');
+      expect(capture.artifact.reason_codes).toBeUndefined();
+    }
+  });
+
+  it('does not bypass authentication wall classification for oversized html', async () => {
+    const html =
+      '<!doctype html><html><body>' +
+      ' '.repeat(8 * 1024 * 1024) +
+      '<main><h1>Sign in</h1><form><input type="password" /></form></main>' +
+      '</body></html>';
+    const capture = await captureSourceForProduction(
+      adapter(async () => response(html)),
+      {
+        capture_id: 'capture.oversized-authentication',
+        uri: 'https://example.invalid/product',
+        retention_status: 'not_retained',
+        retrieved_at: fixedTimestamp,
+        max_bytes: html.length,
+      },
+    );
+    expect(capture.disposition).toBe('non_authoritative');
+    expect(capture.artifact.reason_codes).toContain('authentication_wall');
+  });
+
+  it('recognizes nested heading text as substantive public content', async () => {
+    const capture = await captureSourceForProduction(
+      adapter(async () =>
+        response(
+          '<!doctype html><html><body><header><nav>login <button aria-label="account menu">Account</button></nav></header><main><h1><span>Portable power controller</span></h1><p>Published connection details, operating modes, physical dimensions, and installation information are available here for public review.</p></main></body></html>',
+        ),
+      ),
+      {
+        capture_id: 'capture.nested-public-heading',
+        uri: 'https://example.invalid/product',
+        retention_status: 'not_retained',
+        retrieved_at: fixedTimestamp,
+      },
+    );
+    expect(capture.disposition).toBe('authoritative');
+    expect(capture.artifact.reason_codes).toBeUndefined();
+  });
+
+  it.each([
+    [
       'cloudflare',
       '<!doctype html><html><body><h1>Checking your browser before accessing</h1><p>Cloudflare Ray ID</p><div id="cf-browser-verification"></div></body></html>',
       'challenge_detected',

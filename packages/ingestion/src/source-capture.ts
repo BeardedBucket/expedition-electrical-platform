@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { parse } from 'parse5';
+import type { DefaultTreeAdapterTypes } from 'parse5';
 import type {
   CaptureIssue,
   CaptureRequest,
@@ -19,6 +21,7 @@ import {
 } from './production-contracts.js';
 
 const INSPECTION_LIMIT_BYTES = 64 * 1024;
+const AUTH_HTML_LIMIT_BYTES = 8 * 1024 * 1024;
 const SHA256_DIGEST_PATTERN = /^sha256:[a-f0-9]{64}$/;
 const SNAPSHOT_REFERENCE_PATTERN = /^snapshot:\/\/sha256\/([a-f0-9]{64})$/;
 
@@ -148,14 +151,101 @@ const challengeReason = (html: string): SourceCaptureReason | undefined => {
   return undefined;
 };
 
-const authenticationReason = (html: string): SourceCaptureReason | undefined =>
-  /<(form|input)[^>]+(password|login|log in|sign in)/i.test(html) ||
-  (hasAny(html, ['sign in', 'log in', 'login']) && hasAny(html, ['password', 'account']))
-    ? {
-        code: 'authentication_wall',
-        message: 'The capture requires authentication before product content is available.',
+type HtmlNode = DefaultTreeAdapterTypes.ChildNode;
+type HtmlElement = DefaultTreeAdapterTypes.Element;
+
+const AUTH_HEADING = /\b(?:sign in|log in|login|password|account|authenticate|access required)\b/i;
+const NON_CONTENT_TAGS = new Set([
+  'head',
+  'script',
+  'style',
+  'template',
+  'noscript',
+  'nav',
+  'header',
+  'footer',
+  'aside',
+  'form',
+  'dialog',
+  'button',
+  'select',
+  'input',
+  'svg',
+]);
+
+const isChromeOrAuthUi = (element: HtmlElement): boolean => {
+  if (NON_CONTENT_TAGS.has(element.tagName)) return true;
+  const attributes = Object.fromEntries(element.attrs.map(({ name, value }) => [name, value]));
+  if (['navigation', 'dialog', 'menu', 'menubar'].includes(attributes.role ?? '')) return true;
+  if (attributes['aria-modal'] === 'true') return true;
+  return /(?:^|[\s_-])(?:modal|login|sign-?in|account-menu)(?:$|[\s_-])/i.test(
+    `${attributes.class ?? ''} ${attributes.id ?? ''}`,
+  );
+};
+
+const hasSubstantivePublicContent = (html: string): boolean => {
+  const document = parse(html) as DefaultTreeAdapterTypes.Document;
+  const headings: string[] = [];
+  const bodyText: string[] = [];
+  const headingText = (node: HtmlNode): string => {
+    if ('value' in node) return node.value;
+    if ('childNodes' in node) return node.childNodes.map(headingText).join(' ');
+    return '';
+  };
+  const visit = (node: HtmlNode): void => {
+    if ('tagName' in node) {
+      if (isChromeOrAuthUi(node)) return;
+      if (/^h[1-6]$/.test(node.tagName)) {
+        headings.push(headingText(node).replace(/\s+/g, ' ').trim());
+        return;
       }
-    : undefined;
+      for (const child of node.childNodes) visit(child);
+      return;
+    }
+    if ('value' in node) {
+      const text = node.value.replace(/\s+/g, ' ').trim();
+      if (text) bodyText.push(text);
+    }
+  };
+  for (const child of document.childNodes) visit(child);
+  return headings.some((heading) => !AUTH_HEADING.test(heading)) && bodyText.join(' ').length >= 80;
+};
+
+const authenticationReason = (
+  html: string,
+  sourceBytes: number,
+): SourceCaptureReason | undefined => {
+  // Scan all captured text in bounded chunks, including auth UI after the
+  // contextual parse limit. Only the DOM parse is limited to 8 MiB.
+  let loginSignal = false;
+  let credentialSignal = false;
+  let authSignal = false;
+  for (let offset = 0; offset < html.length; offset += INSPECTION_LIMIT_BYTES) {
+    const chunk = html
+      .slice(
+        Math.max(0, offset - 128),
+        Math.min(html.length, offset + INSPECTION_LIMIT_BYTES + 128),
+      )
+      .toLocaleLowerCase('en-US');
+    if (/<(form|input)[^>]+(password|login|log in|sign in)/i.test(chunk)) {
+      authSignal = true;
+      break;
+    }
+    loginSignal ||= hasAny(chunk, ['sign in', 'log in', 'login']);
+    credentialSignal ||= hasAny(chunk, ['password', 'account']);
+    if (loginSignal && credentialSignal) {
+      authSignal = true;
+      break;
+    }
+  }
+  if (!authSignal) return undefined;
+  const oversized = sourceBytes > AUTH_HTML_LIMIT_BYTES;
+  if (!oversized && hasSubstantivePublicContent(html)) return undefined;
+  return {
+    code: 'authentication_wall',
+    message: 'The capture requires authentication before product content is available.',
+  };
+};
 
 const consentReason = (html: string, wordCount: number): SourceCaptureReason | undefined =>
   hasAny(html, ['cookie consent', 'privacy preference center', 'consent preferences']) &&
@@ -350,7 +440,10 @@ const classifySuccessfulCapture = (
     const words = plainText.length ? plainText.split(/\s+/).length : 0;
     const htmlReason =
       challengeReason(normalized) ??
-      authenticationReason(normalized) ??
+      authenticationReason(
+        source.body.text ?? new TextDecoder().decode(source.body.bytes),
+        source.body.bytes.byteLength,
+      ) ??
       consentReason(normalized, words) ??
       soft404Reason(normalized, words) ??
       emptyShellReason(normalized, words);
