@@ -65,6 +65,11 @@ const profile: ManufacturerAcquisitionProfile = {
   },
 };
 
+const noStrategyProfile: ManufacturerAcquisitionProfile = {
+  ...profile,
+  strategies: [{ ...profile.strategies[0], path_prefix: '/solar-charge-controllers/' }],
+};
+
 const source = (
   requestedUri: string,
   body: Uint8Array,
@@ -258,6 +263,115 @@ describe('Checkpoint C official-source discovery and acquisition', () => {
       result.candidates.find(({ candidate }) => candidate.normalized_uri.includes('ambiguous.pdf'))
         ?.candidate.role,
     ).toBe('unknown');
+  });
+
+  it('uses generic technical filtering when a reviewed profile has no applicable strategy', async () => {
+    const seed = intake().official_product_uri;
+    const html = `<html><body>${'Example product information. '.repeat(100)}
+      <a href="/blog">Blog</a><a href="/contact">Contact</a><a href="/jobs">Jobs</a>
+      <a href="/upload/documents/Datasheet-Example.pdf">Datasheet</a>
+      <a href="/upload/documents/Example-Manual.pdf">Manual</a>
+    </body></html>`;
+    const result = await acquireOfficialSources({
+      intake: intake(),
+      profile: noStrategyProfile,
+      adapter: adapterFor({
+        [seed]: source(seed, bytes(html), 'text/html'),
+      }),
+      policy: { max_captured_candidates: 0 },
+    });
+    const uris = result.candidates.map(({ candidate }) => candidate.normalized_uri);
+
+    expect(uris).toEqual([
+      'https://example.test/upload/documents/Datasheet-Example.pdf',
+      'https://example.test/upload/documents/Example-Manual.pdf',
+    ]);
+    expect(
+      result.candidates.every(({ candidate }) => candidate.discovery.profile_rule_id === undefined),
+    ).toBe(true);
+  });
+
+  it('does not let navigation crowd a technical document out of the discovery bound when no profile strategy applies', async () => {
+    const seed = intake().official_product_uri;
+    const navigation = Array.from(
+      { length: 60 },
+      (_, index) => `<a href="/a-${String(index).padStart(2, '0')}">Overview</a>`,
+    ).join('');
+    const documentUri = 'https://example.test/upload/documents/Datasheet-Example.pdf';
+    const html = `<html><body>${'Example product information. '.repeat(100)}${navigation}
+      <a href="${documentUri}">Datasheet</a></body></html>`;
+    const result = await acquireOfficialSources({
+      intake: intake(),
+      profile: noStrategyProfile,
+      adapter: adapterFor({ [seed]: source(seed, bytes(html), 'text/html') }),
+      policy: { max_captured_candidates: 0 },
+    });
+
+    expect(result.candidates.map(({ candidate }) => candidate.normalized_uri)).toEqual([
+      documentUri,
+    ]);
+  });
+
+  it('preserves strategy-aware discovery when a reviewed strategy applies', async () => {
+    const result = await acquireOfficialSources({
+      intake: intake(),
+      profile,
+      adapter: adapterFor(successfulResponses()),
+      policy: { max_captured_candidates: 0 },
+    });
+    const ambiguous = result.candidates.find(({ candidate }) =>
+      candidate.normalized_uri.endsWith('/docs/ambiguous.pdf'),
+    )?.candidate;
+
+    expect(ambiguous?.selection_status).toBe('discovered');
+    expect(ambiguous?.discovery.profile_rule_id).toBe('product-pages');
+  });
+
+  it('preserves generic technical filtering when no profile is supplied', async () => {
+    const result = await acquireOfficialSources({
+      intake: intake(),
+      adapter: adapterFor(successfulResponses()),
+      policy: { max_captured_candidates: 0 },
+    });
+    const uris = result.candidates.map(({ candidate }) => candidate.normalized_uri);
+
+    expect(uris).toContain('https://example.test/docs/example-datasheet.pdf');
+    expect(uris).not.toContain('https://example.test/docs/ambiguous.pdf');
+  });
+
+  it('preserves reviewed profile publisher and domain authority when no strategy applies', async () => {
+    const seed = intake().official_product_uri;
+    const official = 'https://example.test/upload/documents/Datasheet-Example.pdf';
+    const thirdParty = 'https://third-party.test/Datasheet-Example.pdf';
+    const html = `<html><body>${'Example product information. '.repeat(100)}
+      <a href="${official}">Datasheet</a><a href="${thirdParty}">Datasheet mirror</a>
+    </body></html>`;
+    const result = await acquireOfficialSources({
+      intake: intake(),
+      profile: noStrategyProfile,
+      adapter: adapterFor({
+        [seed]: source(seed, bytes(html), 'text/html'),
+        [official]: source(official, bytes('%PDF-1.7 example datasheet'), 'application/pdf'),
+      }),
+    });
+    const officialCandidate = result.candidates.find(
+      ({ candidate }) => candidate.normalized_uri === official,
+    );
+    const blockedCandidate = result.candidates.find(
+      ({ candidate }) => candidate.normalized_uri === thirdParty,
+    )?.candidate;
+
+    expect(result.seed_capture.artifact.source_provenance?.publisher).toBe(profile.publisher);
+    expect(result.artifact?.profile_binding?.profile_id).toBe(profile.id);
+    expect(officialCandidate?.candidate.selection_status).toBe('selected');
+    expect(officialCandidate?.capture?.artifact.source_provenance?.publisher).toBe(
+      profile.publisher,
+    );
+    expect(blockedCandidate).toMatchObject({
+      officiality: 'blocked',
+      selection_status: 'excluded_by_policy',
+      capture_outcome: 'not_attempted',
+    });
   });
 
   it('retains relative/query/fragment provenance and deduplicates URI capture work', async () => {

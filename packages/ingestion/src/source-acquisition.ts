@@ -271,10 +271,10 @@ const profileExpectedContent = (
 const isTechnicalCandidate = (
   rawUri: string,
   label: string,
-  profile?: ManufacturerAcquisitionProfile,
+  strategy?: ManufacturerAcquisitionStrategy,
 ): boolean => {
   if (NON_DOCUMENT_EXTENSIONS.test(rawUri)) return false;
-  if (profile) return true;
+  if (strategy) return true;
   return TECHNICAL_TERMS.test(`${rawUri} ${label}`);
 };
 
@@ -354,7 +354,7 @@ const discoverLinks = (
         textOf(element).replace(/\s+/g, ' ').trim() ||
         attr(element, 'aria-label') ||
         attr(element, 'title');
-      if (!isTechnicalCandidate(raw, label ?? '', profile)) return;
+      if (!isTechnicalCandidate(raw, label ?? '', strategy)) return;
       const normalized = normalizeUri(raw, base);
       if (!normalized) return;
       output.push({
