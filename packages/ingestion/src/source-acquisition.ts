@@ -93,6 +93,9 @@ const DEFAULT_MAX_CAPTURED = 20;
 const DEFAULT_MAX_DEPTH = 0;
 const TECHNICAL_TERMS =
   /datasheet|data[-_\s]?sheet|manual|install|technical|spec(?:ification)?|dimension|drawing|support|help|certificate|firmware|compatib|product/i;
+const DOCUMENT_CONTEXT_TERMS =
+  /datasheet|data[-_\s]?sheet|manual|install|technical|spec(?:ification)?|dimension|drawing|certificate|firmware|compatib/i;
+const DOCUMENT_FORMAT_LABEL = /^(?:html5?|pdf)$/i;
 const NON_DOCUMENT_EXTENSIONS = /\.(?:css|js|json|ico|gif|jpe?g|png|webp|svg|woff2?|zip)$/i;
 const METHOD_ORDER: readonly SourceDiscoveryMethod[] = [
   'seed_page_anchor',
@@ -114,6 +117,33 @@ const walk = (node: ParentNode, visit: (element: Element) => void): void => {
     visit(child);
     walk(child, visit);
   }
+};
+
+const manualDocumentContextFor = (anchor: Element): string => {
+  let parent = anchor.parentNode;
+  while (parent && 'tagName' in parent) {
+    if (parent.tagName === 'li') {
+      const itemText = textOf(parent);
+      const list = parent.parentNode;
+      if (list && 'tagName' in list && (list.tagName === 'ul' || list.tagName === 'ol')) {
+        const container = list.parentNode;
+        if (container && 'childNodes' in container) {
+          const siblings = container.childNodes;
+          const listIndex = siblings.indexOf(list);
+          const preceding = siblings
+            .slice(0, listIndex)
+            .reverse()
+            .find((node) => 'tagName' in node);
+          if (preceding && 'tagName' in preceding && /^h[1-6]$/.test(preceding.tagName)) {
+            return `${itemText} ${textOf(preceding)}`;
+          }
+        }
+      }
+      return itemText;
+    }
+    parent = parent.parentNode;
+  }
+  return '';
 };
 
 const normalizeUri = (raw: string, parent?: string): string | undefined => {
@@ -272,10 +302,16 @@ const isTechnicalCandidate = (
   rawUri: string,
   label: string,
   strategy?: ManufacturerAcquisitionStrategy,
+  structuralContext = '',
 ): boolean => {
   if (NON_DOCUMENT_EXTENSIONS.test(rawUri)) return false;
   if (strategy) return true;
-  return TECHNICAL_TERMS.test(`${rawUri} ${label}`);
+  return (
+    TECHNICAL_TERMS.test(`${rawUri} ${label}`) ||
+    (DOCUMENT_FORMAT_LABEL.test(label) &&
+      TECHNICAL_TERMS.test(structuralContext) &&
+      DOCUMENT_CONTEXT_TERMS.test(structuralContext))
+  );
 };
 
 const collectStructuredLinks = (
@@ -354,7 +390,11 @@ const discoverLinks = (
         textOf(element).replace(/\s+/g, ' ').trim() ||
         attr(element, 'aria-label') ||
         attr(element, 'title');
-      if (!isTechnicalCandidate(raw, label ?? '', strategy)) return;
+      const structuralContext =
+        element.tagName === 'a' && DOCUMENT_FORMAT_LABEL.test(label ?? '')
+          ? manualDocumentContextFor(element)
+          : '';
+      if (!isTechnicalCandidate(raw, label ?? '', strategy, structuralContext)) return;
       const normalized = normalizeUri(raw, base);
       if (!normalized) return;
       output.push({

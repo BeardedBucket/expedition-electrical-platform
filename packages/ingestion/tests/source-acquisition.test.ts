@@ -291,6 +291,113 @@ describe('Checkpoint C official-source discovery and acquisition', () => {
     ).toBe(true);
   });
 
+  it('retains a format-only html manual link from manual section context', async () => {
+    const seed = intake().official_product_uri;
+    const html = `<html><body>${'Example device information. '.repeat(100)}
+      <h2>Product Manuals</h2><ul><li><span>Example device</span>
+      <a href="/media/pg/device/en/index-en.html">HTML5</a>
+      <a href="/store">Store</a></li></ul></body></html>`;
+    const result = await acquireOfficialSources({
+      intake: intake(),
+      profile: noStrategyProfile,
+      adapter: adapterFor({ [seed]: source(seed, bytes(html), 'text/html') }),
+      policy: { max_captured_candidates: 0 },
+    });
+
+    expect(result.candidates.map(({ candidate }) => candidate.normalized_uri)).toEqual([
+      'https://example.test/media/pg/device/en/index-en.html',
+    ]);
+    expect(result.candidates[0]?.candidate).toMatchObject({
+      raw_discovered_uri: '/media/pg/device/en/index-en.html',
+      role: 'unknown',
+      discovery: {
+        raw_discovered_uri: '/media/pg/device/en/index-en.html',
+        normalized_uri: 'https://example.test/media/pg/device/en/index-en.html',
+        source_label: 'HTML5',
+        method: 'seed_page_anchor',
+        locator: 'href[0]',
+        parent_capture_id: result.seed_capture.artifact.id,
+        parent_uri: seed,
+      },
+    });
+    expect(result.candidates[0]?.candidate.discovery.profile_rule_id).toBeUndefined();
+  });
+
+  it('does not retain the same format-only link outside technical context', async () => {
+    const seed = intake().official_product_uri;
+    const html = `<html><body>${'Example device information. '.repeat(100)}
+      <h2>Community</h2><ul><li><span>Example device</span>
+      <a href="/media/pg/device/en/index-en.html">HTML5</a></li></ul></body></html>`;
+    const result = await acquireOfficialSources({
+      intake: intake(),
+      profile: noStrategyProfile,
+      adapter: adapterFor({ [seed]: source(seed, bytes(html), 'text/html') }),
+      policy: { max_captured_candidates: 0 },
+    });
+
+    expect(result.candidates).toEqual([]);
+  });
+
+  it('does not borrow manual context from a neighboring list item', async () => {
+    const seed = intake().official_product_uri;
+    const html = `<html><body>${'Example device information. '.repeat(100)}
+      <ul><li>Manual downloads</li><li><span>Example device</span>
+      <a href="/media/pg/device/en/index-en.html">HTML5</a></li></ul></body></html>`;
+    const result = await acquireOfficialSources({
+      intake: intake(),
+      profile: noStrategyProfile,
+      adapter: adapterFor({ [seed]: source(seed, bytes(html), 'text/html') }),
+      policy: { max_captured_candidates: 0 },
+    });
+
+    expect(result.candidates).toEqual([]);
+  });
+
+  it('preserves ordinary technical term discovery with format-only context', async () => {
+    const seed = intake().official_product_uri;
+    const html = `<html><body>${'Example device information. '.repeat(100)}
+      <h2>Product Manuals</h2><ul><li>
+      <a href="/media/pg/device/en/index-en.html">HTML5</a></li></ul>
+      <a href="/docs/datasheet.pdf">Datasheet</a>
+      <a href="/docs/installation-manual.pdf">Installation manual</a>
+      <a href="/docs/ordinary.pdf">PDF</a></body></html>`;
+    const result = await acquireOfficialSources({
+      intake: intake(),
+      profile: noStrategyProfile,
+      adapter: adapterFor({ [seed]: source(seed, bytes(html), 'text/html') }),
+      policy: { max_captured_candidates: 0 },
+    });
+
+    expect(result.candidates.map(({ candidate }) => candidate.normalized_uri)).toEqual([
+      'https://example.test/docs/datasheet.pdf',
+      'https://example.test/docs/installation-manual.pdf',
+      'https://example.test/media/pg/device/en/index-en.html',
+    ]);
+  });
+
+  it('preserves deterministic discovery ordering and existing bounds for structural links', async () => {
+    const seed = intake().official_product_uri;
+    const html = `<html><body>${'Example device information. '.repeat(100)}
+      <h2>Product Manuals</h2><ul><li>
+      <a href="/z/index.html">HTML5</a><a href="/a/index.html">HTML</a>
+      <a href="/m/index.html">PDF</a></li></ul></body></html>`;
+    const result = await acquireOfficialSources({
+      intake: intake(),
+      profile: noStrategyProfile,
+      adapter: adapterFor({ [seed]: source(seed, bytes(html), 'text/html') }),
+      policy: { max_discovered_candidates: 2, max_captured_candidates: 1 },
+    });
+
+    expect(result.candidates.map(({ candidate }) => candidate.normalized_uri)).toEqual([
+      'https://example.test/a/index.html',
+      'https://example.test/m/index.html',
+    ]);
+    expect(result.candidates.map(({ candidate }) => candidate.selection_status)).toEqual([
+      'selected',
+      'discovered',
+    ]);
+  });
+
   it('does not let navigation crowd a technical document out of the discovery bound when no profile strategy applies', async () => {
     const seed = intake().official_product_uri;
     const navigation = Array.from(
