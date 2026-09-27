@@ -147,6 +147,91 @@ const successfulResponses = (
 };
 
 describe('Checkpoint C official-source discovery and acquisition', () => {
+  it('propagates reviewed manufacturer profile publisher to the seed capture provenance', async () => {
+    const reviewed = { ...profile, publisher: 'Reviewed Profile Publisher' };
+    const result = await acquireOfficialSources({
+      intake: intake(),
+      profile: reviewed,
+      adapter: adapterFor(successfulResponses()),
+    });
+
+    expect(result.seed_capture.artifact.source_provenance?.publisher).toBe(reviewed.publisher);
+  });
+
+  it('propagates reviewed manufacturer profile publisher to discovered candidate capture provenance', async () => {
+    const reviewed = { ...profile, publisher: 'Reviewed Profile Publisher' };
+    const result = await acquireOfficialSources({
+      intake: intake(),
+      profile: reviewed,
+      adapter: adapterFor(successfulResponses()),
+    });
+    const datasheet = result.candidates.find(
+      ({ candidate }) =>
+        candidate.normalized_uri === 'https://example.test/docs/example-datasheet.pdf' &&
+        candidate.selection_status === 'selected',
+    );
+
+    expect(datasheet?.capture?.artifact.source_provenance?.publisher).toBe(reviewed.publisher);
+  });
+
+  it('does not infer publisher without a reviewed manufacturer profile', async () => {
+    const result = await acquireOfficialSources({
+      intake: intake(),
+      adapter: adapterFor(successfulResponses()),
+    });
+
+    expect(result.seed_capture.artifact.source_provenance).not.toHaveProperty('publisher');
+    for (const { capture } of result.candidates) {
+      if (capture) expect(capture.artifact.source_provenance).not.toHaveProperty('publisher');
+    }
+  });
+
+  it('does not use an unreviewed profile as publisher provenance', async () => {
+    const proposed = { ...profile, profile_status: 'proposed' as const };
+    const result = await acquireOfficialSources({
+      intake: intake(),
+      profile: proposed,
+      adapter: adapterFor(successfulResponses()),
+    });
+
+    expect(result.artifact?.profile_binding).toBeUndefined();
+    expect(result.seed_capture.artifact.source_provenance).not.toHaveProperty('publisher');
+    for (const { capture } of result.candidates) {
+      if (capture) expect(capture.artifact.source_provenance).not.toHaveProperty('publisher');
+    }
+  });
+
+  it('preserves existing acquisition provenance while adding reviewed publisher', async () => {
+    const result = await acquireOfficialSources({
+      intake: intake(),
+      profile,
+      adapter: adapterFor(successfulResponses()),
+    });
+    const datasheet = result.candidates.find(
+      ({ candidate }) =>
+        candidate.normalized_uri === 'https://example.test/docs/example-datasheet.pdf' &&
+        candidate.selection_status === 'selected',
+    );
+
+    expect(result.seed_capture.artifact.source_provenance).toMatchObject({
+      acquisition_stage: 'source_acquisition',
+      source_role: 'product_page',
+      publisher: profile.publisher,
+    });
+    expect(datasheet?.capture?.artifact.source_provenance).toMatchObject({
+      acquisition_stage: 'source_acquisition',
+      candidate_id: datasheet?.candidate.id,
+      source_role: 'datasheet',
+      publisher: profile.publisher,
+    });
+    expect(datasheet?.candidate.discovery).toMatchObject({
+      parent_capture_id: result.seed_capture.artifact.id,
+      method: 'seed_page_anchor',
+      profile_id: profile.id,
+      profile_rule_id: 'product-pages',
+    });
+  });
+
   it('captures a valid seed and discovers deterministic first-party candidates', async () => {
     const result = await acquireOfficialSources({
       intake: intake(),

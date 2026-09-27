@@ -607,6 +607,7 @@ export const acquireOfficialSources = async (
       source_provenance: {
         acquisition_stage: 'source_acquisition',
         source_role: 'product_page',
+        ...(profile ? { publisher: profile.publisher } : {}),
       },
     },
     { snapshot_store: policy.snapshot_store, now: policy.now },
@@ -720,6 +721,7 @@ export const acquireOfficialSources = async (
             acquisition_stage: 'source_acquisition',
             candidate_id: id,
             source_role: classified.role,
+            ...(profile ? { publisher: profile.publisher } : {}),
           },
         },
         { snapshot_store: policy.snapshot_store, now: policy.now },
