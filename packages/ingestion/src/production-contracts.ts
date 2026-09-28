@@ -8,6 +8,7 @@ import type {
   ExtractionCapabilityState,
   ExtractionRemediationState,
   ExtractedDocument,
+  TableCellStructure,
 } from './capture-types.js';
 
 export const PRODUCTION_SCHEMA_VERSION = '1.0';
@@ -335,14 +336,14 @@ export interface DocumentBlock {
   readonly content?: string;
   readonly heading_level?: number;
   readonly rows?: readonly { readonly label: string; readonly value: string }[];
-  readonly cells?: readonly {
+  readonly cells?: readonly (TableCellStructure & {
     readonly label: string;
     readonly value: string;
     readonly kind: 'header' | 'data';
     readonly row: number;
     readonly column: number;
     readonly source_location: DocumentSourceLocation;
-  }[];
+  })[];
   readonly reason?: string;
   readonly source_location?: DocumentSourceLocation;
 }
@@ -529,6 +530,12 @@ export const buildDocumentExtractionArtifact = (
               label: cell.label,
               value: cell.value,
               kind: cell.kind,
+              ...(cell.colspan !== undefined ? { colspan: cell.colspan } : {}),
+              ...(cell.rowspan !== undefined ? { rowspan: cell.rowspan } : {}),
+              ...(cell.scope !== undefined ? { scope: cell.scope } : {}),
+              ...(cell.inline_segments !== undefined
+                ? { inline_segments: cell.inline_segments }
+                : {}),
               row: cell.row,
               column: cell.column,
               source_location: cell.source_location,
@@ -1181,6 +1188,22 @@ export const validateDocumentExtraction = (
     validateLocation(block.locator, `blocks[${index}].locator`);
     validateLocation(block.source_location, `blocks[${index}].source_location`);
     block.cells?.forEach((cell, cellIndex) => {
+      const cellPath = `blocks[${index}].cells[${cellIndex}]`;
+      if (!['header', 'data'].includes(cell.kind))
+        issues.push(`${cellPath}.kind is not recognized`);
+      for (const name of ['colspan', 'rowspan'] as const) {
+        const span = cell[name];
+        if (span !== undefined && (!Number.isSafeInteger(span) || span < 1))
+          issues.push(`${cellPath}.${name} must be a positive safe integer`);
+      }
+      if (cell.scope !== undefined && !['row', 'col', 'rowgroup', 'colgroup'].includes(cell.scope))
+        issues.push(`${cellPath}.scope is not recognized`);
+      cell.inline_segments?.forEach((segment, segmentIndex) => {
+        if (!['text', 'superscript', 'subscript'].includes(segment.kind) || !segment.text.trim())
+          issues.push(
+            `${cellPath}.inline_segments[${segmentIndex}] requires a known kind and text`,
+          );
+      });
       if (!Number.isInteger(cell.row) || cell.row < 1)
         issues.push(`blocks[${index}].cells[${cellIndex}].row must be positive`);
       if (!Number.isInteger(cell.column) || cell.column < 1)

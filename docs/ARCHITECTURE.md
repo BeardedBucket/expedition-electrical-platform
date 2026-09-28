@@ -43,6 +43,28 @@ Advisory evaluation receives an explicit `evaluatedAt` from the app boundary. Th
 
 Product ingestion is a first-class backend subsystem responsible for acquiring and capturing source evidence, extracting, qualifying, and reconciling claims, preparing proposals for review, and promoting reviewed facts while preserving provenance and historical revisions. It keeps uncertainty and review status explicit and remains separate from installed-system engineering, compatibility, architecture generation, recommendation, and UI concerns.
 
+### Structured HTML extraction evidence
+
+HTML table cells retain their own `th`/`td` header/data role and optional
+source-declared `colspan`, `rowspan`, and valid `scope` values. Row and column
+coordinates remain one-based DOM ordinals, not an expanded grid. Missing or
+malformed spans and scope are omitted; explicit positive safe-integer spans,
+including one, are retained. Existing table/cell locators remain unchanged.
+
+Cells containing `sup` or `sub` may additionally retain ordered `inline_segments`
+with ordinary text, superscript, and subscript roles. These are flat text runs,
+not a DOM tree: the nearest enclosing script element determines a run's role,
+while ordinary formatting wrappers add no role. Separate script elements remain
+separate runs. Runs use the parent cell's locator and the existing text-length
+budget; truncation is diagnosed. Existing whitespace-cleaned label/value text
+remains available unchanged. Segments preserve DOM text with whitespace cleanup
+and need not reconstruct the legacy text collector's inserted separators.
+
+This evidence asserts neither product identity nor footnote meaning. The HTML
+extractor version identifies the enriched output, and artifact hashing includes
+the optional structure. Existing schema-version 1.0 artifacts remain valid.
+PDF extraction remains text-only and does not infer HTML cell structure.
+
 ### Bounded technical-resource acquisition
 
 The retained resource set is the result of a deterministic bounded priority-aware

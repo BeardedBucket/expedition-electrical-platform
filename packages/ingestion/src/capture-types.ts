@@ -146,6 +146,20 @@ export interface ExtractionSourceLocation {
   readonly table?: string;
 }
 
+/** Source-declared HTML structure, never an identity or footnote interpretation. */
+export interface TableCellStructure {
+  readonly colspan?: number;
+  readonly rowspan?: number;
+  readonly scope?: 'row' | 'col' | 'rowgroup' | 'colgroup';
+  /** Ordered text runs; kind records the nearest enclosing sup/sub element.
+   * Runs share their parent cell's locator and do not assert finer precision.
+   */
+  readonly inline_segments?: readonly {
+    readonly kind: 'text' | 'superscript' | 'subscript';
+    readonly text: string;
+  }[];
+}
+
 export interface ExtractionDiagnostic {
   readonly code: DiagnosticCode;
   readonly message: string;
@@ -174,14 +188,14 @@ export interface ExtractedBlock {
     readonly row?: number;
     readonly column?: number;
   }[];
-  readonly cells?: readonly {
+  readonly cells?: readonly (TableCellStructure & {
     readonly label: string;
     readonly value: string;
     readonly kind: 'header' | 'data';
     readonly row: number;
     readonly column: number;
     readonly source_location: ExtractionSourceLocation;
-  }[];
+  })[];
   readonly source_location?: ExtractionSourceLocation;
 }
 

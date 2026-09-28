@@ -9,6 +9,7 @@ import type {
   ExtractedBlock,
   ExtractedDocument,
   ExtractionDiagnostic,
+  TableCellStructure,
 } from './capture-types.js';
 import { replaySourceCaptureSnapshot, type SnapshotStore } from './source-capture.js';
 import {
@@ -181,6 +182,63 @@ export const extractPdfDocument = async (
 };
 
 const clean = (value: string): string => value.replace(/\s+/g, ' ').trim();
+
+const declaredSpan = (cell: Element, name: 'colspan' | 'rowspan'): number | undefined => {
+  const raw = cell.attrs.find((attribute) => attribute.name === name)?.value.trim();
+  if (!raw || !/^\d+$/.test(raw)) return undefined;
+  const value = Number(raw);
+  return Number.isSafeInteger(value) && value > 0 ? value : undefined;
+};
+
+const declaredScope = (cell: Element): TableCellStructure['scope'] => {
+  const value = cell.attrs.find((attribute) => attribute.name === 'scope')?.value.toLowerCase();
+  return value === 'row' || value === 'col' || value === 'rowgroup' || value === 'colgroup'
+    ? value
+    : undefined;
+};
+
+/** Flat ordered runs, not a markup AST. Formatting wrappers do not create extra text. */
+const cellInlineSegments = (
+  cell: Element,
+  maxTextLength: number,
+): { segments?: TableCellStructure['inline_segments']; truncated: boolean } => {
+  type Segment = NonNullable<TableCellStructure['inline_segments']>[number];
+  const runs: { kind: Segment['kind']; text: string }[] = [];
+  let hasScript = false;
+  let startRun = false;
+  const visit = (node: ChildNode, kind: Segment['kind']): void => {
+    if ('value' in node) {
+      const previous = runs.at(-1);
+      if (previous?.kind === kind && !startRun) previous.text += node.value;
+      else runs.push({ kind, text: node.value });
+      startRun = false;
+    } else if ('childNodes' in node) {
+      const tag = 'tagName' in node ? node.tagName.toLowerCase() : '';
+      const nextKind = tag === 'sup' ? 'superscript' : tag === 'sub' ? 'subscript' : kind;
+      const isScript = tag === 'sup' || tag === 'sub';
+      if (isScript) {
+        hasScript = true;
+        startRun = true;
+      }
+      for (const child of node.childNodes) visit(child, nextKind);
+      if (isScript) startRun = true;
+    }
+  };
+  visit(cell, 'text');
+  if (!hasScript) return { truncated: false };
+  const segments: { kind: Segment['kind']; text: string }[] = [];
+  let remaining = maxTextLength;
+  let truncated = false;
+  for (const run of runs) {
+    const text = clean(run.text);
+    if (!text) continue;
+    const bounded = text.slice(0, Math.max(0, remaining));
+    if (bounded.length !== text.length) truncated = true;
+    if (bounded) segments.push({ kind: run.kind, text: bounded });
+    remaining -= bounded.length;
+  }
+  return { ...(segments.length ? { segments } : {}), truncated };
+};
 const textOf = (node: ChildNode): string =>
   'value' in node ? node.value : 'childNodes' in node ? node.childNodes.map(textOf).join(' ') : '';
 const stableId = (...parts: readonly string[]): string =>
@@ -341,7 +399,7 @@ export const extractHtmlDocument = (
       warnings: [toWarning(diagnostic)],
       diagnostics,
       extractor: 'html-parser',
-      extractor_version: '1.1.0',
+      extractor_version: '1.2.0',
     };
   }
   if (!source.media_type?.includes('html')) {
@@ -499,14 +557,20 @@ export const extractHtmlDocument = (
             tableCellLimitReached = true;
             return;
           }
+          const cell = cells[cellIndex];
+          const colspan = declaredSpan(cell, 'colspan');
+          const rowspan = declaredSpan(cell, 'rowspan');
+          const scope = declaredScope(cell);
+          const inline = cellInlineSegments(cell, limits.max_text_length);
+          if (inline.truncated) textLimitReached = true;
           cellNodes.push({
             label: cellText,
             value: cellText,
-            kind: row.childNodes.some(
-              (child) => 'tagName' in child && String(child.tagName).toLowerCase() === 'th',
-            )
-              ? 'header'
-              : 'data',
+            kind: cell.tagName.toLowerCase() === 'th' ? 'header' : 'data',
+            ...(colspan !== undefined ? { colspan } : {}),
+            ...(rowspan !== undefined ? { rowspan } : {}),
+            ...(scope !== undefined ? { scope } : {}),
+            ...(inline.segments ? { inline_segments: inline.segments } : {}),
             row: rowIndex + 1,
             column: cellIndex + 1,
             source_location: {
@@ -671,7 +735,7 @@ export const extractHtmlDocument = (
     warnings: diagnostics.map(toWarning),
     diagnostics,
     extractor: 'html-parser',
-    extractor_version: '1.1.0',
+    extractor_version: '1.2.0',
   };
 };
 
