@@ -1,4 +1,5 @@
 import type { JsonObject, JsonValue } from './contracts.js';
+import { resolveUnit } from './units.js';
 
 export interface CanonicalFieldMapping {
   readonly canonical_field: string;
@@ -7,8 +8,45 @@ export interface CanonicalFieldMapping {
   readonly aliases: readonly string[];
   readonly target_kind?: 'canonical' | 'evidence';
   readonly value_kind?: 'measurement' | 'structured';
-  readonly normalize_value?: (value: string) => JsonValue | undefined;
+  readonly normalize_value?: (value: string, sourceUnit?: string) => JsonValue | undefined;
 }
+
+// Exact ordered structures only: qualifiers and alternate representations stay evidence.
+const normalizeOrderedMeasurements = (
+  value: string,
+  sourceUnit: string | undefined,
+  kind: 'supply_range' | 'body_dimensions',
+): JsonObject | undefined => {
+  const number = '(\\d+(?:\\.\\d+)?|\\.\\d+)';
+  const separator = kind === 'supply_range' ? '(?:-|–|to)' : '[x×]';
+  const count = kind === 'supply_range' ? 2 : 3;
+  const pattern = new RegExp(
+    `^\\s*${Array.from({ length: count }, () => number).join(`\\s*${separator}\\s*`)}\\s*([a-z]+)?\\s*$`,
+    'i',
+  );
+  const match = value.match(pattern);
+  if (!match) return undefined;
+  const embedded = match[count + 1];
+  const unit = resolveUnit(embedded ?? sourceUnit ?? '');
+  if (!unit || (sourceUnit !== undefined && resolveUnit(sourceUnit)?.id !== unit.id))
+    return undefined;
+  const expected = kind === 'supply_range' ? 'voltage' : 'length';
+  if (unit.dimension !== expected) return undefined;
+  // The existing range target has no domain slot. Never discard AC/DC qualifiers.
+  if (
+    kind === 'supply_range' &&
+    (!['v', 'mv', 'kv'].includes((embedded ?? sourceUnit ?? '').trim().toLowerCase()) ||
+      (sourceUnit !== undefined && !['v', 'mv', 'kv'].includes(sourceUnit.trim().toLowerCase())))
+  )
+    return undefined;
+  const values = match.slice(1, count + 1).map((item) => unit.toCanonical(Number(item)));
+  if (values.some((item) => !Number.isFinite(item))) return undefined;
+  if (kind === 'supply_range')
+    return values[0] <= values[1] ? { min: values[0], max: values[1] } : undefined;
+  return values.every((item) => item > 0)
+    ? { x: values[1], y: values[2], z: values[0] }
+    : undefined;
+};
 
 const mountingEvidence = (
   concept: 'allowed_orientation' | 'prohibited_orientation' | 'method',
@@ -58,6 +96,22 @@ const normalizeRangeValue = (
 };
 
 const baseCanonicalFieldMappings: readonly CanonicalFieldMapping[] = [
+  {
+    canonical_field: 'electrical.input_voltage_range_v',
+    dimension: 'voltage',
+    unit: 'V',
+    aliases: ['supply voltage'],
+    value_kind: 'structured',
+    normalize_value: (value, unit) => normalizeOrderedMeasurements(value, unit, 'supply_range'),
+  },
+  {
+    canonical_field: 'dimensions_mm',
+    dimension: 'length',
+    unit: 'mm',
+    aliases: ['outer dimensions (h x w x d)'],
+    value_kind: 'structured',
+    normalize_value: (value, unit) => normalizeOrderedMeasurements(value, unit, 'body_dimensions'),
+  },
   {
     canonical_field: 'electrical.nominal_voltage_v',
     dimension: 'voltage',

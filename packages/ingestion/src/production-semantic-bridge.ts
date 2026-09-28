@@ -16,7 +16,7 @@ import {
 import { parseExactUnitValue } from './units.js';
 import type { JsonValue } from './contracts.js';
 
-const METHOD_VERSION = 'production-semantic-bridge.v2';
+const METHOD_VERSION = 'production-semantic-bridge.v3';
 
 export interface ProductionSemanticBridgeInput {
   readonly facts: readonly QualifiedFactArtifact[];
@@ -94,7 +94,10 @@ export const buildProductionSemanticProposals = (
         const values = facts.map((fact) => {
           if (mapping.value_kind === 'structured') {
             const raw = fact.metadata.raw_value;
-            return mapping.normalize_value?.(typeof raw === 'string' ? raw : String(raw));
+            return mapping.normalize_value?.(
+              typeof raw === 'string' ? raw : String(raw),
+              fact.metadata.source_unit,
+            );
           }
           const parsed = parseExactUnitValue(fact.metadata.raw_value, fact.metadata.source_unit);
           if (!parsed || parsed.unit.dimension !== mapping.dimension) return undefined;

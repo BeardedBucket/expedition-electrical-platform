@@ -38,14 +38,17 @@ export const normalizeProductFact = (
   if (mapping.value_kind === 'structured') {
     const normalizedValue = mapping.normalize_value?.(
       typeof fact.raw_value === 'string' ? fact.raw_value : String(fact.raw_value),
+      fact.raw_unit,
     );
     if (!normalizedValue) {
       return {
         status: 'unresolved',
         issues: [
           issue(
-            'normalization_ambiguous_mounting',
-            `Mounting statement '${String(fact.raw_value)}' is not deterministic.`,
+            mapping.dimension === 'mounting'
+              ? 'normalization_ambiguous_mounting'
+              : 'normalization_ambiguous_value',
+            `Structured value '${String(fact.raw_value)}' is not deterministic.`,
           ),
         ],
       };
