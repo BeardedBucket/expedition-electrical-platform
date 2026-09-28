@@ -54,6 +54,7 @@ export function ProductReview({
   const [role, setRole] = useState('');
   const [acknowledged, setAcknowledged] = useState(false);
   const [decisions, setDecisions] = useState<Record<string, string>>({});
+  const [qualifiedSelections, setQualifiedSelections] = useState<Record<string, boolean>>({});
   const [factDecisions, setFactDecisions] = useState<Record<string, string>>({});
   const [resolutions, setResolutions] = useState<
     Record<string, { selected_fact_id: string; rationale: string }>
@@ -69,6 +70,9 @@ export function ProductReview({
   const review = job.product_review;
   const editable = job.summary.state === 'review_ready';
   const approved = Object.keys(decisions).filter((field) => decisions[field] === 'approve');
+  const approvedQualifiedIds = Object.keys(qualifiedSelections).filter(
+    (id) => qualifiedSelections[id],
+  );
   const canApprove =
     !!job.candidate?.present &&
     !review?.truncated &&
@@ -76,10 +80,11 @@ export function ProductReview({
     !!category.trim() &&
     !!role &&
     acknowledged &&
-    approved.length > 0;
+    (approved.length > 0 || approvedQualifiedIds.length > 0);
   function confirm(action: 'approve' | 'reject' | 'defer') {
     const selections: ProductionPromotionDecisions = {
       approved_fields: approved,
+      approved_qualified_value_ids: approvedQualifiedIds,
       excluded_fields: Object.keys(decisions).filter((field) => decisions[field] === 'exclude'),
       excluded_fact_ids: Object.keys(factDecisions).filter((id) => factDecisions[id] === 'exclude'),
       reviewed_evidence_fact_ids: Object.keys(factDecisions).filter(
@@ -126,8 +131,8 @@ export function ProductReview({
     <section>
       <h2>Human product review</h2>
       <p>
-        Compare each proposed field with the authoritative source. Extracted claims remain
-        provisional until you review them.
+        Compare each proposed field and qualified assertion with the authoritative source. Extracted
+        claims remain provisional until you review them.
       </p>
       {job.candidate && !job.candidate.present && (
         <p>
@@ -142,6 +147,54 @@ export function ProductReview({
         </p>
       )}
       <fieldset disabled={!editable || busy || !!pending}>
+        {review?.qualified_values?.map((assertion) => (
+          <article key={assertion.id}>
+            <h3>Qualified assertion: {assertion.target}</h3>
+            <p>ID: {assertion.id}</p>
+            <div>
+              Value: <ReviewValue value={assertion.value} />
+            </div>
+            <div>
+              Qualifiers: <ReviewValue value={assertion.qualifiers} />
+            </div>
+            <div>
+              Candidate supporting facts: <ReviewValue value={assertion.candidate_fact_ids} />
+            </div>
+            {assertion.proposals.map((proposal) => (
+              <div className="source-evidence" key={proposal.id}>
+                <p>
+                  Proposal: {proposal.id} · {proposal.disposition}
+                </p>
+                {proposal.evidence.map((fact) => (
+                  <div key={fact.id}>
+                    <SourceLink uri={fact.source_uri} />
+                    <p>
+                      {fact.document ?? 'Document title unavailable'} · {fact.label}
+                    </p>
+                    <ReviewValue value={fact.raw_value} />
+                    <ReviewValue value={fact.locators} />
+                    <p>
+                      Supporting fact: {fact.id} · {fact.qualification}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ))}
+            <label>
+              <input
+                type="checkbox"
+                checked={qualifiedSelections[assertion.id] ?? false}
+                onChange={(event) =>
+                  setQualifiedSelections({
+                    ...qualifiedSelections,
+                    [assertion.id]: event.target.checked,
+                  })
+                }
+              />
+              Approve qualified assertion {assertion.id}
+            </label>
+          </article>
+        ))}
         {review?.fields.map((field) => (
           <article key={field.path}>
             <h3>Proposed field: {field.path}</h3>
@@ -352,7 +405,8 @@ export function ProductReview({
                     checked={acknowledged}
                     onChange={(e) => setAcknowledged(e.target.checked)}
                   />
-                  I reviewed the supporting source evidence for the fields I am approving.
+                  I reviewed the supporting source evidence for the fields and assertions I am
+                  approving.
                 </label>
               </>
             )}
@@ -362,7 +416,7 @@ export function ProductReview({
             </label>
             {job.candidate?.present && (
               <button disabled={!canApprove} onClick={() => confirm('approve')}>
-                Approve selected fields
+                Approve selected assertions
               </button>
             )}
             <button disabled={!reviewer.trim()} onClick={() => confirm('reject')}>

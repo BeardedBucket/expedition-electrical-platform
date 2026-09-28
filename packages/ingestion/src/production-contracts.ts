@@ -3,7 +3,7 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import { createHash } from 'node:crypto';
 import productionIngestionSchema from '../../../data/schemas/production-ingestion.schema.json' with { type: 'json' };
-import type { JsonObject, JsonValue } from './contracts.js';
+import type { CanonicalQualifiedValue, JsonObject, JsonValue } from './contracts.js';
 import type {
   ExtractionCapabilityState,
   ExtractionRemediationState,
@@ -689,6 +689,7 @@ export interface SemanticProposal {
   readonly id: string;
   readonly target: string;
   readonly proposed_value?: JsonValue;
+  readonly qualified_value?: CanonicalQualifiedValue;
   readonly evidence_refs: readonly ArtifactReference[];
   readonly fact_refs?: readonly ArtifactReference[];
   readonly disposition: ProposalDisposition;
@@ -725,6 +726,7 @@ export type ApprovalDecision = 'approved' | 'rejected' | 'deferred';
 /** Human selections for a later new-product promotion review. */
 export interface ProductionPromotionDecisions {
   readonly approved_fields: readonly string[];
+  readonly approved_qualified_value_ids?: readonly string[];
   readonly excluded_fields?: readonly string[];
   readonly excluded_fact_ids?: readonly string[];
   readonly reviewed_evidence_fact_ids?: readonly string[];
@@ -1880,6 +1882,7 @@ export const validateProductionApproval = (value: unknown): readonly string[] =>
   const requiredKeys = ['approved_fields', 'evidence_acknowledged', 'product_role', 'category'];
   const allowedKeys = new Set([
     ...requiredKeys,
+    'approved_qualified_value_ids',
     'excluded_fields',
     'excluded_fact_ids',
     'reviewed_evidence_fact_ids',
@@ -1891,6 +1894,7 @@ export const validateProductionApproval = (value: unknown): readonly string[] =>
   }
   for (const key of [
     'approved_fields',
+    'approved_qualified_value_ids',
     'excluded_fields',
     'excluded_fact_ids',
     'reviewed_evidence_fact_ids',

@@ -4,6 +4,28 @@ export interface JsonObject {
   readonly [key: string]: JsonValue;
 }
 
+/** Mirrors the target-discriminated canonical component schema. */
+export type CanonicalQualifiedValue = JsonObject &
+  (
+    | {
+        readonly id: string;
+        readonly target: 'electrical.input_voltage_range_v';
+        readonly value: { readonly min: number; readonly max: number };
+        readonly qualifiers: { readonly electrical_domain: 'ac' | 'dc' };
+      }
+    | {
+        readonly id: string;
+        readonly target: 'dimensions_mm';
+        readonly value: { readonly x: number; readonly y: number; readonly z: number };
+        readonly qualifiers: {
+          readonly physical_scope: {
+            readonly kind: 'physical_body';
+            readonly exclusions: readonly ('connectors' | 'mounting_accessories')[];
+          };
+        };
+      }
+  );
+
 export type ProductSourceType =
   | 'manufacturer_product_page'
   | 'manufacturer_datasheet'
@@ -112,6 +134,7 @@ export interface ProductFact {
   readonly raw_unit?: string;
   readonly normalized_value?: JsonValue;
   readonly normalized_unit?: string;
+  readonly qualified_value?: CanonicalQualifiedValue;
   readonly source_locator?: SourceLocator;
   readonly extraction_method: ExtractionMethod;
   readonly transformation_notes?: string;
@@ -140,6 +163,7 @@ export interface ProductCandidate {
   readonly fact_ids: readonly string[];
   readonly component_data: JsonObject;
   readonly field_evidence: Readonly<Record<string, readonly string[]>>;
+  readonly qualified_value_evidence?: Readonly<Record<string, readonly string[]>>;
   readonly topology_evidence?: Readonly<Record<string, readonly string[]>>;
   readonly review_reasons?: readonly string[];
   readonly notes?: string;

@@ -14,9 +14,10 @@ import {
   type QualifiedFactWholeIntakeReconciliationResult,
 } from './reconciliation.js';
 import { parseExactUnitValue } from './units.js';
-import type { JsonValue } from './contracts.js';
+import type { CanonicalQualifiedValue, JsonValue } from './contracts.js';
+import { parseContextualMeasurement } from './qualified-values.js';
 
-const METHOD_VERSION = 'production-semantic-bridge.v3';
+const METHOD_VERSION = 'production-semantic-bridge.v4';
 
 export interface ProductionSemanticBridgeInput {
   readonly facts: readonly QualifiedFactArtifact[];
@@ -68,13 +69,19 @@ export const buildProductionSemanticProposals = (
         fact.metadata.derived_value !== undefined ||
         fact.metadata.derivation !== undefined ||
         fact.metadata.alternative_interpretations !== undefined ||
-        /\b(?:vac|vdc)\b/i.test(fact.metadata.source_unit ?? '') ||
-        (typeof fact.metadata.raw_value === 'string' &&
-          /\b(?:vac|vdc)\b/i.test(fact.metadata.raw_value)),
+        fact.evidence?.some((evidence) => evidence.role === 'qualifier') ||
+        ((/\b(?:vac|vdc)\b/i.test(fact.metadata.source_unit ?? '') ||
+          /\b(?:vac|vdc)\b/i.test(String(fact.metadata.raw_value))) &&
+          !parseContextualMeasurement(
+            target,
+            String(fact.metadata.raw_value),
+            fact.metadata.source_unit,
+          )?.qualifiers),
     );
 
     let disposition: SemanticProposal['disposition'] = 'unresolved';
     let proposedValue: JsonValue | undefined;
+    let qualifiedValue: CanonicalQualifiedValue | undefined;
     let rationale = reason;
     if (outcome === 'conflict') {
       disposition = 'conflicting';
@@ -113,6 +120,32 @@ export const buildProductionSemanticProposals = (
         ) {
           disposition = 'mapped';
           proposedValue = values[0];
+          const contexts = facts.map((fact) =>
+            parseContextualMeasurement(
+              target,
+              String(fact.metadata.raw_value),
+              fact.metadata.source_unit,
+            ),
+          );
+          if (contexts[0]?.qualifiers) {
+            if (
+              !contexts.every(
+                (context) =>
+                  deterministicSerialize(context?.qualifiers) ===
+                  deterministicSerialize(contexts[0]?.qualifiers),
+              )
+            ) {
+              disposition = 'unresolved';
+              proposedValue = undefined;
+            } else {
+              qualifiedValue = {
+                id: `qualified-value.${artifactDigest({ target, value: proposedValue, qualifiers: contexts[0].qualifiers, fact_ids: [...new Set(facts.map((fact) => fact.id))].sort() }).slice(7, 31)}`,
+                target,
+                value: proposedValue,
+                qualifiers: contexts[0].qualifiers,
+              } as CanonicalQualifiedValue;
+            }
+          }
           rationale = `${reason}; explicit source-label mapping and safely qualified values`;
         } else {
           rationale = `${reason}; mapped values cannot be safely normalized to one value`;
@@ -166,6 +199,7 @@ export const buildProductionSemanticProposals = (
       target,
       disposition,
       ...(proposedValue !== undefined ? { proposed_value: proposedValue } : {}),
+      ...(qualifiedValue ? { qualified_value: qualifiedValue } : {}),
       ...(alternatives ? { alternatives } : {}),
       fact_refs: factRefs,
       evidence_refs: stableRefs,

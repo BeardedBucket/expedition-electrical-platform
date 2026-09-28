@@ -20,6 +20,8 @@ import {
   type SourceAcquisitionArtifact,
 } from './production-contracts.js';
 import { parseExactUnitValue } from './units.js';
+import { resolveCanonicalField } from './field-mapping.js';
+import { parseContextualMeasurement } from './qualified-values.js';
 
 export const SOURCE_AUTHORITY_POLICY = {
   order: {
@@ -68,6 +70,7 @@ export interface QualifiedFactComparisonGroupKey {
   readonly reconciliation_scope: QualifiedFactReconciliationScope;
   readonly applicability: QualifiedFactApplicabilityIdentity;
   readonly source_wording: string;
+  readonly qualifier_context?: JsonValue;
 }
 
 export type QualifiedFactReconciliationScope =
@@ -176,7 +179,8 @@ const hasUnsafeObservationContext = (fact: QualifiedFactArtifact): boolean =>
   fact.metadata.revision_context !== undefined ||
   fact.metadata.derived_value !== undefined ||
   fact.metadata.derivation !== undefined ||
-  fact.metadata.alternative_interpretations !== undefined;
+  fact.metadata.alternative_interpretations !== undefined ||
+  (fact.evidence?.some((evidence) => evidence.role === 'qualifier') ?? false);
 
 const explicitElectricalDomain = (fact: QualifiedFactArtifact): string | undefined => {
   const embeddedUnit =
@@ -212,8 +216,8 @@ const canonicalValuesMechanicallyEqual = (left: number, right: number): boolean 
 };
 
 /**
- * Compares only exact scalar qualified-fact values. It intentionally leaves
- * qualified, contextual, and domain-specific statements unresolved for later stages.
+ * Compares exact scalars and the two explicitly supported contextual structures.
+ * Unsupported contextual statements remain unresolved.
  */
 export const compareQualifiedFactExactScalars = (
   left: QualifiedFactArtifact,
@@ -233,13 +237,26 @@ export const compareQualifiedFactExactScalars = (
 
   const leftDomain = explicitElectricalDomain(left);
   const rightDomain = explicitElectricalDomain(right);
-  if (
-    hasUnsafeObservationContext(left) ||
-    hasUnsafeObservationContext(right) ||
-    leftDomain !== rightDomain
-  ) {
+  if (hasUnsafeObservationContext(left) || hasUnsafeObservationContext(right)) {
     return result('unresolved');
   }
+  const leftContext = sourceContext(left);
+  const rightContext = sourceContext(right);
+  if (leftContext?.qualifiers || rightContext?.qualifiers) {
+    if (
+      !leftContext ||
+      !rightContext ||
+      deterministicSerialize(leftContext.qualifiers) !==
+        deterministicSerialize(rightContext.qualifiers)
+    )
+      return result('unresolved');
+    return result(
+      deterministicSerialize(leftContext.value) === deterministicSerialize(rightContext.value)
+        ? 'equal'
+        : 'different',
+    );
+  }
+  if (leftDomain !== rightDomain) return result('unresolved');
   const leftValue = parseExactUnitValue(left.metadata.raw_value, left.metadata.source_unit);
   const rightValue = parseExactUnitValue(right.metadata.raw_value, right.metadata.source_unit);
   if (!leftValue || !rightValue) return result('unresolved');
@@ -538,6 +555,19 @@ const qualifiedFactReconciliationScope = (
  * `metadata.source_wording` evidence field. The key field name is preserved
  * for API stability; only its source has changed.
  */
+const sourceContext = (fact: QualifiedFactArtifact) => {
+  const mapping = fact.metadata.source_label
+    ? resolveCanonicalField(fact.metadata.source_label)
+    : undefined;
+  return mapping
+    ? parseContextualMeasurement(
+        mapping.canonical_field,
+        String(fact.metadata.raw_value),
+        fact.metadata.source_unit,
+      )
+    : undefined;
+};
+
 const qualifiedFactComparisonKey = (
   fact: QualifiedFactArtifact,
   reconciliation_scope: QualifiedFactReconciliationScope,
@@ -546,11 +576,14 @@ const qualifiedFactComparisonKey = (
   reconciliation_scope,
   applicability: qualifiedFactApplicabilityIdentity(fact.metadata.applicability),
   source_wording: normalizeQualifiedFactWording(comparisonLabel),
+  ...(sourceContext(fact)?.qualifiers
+    ? { qualifier_context: sourceContext(fact)!.qualifiers as JsonValue }
+    : {}),
 });
 
 /**
- * Groups qualified manufacturer statements only when their pre-semantic evidence
- * identity matches. Values remain unexamined evidence for a later comparison pass.
+ * Groups manufacturer statements by established scope, label, applicability, and
+ * recognized typed qualifier context. Values never form part of the group key.
  */
 export const groupQualifiedFactsForReconciliation = (
   input: QualifiedFactGroupingInput,
@@ -804,14 +837,21 @@ export const reconcileProductFacts = (
 
   const fields: ReconciledField[] = [];
   const targetKeys = [
-    ...new Set(normalized.map((item) => `${item.target_kind}::${item.canonical_field}`)),
+    ...new Set(
+      normalized
+        .filter((item) => !item.fact.qualified_value)
+        .map((item) => `${item.target_kind}::${item.canonical_field}`),
+    ),
   ].sort();
   for (const targetKey of targetKeys) {
     const separator = targetKey.indexOf('::');
     const targetKind = targetKey.slice(0, separator) as NormalizedProductFact['target_kind'];
     const field = targetKey.slice(separator + 2);
     const facts = normalized.filter(
-      (item) => item.target_kind === targetKind && item.canonical_field === field,
+      (item) =>
+        !item.fact.qualified_value &&
+        item.target_kind === targetKind &&
+        item.canonical_field === field,
     );
     const values = [
       ...new Map(facts.map((item) => [stableJson(item.normalized_value), item])).values(),

@@ -82,6 +82,7 @@ export const productionApprovalToPromotionReview = (
 
   const projected = new Set(bridge.projected_proposal_ids);
   const support = new Map<string, string[]>();
+  const qualifiedSupport = new Map<string, string[]>();
   for (const proposal of proposals) {
     const ids = bridge.proposal_fact_ids[proposal.id];
     if (!projected.has(proposal.id)) {
@@ -103,7 +104,19 @@ export const productionApprovalToPromotionReview = (
       )
     )
       throw new Error('Projected proposal has invalid reviewed field evidence.');
-    support.set(proposal.target, [...(support.get(proposal.target) ?? []), ...ids]);
+    const collection = proposal.qualified_value ? qualifiedSupport : support;
+    const key = proposal.qualified_value?.id ?? proposal.target;
+    if (
+      proposal.qualified_value &&
+      !same(
+        (candidate.component_data.qualified_values as unknown[] | undefined)?.find(
+          (entry) => (entry as { id?: string }).id === key,
+        ),
+        proposal.qualified_value,
+      )
+    )
+      throw new Error('Reviewed qualified assertion differs from candidate state.');
+    collection.set(key, [...(collection.get(key) ?? []), ...ids]);
   }
   if (
     projected.size !== bridge.projected_proposal_ids.length ||
@@ -117,7 +130,31 @@ export const productionApprovalToPromotionReview = (
   )
     throw new Error('Candidate field evidence does not match reviewed production proposals.');
 
+  const qualifiedEvidence = candidate.qualified_value_evidence ?? {};
+  if (
+    !same(sorted([...qualifiedSupport.keys()]), sorted(Object.keys(qualifiedEvidence))) ||
+    [...qualifiedSupport].some(
+      ([id, ids]) => !same(sorted(ids), sorted(qualifiedEvidence[id] ?? [])),
+    )
+  )
+    throw new Error('Candidate qualified evidence differs from reviewed proposals.');
   const decisions = approval.promotion_decisions!;
+  const selectedQualified = decisions.approved_qualified_value_ids ?? [];
+  if (
+    new Set(selectedQualified).size !== selectedQualified.length ||
+    selectedQualified.some((id) => !qualifiedSupport.has(id))
+  )
+    throw new Error('Qualified-value selection must name distinct reviewed IDs.');
+  const evidenceOnlyOrExcluded = new Set([
+    ...(decisions.excluded_fact_ids ?? []),
+    ...(decisions.reviewed_evidence_fact_ids ?? []),
+  ]);
+  if (
+    selectedQualified.some((id) =>
+      qualifiedEvidence[id].some((factId) => evidenceOnlyOrExcluded.has(factId)),
+    )
+  )
+    throw new Error('Approved qualified assertions cannot use excluded or evidence-only facts.');
   const candidateFields = new Set(Object.keys(candidate.field_evidence));
   const approved = new Set(decisions.approved_fields);
   const excluded = new Set(decisions.excluded_fields ?? []);
@@ -173,6 +210,9 @@ export const productionApprovalToPromotionReview = (
     reviewer_id: approval.reviewer_id,
     reviewed_at: approval.reviewed_at,
     approved_fields: sorted(decisions.approved_fields),
+    ...(decisions.approved_qualified_value_ids
+      ? { approved_qualified_value_ids: sorted(decisions.approved_qualified_value_ids) }
+      : {}),
     ...(decisions.excluded_fields ? { excluded_fields: sorted(decisions.excluded_fields) } : {}),
     ...(decisions.excluded_fact_ids
       ? { excluded_fact_ids: sorted(decisions.excluded_fact_ids) }

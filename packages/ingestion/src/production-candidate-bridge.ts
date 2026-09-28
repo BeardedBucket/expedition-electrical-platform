@@ -234,7 +234,28 @@ export const buildProductionProductCandidate = (
         reason = `legacy normalization: ${normalized.issues.map((issue) => issue.code).join(', ')}`;
         break;
       }
-      staged.push({ source: sourceResult.source, fact: legacyFact, normalized: normalized.fact });
+      if (proposal.qualified_value) {
+        if (
+          !normalized.fact.fact.qualified_value ||
+          deterministicSerialize({
+            ...normalized.fact.fact.qualified_value,
+            id: proposal.qualified_value.id,
+          }) !== deterministicSerialize(proposal.qualified_value)
+        ) {
+          reason = 'qualified value differs from source normalization';
+          break;
+        }
+        const projectedFact = {
+          ...normalized.fact.fact,
+          qualified_value: proposal.qualified_value,
+        };
+        staged.push({
+          source: sourceResult.source,
+          fact: projectedFact,
+          normalized: { ...normalized.fact, fact: projectedFact },
+        });
+      } else
+        staged.push({ source: sourceResult.source, fact: legacyFact, normalized: normalized.fact });
     }
     if (reason) {
       nonProjected.push({ proposal_id: proposal.id, reason });

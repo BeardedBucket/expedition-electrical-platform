@@ -35,7 +35,7 @@ const post = (url: string, body: unknown) =>
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
-async function fixture(candidate = true, resolved = false) {
+async function fixture(candidate: boolean | 'qualified' | 'mixed' = true, resolved = false) {
   const root = await mkdtemp(join(tmpdir(), 'human-review-'));
   roots.push(root);
   const service = fixtureService(join(root, 'jobs'), candidate);
@@ -50,6 +50,7 @@ async function fixture(candidate = true, resolved = false) {
   const url = `http://127.0.0.1:${address.port}/api/ingestion/jobs`;
   const intake = { ...input } as Partial<typeof input>;
   if (resolved) delete intake.official_product_uri;
+  if (typeof candidate === 'string') delete intake.manufacturer_part_number;
   const created = await (await post(url, intake)).json();
   const id: string = created.summary.id;
   if (resolved) {
@@ -78,6 +79,127 @@ async function fixture(candidate = true, resolved = false) {
   return { root, canonical, service, url: `${url}/${id}`, id, job, detail, human, selections };
 }
 describe('human review and guarded finalization API', () => {
+  it('approves offline Ekrano-shaped qualified-only evidence through the real operator API, then separately finalizes', async () => {
+    const f = await fixture('qualified');
+    const review = f.detail.product_review;
+    expect(review.fields).toEqual([]);
+    expect(review.qualified_values).toHaveLength(2);
+    const voltage = review.qualified_values.find(
+      (a: { target: string }) => a.target === 'electrical.input_voltage_range_v',
+    );
+    const dimensions = review.qualified_values.find(
+      (a: { target: string }) => a.target === 'dimensions_mm',
+    );
+    expect(voltage).toMatchObject({
+      value: { min: 8, max: 70 },
+      qualifiers: { electrical_domain: 'dc' },
+    });
+    expect(dimensions).toMatchObject({
+      value: { x: 187, y: 29.8, z: 124 },
+      qualifiers: {
+        physical_scope: {
+          kind: 'physical_body',
+          exclusions: ['connectors', 'mounting_accessories'],
+        },
+      },
+    });
+    for (const assertion of review.qualified_values) {
+      expect(assertion.candidate_fact_ids.length).toBeGreaterThan(0);
+      expect(assertion.proposals[0].evidence[0].source_uri).toContain('https://');
+      expect(assertion.proposals[0].evidence[0].locators.length).toBeGreaterThan(0);
+    }
+    expect(f.job.preparation?.status).toBe('review_ready');
+    if (f.job.preparation?.status !== 'review_ready') throw new Error('Not prepared');
+    expect(f.job.preparation.bridge.candidate?.identity.manufacturer_part_number).toBeUndefined();
+    expect(f.job.preparation.bridge.candidate?.component_data.electrical).toBeUndefined();
+    expect(f.job.preparation.bridge.candidate?.component_data.dimensions_mm).toBeUndefined();
+    const human = {
+      ...f.human,
+      promotion_decisions: {
+        ...f.selections,
+        approved_fields: [],
+        approved_qualified_value_ids: review.qualified_values.map((a: { id: string }) => a.id),
+      },
+    };
+    const approval = constructApproval(f.job, 'approved', human);
+    expect(approval.review_package_snapshot).toBe(
+      reviewPackageSnapshot(f.job.preparation.review_package),
+    );
+    expect((await post(`${f.url}/review/approve`, human)).status).toBe(200);
+    expect(await readdir(f.canonical)).toEqual([]);
+    expect((await f.service.getJob(f.id)).finalization_request).toBeUndefined();
+    expect((await post(`${f.url}/finalize`, {})).status).toBe(400);
+    expect((await post(`${f.url}/finalize`, { write: true })).status).toBe(200);
+    const durable = await f.service.getJob(f.id);
+    expect(durable.final_result?.promotion.result.status).toBe('success');
+    expect(durable.final_result?.write_result.status).toBe('written');
+    const component = durable.final_result?.promotion.result.proposal;
+    expect(component?.qualified_values).toHaveLength(2);
+    expect(component?.electrical).toBeUndefined();
+    expect(component?.dimensions_mm).toBeUndefined();
+    expect(component?.verification_status).toBe('unverified');
+  });
+  it.each(['fields', 'qualified', 'both'] as const)(
+    'mixed candidate explicitly selects %s',
+    async (selection) => {
+      const f = await fixture('mixed');
+      const ids = f.detail.product_review.qualified_values.map((a: { id: string }) => a.id);
+      expect(ids).toHaveLength(2);
+      const human = {
+        ...f.human,
+        promotion_decisions: {
+          ...f.selections,
+          approved_fields: selection === 'qualified' ? [] : f.selections.approved_fields,
+          approved_qualified_value_ids: selection === 'fields' ? [] : ids,
+        },
+      };
+      expect((await post(`${f.url}/review/approve`, human)).status).toBe(200);
+      expect(await readdir(f.canonical)).toEqual([]);
+      await post(`${f.url}/finalize`, { write: true });
+      const proposal = (await f.service.getJob(f.id)).final_result?.promotion.result.proposal;
+      expect(proposal?.qualified_values === undefined).toBe(selection === 'fields');
+      expect(proposal?.electrical === undefined).toBe(selection === 'qualified');
+    },
+  );
+  it.each(['reject', 'defer'] as const)(
+    'qualified-only %s needs no promotion selections',
+    async (action) => {
+      const f = await fixture('qualified');
+      expect((await post(`${f.url}/review/${action}`, { reviewer_id: 'Human' })).status).toBe(200);
+      expect((await f.service.getJob(f.id)).approval?.promotion_decisions).toBeUndefined();
+      expect(await readdir(f.canonical)).toEqual([]);
+    },
+  );
+  it('guards qualified selections and incompatible evidence decisions', async () => {
+    const f = await fixture('qualified');
+    const assertion = f.detail.product_review.qualified_values[0];
+    for (const change of [
+      { approved_qualified_value_ids: [] },
+      { approved_qualified_value_ids: ['unknown'] },
+      { approved_qualified_value_ids: [assertion.id, assertion.id] },
+      { approved_qualified_value_ids: [42] },
+      { approved_fields: ['qualified_values'] },
+      { approved_fields: ['qualified_values.0'] },
+      {
+        approved_qualified_value_ids: [assertion.id],
+        excluded_fact_ids: assertion.candidate_fact_ids,
+      },
+      {
+        approved_qualified_value_ids: [assertion.id],
+        reviewed_evidence_fact_ids: assertion.candidate_fact_ids,
+      },
+    ])
+      expect(
+        (
+          await post(`${f.url}/review/approve`, {
+            ...f.human,
+            promotion_decisions: { ...f.selections, approved_fields: [], ...change },
+          })
+        ).status,
+      ).toBe(400);
+    expect(await readdir(f.canonical)).toEqual([]);
+  });
+
   it('derives exact binding, persists approval across restart, and does not finalize', async () => {
     const f = await fixture();
     const response = await post(`${f.url}/review/approve`, f.human);

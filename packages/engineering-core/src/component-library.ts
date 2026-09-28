@@ -43,6 +43,25 @@ export interface ComponentRequirementRef extends Record<string, unknown> {
   readonly note?: string;
 }
 
+export type CanonicalQualifiedValue =
+  | {
+      readonly id: string;
+      readonly target: 'electrical.input_voltage_range_v';
+      readonly value: { readonly min: number; readonly max: number };
+      readonly qualifiers: { readonly electrical_domain: 'ac' | 'dc' };
+    }
+  | {
+      readonly id: string;
+      readonly target: 'dimensions_mm';
+      readonly value: { readonly x: number; readonly y: number; readonly z: number };
+      readonly qualifiers: {
+        readonly physical_scope: {
+          readonly kind: 'physical_body';
+          readonly exclusions: readonly ('connectors' | 'mounting_accessories')[];
+        };
+      };
+    };
+
 export interface ComponentLibraryRange {
   readonly min: number;
   readonly max: number;
@@ -373,6 +392,7 @@ export interface ComponentLibraryAdvisoryReference extends Record<string, unknow
 }
 
 export interface ComponentLibraryRecord {
+  readonly qualified_values?: readonly CanonicalQualifiedValue[];
   readonly id: string;
   readonly manufacturer: string;
   readonly model: string;
@@ -751,6 +771,20 @@ const validateEngineeringConstraints = (input: unknown): readonly string[] => {
     }
   }
 
+  if (Array.isArray(record.qualified_values)) {
+    const ids = new Set<unknown>();
+    for (const raw of record.qualified_values) {
+      if (!raw || typeof raw !== 'object') continue;
+      const entry = raw as CanonicalQualifiedValue;
+      if (ids.has(entry.id)) addMessage('qualified_values', 'duplicate qualified-value ID');
+      ids.add(entry.id);
+      if (
+        entry.target === 'electrical.input_voltage_range_v' &&
+        entry.value?.min > entry.value?.max
+      )
+        addMessage('qualified_values', 'range min must not exceed max');
+    }
+  }
   const dimensions = record.dimensions_mm;
   if (dimensions !== null && dimensions !== undefined && typeof dimensions === 'object') {
     const dimensionsRecord = dimensions as Record<string, unknown>;

@@ -3,6 +3,12 @@ import addFormats from 'ajv-formats';
 import candidateSchema from '../../../data/schemas/product-candidate.schema.json' with { type: 'json' };
 import factSchema from '../../../data/schemas/product-fact.schema.json' with { type: 'json' };
 import sourceSchema from '../../../data/schemas/product-source.schema.json' with { type: 'json' };
+import {
+  isCanonicalQualifiedValue,
+  parseContextualMeasurement,
+  qualifiedValueCollectionValid,
+} from './qualified-values.js';
+import { deterministicSerialize } from './production-contracts.js';
 import type {
   JsonObject,
   JsonValue,
@@ -11,6 +17,7 @@ import type {
   ProductSource,
   TopologyTarget,
 } from './contracts.js';
+import { isSourceApplicable } from './contracts.js';
 
 export type IngestionIssueCategory = 'invalid' | 'unresolved';
 export interface IngestionIssue {
@@ -462,6 +469,78 @@ export const validateProductCandidate = (
       );
   });
 
+  const qualified = candidate.component_data.qualified_values;
+  const qualifiedEvidence = candidate.qualified_value_evidence ?? {};
+  if (!qualifiedValueCollectionValid(qualified))
+    issues.push(
+      issue(
+        'invalid_qualified_values',
+        'invalid',
+        'qualified_values',
+        'Qualified assertions require unique IDs and valid target/value/qualifiers.',
+      ),
+    );
+  const assertions = Array.isArray(qualified) ? qualified.filter(isCanonicalQualifiedValue) : [];
+  const qualifiedFactIds = new Set<string>();
+  if (Object.keys(qualifiedEvidence).some((id) => !assertions.some((a) => a.id === id)))
+    issues.push(
+      issue(
+        'dangling_qualified_value_evidence',
+        'invalid',
+        'qualified_value_evidence',
+        'Evidence ID has no assertion.',
+      ),
+    );
+  for (const assertion of assertions) {
+    const ids = qualifiedEvidence[assertion.id] ?? [];
+    if (!ids.length)
+      issues.push(
+        issue(
+          'missing_qualified_value_evidence',
+          'invalid',
+          assertion.id,
+          'Assertion requires ID-bound evidence.',
+        ),
+      );
+    for (const id of ids) {
+      const fact = factById.get(id);
+      const source = fact ? sources.find((source) => source.id === fact.source_id) : undefined;
+      const context = fact
+        ? parseContextualMeasurement(assertion.target, String(fact.raw_value), fact.raw_unit)
+        : undefined;
+      if (
+        !fact ||
+        !candidateFactIds.has(id) ||
+        !candidate.source_ids.includes(fact.source_id) ||
+        !isSourceApplicable(source) ||
+        qualifiedFactIds.has(id) ||
+        fact.field !== assertion.target ||
+        deterministicSerialize(context?.value) !== deterministicSerialize(assertion.value) ||
+        deterministicSerialize(context?.qualifiers) !==
+          deterministicSerialize(assertion.qualifiers) ||
+        deterministicSerialize(fact.qualified_value) !== deterministicSerialize(assertion) ||
+        Object.values(fieldEvidence).some((directIds) => directIds.includes(id))
+      ) {
+        issues.push(
+          issue(
+            'qualified_value_evidence_mismatch',
+            'invalid',
+            assertion.id,
+            'Evidence must support the complete assertion and cannot also back a direct field.',
+          ),
+        );
+      } else if (fact.review_required || fact.fact_state !== 'verified')
+        issues.push(
+          issue(
+            'fact_requires_review',
+            'unresolved',
+            assertion.id,
+            'Qualified assertion requires review.',
+          ),
+        );
+      qualifiedFactIds.add(id);
+    }
+  }
   const referencedFactIds = new Set<string>();
   for (const [field, factIds] of Object.entries(fieldEvidence)) {
     if (!fieldPath.test(field))
@@ -619,6 +698,7 @@ export const validateProductCandidate = (
     const base = field.split('.')[0];
     if (
       [
+        'qualified_values',
         'capabilities',
         'ports',
         'power_paths',

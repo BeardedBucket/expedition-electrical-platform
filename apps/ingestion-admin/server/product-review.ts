@@ -65,10 +65,14 @@ export function constructApproval(
         'No promotable candidate was produced. Reject or defer this job.',
       );
     const selections = approval.promotion_decisions;
-    if (!selections?.approved_fields.length || selections.evidence_acknowledged !== true)
+    if (
+      !selections ||
+      (!selections.approved_fields.length && !selections.approved_qualified_value_ids?.length) ||
+      selections.evidence_acknowledged !== true
+    )
       throw new ProductReviewError(
         400,
-        'Explicitly approve at least one field and acknowledge its source evidence.',
+        'Explicitly approve at least one field or qualified assertion and acknowledge its source evidence.',
       );
     if (!productRoles.includes(selections.product_role))
       throw new ProductReviewError(400, 'Choose a supported product role.');

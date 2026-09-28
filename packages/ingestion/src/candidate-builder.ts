@@ -54,6 +54,21 @@ export const buildProductCandidate = (input: ProductCandidateBuildInput): Produc
   });
   const componentData: JsonObject = {};
   const fieldEvidence: Record<string, readonly string[]> = {};
+  const qualifiedEvidence: Record<string, readonly string[]> = {};
+  const qualifiedValues = new Map<string, JsonObject>();
+  for (const item of input.normalized_facts) {
+    const assertion = item.fact.qualified_value;
+    if (!assertion || !candidateFacts.some((fact) => fact.id === item.fact.id)) continue;
+    qualifiedValues.set(assertion.id, assertion);
+    qualifiedEvidence[assertion.id] = [
+      ...(qualifiedEvidence[assertion.id] ?? []),
+      item.fact.id,
+    ].sort();
+  }
+  if (qualifiedValues.size)
+    (componentData as MutableJsonObject).qualified_values = [...qualifiedValues.values()].sort(
+      (a, b) => String(a.id).localeCompare(String(b.id)),
+    );
   reconciliation.fields.forEach((field) => {
     if (field.target_kind === 'canonical') {
       setPath(componentData as MutableJsonObject, field.field, field.value);
@@ -95,6 +110,7 @@ export const buildProductCandidate = (input: ProductCandidateBuildInput): Produc
     fact_ids: input.facts.map((fact) => fact.id).sort(),
     component_data: componentData,
     field_evidence: fieldEvidence,
+    ...(qualifiedValues.size ? { qualified_value_evidence: qualifiedEvidence } : {}),
     ...(input.topology_evidence ? { topology_evidence: input.topology_evidence } : {}),
     ...(reviewReasons.length ? { review_reasons: reviewReasons } : {}),
   };

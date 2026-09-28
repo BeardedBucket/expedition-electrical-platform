@@ -110,6 +110,14 @@ export const validateDataRoot = async (dataRoot = join(process.cwd(), 'data')) =
         throw new Error(`${relativePath} failed validation:\n${ajv.errorsText(validate.errors)}`);
       }
 
+      const qualifiedIds = new Set();
+      for (const assertion of document.qualified_values ?? []) {
+        if (qualifiedIds.has(assertion.id)) {
+          throw new Error(`${relativePath} has duplicate qualified-value ID '${assertion.id}'.`);
+        }
+        qualifiedIds.add(assertion.id);
+      }
+
       const componentId = typeof document.id === 'string' ? document.id.trim() : '';
       if (!componentId) {
         throw new Error(`${relativePath} is missing a non-empty component id.`);

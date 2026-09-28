@@ -87,13 +87,14 @@ describe('explicit ordered existing-semantic mappings', () => {
     });
   });
   it('does not discard an AC/DC source-unit qualifier behind an embedded plain V', () => {
-    expect(normalize('Supply voltage', '8-70 V', 'VDC').fact).toBeUndefined();
-    expect(normalize('Supply voltage', '8-70 V', 'VAC').fact).toBeUndefined();
+    expect(
+      normalize('Supply voltage', '8-70 V', 'VDC').fact?.fact.qualified_value?.qualifiers,
+    ).toEqual({ electrical_domain: 'dc' });
+    expect(
+      normalize('Supply voltage', '8-70 V', 'VAC').fact?.fact.qualified_value?.qualifiers,
+    ).toEqual({ electrical_domain: 'ac' });
   });
   it.each([
-    ['Supply voltage', '8 - 70V DC'],
-    ['Supply voltage', '8–70VDC'],
-    ['Supply voltage', '8-70 VAC'],
     ['Supply voltage', '8 / 70 V'],
     ['Supply voltage', '70-8 V'],
     ['Supply voltage', '-8 to 70 V'],
@@ -103,11 +104,6 @@ describe('explicit ordered existing-semantic mappings', () => {
     ['Supply voltage', '8-70 V typical'],
     ['Supply voltage', '8-70 V | 100-240 V'],
     ['Supply voltage', '24 V'],
-    [
-      'Outer dimensions (h x w x d)',
-      '124 x 187 x 29.8 mm | 4.88 x 7.36 x 1.17 in (without connectors and mounting accessories)',
-    ],
-    ['Outer dimensions (h x w x d)', '120 x 180 x 30 mm (without connectors)'],
     ['Outer dimensions (h x w x d)', '120 x 180 mm'],
     ['Outer dimensions (h x w x d)', '0 x 180 x 30 mm'],
     ['Outer dimensions (h x w x d)', '120 x 180 x 30'],
@@ -279,18 +275,20 @@ describe('real-label synthetic production acceptance', () => {
     expect(
       result.proposals.filter((proposal) => proposal.disposition === 'unsupported'),
     ).toHaveLength(28);
-    expect(
-      result.proposals.filter((proposal) => proposal.disposition === 'unresolved'),
-    ).toHaveLength(2);
+    expect(result.proposals.filter((proposal) => proposal.disposition === 'mapped')).toHaveLength(
+      2,
+    );
     expect(
       result.proposals.every((proposal) =>
         proposal.provenance?.rationale?.includes('F group single_observation'),
       ),
     ).toBe(true);
-    expect(result.projected_proposal_ids).toHaveLength(0);
-    expect(result.non_projected).toHaveLength(30);
-    expect(result.candidate).toBeUndefined();
-    expect(result.normalized_facts).toHaveLength(0);
+    expect(result.projected_proposal_ids).toHaveLength(2);
+    expect(result.non_projected).toHaveLength(28);
+    expect(result.candidate?.component_data.qualified_values).toHaveLength(2);
+    expect(result.candidate?.component_data.dimensions_mm).toBeUndefined();
+    expect(result.candidate?.component_data.electrical).toBeUndefined();
+    expect(result.normalized_facts).toHaveLength(2);
   });
   it.each(mappings)(
     'projects safe %s singleton with model-only identity and traceable evidence',

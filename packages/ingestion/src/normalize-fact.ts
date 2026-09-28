@@ -1,6 +1,8 @@
-import type { ProductFact, ProductSource } from './contracts.js';
+import type { CanonicalQualifiedValue, ProductFact, ProductSource } from './contracts.js';
 import { resolveCanonicalField, isSupportedCanonicalField } from './field-mapping.js';
 import { parseExactUnitValue, resolveUnit } from './units.js';
+import { artifactDigest } from './production-contracts.js';
+import { parseContextualMeasurement } from './qualified-values.js';
 import type { NormalizationIssue, ProductFactNormalizationResult } from './normalization-types.js';
 
 const issue = (code: NormalizationIssue['code'], message: string): NormalizationIssue => ({
@@ -12,6 +14,9 @@ export const normalizeProductFact = (
   fact: ProductFact,
   source: ProductSource,
 ): ProductFactNormalizationResult => {
+  // Context is re-established from source wording, never trusted from a prior normalization.
+  fact = { ...fact };
+  delete (fact as { qualified_value?: CanonicalQualifiedValue }).qualified_value;
   const mapping = resolveCanonicalField(fact.raw_label);
   if (!mapping) {
     return {
@@ -53,9 +58,23 @@ export const normalizeProductFact = (
         ],
       };
     }
+    const contextual = parseContextualMeasurement(
+      mapping.canonical_field,
+      String(fact.raw_value),
+      fact.raw_unit,
+    );
+    const qualifiedValue = contextual?.qualifiers
+      ? ({
+          id: `qualified-value.${artifactDigest({ source_id: fact.source_id, fact_id: fact.id, target: mapping.canonical_field, value: contextual.value, qualifiers: contextual.qualifiers }).slice(7, 31)}`,
+          target: mapping.canonical_field,
+          value: contextual.value,
+          qualifiers: contextual.qualifiers,
+        } as CanonicalQualifiedValue)
+      : undefined;
     const normalizedFact: ProductFact = {
       ...fact,
       field: mapping.canonical_field,
+      ...(qualifiedValue ? { qualified_value: qualifiedValue } : {}),
       normalized_value: normalizedValue,
       normalized_unit: mapping.unit,
       transformation_notes: [

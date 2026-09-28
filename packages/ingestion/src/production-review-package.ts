@@ -167,14 +167,36 @@ export const buildProductionReviewPackage = (
     fail();
   if (bridge.candidate) {
     const fieldSupport = new Map<string, string[]>();
+    const qualifiedSupport = new Map<string, string[]>();
     for (const proposal of proposals) {
       if (!projectedIds.has(proposal.id)) continue;
-      fieldSupport.set(proposal.target, [
-        ...(fieldSupport.get(proposal.target) ?? []),
-        ...bridge.proposal_fact_ids[proposal.id],
-      ]);
+      const support = proposal.qualified_value ? qualifiedSupport : fieldSupport;
+      const key = proposal.qualified_value?.id ?? proposal.target;
+      if (
+        proposal.qualified_value &&
+        !same(
+          (bridge.candidate.component_data.qualified_values as unknown[] | undefined)?.find(
+            (entry) => (entry as { id?: string }).id === key,
+          ),
+          proposal.qualified_value,
+        )
+      )
+        fail();
+      support.set(key, [...(support.get(key) ?? []), ...bridge.proposal_fact_ids[proposal.id]]);
     }
     const candidateFields = bridge.candidate.field_evidence;
+    const candidateQualified = bridge.candidate.qualified_value_evidence ?? {};
+    if (
+      qualifiedSupport.size !== Object.keys(candidateQualified).length ||
+      [...qualifiedSupport].some(
+        ([id, ids]) =>
+          !same(
+            ordered(ids, (id) => id),
+            candidateQualified[id],
+          ),
+      )
+    )
+      fail();
     if (
       bridge.candidate.id !== `production-candidate.${artifactDigest(intake).slice(7, 31)}` ||
       bridge.candidate.identity.manufacturer !== intake.manufacturer ||

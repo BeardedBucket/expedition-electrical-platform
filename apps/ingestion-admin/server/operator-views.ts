@@ -1,5 +1,5 @@
 import type { IngestionJob } from '@expedition/ingestion-runtime';
-import type { ArtifactReference } from '@expedition/ingestion';
+import type { ArtifactReference, CanonicalQualifiedValue } from '@expedition/ingestion';
 import { artifactDigest, canonicalIdFor } from '@expedition/ingestion';
 import { productRoles } from './product-review.js';
 
@@ -26,61 +26,85 @@ const operatorIssues = (issues: readonly { code: string; path: string; message: 
 export function productReviewView(job: IngestionJob) {
   const p = job.preparation;
   if (p?.status !== 'review_ready') return undefined;
-  const fields = [...new Set(p.proposals.map((proposal) => proposal.target))];
+  const proposalViews = (field: string, qualifiedId?: string) =>
+    p.proposals
+      .filter(
+        (proposal) =>
+          proposal.target === field &&
+          (qualifiedId ? proposal.qualified_value?.id === qualifiedId : !proposal.qualified_value),
+      )
+      .slice(0, 500)
+      .map((proposal) => ({
+        id: proposal.id,
+        disposition: proposal.disposition,
+        value: proposal.proposed_value,
+        projected: p.bridge.projected_proposal_ids.includes(proposal.id),
+        references: [...proposal.evidence_refs, ...(proposal.fact_refs ?? [])].map(reference),
+        evidence: p.qualified_facts
+          .filter((fact) => proposal.fact_refs?.some((ref) => ref.digest === artifactDigest(fact)))
+          .slice(0, 1000)
+          .map((fact) => {
+            const capture = p.captures.find(
+              (capture) => artifactDigest(capture) === fact.source_capture.digest,
+            );
+            const document = p.document_extractions.find(
+              (document) => fact.document_extraction?.digest === artifactDigest(document),
+            );
+            return {
+              id: fact.id,
+              label: fact.metadata.source_label,
+              raw_value: fact.metadata.raw_value,
+              unit: fact.metadata.source_unit,
+              applicability: fact.metadata.applicability,
+              qualification: fact.qualification_state,
+              source_uri: safeUri(capture?.final_uri ?? capture?.requested_uri),
+              document: document?.title,
+              locators: fact.evidence?.map(({ role, locator, block_id }) => ({
+                role,
+                locator,
+                block_id,
+              })),
+              conflicts: p.reconciliation.group_reconciliations
+                .filter(
+                  (group) =>
+                    group.qualified_fact_ids.includes(fact.id) &&
+                    (group.outcome === 'conflict' || group.outcome === 'unresolved'),
+                )
+                .map((group) => ({ id: group.id, outcome: group.outcome })),
+            };
+          }),
+      }));
+  const assertions = p.bridge.candidate?.component_data.qualified_values as
+    CanonicalQualifiedValue[] | undefined;
+  const fields = [
+    ...new Set(
+      p.proposals
+        .filter((proposal) => !proposal.qualified_value)
+        .map((proposal) => proposal.target),
+    ),
+  ];
   return {
     roles: productRoles,
     canonical_id: p.bridge.candidate ? canonicalIdFor(p.bridge.candidate) : undefined,
-    truncated: fields.length > 200 || p.proposals.length > 500 || p.qualified_facts.length > 1000,
+    truncated:
+      (assertions?.length ?? 0) > 200 ||
+      fields.length > 200 ||
+      p.proposals.length > 500 ||
+      p.qualified_facts.length > 1000,
     fields: fields.slice(0, 200).map((field) => ({
       path: field,
       value: valueAt(p.bridge.candidate?.component_data, field),
       selectable: !!p.bridge.candidate?.field_evidence[field],
       candidate_fact_ids: p.bridge.candidate?.field_evidence[field] ?? [],
-      proposals: p.proposals
-        .filter((proposal) => proposal.target === field)
-        .slice(0, 500)
-        .map((proposal) => ({
-          id: proposal.id,
-          disposition: proposal.disposition,
-          value: proposal.proposed_value,
-          projected: p.bridge.projected_proposal_ids.includes(proposal.id),
-          references: [...proposal.evidence_refs, ...(proposal.fact_refs ?? [])].map(reference),
-          evidence: p.qualified_facts
-            .filter((fact) =>
-              proposal.fact_refs?.some((ref) => ref.digest === artifactDigest(fact)),
-            )
-            .slice(0, 1000)
-            .map((fact) => {
-              const capture = p.captures.find(
-                (capture) => artifactDigest(capture) === fact.source_capture.digest,
-              );
-              const document = p.document_extractions.find(
-                (document) => fact.document_extraction?.digest === artifactDigest(document),
-              );
-              return {
-                id: fact.id,
-                label: fact.metadata.source_label,
-                raw_value: fact.metadata.raw_value,
-                unit: fact.metadata.source_unit,
-                applicability: fact.metadata.applicability,
-                qualification: fact.qualification_state,
-                source_uri: safeUri(capture?.final_uri ?? capture?.requested_uri),
-                document: document?.title,
-                locators: fact.evidence?.map(({ role, locator, block_id }) => ({
-                  role,
-                  locator,
-                  block_id,
-                })),
-                conflicts: p.reconciliation.group_reconciliations
-                  .filter(
-                    (group) =>
-                      group.qualified_fact_ids.includes(fact.id) &&
-                      (group.outcome === 'conflict' || group.outcome === 'unresolved'),
-                  )
-                  .map((group) => ({ id: group.id, outcome: group.outcome })),
-              };
-            }),
-        })),
+      proposals: proposalViews(field),
+    })),
+    qualified_values: (assertions ?? []).slice(0, 200).map((assertion) => ({
+      id: assertion.id,
+      target: assertion.target,
+      value: assertion.value,
+      qualifiers: assertion.qualifiers,
+      candidate_fact_ids: p.bridge.candidate?.qualified_value_evidence?.[assertion.id] ?? [],
+      proposals: proposalViews(assertion.target, assertion.id),
     })),
     candidate_facts: p.bridge.facts
       .slice(0, 1000)

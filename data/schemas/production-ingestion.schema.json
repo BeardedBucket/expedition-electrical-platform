@@ -845,6 +845,7 @@
         "id": { "type": "string", "minLength": 1 },
         "target": { "type": "string", "minLength": 1 },
         "proposed_value": {},
+        "qualified_value": { "$ref": "#/$defs/canonicalQualifiedValue" },
         "evidence_refs": { "type": "array", "items": { "$ref": "#/$defs/sourceRef" } },
         "fact_refs": { "type": "array", "items": { "$ref": "#/$defs/factRef" } },
         "disposition": {
@@ -924,6 +925,7 @@
       "required": ["approved_fields", "evidence_acknowledged", "product_role", "category"],
       "properties": {
         "approved_fields": { "$ref": "#/$defs/nonemptyStringArray" },
+        "approved_qualified_value_ids": { "$ref": "#/$defs/nonemptyStringArray" },
         "excluded_fields": { "$ref": "#/$defs/nonemptyStringArray" },
         "excluded_fact_ids": { "$ref": "#/$defs/nonemptyStringArray" },
         "reviewed_evidence_fact_ids": { "$ref": "#/$defs/nonemptyStringArray" },
@@ -1289,6 +1291,107 @@
               }
             }
           }
+        }
+      ]
+    },
+    "canonicalQualifiedValue": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["id", "target", "value", "qualifiers"],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._-]+$"
+            },
+            "target": {
+              "const": "electrical.input_voltage_range_v"
+            },
+            "value": {
+              "type": "object",
+              "required": ["min", "max"],
+              "properties": {
+                "min": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "max": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "additionalProperties": false
+            },
+            "qualifiers": {
+              "type": "object",
+              "required": ["electrical_domain"],
+              "properties": {
+                "electrical_domain": {
+                  "enum": ["ac", "dc"]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["id", "target", "value", "qualifiers"],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._-]+$"
+            },
+            "target": {
+              "const": "dimensions_mm"
+            },
+            "value": {
+              "type": "object",
+              "required": ["x", "y", "z"],
+              "properties": {
+                "x": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "y": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "z": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                }
+              },
+              "additionalProperties": false
+            },
+            "qualifiers": {
+              "type": "object",
+              "required": ["physical_scope"],
+              "properties": {
+                "physical_scope": {
+                  "type": "object",
+                  "required": ["kind", "exclusions"],
+                  "properties": {
+                    "kind": {
+                      "const": "physical_body"
+                    },
+                    "exclusions": {
+                      "type": "array",
+                      "minItems": 1,
+                      "uniqueItems": true,
+                      "items": {
+                        "enum": ["connectors", "mounting_accessories"]
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
         }
       ]
     }

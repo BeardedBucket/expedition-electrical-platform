@@ -54,12 +54,23 @@ export const profile: ManufacturerAcquisitionProfile = {
     observed_source_content_hash: `sha256:${'a'.repeat(64)}`,
   },
 };
-export function fixtureAdapter(withCandidate = true): SourceCaptureAdapter {
+export function fixtureAdapter(
+  withCandidate: boolean | 'qualified' | 'mixed' = true,
+): SourceCaptureAdapter {
   return {
     async capture(request) {
-      const html = request.uri.includes('/docs/')
-        ? '<html><body><h1>Specifications</h1><table><thead><tr><th>Model</th><th>nominal voltage</th><th>continuous current</th></tr></thead><tbody><tr><td>EX-1</td><td>24 V</td><td>10 A</td></tr></tbody></table><table><thead><tr><th>Model</th><th>nominal voltage</th><th>continuous current</th></tr></thead><tbody><tr><td>EX-1</td><td>24.0 V</td><td>10.0 A</td></tr></tbody></table></body></html>'
-        : `<html><body><h1>Example Model</h1><p>Official product information for EX-1. RAW_BODY_MARKER</p>${withCandidate ? '<a href="https://example.test/docs/specifications.html">Specifications</a>' : ''}</body></html>`;
+      const qualifiedTable =
+        '<html><body><h1>Specifications</h1><table><thead><tr><th>Model</th><th>Supply voltage</th><th>Outer dimensions (h x w x d)</th>' +
+        (withCandidate === 'mixed' ? '<th>nominal voltage</th>' : '') +
+        '</tr></thead><tbody><tr><td>Example Model</td><td>8–70 VDC</td><td>124 x 187 x 29.8 mm | 4.88 x 7.36 x 1.17 in (without connectors and mounting accessories)</td>' +
+        (withCandidate === 'mixed' ? '<td>24 V</td>' : '') +
+        '</tr></tbody></table></body></html>';
+      const html =
+        request.uri.includes('/docs/') && typeof withCandidate === 'string'
+          ? qualifiedTable
+          : request.uri.includes('/docs/')
+            ? '<html><body><h1>Specifications</h1><table><thead><tr><th>Model</th><th>nominal voltage</th><th>continuous current</th></tr></thead><tbody><tr><td>EX-1</td><td>24 V</td><td>10 A</td></tr></tbody></table><table><thead><tr><th>Model</th><th>nominal voltage</th><th>continuous current</th></tr></thead><tbody><tr><td>EX-1</td><td>24.0 V</td><td>10.0 A</td></tr></tbody></table></body></html>'
+            : `<html><body><h1>Example Model</h1><p>Official product information for EX-1. RAW_BODY_MARKER</p>${withCandidate ? '<a href="https://example.test/docs/specifications.html">Specifications</a>' : ''}</body></html>`;
       const bytes = new TextEncoder().encode(html);
       return {
         status: 'success',
@@ -77,7 +88,10 @@ export function fixtureAdapter(withCandidate = true): SourceCaptureAdapter {
     },
   };
 }
-export function fixtureService(root: string, withCandidate = true) {
+export function fixtureService(
+  root: string,
+  withCandidate: boolean | 'qualified' | 'mixed' = true,
+) {
   return new IngestionJobService({
     store: new FileIngestionJobStore(root),
     preparationRequest: () => ({

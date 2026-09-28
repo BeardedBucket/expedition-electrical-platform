@@ -212,6 +212,75 @@ selection, and artifact snapshots.
 
 Deferred work remains future-facing: live advisory feeds and embed/widget integration for later phases.
 
+## Canonical qualified product values
+
+Unconditional source assertions continue using existing direct canonical fields.
+Materially qualified assertions use the additive `qualified_values` collection.
+Each member binds a product-local `id`, a schema-supported `target`, a normalized
+`value`, and typed `qualifiers` atomically. These are canonical product assertions,
+not evidence-only metadata. Multiple members may share a target under different
+qualifier contexts. A materially qualified assertion must never also populate its
+unconditional direct field. Unrecognized material qualifier meaning prevents
+projection, rather than being discarded to fit a direct field.
+
+The initial target union supports `electrical.input_voltage_range_v` with explicit
+`electrical_domain: ac | dc`, and `dimensions_mm` with
+`physical_scope: { kind: physical_body, exclusions: [...] }`. Exclusions currently
+support `connectors` and `mounting_accessories`. Domain is never inferred from
+plain V, category, manufacturer, or system expectations. Body dimensions remain
+distinct from mounted/installed envelopes and service clearances. Future operating
+state, duration, temperature, measurement, and location qualifier kinds extend
+the typed target/qualifier union without changing the surrounding assertion shape.
+
+Initial production IDs hash target, normalized value, qualifiers, and sorted
+source-qualified fact IDs using the existing deterministic artifact hash pattern.
+Recognized qualifier context also participates in reconciliation grouping; values
+remain outside group identity, so different values under the same context conflict.
+They identify a proposal's initial assertion; they do not establish automatic
+supersession across re-ingestion. Candidate `qualified_value_evidence` maps each
+assertion ID to supporting fact IDs. Review packages bind the complete candidate
+and evidence snapshots. New-product approval explicitly selects
+`approved_qualified_value_ids`; package approval or ordinary `approved_fields`
+does not select qualified assertions. Promotion copies each selected assertion
+whole and preserves ID-bound evidence in its audit and source references. Each
+source reference contains only the qualified supporting facts produced by that
+source; the promotion audit retains the complete assertion evidence set.
+
+The operator review DTO presents qualified assertions separately from ordinary
+field paths, including their IDs, complete values and qualifiers, and the existing
+allowlisted source evidence and locators. Human review selects each ID independently.
+Approval requires an ordinary field or qualified ID selection plus the existing
+role, category, and evidence acknowledgement. Canonical writing remains a separate
+explicit finalization action.
+
+Ordinary field paths use `field_actions`/`field_changes`. Qualified members use
+dedicated `qualified_value_operations` addressed by ID: `add` requires an absent
+ID, and `replace` requires an existing ID with the same target. Replacement
+atomically replaces value and qualifiers while preserving ID. Remove is
+deliberately unsupported. Array indexes, whole-array field actions, nested edits,
+and target-only replacement are prohibited. Human review explicitly chooses the
+canonical ID to replace; no fuzzy re-ingestion matching is performed.
+
+The candidate's nonempty ID-bound evidence is authoritative. Optional operation
+and review evidence representations must agree with it after distinct/sorted
+normalization; review cannot invent a candidate evidence relationship. Every fact
+must support the complete assertion and
+belong to the candidate evidence set. Amendments apply to an in-memory clone,
+validate the complete proposed component, and use the existing whole-component
+snapshot and write boundary. History appends the complete added assertion or
+complete previous/replacement assertions, operation ID, fact IDs, review/candidate
+IDs, and expected previous canonical snapshot. Existing history is retained;
+stale snapshots and replayed review IDs remain blocked.
+
+Loaders preserve qualified assertions without materializing direct fields.
+Consumers must explicitly understand qualifiers before using these values;
+existing voltage and geometry consumers continue using direct fields and retain
+unknown results when those fields are absent. Source raw wording and units remain
+separate evidence. Dual-unit dimension presentations are checked using overlapping
+rounding intervals at their published decimal precision after deterministic unit
+conversion; this is not an engineering tolerance. Canonical values retain the
+first published numeric representation converted to millimeters without rounding.
+
 ## Domain profiles
 
 The engineering core should remain reusable across domains. The initial profile is mobile/off-grid vehicle installations. A future stationary-installation profile may add different standards, code requirements, grounding/bonding rules, utility/service assumptions, environmental constraints, and component categories without changing the fundamental component/provenance/advisory architecture.

@@ -101,12 +101,110 @@ function selectApproval() {
   });
   fireEvent.click(
     screen.getByLabelText(
-      'I reviewed the supporting source evidence for the fields I am approving.',
+      'I reviewed the supporting source evidence for the fields and assertions I am approving.',
     ),
   );
 }
 afterEach(cleanup);
 describe('field oriented human product review', () => {
+  it.each(['first', 'second', 'both'] as const)(
+    'independently approves same-target qualified assertions: %s',
+    async (selected) => {
+      const job = detail();
+      job.product_review!.fields = [];
+      job.product_review!.qualified_values = ['dc', 'ac'].map((domain, index) => ({
+        id: `assertion.${index}`,
+        target: 'electrical.input_voltage_range_v',
+        value: { min: 8, max: 70 },
+        qualifiers: { electrical_domain: domain },
+        candidate_fact_ids: [`fact.${index}`],
+        proposals: [
+          {
+            id: `proposal.${index}`,
+            disposition: 'mapped',
+            value: { min: 8, max: 70 },
+            projected: true,
+            references: [],
+            evidence: [fact],
+          },
+        ],
+      })) as NonNullable<OperatorJobDetail['product_review']>['qualified_values'];
+      const { client } = setup(job);
+      fireEvent.change(screen.getByLabelText('Reviewer label'), { target: { value: 'Human' } });
+      fireEvent.change(screen.getByLabelText('Category'), { target: { value: 'monitor' } });
+      fireEvent.change(screen.getByLabelText('Product role'), { target: { value: 'monitor' } });
+      fireEvent.click(
+        screen.getByLabelText(
+          'I reviewed the supporting source evidence for the fields and assertions I am approving.',
+        ),
+      );
+      expect(screen.getByRole('button', { name: 'Approve selected assertions' })).toBeDisabled();
+      expect(screen.getByText('dc')).toBeInTheDocument();
+      expect(screen.getByText('ac')).toBeInTheDocument();
+      expect(screen.getAllByText('70')).toHaveLength(2);
+      expect(screen.getAllByRole('link', { name: fact.source_uri })).toHaveLength(2);
+      const ids =
+        selected === 'both'
+          ? ['assertion.0', 'assertion.1']
+          : [selected === 'first' ? 'assertion.0' : 'assertion.1'];
+      for (const id of ids)
+        fireEvent.click(screen.getByLabelText(`Approve qualified assertion ${id}`));
+      fireEvent.click(screen.getByRole('button', { name: 'Approve selected assertions' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm approve' }));
+      await waitFor(() =>
+        expect(client.review).toHaveBeenCalledWith(
+          'test',
+          'approve',
+          expect.objectContaining({
+            promotion_decisions: expect.objectContaining({
+              approved_fields: [],
+              approved_qualified_value_ids: ids,
+            }),
+          }),
+        ),
+      );
+      expect(client.finalize).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['field', 'qualified', 'both'] as const)(
+    'mixed UI submits only explicit %s selections',
+    async (selection) => {
+      const job = detail();
+      job.product_review!.qualified_values = [
+        {
+          id: 'assertion.dc',
+          target: 'electrical.input_voltage_range_v',
+          value: { min: 8, max: 70 },
+          qualifiers: { electrical_domain: 'dc' },
+          candidate_fact_ids: ['product-fact.2'],
+          proposals: [],
+        },
+      ];
+      const { client } = setup(job);
+      selectApproval();
+      if (selection === 'qualified')
+        fireEvent.change(screen.getByLabelText('Human decision for electrical.nominal_voltage'), {
+          target: { value: '' },
+        });
+      if (selection !== 'field')
+        fireEvent.click(screen.getByLabelText('Approve qualified assertion assertion.dc'));
+      fireEvent.click(screen.getByRole('button', { name: 'Approve selected assertions' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm approve' }));
+      await waitFor(() =>
+        expect(client.review).toHaveBeenCalledWith(
+          'test',
+          'approve',
+          expect.objectContaining({
+            promotion_decisions: expect.objectContaining({
+              approved_fields: selection === 'qualified' ? [] : ['electrical.nominal_voltage'],
+              approved_qualified_value_ids: selection === 'field' ? [] : ['assertion.dc'],
+            }),
+          }),
+        ),
+      );
+    },
+  );
   it('renders canonical field, values, source wording, units, applicability and locators', () => {
     setup();
     expect(screen.getByText('Proposed field: electrical.nominal_voltage')).toBeInTheDocument();
@@ -129,7 +227,7 @@ describe('field oriented human product review', () => {
     expect(screen.getByLabelText('Product role')).toHaveValue('');
     expect(screen.getByLabelText('Category')).toHaveValue('');
     expect(screen.getByLabelText('Human decision for electrical.nominal_voltage')).toHaveValue('');
-    expect(screen.getByRole('button', { name: 'Approve selected fields' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Approve selected assertions' })).toBeDisabled();
   });
   it('shows conflicts and unresolved proposals without permitting their placement', () => {
     const job = detail();
@@ -154,7 +252,7 @@ describe('field oriented human product review', () => {
   it('renders Ekrano-style zero-fact preparation without a fake approval action', () => {
     setup(detail(false));
     expect(screen.getByText(/No promotable candidate was produced/)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Approve selected fields' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Approve selected assertions' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Defer product review' })).toBeInTheDocument();
   });
   it.each(['reject', 'defer'] as const)(
@@ -179,7 +277,7 @@ describe('field oriented human product review', () => {
   it('requires approval confirmation and persists exact selected fields without finalizing', async () => {
     const { client } = setup();
     selectApproval();
-    fireEvent.click(screen.getByRole('button', { name: 'Approve selected fields' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Approve selected assertions' }));
     expect(client.review).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Confirm approve' }));
     await waitFor(() =>
@@ -202,7 +300,7 @@ describe('field oriented human product review', () => {
   it('canceling confirmation makes no mutation', () => {
     const { client } = setup();
     selectApproval();
-    fireEvent.click(screen.getByRole('button', { name: 'Approve selected fields' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Approve selected assertions' }));
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(client.review).not.toHaveBeenCalled();
@@ -220,7 +318,7 @@ describe('field oriented human product review', () => {
     fireEvent.change(screen.getByLabelText('Resolution rationale for electrical.nominal_voltage'), {
       target: { value: 'Checked page 2' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Approve selected fields' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Approve selected assertions' }));
     fireEvent.click(screen.getByRole('button', { name: 'Confirm approve' }));
     await waitFor(() =>
       expect(client.review).toHaveBeenCalledWith(
@@ -315,7 +413,7 @@ describe('field oriented human product review', () => {
       new Error('Selection is outside reviewed evidence.'),
     );
     selectApproval();
-    fireEvent.click(screen.getByRole('button', { name: 'Approve selected fields' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Approve selected assertions' }));
     fireEvent.click(screen.getByRole('button', { name: 'Confirm approve' }));
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Selection is outside reviewed evidence.',

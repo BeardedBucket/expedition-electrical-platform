@@ -10,6 +10,7 @@ import type {
   ProductSource,
 } from './contracts.js';
 import { validateProductCandidate } from './validation.js';
+import { isCanonicalQualifiedValue, qualifiedValueCollectionValid } from './qualified-values.js';
 
 export type PromotionResultStatus = 'success' | 'blocked' | 'invalid';
 export type PromotionIssueCode =
@@ -51,6 +52,7 @@ export interface PromotionReview {
   readonly reviewer_id: string;
   readonly reviewed_at: string;
   readonly approved_fields: readonly string[];
+  readonly approved_qualified_value_ids?: readonly string[];
   readonly excluded_fields?: readonly string[];
   readonly excluded_fact_ids?: readonly string[];
   /**
@@ -81,6 +83,8 @@ export interface PromotionAudit {
   readonly reviewed_at: string;
   readonly source_ids: readonly string[];
   readonly field_evidence: Readonly<Record<string, readonly string[]>>;
+  readonly qualified_value_evidence?: Readonly<Record<string, readonly string[]>>;
+  readonly omitted_qualified_value_ids?: readonly string[];
   readonly topology_evidence?: Readonly<Record<string, readonly string[]>>;
   readonly omitted_fields: readonly string[];
   readonly unverified_fact_ids: readonly string[];
@@ -162,6 +166,7 @@ export const promotionCandidateSnapshot = (
 ): string => {
   const relevantFactIds = new Set([
     ...Object.values(candidate.field_evidence).flat(),
+    ...Object.values(candidate.qualified_value_evidence ?? {}).flat(),
     ...Object.values(candidate.topology_evidence ?? {}).flat(),
   ]);
   const snapshot = {
@@ -174,6 +179,9 @@ export const promotionCandidateSnapshot = (
       component_data: candidate.component_data,
       fact_ids: candidate.fact_ids,
       field_evidence: candidate.field_evidence,
+      ...(candidate.qualified_value_evidence
+        ? { qualified_value_evidence: candidate.qualified_value_evidence }
+        : {}),
       ...(candidate.topology_evidence ? { topology_evidence: candidate.topology_evidence } : {}),
     },
     facts: facts
@@ -183,6 +191,14 @@ export const promotionCandidateSnapshot = (
         source_id: fact.source_id,
         field: fact.field,
         raw_value: fact.raw_value,
+        ...(fact.qualified_value
+          ? {
+              qualified_value: fact.qualified_value,
+              raw_unit: fact.raw_unit,
+              raw_label: fact.raw_label,
+              source_locator: fact.source_locator,
+            }
+          : {}),
         normalized_value: fact.normalized_value ?? null,
         normalized_unit: fact.normalized_unit ?? null,
         fact_state: fact.fact_state,
@@ -217,17 +233,29 @@ export const canonicalIdFor = (candidate: ProductCandidate): string => {
 
 export const canonicalProposalSchemaIssues = (proposal: JsonObject): PromotionIssue[] => {
   componentValidator(proposal);
-  return (componentValidator.errors ?? []).map((error) =>
-    issue(
-      'promotion_invalid_component',
-      error.instancePath || '/',
-      error.message ?? 'canonical component does not match the schema.',
+  const extra = qualifiedValueCollectionValid(proposal.qualified_values)
+    ? []
+    : [
+        issue(
+          'promotion_invalid_component',
+          'qualified_values',
+          'Invalid or duplicate qualified assertions.',
+        ),
+      ];
+  return [
+    ...extra,
+    ...(componentValidator.errors ?? []).map((error) =>
+      issue(
+        'promotion_invalid_component',
+        error.instancePath || '/',
+        error.message ?? 'canonical component does not match the schema.',
+      ),
     ),
-  );
+  ];
 };
 
 export const canonicalProposalSchemaValid = (proposal: JsonObject): boolean =>
-  componentValidator(proposal);
+  componentValidator(proposal) && qualifiedValueCollectionValid(proposal.qualified_values);
 
 export const canonicalIdentityCollision = (
   proposal: JsonObject,
@@ -242,43 +270,59 @@ export const canonicalIdentityCollision = (
         component.part_number === proposal.part_number),
   );
 
-const schemaIssues = (): PromotionIssue[] =>
-  (componentValidator.errors ?? []).map((error) =>
-    issue(
-      'promotion_invalid_component',
-      error.instancePath || '/',
-      error.message ?? 'canonical component does not match the schema.',
-    ),
-  );
-
 const sourceRefsFor = (
   sources: readonly ProductSource[],
   candidate: ProductCandidate,
   review: PromotionReview,
   selectedFieldEvidence: Readonly<Record<string, readonly string[]>>,
   topologyEvidence: Readonly<Record<string, readonly string[]>>,
+  qualifiedEvidence: Readonly<Record<string, readonly string[]>> = {},
+  facts: readonly ProductFact[] = [],
 ): JsonValue[] =>
   sources
     .filter((source) => candidate.source_ids.includes(source.id))
     .sort((left, right) => left.id.localeCompare(right.id))
-    .map((source) => ({
-      id: source.id,
-      type: source.source_type,
-      uri: source.uri,
-      publisher: source.publisher,
-      retrieved_at: source.retrieved_at,
-      ...(source.content_hash ? { content_hash: source.content_hash } : {}),
-      candidate_id: candidate.id,
-      review_id: review.id,
-      fact_ids: [
-        ...new Set([
-          ...Object.values(selectedFieldEvidence).flat(),
-          ...Object.values(topologyEvidence).flat(),
-        ]),
-      ]
-        .filter((factId) => candidate.fact_ids.includes(factId))
-        .sort(),
-    }));
+    .map((source) => {
+      const sourceQualifiedEvidence = Object.fromEntries(
+        Object.entries(qualifiedEvidence)
+          .map(
+            ([id, ids]) =>
+              [
+                id,
+                ids.filter((id) =>
+                  facts.some((fact) => fact.id === id && fact.source_id === source.id),
+                ),
+              ] as const,
+          )
+          .filter(([, ids]) => ids.length > 0),
+      );
+      return {
+        id: source.id,
+        type: source.source_type,
+        uri: source.uri,
+        publisher: source.publisher,
+        retrieved_at: source.retrieved_at,
+        ...(source.content_hash ? { content_hash: source.content_hash } : {}),
+        candidate_id: candidate.id,
+        review_id: review.id,
+        ...(Object.keys(sourceQualifiedEvidence).length
+          ? {
+              qualified_value_evidence: Object.fromEntries(
+                Object.entries(sourceQualifiedEvidence).map(([id, ids]) => [id, [...ids]]),
+              ),
+            }
+          : {}),
+        fact_ids: [
+          ...new Set([
+            ...Object.values(selectedFieldEvidence).flat(),
+            ...Object.values(sourceQualifiedEvidence).flat(),
+            ...Object.values(topologyEvidence).flat(),
+          ]),
+        ]
+          .filter((factId) => candidate.fact_ids.includes(factId))
+          .sort(),
+      };
+    });
 
 const factsForCandidateValidation = (
   candidate: ProductCandidate,
@@ -484,7 +528,7 @@ export const promoteCandidate = (
   const issues: PromotionIssue[] = [];
   const snapshot = promotionCandidateSnapshot(candidate, sources, facts);
   if (!review.candidate_snapshot) {
-    if (!options.allowLegacyReview) {
+    if (!options.allowLegacyReview || candidate.component_data.qualified_values !== undefined) {
       issues.push(
         issue(
           'promotion_snapshot_missing',
@@ -579,14 +623,68 @@ export const promoteCandidate = (
     ]),
   ];
   const approvedFields = new Set(review.approved_fields);
+  if ([...approvedFields].some((field) => /^qualified_values(?:$|[.[])/.test(field)))
+    issues.push(
+      issue(
+        'promotion_unresolved_field',
+        'approved_fields',
+        'Qualified assertions require explicit ID selection.',
+      ),
+    );
+  const selectedQualifiedEvidence: Record<string, readonly string[]> = {};
+  const qualifiedEntries = Array.isArray(candidate.component_data.qualified_values)
+    ? candidate.component_data.qualified_values.filter(isCanonicalQualifiedValue)
+    : [];
+  const selectedIds = review.approved_qualified_value_ids ?? [];
+  if (new Set(selectedIds).size !== selectedIds.length)
+    issues.push(
+      issue(
+        'promotion_unresolved_field',
+        'approved_qualified_value_ids',
+        'Duplicate qualified IDs.',
+      ),
+    );
+  const selectedAssertions = [];
+  for (const id of [...selectedIds].sort()) {
+    const assertion = qualifiedEntries.find((entry) => entry.id === id);
+    const evidence = candidate.qualified_value_evidence?.[id];
+    if (
+      !assertion ||
+      !evidence?.length ||
+      evidence.some((factId) => {
+        const fact = facts.find((fact) => fact.id === factId);
+        return (
+          !fact ||
+          ['unresolved', 'conflicting'].includes(fact.fact_state) ||
+          (review.excluded_fact_ids ?? []).includes(factId) ||
+          (review.reviewed_evidence_fact_ids ?? []).includes(factId)
+        );
+      })
+    )
+      issues.push(
+        issue(
+          'promotion_evidence_missing',
+          id,
+          'Qualified selection requires complete eligible ID-bound evidence.',
+        ),
+      );
+    else {
+      selectedAssertions.push(assertion);
+      selectedQualifiedEvidence[id] = [...evidence].sort();
+    }
+  }
   const resolutions = review.field_resolutions ?? {};
   const factById = new Map(facts.map((fact) => [fact.id, fact]));
   const selectedFieldEvidence: Record<string, readonly string[]> = {};
-  const omittedFields = candidateFields.filter((field) => !approvedFields.has(field)).sort();
+  const omittedFields = candidateFields
+    .filter((field) => field !== 'qualified_values' && !approvedFields.has(field))
+    .sort();
   const proposalData: JsonObject = {};
+  if (selectedAssertions.length)
+    (proposalData as { [key: string]: JsonValue }).qualified_values = selectedAssertions;
 
   candidateFields
-    .filter((field) => approvedFields.has(field))
+    .filter((field) => approvedFields.has(field) && !/^qualified_values(?:$|[.[])/.test(field))
     .sort()
     .forEach((field) => {
       const evidenceIds =
@@ -734,11 +832,20 @@ export const promoteCandidate = (
     category: review.category,
     product_family: candidate.identity.product_family ?? null,
     verification_status: 'unverified',
-    source_refs: sourceRefsFor(sources, candidate, review, selectedFieldEvidence, topologyEvidence),
+    source_refs: sourceRefsFor(
+      sources,
+      candidate,
+      review,
+      selectedFieldEvidence,
+      topologyEvidence,
+      selectedQualifiedEvidence,
+      facts,
+    ),
     ...proposalData,
     ...approvedTopologyData,
   };
-  if (!componentValidator(proposal)) return { status: 'invalid', issues: schemaIssues() };
+  if (!canonicalProposalSchemaValid(proposal))
+    return { status: 'invalid', issues: canonicalProposalSchemaIssues(proposal) };
 
   const audit: PromotionAudit = {
     candidate_id: candidate.id,
@@ -747,6 +854,17 @@ export const promoteCandidate = (
     reviewed_at: review.reviewed_at,
     source_ids: [...candidate.source_ids].sort(),
     field_evidence: selectedFieldEvidence,
+    ...(Object.keys(selectedQualifiedEvidence).length
+      ? { qualified_value_evidence: selectedQualifiedEvidence }
+      : {}),
+    ...(qualifiedEntries.length
+      ? {
+          omitted_qualified_value_ids: qualifiedEntries
+            .filter((entry) => !selectedIds.includes(entry.id))
+            .map((entry) => entry.id)
+            .sort(),
+        }
+      : {}),
     ...(Object.keys(topologyEvidence).length > 0 ? { topology_evidence: topologyEvidence } : {}),
     omitted_fields: omittedFields,
     unverified_fact_ids: facts
