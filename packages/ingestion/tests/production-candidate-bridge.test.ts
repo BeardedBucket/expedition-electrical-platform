@@ -97,6 +97,22 @@ const pair = (source: SourceCaptureArtifact, acquired: SourceAcquisitionArtifact
 ];
 
 describe('production candidate bridge', () => {
+  it('projects exact product model facts without inventing an MPN source claim', () => {
+    const source = capture();
+    const acquired = acquisition(source);
+    const facts = ['24', '24.0'].map((value) =>
+      fact(source, acquired, 'nominal voltage', value, {
+        applicability: { kind: 'exact_product', value: 'Model' },
+      }),
+    );
+    const result = run(facts, [acquired], [source]);
+    expect(result.candidate?.component_data).toEqual({ electrical: { nominal_voltage_v: 24 } });
+    expect(result.sources).toHaveLength(1);
+    expect(result.sources[0].product_identity_claim).toEqual({ model: 'Model' });
+    expect(
+      result.qualified_facts.every((fact) => fact.metadata.applicability.kind === 'exact_product'),
+    ).toBe(true);
+  });
   it('projects a safely mapped production proposal through existing candidate construction', () => {
     const source = capture();
     const acquired = acquisition(source);

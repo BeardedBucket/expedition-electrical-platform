@@ -1327,6 +1327,126 @@ const determineApplicability = (
   };
 };
 
+/** whole-table-product-scope.v1: source DOM spans, never an expanded grid or URL identity. */
+const wholeTableProductScope = (
+  document: DocumentExtractionArtifact,
+  block: DocumentBlock,
+  target: DocumentQualificationTarget,
+):
+  | {
+      readonly model: string;
+      readonly header: NonNullable<DocumentBlock['cells']>[number];
+      readonly width: number;
+    }
+  | undefined => {
+  const model = normalizeIdentityForComparison(target.product_model);
+  const cells = block.cells;
+  if (
+    !model ||
+    !cells?.length ||
+    target.target_identifier ||
+    document.status !== 'extracted' ||
+    document.source_acquisition?.kind !== 'source_acquisition' ||
+    document.source_capture.kind !== 'source_capture' ||
+    block.locator.kind !== 'html' ||
+    !block.locator.path ||
+    !block.locator.table ||
+    document.blocks.some(
+      (other) =>
+        other !== block &&
+        other.kind === 'table' &&
+        other.locator.path?.startsWith(`${block.locator.path}/`),
+    ) ||
+    document.diagnostics?.some((diagnostic) =>
+      /limit_reached|partial_table_extraction|snapshot_read_failure/.test(diagnostic.code),
+    )
+  )
+    return undefined;
+
+  const rows = new Map<number, (typeof cells)[number][]>();
+  for (const cell of cells) {
+    const location = cell.source_location;
+    if (
+      !Number.isSafeInteger(cell.row) ||
+      cell.row < 1 ||
+      !Number.isSafeInteger(cell.column) ||
+      cell.column < 1 ||
+      cell.label.trim() !== cell.value.trim() ||
+      location.kind !== 'html' ||
+      location.table !== block.locator.table ||
+      location.row !== cell.row ||
+      location.column !== cell.column ||
+      location.path !== `${block.locator.path}/tr[${cell.row}]/cell[${cell.column}]` ||
+      (cell.rowspan !== undefined && cell.rowspan !== 1) ||
+      (cell.colspan !== undefined && (!Number.isSafeInteger(cell.colspan) || cell.colspan < 1))
+    )
+      return undefined;
+    const row = rows.get(cell.row) ?? [];
+    row.push(cell);
+    rows.set(cell.row, row);
+  }
+  const orderedRows = [...rows.entries()].sort(([left], [right]) => left - right);
+  if (orderedRows.some(([row], index) => row !== index + 1)) return undefined;
+  const titleRow = orderedRows[0][1];
+  if (titleRow.length !== 1) return undefined;
+  const header = titleRow[0];
+  if (
+    header.kind !== 'header' ||
+    header.column !== 1 ||
+    !header.colspan ||
+    header.colspan < 2 ||
+    (header.scope !== undefined && header.scope !== 'col' && header.scope !== 'colgroup')
+  )
+    return undefined;
+
+  if (header.inline_segments !== undefined) {
+    const [ordinary, ...residual] = header.inline_segments;
+    if (
+      !ordinary ||
+      ordinary.kind !== 'text' ||
+      normalizeIdentityForComparison(ordinary.text) !== model ||
+      residual.some(
+        (segment) => segment.kind !== 'superscript' || !/^\[[1-9]\d*\]$/.test(segment.text),
+      ) ||
+      normalizeIdentityForComparison(header.value) !==
+        header.inline_segments.map((segment) => segment.text).join(' ')
+    )
+      return undefined;
+  } else if (normalizeIdentityForComparison(header.value) !== model) return undefined;
+
+  let width = 0;
+  let specifications = 0;
+  for (const [, row] of orderedRows.slice(1)) {
+    row.sort((left, right) => left.column - right.column);
+    if (row.some((cell, index) => cell.column !== index + 1 || cell.kind !== 'data'))
+      return undefined;
+    const rowWidth = row.reduce((sum, cell) => sum + (cell.colspan ?? 1), 0);
+    if (!Number.isSafeInteger(rowWidth) || rowWidth !== header.colspan) return undefined;
+    width = Math.max(width, rowWidth);
+    // Single full-span data cells are section separators, never specification facts.
+    // Multi-value layouts require row/column identity evidence instead of table scope.
+    if (row.length !== 1 && (row.length !== 2 || (row[0].colspan ?? 1) !== 1)) return undefined;
+    const label = row[0].value.trim();
+    if (
+      /^(?:manufacturer\s+)?(?:variants?|models?|mpn|sku|part\s*(?:number|no\.?))(?:\b|:)/i.test(
+        label,
+      )
+    )
+      return undefined;
+    for (const cell of row) {
+      const text = cell.value.trim();
+      if (
+        text === model ||
+        text.startsWith(model) ||
+        (target.manufacturer_part_number && text === target.manufacturer_part_number.trim())
+      )
+        return undefined;
+    }
+    if (row.length === 2) specifications += 1;
+  }
+  return width === header.colspan && specifications > 0 ? { model, header, width } : undefined;
+};
+
 const qualifyFromBlock = (
   document: DocumentExtractionArtifact,
   block: DocumentBlock,
@@ -1343,6 +1463,7 @@ const qualifyFromBlock = (
     explicitSourceIdentity?: string,
     locator?: DocumentSourceLocation,
     evidenceOverride?: readonly QualifiedFactEvidence[],
+    scopeBinding?: ApplicabilityBinding,
   ): void => {
     if (!label?.trim()) {
       diagnostics.push({ code: 'missing_label', message: 'a fact label is missing' });
@@ -1353,7 +1474,9 @@ const qualifyFromBlock = (
       return;
     }
     const { raw_value, source_unit } = parseRawValueAndUnit(value);
-    const result = determineApplicability(target, rowIdentity, explicitSourceIdentity);
+    const result = scopeBinding
+      ? { applicability: scopeBinding }
+      : determineApplicability(target, rowIdentity, explicitSourceIdentity);
     const evidence: QualifiedFactEvidence[] = evidenceOverride
       ? [...evidenceOverride]
       : [
@@ -1419,6 +1542,46 @@ const qualifyFromBlock = (
         )
       : undefined;
     if (!directTarget || !identityCell) {
+      const scope = wholeTableProductScope(document, block, target);
+      if (scope) {
+        const applicability: ApplicabilityBinding = {
+          kind: 'exact_product',
+          value: scope.model,
+          reason: `whole-table-product-scope.v1: sole model header covers all ${scope.width} source-declared columns; no competing header or variant layout; MPN not independently confirmed`,
+        };
+        const rows = new Map<number, NonNullable<DocumentBlock['cells']>[number][]>();
+        for (const cell of block.cells) {
+          const row = rows.get(cell.row) ?? [];
+          row.push(cell);
+          rows.set(cell.row, row);
+        }
+        for (const [rowNumber, row] of [...rows.entries()].sort(
+          ([left], [right]) => left - right,
+        )) {
+          if (rowNumber === scope.header.row || row.length !== 2) continue;
+          row.sort((left, right) => left.column - right.column);
+          const [labelCell, valueCell] = row;
+          addFact(
+            labelCell.value,
+            valueCell.value,
+            scope.model,
+            scope.model,
+            valueCell.source_location,
+            [
+              buildEvidence('subject', scope.model, document, scope.header.source_location),
+              buildEvidence('context', scope.header.value, document, scope.header.source_location),
+              {
+                ...buildEvidence('applicability', scope.header.value, document, block.locator),
+                note: applicability.reason,
+              },
+              buildEvidence('label', labelCell.value, document, labelCell.source_location),
+              buildEvidence('value', valueCell.value, document, valueCell.source_location),
+            ],
+            applicability,
+          );
+        }
+        return { facts, diagnostics };
+      }
       diagnostics.push({
         code: 'applicability_unresolved',
         message: directTarget

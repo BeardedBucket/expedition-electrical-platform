@@ -65,6 +65,32 @@ extractor version identifies the enriched output, and artifact hashing includes
 the optional structure. Existing schema-version 1.0 artifacts remain valid.
 PDF extraction remains text-only and does not infer HTML cell structure.
 
+### Structured whole-table product qualification
+
+`whole-table-product-scope.v1` can qualify HTML label/value specifications at
+`exact_product` scope independently of an intake MPN. Existing exact target
+data-row qualification takes precedence, including its duplicate-row rejection.
+The new rule requires complete extraction, acquisition/capture references,
+consistent table/cell locators, and a sole first-row header whose explicit
+colspan equals every subsequent row's structural width. Widths sum source spans
+without expanding cells. Nontrivial rowspans, peer/later headers, multi-value
+layouts, explicit model/variant/part-number labels, and additional target-like
+identity locations remain unresolved.
+
+The header must exactly match the requested model under trim-only identity
+comparison. Alternatively, one ordinary-text run may match while trailing
+superscript runs each contain only a positive bracketed decimal reference marker
+such as `[1]`. Raw header text must agree with those segments. Subscripts,
+unbracketed superscripts, interleaved ordinary text, and arbitrary bracketed raw
+suffixes are not ignored. This narrow rule classifies reference-like structure;
+it does not verify a linked footnote or the intake's MPN.
+
+Each specification remains provisional and structurally supported, with native
+label/value evidence and a model applicability binding. Header context and the
+rule rationale remain traceable through existing evidence fields. Full-width
+single data cells serve only as separators. No semantic mapping, reconciliation,
+candidate identity verification, or PDF qualification policy changes here.
+
 ### Bounded technical-resource acquisition
 
 The retained resource set is the result of a deterministic bounded priority-aware
