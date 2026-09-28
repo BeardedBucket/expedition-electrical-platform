@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { ProductReview, SourceLink } from './ProductReview.js';
 import {
   api,
   type IntakeInput,
@@ -40,7 +41,13 @@ function Table({
           {rows.map((row, index) => (
             <tr key={index}>
               {columns.map(([key]) => (
-                <td key={key}>{display((row as Record<string, unknown>)[key])}</td>
+                <td key={key}>
+                  {key === 'uri' ? (
+                    <SourceLink uri={(row as Record<string, string>)[key]} />
+                  ) : (
+                    display((row as Record<string, unknown>)[key])
+                  )}
+                </td>
               ))}
             </tr>
           ))}
@@ -500,6 +507,9 @@ function JobPage({ id, client }: { id: string; client: OperatorApi }) {
         <button disabled={starting} onClick={() => void prepare()}>
           {starting ? 'Starting preparation…' : 'Start preparation'}
         </button>
+      )}
+      {job && job.candidate && (
+        <ProductReview key={job.summary.id} job={job} client={client} onUpdate={setJob} />
       )}
       {job ? <Review job={job} /> : <p role="status">Loading persisted job…</p>}
       {job && <SourceResolution job={job} client={client} onUpdate={setJob} />}

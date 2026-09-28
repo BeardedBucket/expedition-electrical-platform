@@ -49,6 +49,8 @@ const detail: OperatorJobDetail = {
   diagnostics: [],
 };
 const client = (): OperatorApi => ({
+  review: vi.fn().mockResolvedValue(detail),
+  finalize: vi.fn().mockResolvedValue(detail),
   submitSourceCandidate: vi.fn().mockResolvedValue(detail),
   acceptSource: vi.fn().mockResolvedValue(detail),
   rejectSource: vi.fn().mockResolvedValue(detail),

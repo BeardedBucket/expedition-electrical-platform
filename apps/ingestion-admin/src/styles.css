@@ -185,6 +185,29 @@ article {
 a {
   color: #126e75;
 }
+fieldset {
+  border: 0;
+  padding: 0;
+  min-width: 0;
+}
+select,
+textarea {
+  font: inherit;
+  padding: 0.6rem;
+  max-width: 100%;
+}
+.source-evidence {
+  border-left: 3px solid #d4e0e7;
+  padding: 0.5rem 1rem;
+  margin-bottom: 1rem;
+}
+.unresolved,
+[role='dialog'] {
+  background: #fff4dc;
+  padding: 1rem;
+  margin: 1rem 0;
+  border: 1px solid #a87820;
+}
 footer {
   padding: 1rem 4vw 2rem;
   text-align: center;

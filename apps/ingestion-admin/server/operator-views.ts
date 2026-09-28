@@ -1,6 +1,98 @@
 import type { IngestionJob } from '@expedition/ingestion-runtime';
 import type { ArtifactReference } from '@expedition/ingestion';
-import { artifactDigest } from '@expedition/ingestion';
+import { artifactDigest, canonicalIdFor } from '@expedition/ingestion';
+import { productRoles } from './product-review.js';
+
+const valueAt = (data: unknown, path: string): unknown =>
+  path
+    .split('.')
+    .reduce<unknown>(
+      (value, key) =>
+        value && typeof value === 'object' ? (value as Record<string, unknown>)[key] : undefined,
+      data,
+    );
+const safeUri = (uri: string | undefined) => (uri && /^https?:\/\//i.test(uri) ? uri : undefined);
+const operatorIssues = (issues: readonly { code: string; path: string; message: string }[]) =>
+  issues.slice(0, 100).map(({ code, path, message }) => ({
+    code,
+    path,
+    message: ['write_failed', 'promotion_already_exists'].includes(code)
+      ? code === 'write_failed'
+        ? 'Unable to create canonical component; inspect local service diagnostics.'
+        : 'Canonical component already exists. No overwrite was performed.'
+      : message,
+  }));
+
+export function productReviewView(job: IngestionJob) {
+  const p = job.preparation;
+  if (p?.status !== 'review_ready') return undefined;
+  const fields = [...new Set(p.proposals.map((proposal) => proposal.target))];
+  return {
+    roles: productRoles,
+    canonical_id: p.bridge.candidate ? canonicalIdFor(p.bridge.candidate) : undefined,
+    truncated: fields.length > 200 || p.proposals.length > 500 || p.qualified_facts.length > 1000,
+    fields: fields.slice(0, 200).map((field) => ({
+      path: field,
+      value: valueAt(p.bridge.candidate?.component_data, field),
+      selectable: !!p.bridge.candidate?.field_evidence[field],
+      candidate_fact_ids: p.bridge.candidate?.field_evidence[field] ?? [],
+      proposals: p.proposals
+        .filter((proposal) => proposal.target === field)
+        .slice(0, 500)
+        .map((proposal) => ({
+          id: proposal.id,
+          disposition: proposal.disposition,
+          value: proposal.proposed_value,
+          projected: p.bridge.projected_proposal_ids.includes(proposal.id),
+          references: [...proposal.evidence_refs, ...(proposal.fact_refs ?? [])].map(reference),
+          evidence: p.qualified_facts
+            .filter((fact) =>
+              proposal.fact_refs?.some((ref) => ref.digest === artifactDigest(fact)),
+            )
+            .slice(0, 1000)
+            .map((fact) => {
+              const capture = p.captures.find(
+                (capture) => artifactDigest(capture) === fact.source_capture.digest,
+              );
+              const document = p.document_extractions.find(
+                (document) => fact.document_extraction?.digest === artifactDigest(document),
+              );
+              return {
+                id: fact.id,
+                label: fact.metadata.source_label,
+                raw_value: fact.metadata.raw_value,
+                unit: fact.metadata.source_unit,
+                applicability: fact.metadata.applicability,
+                qualification: fact.qualification_state,
+                source_uri: safeUri(capture?.final_uri ?? capture?.requested_uri),
+                document: document?.title,
+                locators: fact.evidence?.map(({ role, locator, block_id }) => ({
+                  role,
+                  locator,
+                  block_id,
+                })),
+                conflicts: p.reconciliation.group_reconciliations
+                  .filter(
+                    (group) =>
+                      group.qualified_fact_ids.includes(fact.id) && group.outcome !== 'agreement',
+                  )
+                  .map((group) => ({ id: group.id, outcome: group.outcome })),
+              };
+            }),
+        })),
+    })),
+    candidate_facts: p.bridge.facts
+      .slice(0, 1000)
+      .map(({ id, field, raw_label, raw_value, fact_state }) => ({
+        id,
+        field,
+        raw_label,
+        raw_value,
+        fact_state,
+      })),
+    topology_evidence: p.bridge.candidate?.topology_evidence,
+  };
+}
 
 // Allowlisted reference metadata only; no internal provenance or captured bodies.
 const reference = (ref: ArtifactReference) => ({
@@ -49,6 +141,31 @@ export const jobDetail = (job: IngestionJob) => {
       : undefined;
   return {
     summary: jobSummary(job),
+    product_review: productReviewView(job),
+    approval: job.approval
+      ? {
+          decision: job.approval.decision,
+          reviewer_label: job.approval.reviewer_id,
+          reviewed_at: job.approval.reviewed_at,
+          reviewed_decisions: job.approval.reviewed_decisions,
+          promotion_decisions: job.approval.promotion_decisions,
+          review_package: reference(job.approval.review_package),
+          review_package_snapshot: job.approval.review_package_snapshot,
+          semantic_snapshot: job.approval.semantic_snapshot,
+        }
+      : undefined,
+    finalization: job.finalization_request
+      ? {
+          requested_at: job.finalization_request.requested_at,
+          write_authorized: job.finalization_request.write_request.write === true,
+          promotion_status: job.final_result?.promotion.result.status,
+          write_status: job.final_result?.write_result.status,
+          collision: job.final_result?.write_result.collision,
+          schema_valid: job.final_result?.write_result.schema_valid,
+          promotion_issues: operatorIssues(job.final_result?.promotion.result.issues ?? []),
+          write_issues: operatorIssues(job.final_result?.write_result.issues ?? []),
+        }
+      : undefined,
     source_resolution: !job.intake.official_product_uri
       ? {
           state: job.state,
@@ -252,7 +369,17 @@ export const jobDetail = (job: IngestionJob) => {
         }
       : undefined,
     diagnostics: [
-      ...(job.error ? [{ code: `${job.error.operation}_failed`, message: job.error.message }] : []),
+      ...(job.error
+        ? [
+            {
+              code: `${job.error.operation}_failed`,
+              message:
+                job.error.operation === 'finalize'
+                  ? 'Finalization failed. Inspect local service diagnostics; this job cannot be retried.'
+                  : job.error.message,
+            },
+          ]
+        : []),
       ...(p?.status === 'preparation_failed'
         ? [
             {
@@ -267,4 +394,8 @@ export const jobDetail = (job: IngestionJob) => {
 
 // These types are imported with `import type` by the browser. The projection is Node-only.
 export type OperatorJobSummary = ReturnType<typeof jobSummary>;
-export type OperatorJobDetail = ReturnType<typeof jobDetail>;
+export type OperatorJobDetail = Omit<
+  ReturnType<typeof jobDetail>,
+  'product_review' | 'approval' | 'finalization'
+> &
+  Partial<Pick<ReturnType<typeof jobDetail>, 'product_review' | 'approval' | 'finalization'>>;

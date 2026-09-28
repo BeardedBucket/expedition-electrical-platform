@@ -1,5 +1,11 @@
 import type { OperatorJobDetail, OperatorJobSummary } from '../server/operator-views.js';
 import type { IntakeSuggestions } from '../server/suggestions.js';
+import type { ProductionPromotionDecisions } from '@expedition/ingestion';
+export interface HumanReviewInput {
+  reviewer_id: string;
+  reviewed_decisions?: string[];
+  promotion_decisions?: ProductionPromotionDecisions;
+}
 export type { OperatorJobDetail, OperatorJobSummary };
 export interface IntakeInput {
   manufacturer: string;
@@ -36,6 +42,10 @@ export const api = {
         : {}),
     }),
   prepare: (id: string) => request<OperatorJobDetail>(`/${encodeURIComponent(id)}/prepare`, 'POST'),
+  review: (id: string, action: 'approve' | 'reject' | 'defer', input: HumanReviewInput) =>
+    request<OperatorJobDetail>(`/${encodeURIComponent(id)}/review/${action}`, 'POST', input),
+  finalize: (id: string) =>
+    request<OperatorJobDetail>(`/${encodeURIComponent(id)}/finalize`, 'POST', { write: true }),
   submitSourceCandidate: (id: string, uri: string) =>
     request<OperatorJobDetail>(`/${encodeURIComponent(id)}/source-resolution/candidates`, 'POST', {
       official_product_uri: uri,

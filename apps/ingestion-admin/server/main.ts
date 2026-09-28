@@ -7,9 +7,10 @@ const server = createOperatorApi(
   await createProductionOperatorService(config),
   config.browserOrigin,
   () => loadIntakeSuggestions(config),
+  config.canonicalRoot,
 );
 server.listen(config.port, config.host, () => {
   console.log(`Ingestion API: http://${config.host}:${config.port}`);
   console.log(`Job storage: ${config.jobRoot}`);
-  console.log(`Canonical destination (reserved): ${config.canonicalRoot}`);
+  console.log(`Canonical destination: ${config.canonicalRoot}`);
 });

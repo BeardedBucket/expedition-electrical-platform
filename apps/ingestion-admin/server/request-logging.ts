@@ -3,7 +3,7 @@ export interface RequestContext {
   readonly method: string;
   readonly pathname: string;
   readonly job_id?: string;
-  readonly operation?: 'create' | 'prepare' | 'get' | 'list';
+  readonly operation?: 'create' | 'prepare' | 'get' | 'list' | 'review' | 'finalize';
 }
 
 interface ErrorDiagnostic {
@@ -43,7 +43,10 @@ export function requestContext(
   method: string,
   pathname: string,
 ): RequestContext {
-  const match = /^\/api\/ingestion\/jobs\/([^/]+)(\/prepare)?$/.exec(pathname);
+  const match =
+    /^\/api\/ingestion\/jobs\/([^/]+)(\/prepare|\/review\/(?:approve|reject|defer)|\/finalize)?$/.exec(
+      pathname,
+    );
   return {
     request_id: requestId,
     method,
@@ -57,7 +60,11 @@ export function requestContext(
             ? 'list'
             : undefined
         : match?.[2] && method === 'POST'
-          ? 'prepare'
+          ? match[2].startsWith('/review/')
+            ? 'review'
+            : match[2] === '/finalize'
+              ? 'finalize'
+              : 'prepare'
           : match && !match[2] && method === 'GET'
             ? 'get'
             : undefined,

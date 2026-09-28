@@ -6,12 +6,21 @@ import { SourceResolutionError } from '@expedition/ingestion-runtime';
 import type { IntakeSuggestions } from './suggestions.js';
 import { jobDetail, jobSummary } from './operator-views.js';
 import { errorDiagnostic, logRequest, requestContext } from './request-logging.js';
+import { constructApproval, ProductReviewError } from './product-review.js';
 
 export type OperatorService = Pick<
   IngestionJobService,
   'createJob' | 'prepareJob' | 'getJob' | 'listJobs'
 > &
-  Partial<Pick<IngestionJobService, 'submitSourceResolutionCandidate' | 'decideSourceResolution'>>;
+  Partial<
+    Pick<
+      IngestionJobService,
+      | 'submitSourceResolutionCandidate'
+      | 'decideSourceResolution'
+      | 'submitApproval'
+      | 'finalizeJob'
+    >
+  >;
 class RequestError extends Error {
   constructor(
     readonly status: number,
@@ -88,6 +97,7 @@ export function createOperatorApi(
   suggestions: () => IntakeSuggestions | Promise<IntakeSuggestions> = () => {
     throw new Error('Canonical suggestion provider is not configured.');
   },
+  canonicalRoot?: string,
 ) {
   return createServer((req, res) => {
     const requestId = randomUUID();
@@ -136,11 +146,41 @@ export function createOperatorApi(
         throw new RequestError(405, 'Method not allowed.');
       }
       const match =
-        /^\/api\/ingestion\/jobs\/([^/]+)(\/prepare|\/source-resolution\/(?:candidates|accept|reject))?$/.exec(
+        /^\/api\/ingestion\/jobs\/([^/]+)(\/prepare|\/review\/(?:approve|reject|defer)|\/finalize|\/source-resolution\/(?:candidates|accept|reject))?$/.exec(
           pathname,
         );
       if (!match) throw new RequestError(404, 'Route not found.');
       if (!validId.test(match[1])) throw new RequestError(400, 'Malformed ingestion job ID.');
+      if (match[2]?.startsWith('/review/') && req.method === 'POST') {
+        const input = await jsonBody(req);
+        const action = match[2].split('/').at(-1);
+        const decision =
+          action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : 'deferred';
+        const approval = constructApproval(await service.getJob(match[1]), decision, input);
+        if (!service.submitApproval) throw new Error('Approval service is not configured.');
+        return send(res, 200, jobDetail(await service.submitApproval(match[1], approval)));
+      }
+      if (match[2] === '/finalize' && req.method === 'POST') {
+        const input = await jsonBody(req);
+        if (Object.keys(input).length !== 1 || input.write !== true)
+          throw new RequestError(
+            400,
+            'Provide only write:true to explicitly authorize the create-only canonical write.',
+          );
+        if (!canonicalRoot || !service.finalizeJob)
+          throw new Error('Canonical finalization is not configured.');
+        return send(
+          res,
+          200,
+          jobDetail(
+            await service.finalizeJob(match[1], {
+              destinationRoot: canonicalRoot,
+              write: true,
+              overwrite: false,
+            }),
+          ),
+        );
+      }
       if (match[2]?.startsWith('/source-resolution/') && req.method === 'POST') {
         const body = await jsonBody(req);
         const action = match[2].split('/').at(-1);
@@ -182,13 +222,16 @@ export function createOperatorApi(
       const status =
         error instanceof RequestError
           ? error.status
-          : error instanceof SourceResolutionError
+          : error instanceof SourceResolutionError || error instanceof ProductReviewError
             ? error.status
             : message.startsWith('Invalid product intake:')
               ? 400
               : message.startsWith('Unknown ingestion job ID:')
                 ? 404
                 : message.startsWith('Cannot prepare job in state ') ||
+                    message.startsWith('Cannot approve job in state ') ||
+                    message.startsWith('Cannot finalize job in state ') ||
+                    message === 'Production approval does not match the exact review package.' ||
                     message.includes('already has an operation in progress.')
                   ? 409
                   : 500;
