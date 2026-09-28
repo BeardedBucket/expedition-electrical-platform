@@ -61,7 +61,15 @@ Review separates sources, extraction, qualified evidence, reconciliation/proposa
 
 Completed jobs can be retrieved after browser or API restart. This first slice inherits the runtime's single-process exclusivity: run one API process per job directory. If the process terminates during preparation, the persisted `preparing` state is retained; there is no automatic restart/retry of an interrupted operation. Review its state and create a new job as needed. Background queues and interrupted-operation recovery are outside this slice.
 
-## Validation
+## Local API terminal diagnostics
+
+Each response includes a server-generated `X-Request-Id`. Unexpected HTTP 500s keep the generic browser JSON message and emit a structured JSON line through `console.error` to stderr with timestamp, request ID, method, pathname (without query), operation, job ID when present, and standard Error name/message/stack. Error causes are restricted to four additional levels, with each cause name/message limited to 2,000 characters and stack to 8,000 characters; cycles and arbitrary non-Error objects are represented by omission markers. Custom exception properties, request bodies, durable jobs, source bodies/bytes, and approval records are never serialized by the logger.
+
+A validated prepare request emits `PREPARE REQUEST START`, followed by exactly one `PREPARE REQUEST COMPLETE` (returned durable state and elapsed milliseconds) or `PREPARE REQUEST FAILED` (elapsed milliseconds and error). A returned `preparation_failed` job is a completed HTTP/runtime request and logs COMPLETE with that state. Unexpected prepare failures carry full standard Error diagnostics; expected 4xx prepare failures carry only a concise message without a stack. Other unexpected 500s emit `REQUEST FAILED`; other expected 4xx errors are not logged.
+
+To reproduce after review, start the API in a visible terminal, start Vite in another terminal, open `http://127.0.0.1:5174`, and submit the same four product fields through Add Product. In browser developer tools, inspect the prepare response's `X-Request-Id`, and match it to the API terminal START and terminal event. If the failure recurs, the FAILED event identifies the actual exception and causes while the browser retains the sanitized message. Record the job ID/state before retrying; do not infer a cause from a later successful request.
+
+## Validation tests
 
 From the repository root:
 

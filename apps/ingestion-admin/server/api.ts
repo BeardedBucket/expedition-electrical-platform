@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import type { IngestionJobService } from '@expedition/ingestion-runtime';
 import { jobDetail, jobSummary } from './operator-views.js';
+import { errorDiagnostic, logRequest, requestContext } from './request-logging.js';
 
 export type OperatorService = Pick<
   IngestionJobService,
@@ -67,6 +68,14 @@ export function createOperatorApi(
   browserOrigin = 'http://127.0.0.1:5174',
 ) {
   return createServer((req, res) => {
+    const requestId = randomUUID();
+    res.setHeader('X-Request-Id', requestId);
+    let context = requestContext(
+      requestId,
+      req.method ?? 'UNKNOWN',
+      (req.url ?? '/').split('?')[0],
+    );
+    let prepareStarted: number | undefined;
     void (async () => {
       // Local maintainer boundary: do not accept cross-site browser mutations.
       if (req.headers['sec-fetch-site'] === 'cross-site')
@@ -78,6 +87,7 @@ export function createOperatorApi(
       )
         throw new RequestError(403, 'Origin must match the local admin server.');
       const pathname = new URL(req.url ?? '/', 'http://localhost').pathname;
+      context = requestContext(requestId, req.method ?? 'UNKNOWN', pathname);
       if (pathname === '/api/ingestion/jobs') {
         if (req.method === 'GET')
           return send(res, 200, { jobs: (await service.listJobs()).map(jobSummary) });
@@ -96,8 +106,17 @@ export function createOperatorApi(
       const match = /^\/api\/ingestion\/jobs\/([^/]+)(\/prepare)?$/.exec(pathname);
       if (!match) throw new RequestError(404, 'Route not found.');
       if (!validId.test(match[1])) throw new RequestError(400, 'Malformed ingestion job ID.');
-      if (match[2] && req.method === 'POST')
-        return send(res, 200, jobDetail(await service.prepareJob(match[1])));
+      if (match[2] && req.method === 'POST') {
+        prepareStarted = performance.now();
+        logRequest('PREPARE REQUEST START', context);
+        const job = await service.prepareJob(match[1]);
+        send(res, 200, jobDetail(job));
+        logRequest('PREPARE REQUEST COMPLETE', context, {
+          state: job.state,
+          elapsed_ms: Math.round(performance.now() - prepareStarted),
+        });
+        return;
+      }
       if (!match[2] && req.method === 'GET')
         return send(res, 200, jobDetail(await service.getJob(match[1])));
       throw new RequestError(405, 'Method not allowed.');
@@ -114,6 +133,15 @@ export function createOperatorApi(
                   message.includes('already has an operation in progress.')
                 ? 409
                 : 500;
+      if (prepareStarted !== undefined) {
+        logRequest('PREPARE REQUEST FAILED', context, {
+          status,
+          elapsed_ms: Math.round(performance.now() - prepareStarted),
+          error: status === 500 ? errorDiagnostic(error) : { name: 'RequestError', message },
+        });
+      } else if (status === 500) {
+        logRequest('REQUEST FAILED', context, { status, error: errorDiagnostic(error) });
+      }
       send(res, status, {
         error: {
           message:

@@ -399,18 +399,24 @@ function RecentJobs({ client }: { client: OperatorApi }) {
     </section>
   );
 }
+const emptyIntake = (): IntakeInput => ({
+  manufacturer: '',
+  product_model: '',
+  manufacturer_part_number: '',
+  official_product_uri: '',
+});
+
 export default function App({ client = api }: { client?: OperatorApi }) {
   const [route, setRoute] = useState(window.location.hash);
-  const [input, setInput] = useState<IntakeInput>({
-    manufacturer: '',
-    product_model: '',
-    manufacturer_part_number: '',
-    official_product_uri: '',
-  });
+  const [input, setInput] = useState<IntakeInput>(emptyIntake);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   useEffect(() => {
-    const changed = () => setRoute(window.location.hash);
+    const changed = () => {
+      const nextRoute = window.location.hash;
+      if (nextRoute === '' || nextRoute === '#' || nextRoute === '#/') setInput(emptyIntake());
+      setRoute(nextRoute);
+    };
     window.addEventListener('hashchange', changed);
     return () => window.removeEventListener('hashchange', changed);
   }, []);
@@ -420,6 +426,7 @@ export default function App({ client = api }: { client?: OperatorApi }) {
     setError('');
     try {
       const job = await client.create(input);
+      setInput(emptyIntake());
       window.location.hash = `/jobs/${job.summary.id}`;
       setRoute(`#/jobs/${job.summary.id}`);
       void client
@@ -439,11 +446,13 @@ export default function App({ client = api }: { client?: OperatorApi }) {
   return (
     <>
       <header>
-        <a className="brand" href="#/">
+        <a className="brand" href="#/" onClick={() => setInput(emptyIntake())}>
           Expedition <span>Ingestion Admin</span>
         </a>
         <nav>
-          <a href="#/">Add product</a>
+          <a href="#/" onClick={() => setInput(emptyIntake())}>
+            Add product
+          </a>
           <a href="#/jobs">Recent jobs</a>
         </nav>
       </header>
@@ -461,7 +470,7 @@ export default function App({ client = api }: { client?: OperatorApi }) {
               Prepare official evidence for review. Enter the product identity and its official
               manufacturer page.
             </p>
-            <form onSubmit={(event) => void submit(event)}>
+            <form autoComplete="off" onSubmit={(event) => void submit(event)}>
               {(
                 [
                   ['manufacturer', 'Manufacturer'],
@@ -474,6 +483,7 @@ export default function App({ client = api }: { client?: OperatorApi }) {
                   {label}
                   <input
                     required
+                    autoComplete="off"
                     type={field === 'official_product_uri' ? 'url' : 'text'}
                     value={input[field]}
                     onChange={(e) => setInput({ ...input, [field]: e.target.value })}

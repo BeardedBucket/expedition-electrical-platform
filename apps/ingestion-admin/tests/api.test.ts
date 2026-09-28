@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Server } from 'node:http';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { IngestionJobService, FileIngestionJobStore } from '@expedition/ingestion-runtime';
 import { createOperatorApi, type OperatorService } from '../server/api.js';
 import { jobDetail } from '../server/operator-views.js';
@@ -13,9 +13,13 @@ import {
   createProductionOperatorService,
 } from '../server/runtime.js';
 import { fixtureService, fixturePreparation, input, intake } from './fixtures.js';
+import { errorDiagnostic, type RequestContext } from '../server/request-logging.js';
 
 const roots: string[] = [];
 const servers: Server[] = [];
+beforeEach(() => {
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+});
 afterEach(async () => {
   for (const server of servers.splice(0))
     await new Promise<void>((resolve) => {
@@ -23,7 +27,19 @@ afterEach(async () => {
       server.close(() => resolve());
     });
   for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true });
+  vi.restoreAllMocks();
 });
+
+interface LogEntry extends RequestContext {
+  event: string;
+  timestamp: string;
+  elapsed_ms?: number;
+  state?: string;
+  status?: number;
+  error?: ReturnType<typeof errorDiagnostic>;
+}
+const logEntries = () =>
+  vi.mocked(console.error).mock.calls.map(([entry]) => JSON.parse(entry as string) as LogEntry);
 async function root() {
   const path = await mkdtemp(join(tmpdir(), 'ingestion-admin-'));
   roots.push(path);
@@ -45,6 +61,168 @@ const post = (url: string, body?: unknown) =>
   });
 
 describe('operator HTTP API and durable DTO boundary', () => {
+  it('logs unexpected prepare errors with context, stack and causes while returning only the sanitized 500', async () => {
+    const service = fixtureService(await root());
+    const job = await service.createJob(intake);
+    const cause = new Error('Underlying filesystem failure');
+    const error = new TypeError('Internal prepare failure at C:/private/jobs', { cause });
+    Object.assign(error, {
+      source: { body: { text: 'PRIVATE_HTML', bytes: new Uint8Array([1, 2]) } },
+      job,
+      approval: 'PRIVATE_APPROVAL',
+    });
+    vi.spyOn(service, 'prepareJob').mockRejectedValueOnce(error);
+    const url = await start(service);
+    const response = await post(`${url}/${job.id}/prepare?trace=PRIVATE_QUERY`, {
+      source: 'PRIVATE_REQUEST_BODY',
+    });
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      error: { message: 'The ingestion service could not complete the request.' },
+    });
+    const logs = logEntries();
+    expect(logs.map((entry) => entry.event)).toEqual([
+      'PREPARE REQUEST START',
+      'PREPARE REQUEST FAILED',
+    ]);
+    const failed = logs[1];
+    expect(failed).toMatchObject({
+      method: 'POST',
+      pathname: `/api/ingestion/jobs/${job.id}/prepare`,
+      job_id: job.id,
+      operation: 'prepare',
+      status: 500,
+      error: {
+        name: 'TypeError',
+        message: error.message,
+        stack: error.stack,
+        cause: { name: 'Error', message: cause.message, stack: cause.stack },
+      },
+    });
+    expect(failed.elapsed_ms).toBeGreaterThanOrEqual(0);
+    for (const entry of logs) {
+      expect(entry.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+      expect(entry.request_id).toBe(response.headers.get('X-Request-Id'));
+    }
+    const serialized = JSON.stringify(logs);
+    for (const excluded of [
+      'PRIVATE_HTML',
+      'PRIVATE_APPROVAL',
+      'PRIVATE_REQUEST_BODY',
+      'PRIVATE_QUERY',
+      '"intake"',
+      '"body"',
+      '"bytes"',
+    ])
+      expect(serialized).not.toContain(excluded);
+    expect((await service.getJob(job.id)).state).toBe('created');
+  });
+  it('logs one start and completion with durable state without serializing prepared evidence', async () => {
+    const service = fixtureService(await root());
+    const job = await service.createJob(intake);
+    const url = await start(service);
+    const response = await post(`${url}/${job.id}/prepare`);
+    expect(response.status).toBe(200);
+    const logs = logEntries();
+    expect(logs.map((entry) => entry.event)).toEqual([
+      'PREPARE REQUEST START',
+      'PREPARE REQUEST COMPLETE',
+    ]);
+    expect(logs[1]).toMatchObject({
+      job_id: job.id,
+      operation: 'prepare',
+      state: (await service.getJob(job.id)).state,
+    });
+    expect(logs[1].elapsed_ms).toBeGreaterThanOrEqual(0);
+    expect(logs[1].request_id).toBe(logs[0].request_id);
+    expect(logs[0].request_id).toBe(response.headers.get('X-Request-Id'));
+    for (const excluded of [
+      'RAW_BODY_MARKER',
+      'source_capture',
+      'qualified_facts',
+      '"body"',
+      '"bytes"',
+      '"intake"',
+    ])
+      expect(JSON.stringify(logs)).not.toContain(excluded);
+  });
+  it('keeps expected 4xx mappings and limits prepare failures to concise diagnostics', async () => {
+    const service = fixtureService(await root());
+    const job = await service.createJob(intake);
+    const url = await start(service);
+    const response = await post(url, { ...input, manufacturer: '' });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: { message: 'Provide exactly the four non-empty product intake fields.' },
+    });
+    expect((await fetch(`${url}/bad`)).status).toBe(400);
+    expect((await fetch(`${url}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa`)).status).toBe(404);
+    expect(logEntries()).toEqual([]);
+    for (const message of [
+      'Cannot prepare job in state review_ready.',
+      `Ingestion job ${job.id} already has an operation in progress.`,
+      `Unknown ingestion job ID: ${job.id}`,
+    ]) {
+      vi.mocked(console.error).mockClear();
+      vi.spyOn(service, 'prepareJob').mockRejectedValueOnce(new Error(message));
+      const response = await post(`${url}/${job.id}/prepare`);
+      expect(response.status).toBe(message.startsWith('Unknown') ? 404 : 409);
+      expect(await response.json()).toEqual({ error: { message } });
+      expect(logEntries().map((entry) => entry.event)).toEqual([
+        'PREPARE REQUEST START',
+        'PREPARE REQUEST FAILED',
+      ]);
+      expect(logEntries()[1].error).toEqual({ name: 'RequestError', message });
+    }
+  });
+  it.each(['create', 'get', 'list'] as const)(
+    'logs an unexpected %s error with its operation and sanitized response',
+    async (operation) => {
+      const service = fixtureService(await root());
+      const url = await start(service);
+      const error = new Error(`Internal ${operation} failure`);
+      const jobId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+      if (operation === 'create') vi.spyOn(service, 'createJob').mockRejectedValueOnce(error);
+      else if (operation === 'get') vi.spyOn(service, 'getJob').mockRejectedValueOnce(error);
+      else vi.spyOn(service, 'listJobs').mockRejectedValueOnce(error);
+      const response =
+        operation === 'create'
+          ? await post(url, input)
+          : await fetch(operation === 'get' ? `${url}/${jobId}` : url);
+      expect(response.status).toBe(500);
+      expect(await response.json()).toEqual({
+        error: { message: 'The ingestion service could not complete the request.' },
+      });
+      expect(logEntries()).toHaveLength(1);
+      expect(logEntries()[0]).toMatchObject({
+        event: 'REQUEST FAILED',
+        operation,
+        method: operation === 'create' ? 'POST' : 'GET',
+        pathname: operation === 'get' ? `/api/ingestion/jobs/${jobId}` : '/api/ingestion/jobs',
+        error: { name: 'Error', message: error.message, stack: error.stack },
+      });
+      expect(logEntries()[0].job_id).toBe(operation === 'get' ? jobId : undefined);
+    },
+  );
+  it('bounds nested and circular causes and omits arbitrary thrown object contents', () => {
+    const circular = new Error('Circular');
+    circular.cause = circular;
+    expect(errorDiagnostic(circular).cause?.name).toBe('CauseCycle');
+    let nested: Error = new Error('Deep');
+    for (let i = 0; i < 10; i++) nested = new Error('a'.repeat(3000), { cause: nested });
+    const diagnostic = errorDiagnostic(nested);
+    expect(diagnostic.message).toHaveLength(3000);
+    expect(diagnostic.cause?.message).toHaveLength(2000);
+    expect(JSON.stringify(diagnostic)).toContain('CauseLimit');
+    const withObject = errorDiagnostic(
+      new Error('Failure', { cause: { bytes: 'PRIVATE_BYTES', job: 'PRIVATE_JOB' } }),
+    );
+    expect(JSON.stringify(withObject)).not.toContain('PRIVATE_');
+    expect(errorDiagnostic({ html: 'PRIVATE_HTML' })).toEqual({
+      name: 'NonErrorThrow',
+      message: 'Thrown object; value omitted.',
+    });
+  });
   it('creates durably, prepares through the real offline pipeline, and restores after service restart', async () => {
     const path = await root();
     const service = fixtureService(path);
@@ -139,6 +317,11 @@ describe('operator HTTP API and durable DTO boundary', () => {
     const created = await (await post(url, input)).json();
     const failed = await (await post(`${url}/${created.summary.id}/prepare`)).json();
     expect(failed.summary.state).toBe('preparation_failed');
+    expect(logEntries().map((entry) => entry.event)).toEqual([
+      'PREPARE REQUEST START',
+      'PREPARE REQUEST COMPLETE',
+    ]);
+    expect(logEntries()[1].state).toBe('preparation_failed');
     expect(failed.diagnostics[0].message).toContain('Capture unavailable');
     expect(JSON.stringify(failed)).not.toContain(' at ');
     const prepared = await fixturePreparation(false);

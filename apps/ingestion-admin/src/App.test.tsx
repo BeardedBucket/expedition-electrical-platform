@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { StrictMode } from 'react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import App, { Review } from './App.js';
 import type { OperatorApi, OperatorJobDetail } from './api.js';
@@ -52,9 +53,13 @@ const client = (): OperatorApi => ({
   get: vi.fn().mockResolvedValue(detail),
   list: vi.fn().mockResolvedValue({ jobs: [] }),
 });
-afterEach(() => {
+afterEach(async () => {
   cleanup();
-  window.location.hash = '';
+  // Drain jsdom's deferred anchor navigation and its subsequent hashchange
+  // before another App subscribes, then reset the URL without queuing an event.
+  await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  window.history.replaceState(null, '', window.location.pathname);
   vi.restoreAllMocks();
 });
 function fill() {
@@ -66,7 +71,98 @@ function fill() {
   ])
     fireEvent.change(screen.getByLabelText(label), { target: { value } });
 }
+const intakeLabels = [
+  'Manufacturer',
+  'Product model',
+  'Manufacturer part number',
+  'Official product URL',
+];
+function expectBlankIntake() {
+  for (const label of intakeLabels) expect(screen.getByLabelText(label)).toHaveValue('');
+}
+function expectEnteredIntake() {
+  for (const [index, value] of [
+    'Example',
+    'Model',
+    'EX-1',
+    'https://example.test/product',
+  ].entries())
+    expect(screen.getByLabelText(intakeLabels[index])).toHaveValue(value);
+}
 describe('ingestion admin operator interface', () => {
+  it('returns to a blank Add Product form after successful creation', async () => {
+    const api = client();
+    render(<App client={api} />);
+    fill();
+    fireEvent.click(screen.getByRole('button', { name: 'Create & Prepare' }));
+    await screen.findByText('review_ready');
+    fireEvent.click(screen.getByRole('link', { name: 'Add product' }));
+    await screen.findByRole('heading', { name: 'Add product' });
+    expectBlankIntake();
+    expect(api.prepare).toHaveBeenCalledTimes(1);
+  });
+  it('discards an earlier draft when navigating from a job page to Add Product', async () => {
+    render(<App client={client()} />);
+    fill();
+    act(() => {
+      window.location.hash = `/jobs/${id}`;
+    });
+    await screen.findByText('review_ready');
+    fireEvent.click(screen.getByRole('link', { name: 'Add product' }));
+    await screen.findByRole('heading', { name: 'Add product' });
+    expectBlankIntake();
+  });
+  it('discards an earlier draft when navigating from Recent Jobs to Add Product', async () => {
+    render(<App client={client()} />);
+    fill();
+    fireEvent.click(screen.getByRole('link', { name: 'Recent jobs' }));
+    await screen.findByText('No jobs yet. Add a product to begin.');
+    fireEvent.click(screen.getByRole('link', { name: 'Add product' }));
+    await screen.findByRole('heading', { name: 'Add product' });
+    expectBlankIntake();
+  });
+  it('preserves an active draft during ordinary rerenders', () => {
+    const api = client();
+    const view = render(<App client={api} />);
+    fill();
+    view.rerender(<App client={api} />);
+    expectEnteredIntake();
+    expect(api.create).not.toHaveBeenCalled();
+    expect(api.prepare).not.toHaveBeenCalled();
+    expect(api.get).not.toHaveBeenCalled();
+  });
+  it('resets on a deliberate Add Product click even when already on that route', async () => {
+    window.location.hash = '/';
+    render(<App client={client()} />);
+    fill();
+    fireEvent.click(screen.getByRole('link', { name: 'Add product' }));
+    expectBlankIntake();
+  });
+  it('discourages product identity autofill on the form and all inputs', () => {
+    render(<App client={client()} />);
+    for (const label of intakeLabels) {
+      const field = screen.getByLabelText(label);
+      expect(field).toHaveAttribute('autocomplete', 'off');
+      expect(field.closest('form')).toHaveAttribute('autocomplete', 'off');
+    }
+  });
+  it('issues one automatic prepare per submit under StrictMode, route transition and refresh', async () => {
+    const api = client();
+    render(
+      <StrictMode>
+        <App client={api} />
+      </StrictMode>,
+    );
+    fill();
+    fireEvent.click(screen.getByRole('button', { name: 'Create & Prepare' }));
+    await screen.findByText('review_ready');
+    expect(api.create).toHaveBeenCalledTimes(1);
+    expect(api.prepare).toHaveBeenCalledTimes(1);
+    const getCalls = vi.mocked(api.get).mock.calls.length;
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh job' }));
+    await waitFor(() => expect(vi.mocked(api.get).mock.calls.length).toBeGreaterThan(getCalls));
+    expect(api.prepare).toHaveBeenCalledTimes(1);
+  });
   it('submits all four fields, invokes prepare and navigates to persisted review', async () => {
     const api = client();
     render(<App client={api} />);
@@ -164,6 +260,7 @@ describe('ingestion admin operator interface', () => {
     fill();
     fireEvent.click(screen.getByRole('button', { name: 'Create & Prepare' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Invalid intake URI');
+    expectEnteredIntake();
     vi.mocked(api.prepare).mockRejectedValueOnce(new Error('Connection interrupted'));
     fireEvent.click(screen.getByRole('button', { name: 'Create & Prepare' }));
     await waitFor(() =>

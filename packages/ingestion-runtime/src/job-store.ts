@@ -1,8 +1,9 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdir, open, readdir, readFile, rename, rm } from 'node:fs/promises';
+import { mkdir, open, readdir, readFile, rm } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { deserializeJob, serializeJob } from './codec.js';
 import type { IngestionJob } from './job-service.js';
+import { replaceJobRecord } from './file-replacement.js';
 
 export interface IngestionJobStore {
   create(job: IngestionJob): Promise<void>;
@@ -170,7 +171,7 @@ export class FileIngestionJobStore implements IngestionJobStore {
       } finally {
         await file.close();
       }
-      await rename(temporary, this.path(job.id));
+      await replaceJobRecord(temporary, this.path(job.id));
     } finally {
       await rm(temporary, { force: true });
     }
