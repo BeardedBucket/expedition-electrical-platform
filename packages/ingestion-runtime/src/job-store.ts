@@ -29,6 +29,7 @@ const decodeRecord = (raw: string): unknown => {
   return deserializeJob(envelope.payload);
 };
 const states = new Set([
+  'source_resolution_required',
   'created',
   'preparing',
   'review_ready',

@@ -233,6 +233,34 @@ describe('structured production approval decisions', () => {
 });
 
 describe('production ingestion contracts', () => {
+  it('requires manufacturer, model and either non-empty supported identifier', () => {
+    const urlOnly = { ...intake };
+    delete urlOnly.manufacturer_part_number;
+    const mpnOnly = { ...intake };
+    delete mpnOnly.official_product_uri;
+    const neither = { ...urlOnly };
+    delete neither.official_product_uri;
+    for (const valid of [
+      intake,
+      urlOnly,
+      mpnOnly,
+      { ...urlOnly, official_product_uri: 'HTTPS://example.test/product' },
+    ]) {
+      expect(validateProductIntake(valid)).toEqual([]);
+      expect(validateProductionIngestionArtifact(valid)).toBe(true);
+    }
+    for (const invalid of [
+      neither,
+      { ...intake, manufacturer_part_number: '  ' },
+      { ...intake, manufacturer_part_number: 3 },
+      { ...intake, official_product_uri: 'ftp://example.test/a' },
+      { ...intake, official_product_uri: 'bad' },
+      { ...intake, official_product_uri: '' },
+    ]) {
+      expect(validateProductIntake(invalid).length).toBeGreaterThan(0);
+      expect(validateProductionIngestionArtifact(invalid)).toBe(false);
+    }
+  });
   it('represents ordinary intake without invented defaults', () => {
     expect(intake.manufacturer_part_number).toBe('EX-1');
     expect('system_voltage' in intake).toBe(false);

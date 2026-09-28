@@ -6,6 +6,7 @@ import {
   PRODUCTION_SCHEMA_VERSION,
   type CapturedSource,
   type ProductIntake,
+  type ManufacturerAcquisitionProfile,
   type SourceCaptureAdapter,
 } from '../src/index.js';
 
@@ -19,6 +20,37 @@ const intake: ProductIntake = {
   product_model: 'Example Model',
   manufacturer_part_number: 'EX-1',
   official_product_uri: productUri,
+};
+const modelProfile: ManufacturerAcquisitionProfile = {
+  schema_version: '1.2',
+  id: 'example.model.reviewed',
+  profile_status: 'reviewed',
+  manufacturer: intake.manufacturer,
+  publisher: intake.manufacturer,
+  official_domains: ['example.test'],
+  strategies: [
+    {
+      id: 'product-pages',
+      status: 'reviewed',
+      path_prefix: '/products/',
+      embedded_json: {
+        representation: 'embedded_json',
+        script: { id: 'absent', media_type: 'application/json' },
+        json_path: '$.product',
+        record_collection_path: '$.products',
+        identity_property: 'sku',
+      },
+      document_link_discovery: {
+        link_attribute: 'href',
+        allowed_extensions: ['.html'],
+        path_prefix: '/docs/',
+      },
+    },
+  ],
+  provenance: {
+    source_artifact: 'offline fixture',
+    observed_source_content_hash: 'sha256:' + 'a'.repeat(64),
+  },
 };
 const productPage = (link = '') =>
   `<html><body><h1>Example Model</h1><p>Official product information for EX-1.</p>${link}</body></html>`;
@@ -59,6 +91,57 @@ const linked = {
 };
 
 describe('production ingest review preparation', () => {
+  it('projects exact model evidence without fabricating MPN or rewriting intake', async () => {
+    const urlOnly = { ...intake };
+    delete urlOnly.manufacturer_part_number;
+    const result = await prepareProductionIngestReview({
+      intake: urlOnly,
+      profile: modelProfile,
+      adapter: adapter({
+        [productUri]: table().replace('<td>EX-1</td>', '<td>Example Model</td>').repeat(2),
+      }),
+    });
+    expect(result.status).toBe('review_ready');
+    if (result.status !== 'review_ready') return;
+    expect(result.qualified_facts.length).toBeGreaterThan(0);
+    expect(
+      result.qualified_facts.every((fact) => fact.metadata.applicability.kind === 'exact_product'),
+    ).toBe(true);
+    expect(
+      result.bridge.candidate,
+      JSON.stringify({ non_projected: result.bridge.non_projected, proposals: result.proposals }),
+    ).toBeDefined();
+    expect(result.bridge.candidate?.identity).not.toHaveProperty('manufacturer_part_number');
+    expect(result.bridge.candidate?.identity_status).toBe('provisional');
+    expect(result.intake).toEqual(urlOnly);
+    expect(result.intake).not.toHaveProperty('manufacturer_part_number');
+    expect(result.review_package.candidate).toBeDefined();
+  });
+  it('does not apply a similar model or ambiguous model rows', async () => {
+    const urlOnly = { ...intake };
+    delete urlOnly.manufacturer_part_number;
+    for (const html of [
+      table().replace('<td>EX-1</td>', '<td>Example Model Plus</td>'),
+      table()
+        .replace('<td>EX-1</td>', '<td>Example Model</td>')
+        .replace('</tbody>', '<tr><td>Example Model</td><td>12 V</td></tr></tbody>'),
+    ]) {
+      const result = await prepareProductionIngestReview({
+        intake: urlOnly,
+        adapter: adapter({ [productUri]: html }),
+      });
+      expect(result.status).toBe('review_ready');
+      if (result.status === 'review_ready') expect(result.bridge.candidate).toBeUndefined();
+    }
+  });
+  it('explicitly stops URL-less preparation before capture', async () => {
+    const mpnOnly = { ...intake };
+    delete mpnOnly.official_product_uri;
+    const capture = adapter({});
+    await expect(
+      prepareProductionIngestReview({ intake: mpnOnly, adapter: capture }),
+    ).rejects.toThrow('Official source resolution required');
+  });
   it('prepares a review package from a product intake through the production ingestion stages', async () => {
     const result = await run(linked);
     expect(result.status).toBe('review_ready');

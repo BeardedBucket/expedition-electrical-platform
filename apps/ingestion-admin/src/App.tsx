@@ -63,6 +63,13 @@ export function Review({ job }: { job: OperatorJobDetail }) {
             several minutes.
           </p>
         )}
+        {s.state === 'source_resolution_required' && (
+          <p>
+            Official source resolution is required before preparation. This job preserves your
+            original request. Until source resolution is implemented, create a new intake with a
+            verified official manufacturer URL.
+          </p>
+        )}
         {s.state === 'created' && (
           <p>Job created. Preparation has not yet been persisted as running.</p>
         )}
@@ -74,9 +81,9 @@ export function Review({ job }: { job: OperatorJobDetail }) {
           <dt>Manufacturer</dt>
           <dd>{s.manufacturer}</dd>
           <dt>MPN</dt>
-          <dd>{s.manufacturer_part_number}</dd>
+          <dd>{s.manufacturer_part_number ?? 'Not supplied'}</dd>
           <dt>Official product URL</dt>
-          <dd>{s.official_product_uri}</dd>
+          <dd>{s.official_product_uri ?? 'Not supplied'}</dd>
           <dt>Created</dt>
           <dd>{s.created_at}</dd>
           <dt>Updated</dt>
@@ -381,7 +388,8 @@ function RecentJobs({ client }: { client: OperatorApi }) {
                 <tr key={j.id}>
                   <td>
                     <a href={`#/jobs/${j.id}`}>
-                      {j.product_model} / {j.manufacturer_part_number}
+                      {j.product_model}
+                      {j.manufacturer_part_number ? ` / ${j.manufacturer_part_number}` : ''}
                     </a>
                   </td>
                   <td>{j.manufacturer}</td>
@@ -409,6 +417,24 @@ const emptyIntake = (): IntakeInput => ({
 export default function App({ client = api }: { client?: OperatorApi }) {
   const [route, setRoute] = useState(window.location.hash);
   const [input, setInput] = useState<IntakeInput>(emptyIntake);
+  const [suggestions, setSuggestions] = useState<{
+    manufacturers: string[];
+    products: { manufacturer: string; model: string; mpn?: string }[];
+  }>({ manufacturers: [], products: [] });
+  useEffect(() => {
+    let active = true;
+    void client
+      .suggestions()
+      .then((value) => {
+        if (active) setSuggestions(value);
+      })
+      .catch(() => {
+        if (active) setError('Canonical suggestions unavailable. Free entry remains available.');
+      });
+    return () => {
+      active = false;
+    };
+  }, [client]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   useEffect(() => {
@@ -425,17 +451,20 @@ export default function App({ client = api }: { client?: OperatorApi }) {
     setPending(true);
     setError('');
     try {
+      if (!input.manufacturer_part_number.trim() && !input.official_product_uri.trim())
+        throw new Error('Provide at least a manufacturer part number or an official product URL.');
       const job = await client.create(input);
       setInput(emptyIntake());
       window.location.hash = `/jobs/${job.summary.id}`;
       setRoute(`#/jobs/${job.summary.id}`);
-      void client
-        .prepare(job.summary.id)
-        .catch((error: unknown) =>
-          setError(
-            `Preparation request: ${message(error)} The job remains retrievable; refresh to inspect its persisted state.`,
-          ),
-        );
+      if (job.summary.state === 'created')
+        void client
+          .prepare(job.summary.id)
+          .catch((error: unknown) =>
+            setError(
+              `Preparation request: ${message(error)} The job remains retrievable; refresh to inspect its persisted state.`,
+            ),
+          );
     } catch (error) {
       setError(message(error));
     } finally {
@@ -466,10 +495,7 @@ export default function App({ client = api }: { client?: OperatorApi }) {
           <section className="intake">
             <div className="eyebrow">Local maintainer workspace</div>
             <h1>Add product</h1>
-            <p>
-              Prepare official evidence for review. Enter the product identity and its official
-              manufacturer page.
-            </p>
+            <p>Prepare official evidence for review. Enter the product identity.</p>
             <form autoComplete="off" onSubmit={(event) => void submit(event)}>
               {(
                 [
@@ -481,8 +507,11 @@ export default function App({ client = api }: { client?: OperatorApi }) {
               ).map(([field, label]) => (
                 <label key={field}>
                   {label}
+                  {(field === 'manufacturer' || field === 'product_model') && ' *'}
                   <input
-                    required
+                    aria-label={label}
+                    list={field !== 'official_product_uri' ? `suggest-${field}` : undefined}
+                    required={field === 'manufacturer' || field === 'product_model'}
                     autoComplete="off"
                     type={field === 'official_product_uri' ? 'url' : 'text'}
                     value={input[field]}
@@ -490,6 +519,56 @@ export default function App({ client = api }: { client?: OperatorApi }) {
                   />
                 </label>
               ))}
+              <p>
+                Provide at least a manufacturer part number or an official product URL. Providing
+                both gives the reviewer more identity evidence.
+              </p>
+              <p className="muted">
+                Without an official product URL, the job is saved awaiting official source
+                resolution.
+              </p>
+              {(['manufacturer', 'product_model', 'manufacturer_part_number'] as const).map(
+                (field) => {
+                  const same = (a: string, b: string) =>
+                    a.trim().toLowerCase() === b.trim().toLowerCase();
+                  const products = suggestions.products.filter((p) =>
+                    same(p.manufacturer, input.manufacturer),
+                  );
+                  const values =
+                    field === 'manufacturer'
+                      ? suggestions.manufacturers
+                      : field === 'product_model'
+                        ? products.map((p) => p.model)
+                        : products
+                            .filter((p) => same(p.model, input.product_model))
+                            .flatMap((p) => (p.mpn ? [p.mpn] : []));
+                  const matched = [...new Set(values)].filter((value) =>
+                    value.toLowerCase().includes(input[field].trim().toLowerCase()),
+                  );
+                  return (
+                    <div key={field}>
+                      <datalist id={`suggest-${field}`}>
+                        {matched.map((value) => (
+                          <option key={value} value={value} />
+                        ))}
+                      </datalist>
+                      {matched.length > 0 && input[field].trim() && (
+                        <div className="suggestions" aria-label={`${field} canonical suggestions`}>
+                          {matched.slice(0, 12).map((value) => (
+                            <button
+                              type="button"
+                              key={value}
+                              onClick={() => setInput({ ...input, [field]: value })}
+                            >
+                              Use {value}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                },
+              )}
               <button disabled={pending}>
                 {pending ? 'Creating durable job…' : 'Create & Prepare'}
               </button>

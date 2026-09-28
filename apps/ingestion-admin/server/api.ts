@@ -1,6 +1,8 @@
+import { validateProductIntake, type ProductIntake } from '@expedition/ingestion';
 import { randomUUID } from 'node:crypto';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import type { IngestionJobService } from '@expedition/ingestion-runtime';
+import type { IntakeSuggestions } from './suggestions.js';
 import { jobDetail, jobSummary } from './operator-views.js';
 import { errorDiagnostic, logRequest, requestContext } from './request-logging.js';
 
@@ -45,13 +47,23 @@ async function intakeBody(req: IncomingMessage) {
   const record = body as Record<string, unknown>;
   if (
     Object.keys(record).some((key) => !fields.includes(key as (typeof fields)[number])) ||
-    fields.some((key) => typeof record[key] !== 'string' || !(record[key] as string).trim())
+    ['manufacturer', 'product_model'].some(
+      (key) => typeof record[key] !== 'string' || !(record[key] as string).trim(),
+    )
   )
-    throw new RequestError(400, 'Provide exactly the four non-empty product intake fields.');
-  return Object.fromEntries(fields.map((key) => [key, (record[key] as string).trim()])) as Record<
-    (typeof fields)[number],
-    string
-  >;
+    throw new RequestError(
+      400,
+      'Provide manufacturer, product model and at least one identification-evidence field.',
+    );
+  const normalized = Object.fromEntries(
+    Object.entries(record).map(([key, value]) => [
+      key,
+      typeof value === 'string' ? value.trim() : value,
+    ]),
+  );
+  const issues = validateProductIntake({ id: 'validation', ...normalized });
+  if (issues.length) throw new RequestError(400, issues.join('; '));
+  return normalized as Pick<ProductIntake, (typeof fields)[number]>;
 }
 
 function send(res: ServerResponse, status: number, value: unknown) {
@@ -66,6 +78,9 @@ function send(res: ServerResponse, status: number, value: unknown) {
 export function createOperatorApi(
   service: OperatorService,
   browserOrigin = 'http://127.0.0.1:5174',
+  suggestions: () => IntakeSuggestions | Promise<IntakeSuggestions> = () => {
+    throw new Error('Canonical suggestion provider is not configured.');
+  },
 ) {
   return createServer((req, res) => {
     const requestId = randomUUID();
@@ -88,6 +103,16 @@ export function createOperatorApi(
         throw new RequestError(403, 'Origin must match the local admin server.');
       const pathname = new URL(req.url ?? '/', 'http://localhost').pathname;
       context = requestContext(requestId, req.method ?? 'UNKNOWN', pathname);
+      if (pathname === '/api/ingestion/suggestions' && req.method === 'GET') {
+        try {
+          return send(res, 200, await suggestions());
+        } catch (error) {
+          logRequest('REQUEST FAILED', context, { status: 503, error: errorDiagnostic(error) });
+          return send(res, 503, {
+            error: { message: 'Canonical suggestions unavailable. Free entry remains available.' },
+          });
+        }
+      }
       if (pathname === '/api/ingestion/jobs') {
         if (req.method === 'GET')
           return send(res, 200, { jobs: (await service.listJobs()).map(jobSummary) });

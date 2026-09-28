@@ -45,8 +45,11 @@ async function root() {
   roots.push(path);
   return path;
 }
-async function start(service: OperatorService) {
-  const server = createOperatorApi(service);
+async function start(
+  service: OperatorService,
+  suggestions?: Parameters<typeof createOperatorApi>[2],
+) {
+  const server = createOperatorApi(service, undefined, suggestions);
   servers.push(server);
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const address = server.address();
@@ -61,6 +64,83 @@ const post = (url: string, body?: unknown) =>
   });
 
 describe('operator HTTP API and durable DTO boundary', () => {
+  it('starts and serves all job routes while suggestion loading fails, then retries independently', async () => {
+    const service = fixtureService(await root());
+    const internal = new Error(
+      'Private suggestion path C:/private/canonical and underlying failure',
+    );
+    const suggestions = vi.fn().mockRejectedValue(internal);
+    const url = await start(service, suggestions);
+    expect(suggestions).not.toHaveBeenCalled();
+    const suggestionsUrl = url.replace('/jobs', '/suggestions');
+    const unavailable = await fetch(suggestionsUrl);
+    expect(unavailable.status).toBe(503);
+    expect(await unavailable.json()).toEqual({
+      error: { message: 'Canonical suggestions unavailable. Free entry remains available.' },
+    });
+    const failed = logEntries()[0];
+    expect(failed).toMatchObject({
+      event: 'REQUEST FAILED',
+      pathname: '/api/ingestion/suggestions',
+      status: 503,
+      error: { name: 'Error', message: internal.message },
+    });
+    expect(failed.request_id).toBe(unavailable.headers.get('X-Request-Id'));
+    const created = await post(url, input);
+    expect(created.status).toBe(201);
+    const job = await created.json();
+    expect((await fetch(url + '/' + job.summary.id)).status).toBe(200);
+    const listed = await fetch(url);
+    expect(listed.status).toBe(200);
+    expect((await listed.json()).jobs).toEqual([expect.objectContaining({ id: job.summary.id })]);
+    const prepared = await post(url + '/' + job.summary.id + '/prepare');
+    expect(prepared.status).toBe(200);
+    expect((await prepared.json()).summary.state).toBe('review_ready');
+    expect(suggestions).toHaveBeenCalledTimes(1);
+    expect((await fetch(suggestionsUrl)).status).toBe(503);
+    suggestions.mockResolvedValue({ manufacturers: ['Victron Energy'], products: [] });
+    const available = await fetch(suggestionsUrl);
+    expect(available.status).toBe(200);
+    expect(await available.json()).toEqual({ manufacturers: ['Victron Energy'], products: [] });
+    expect(suggestions).toHaveBeenCalledTimes(3);
+  });
+  it('does not interpret an unconfigured suggestions provider as an empty corpus', async () => {
+    const url = await start(fixtureService(await root()));
+    expect((await fetch(url.replace('/jobs', '/suggestions'))).status).toBe(503);
+  });
+  it('accepts either identifier, preserves omission in DTO/reload and exposes unresolved state', async () => {
+    const service = fixtureService(await root());
+    const url = await start(service);
+    for (const omitted of ['manufacturer_part_number', 'official_product_uri'] as const) {
+      const partial = { ...input };
+      delete (partial as Partial<typeof input>)[omitted];
+      const response = await post(url, partial);
+      expect(response.status).toBe(201);
+      const detail = await response.json();
+      expect(detail.intake).not.toHaveProperty(omitted);
+      expect((await service.getJob(detail.summary.id)).intake).not.toHaveProperty(omitted);
+      if (omitted === 'official_product_uri') {
+        expect(detail.summary.state).toBe('source_resolution_required');
+        expect((await post(url + '/' + detail.summary.id + '/prepare')).status).toBe(409);
+      }
+    }
+    expect((await post(url, { manufacturer: 'Example', product_model: 'Model' })).status).toBe(400);
+    expect((await post(url, { ...input, manufacturer_part_number: ' ' })).status).toBe(400);
+  });
+  it('serves application-owned suggestions independently of unreviewed jobs', async () => {
+    const service = fixtureService(await root());
+    await service.createJob({ ...intake, manufacturer: 'Vicron Typo' });
+    const server = createOperatorApi(service, undefined, () => ({
+      manufacturers: ['Victron Energy'],
+      products: [],
+    }));
+    servers.push(server);
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('No address');
+    const response = await fetch('http://127.0.0.1:' + address.port + '/api/ingestion/suggestions');
+    expect(await response.json()).toEqual({ manufacturers: ['Victron Energy'], products: [] });
+  });
   it('logs unexpected prepare errors with context, stack and causes while returning only the sanitized 500', async () => {
     const service = fixtureService(await root());
     const job = await service.createJob(intake);
@@ -153,7 +233,10 @@ describe('operator HTTP API and durable DTO boundary', () => {
     const response = await post(url, { ...input, manufacturer: '' });
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({
-      error: { message: 'Provide exactly the four non-empty product intake fields.' },
+      error: {
+        message:
+          'Provide manufacturer, product model and at least one identification-evidence field.',
+      },
     });
     expect((await fetch(`${url}/bad`)).status).toBe(400);
     expect((await fetch(`${url}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa`)).status).toBe(404);

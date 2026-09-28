@@ -45,6 +45,20 @@ afterEach(async () => {
 });
 
 describe('job-store atomic replacement and cleanup', () => {
+  it.each(['manufacturer_part_number', 'official_product_uri'] as const)(
+    'preserves absent %s through durable reload',
+    async (field) => {
+      const { root, store } = await setup();
+      const intake = { ...job.intake };
+      delete intake[field];
+      const state = field === 'official_product_uri' ? 'source_resolution_required' : 'created';
+      await store.save({ ...job, intake, state });
+      const reloaded = await new FileIngestionJobStore(root).load(job.id);
+      expect(reloaded.intake).toEqual(intake);
+      expect(reloaded.intake).not.toHaveProperty(field);
+      expect(reloaded.state).toBe(state);
+    },
+  );
   it('keeps the old valid record throughout contention, installs the exact new record, and cleans the temp file', async () => {
     const { root, store, destination, original } = await setup();
     const delay = vi.fn(async () => {

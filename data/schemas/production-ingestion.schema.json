@@ -151,23 +151,23 @@
     },
     "productIntake": {
       "type": "object",
-      "required": [
-        "schema_version",
-        "artifact_kind",
-        "id",
-        "manufacturer",
-        "product_model",
-        "manufacturer_part_number",
-        "official_product_uri"
+      "required": ["schema_version", "artifact_kind", "id", "manufacturer", "product_model"],
+      "anyOf": [
+        { "required": ["manufacturer_part_number"] },
+        { "required": ["official_product_uri"] }
       ],
       "properties": {
         "schema_version": { "$ref": "#/$defs/version" },
         "artifact_kind": { "const": "product_intake" },
         "id": { "type": "string", "minLength": 1 },
-        "manufacturer": { "type": "string", "minLength": 1 },
-        "product_model": { "type": "string", "minLength": 1 },
-        "manufacturer_part_number": { "type": "string", "minLength": 1 },
-        "official_product_uri": { "type": "string", "format": "uri" },
+        "manufacturer": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "product_model": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "manufacturer_part_number": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "official_product_uri": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^[Hh][Tt][Tt][Pp][Ss]?://"
+        },
         "submitted_at": { "type": "string", "format": "date-time" },
         "additional_official_source_uris": {
           "type": "array",

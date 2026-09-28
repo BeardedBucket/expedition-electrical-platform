@@ -48,7 +48,10 @@ const detail: OperatorJobDetail = {
   diagnostics: [],
 };
 const client = (): OperatorApi => ({
-  create: vi.fn().mockResolvedValue(detail),
+  suggestions: vi.fn().mockResolvedValue({ manufacturers: [], products: [] }),
+  create: vi
+    .fn()
+    .mockResolvedValue({ ...detail, summary: { ...detail.summary, state: 'created' } }),
   prepare: vi.fn().mockResolvedValue(detail),
   get: vi.fn().mockResolvedValue(detail),
   list: vi.fn().mockResolvedValue({ jobs: [] }),
@@ -90,6 +93,112 @@ function expectEnteredIntake() {
     expect(screen.getByLabelText(intakeLabels[index])).toHaveValue(value);
 }
 describe('ingestion admin operator interface', () => {
+  it('warns non-blockingly when suggestions fail and still creates a free-entry product', async () => {
+    const api = client();
+    vi.mocked(api.suggestions).mockRejectedValue(new Error('Unavailable'));
+    render(<App client={api} />);
+    await screen.findByText('Canonical suggestions unavailable. Free entry remains available.');
+    fill();
+    fireEvent.change(screen.getByLabelText('Manufacturer'), {
+      target: { value: 'New Free Entry Maker' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Create & Prepare' }));
+    await screen.findByText('review_ready');
+    expect(api.create).toHaveBeenCalledWith(
+      expect.objectContaining({ manufacturer: 'New Free Entry Maker' }),
+    );
+    expect(api.prepare).toHaveBeenCalledWith(id);
+  });
+  it('offers canonical spellings with exact manufacturer/model scoping while preserving free text', async () => {
+    const api = client();
+    vi.mocked(api.suggestions).mockResolvedValue({
+      manufacturers: ['Victron Energy', 'Other'],
+      products: [
+        {
+          manufacturer: 'Victron Energy',
+          model: 'Model A',
+          mpn: 'SKU-A',
+          provenance: 'verified component: a',
+        },
+        {
+          manufacturer: 'Victron Energy',
+          model: 'Model B',
+          mpn: 'SKU-B',
+          provenance: 'verified component: b',
+        },
+        {
+          manufacturer: 'Other',
+          model: 'Foreign',
+          mpn: 'FOREIGN',
+          provenance: 'verified component: c',
+        },
+      ],
+    });
+    const { container } = render(<App client={api} />);
+    const manufacturer = screen.getByLabelText('Manufacturer');
+    fireEvent.change(manufacturer, { target: { value: ' vic ' } });
+    await waitFor(() =>
+      expect(container.querySelector('#suggest-manufacturer option')).toHaveAttribute(
+        'value',
+        'Victron Energy',
+      ),
+    );
+    expect(manufacturer).toHaveValue(' vic ');
+    expect(container.querySelector('#suggest-product_model option')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Use Victron Energy' }));
+    expect(manufacturer).toHaveValue('Victron Energy');
+    expect(
+      [...container.querySelectorAll('#suggest-product_model option')].map((o) =>
+        o.getAttribute('value'),
+      ),
+    ).toEqual(['Model A', 'Model B']);
+    fireEvent.change(screen.getByLabelText('Product model'), { target: { value: ' model a ' } });
+    expect(
+      [...container.querySelectorAll('#suggest-manufacturer_part_number option')].map((o) =>
+        o.getAttribute('value'),
+      ),
+    ).toEqual(['SKU-A']);
+    fireEvent.change(manufacturer, { target: { value: 'New Maker' } });
+    expect(manufacturer).toHaveValue('New Maker');
+    expect(container.querySelector('#suggest-product_model option')).toBeNull();
+    fireEvent.change(screen.getByLabelText('Official product URL'), {
+      target: { value: 'https://example.test/new' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Create & Prepare' }));
+    await waitFor(() =>
+      expect(api.create).toHaveBeenCalledWith(
+        expect.objectContaining({ manufacturer: 'New Maker', manufacturer_part_number: '' }),
+      ),
+    );
+  });
+  it('saves MPN-only intake without automatically preparing it', async () => {
+    const api = client();
+    vi.mocked(api.create).mockResolvedValue({
+      ...detail,
+      summary: {
+        ...detail.summary,
+        state: 'source_resolution_required',
+        official_product_uri: undefined,
+      },
+    });
+    vi.mocked(api.get).mockResolvedValue({
+      ...detail,
+      summary: {
+        ...detail.summary,
+        state: 'source_resolution_required',
+        official_product_uri: undefined,
+      },
+    });
+    render(<App client={api} />);
+    fill();
+    fireEvent.change(screen.getByLabelText('Official product URL'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create & Prepare' }));
+    await screen.findByText('source_resolution_required');
+    expect(screen.getByText(/This job preserves your original request/)).toHaveTextContent(
+      'Until source resolution is implemented, create a new intake with a verified official manufacturer URL.',
+    );
+    expect(api.prepare).not.toHaveBeenCalled();
+  });
   it('returns to a blank Add Product form after successful creation', async () => {
     const api = client();
     render(<App client={api} />);

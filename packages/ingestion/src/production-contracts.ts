@@ -1,3 +1,4 @@
+import { validateCaptureUri } from './http-capture.js';
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import { createHash } from 'node:crypto';
@@ -77,8 +78,8 @@ export interface ProductIntake {
   readonly id: string;
   readonly manufacturer: string;
   readonly product_model: string;
-  readonly manufacturer_part_number: string;
-  readonly official_product_uri: string;
+  readonly manufacturer_part_number?: string;
+  readonly official_product_uri?: string;
   readonly submitted_at?: string;
   readonly additional_official_source_uris?: readonly string[];
 }
@@ -1265,7 +1266,15 @@ const determineApplicability = (
 
   const normalizedRow = normalizeIdentityForComparison(rowIdentity);
   if (normalizedRow === directTarget) {
-    return { applicability: { kind: 'exact_mpn_or_sku', value: directTarget } };
+    return {
+      applicability: {
+        kind:
+          target.manufacturer_part_number || target.target_identifier
+            ? 'exact_mpn_or_sku'
+            : 'exact_product',
+        value: directTarget,
+      },
+    };
   }
 
   if (normalizedRow && normalizedRow.toLowerCase().startsWith(directTarget.toLowerCase())) {
@@ -1353,6 +1362,23 @@ const qualifyFromBlock = (
       normalizeIdentityForComparison(target.target_identifier) ??
       normalizeIdentityForComparison(target.manufacturer_part_number) ??
       normalizeIdentityForComparison(target.product_model);
+    const matchingRows = new Set(
+      block.cells
+        .filter(
+          (cell) =>
+            cell.kind === 'data' &&
+            (normalizeIdentityForComparison(cell.value) === directTarget ||
+              normalizeIdentityForComparison(cell.label) === directTarget),
+        )
+        .map((cell) => cell.row),
+    );
+    if (matchingRows.size > 1) {
+      diagnostics.push({
+        code: 'applicability_unresolved',
+        message: 'multiple exact identity rows require human applicability review',
+      });
+      return { facts, diagnostics };
+    }
     const identityCell = directTarget
       ? block.cells.find(
           (cell) =>
@@ -1607,16 +1633,30 @@ export const validateProductIntake = (value: unknown): readonly string[] => {
     return ['intake must be an object'];
   }
   const intake = value as Partial<ProductIntake>;
-  const missing = (
-    [
-      'id',
-      'manufacturer',
-      'product_model',
-      'manufacturer_part_number',
-      'official_product_uri',
-    ] as const
-  ).filter((field) => typeof intake[field] !== 'string' || intake[field]?.trim() === '');
-  return missing.map((field) => `${field} is required`);
+  const missing = (['id', 'manufacturer', 'product_model'] as const).filter(
+    (field) => typeof intake[field] !== 'string' || intake[field]?.trim() === '',
+  );
+  const issues = missing.map((field) => field + ' is required');
+  for (const field of ['manufacturer_part_number', 'official_product_uri'] as const) {
+    if (
+      Object.hasOwn(intake, field) &&
+      (typeof intake[field] !== 'string' || !intake[field]?.trim())
+    )
+      issues.push(field + ' must be non-empty when supplied');
+  }
+  if (
+    !(
+      typeof intake.manufacturer_part_number === 'string' && intake.manufacturer_part_number.trim()
+    ) &&
+    !(typeof intake.official_product_uri === 'string' && intake.official_product_uri.trim())
+  )
+    issues.push('manufacturer_part_number or official_product_uri is required');
+  if (
+    typeof intake.official_product_uri === 'string' &&
+    !(validateCaptureUri(intake.official_product_uri.trim()) instanceof URL)
+  )
+    issues.push('official_product_uri must be a supported HTTP(S) source URI');
+  return issues;
 };
 
 export const reviewPackageSnapshot = (reviewPackage: ReviewPackage): string =>

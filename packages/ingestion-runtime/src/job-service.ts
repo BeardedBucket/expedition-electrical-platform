@@ -19,6 +19,7 @@ import { assertJsonInput, deserializeJob, serializeJob } from './codec.js';
 import type { IngestionJobStore } from './job-store.js';
 
 export type IngestionJobState =
+  | 'source_resolution_required'
   | 'created'
   | 'preparing'
   | 'review_ready'
@@ -91,7 +92,7 @@ export class IngestionJobService {
       created_at: now,
       updated_at: now,
       intake,
-      state: 'created',
+      state: intake.official_product_uri ? 'created' : 'source_resolution_required',
     };
     serializeJob(job);
     await this.dependencies.store.create(job);

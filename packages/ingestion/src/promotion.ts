@@ -670,7 +670,9 @@ export const promoteCandidate = (
   const proposalIdentity: JsonObject = {
     id: canonicalId,
     manufacturer: canonicalManufacturer,
-    part_number: candidate.identity.manufacturer_part_number ?? null,
+    ...(candidate.identity.manufacturer_part_number !== undefined
+      ? { part_number: candidate.identity.manufacturer_part_number }
+      : {}),
   };
   if (canonicalIdentityCollision(proposalIdentity, catalogContext.components ?? [])) {
     issues.push(
@@ -725,7 +727,9 @@ export const promoteCandidate = (
     id: canonicalId,
     manufacturer: canonicalManufacturer,
     model: canonicalModel,
-    part_number: candidate.identity.manufacturer_part_number ?? null,
+    ...(candidate.identity.manufacturer_part_number !== undefined
+      ? { part_number: candidate.identity.manufacturer_part_number }
+      : {}),
     product_role: review.product_role,
     category: review.category,
     product_family: candidate.identity.product_family ?? null,

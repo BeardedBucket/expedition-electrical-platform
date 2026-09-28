@@ -40,7 +40,7 @@ The `INGESTION_ADMIN_ORIGIN` setting defaults to `http://127.0.0.1:5174`. It is 
 
 | Route                                  | Input                                                                                                                    | Response                                                                          |
 | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
-| `POST /api/ingestion/jobs`             | JSON with exactly `manufacturer`, `product_model`, `manufacturer_part_number`, `official_product_uri` (nonempty strings) | 201 operator detail DTO, state `created`                                          |
+| `POST /api/ingestion/jobs`             | JSON with required `manufacturer`, `product_model` and at least one of `manufacturer_part_number`, `official_product_uri` (supplied values nonempty) | 201 operator detail DTO, state `created` or `source_resolution_required`                                          |
 | `POST /api/ingestion/jobs/:id/prepare` | No body                                                                                                                  | 200 operator detail DTO after preparation completes, including persisted failures |
 | `GET /api/ingestion/jobs/:id`          | UUID job ID                                                                                                              | 200 operator detail DTO                                                           |
 | `GET /api/ingestion/jobs`              | None                                                                                                                     | `{ jobs: OperatorJobSummary[] }`, latest updated first; ID ascending breaks ties  |
@@ -78,3 +78,9 @@ npm.cmd test -- --run apps/ingestion-admin/tests/api.test.ts apps/ingestion-admi
 ```
 
 API tests use the real durable runtime and production pipeline with a deterministic synthetic capture adapter, never live manufacturer requests. They cover both candidate outcomes, reload through a fresh service, raw-evidence exclusion, errors, profile configuration, and deterministic listing. Frontend tests inject mocked API responses. No canonical corpus data is needed for these tests.
+
+Canonical intake suggestions are served at `GET /api/ingestion/suggestions` from validated reviewed manufacturer profiles and tracked verified component records. Free entry remains allowed. Model/MPN suggestions are scoped to exact manufacturer/model identity; unreviewed jobs are never a suggestion source.
+
+MPN-only intake is persisted awaiting official source resolution and cannot prepare evidence yet. See [the identity audit](../../docs/FLEXIBLE_PRODUCT_IDENTITY_AUDIT.md) for the resolver architecture boundary and validation contract.
+
+Suggestion loading is lazy and isolated to its endpoint. A loading failure returns HTTP 503 with a safe unavailable message; job routes remain usable through free entry. Each later suggestion request can retry. Failed loading never returns an authoritative empty list.

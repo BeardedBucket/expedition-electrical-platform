@@ -1,4 +1,5 @@
 import type { OperatorJobDetail, OperatorJobSummary } from '../server/operator-views.js';
+import type { IntakeSuggestions } from '../server/suggestions.js';
 export type { OperatorJobDetail, OperatorJobSummary };
 export interface IntakeInput {
   manufacturer: string;
@@ -6,7 +7,7 @@ export interface IntakeInput {
   manufacturer_part_number: string;
   official_product_uri: string;
 }
-async function request<T>(path: string, method = 'GET', body?: IntakeInput): Promise<T> {
+async function request<T>(path: string, method = 'GET', body?: Partial<IntakeInput>): Promise<T> {
   const response = await fetch(`/api/ingestion/jobs${path}`, {
     method,
     headers: body ? { 'Content-Type': 'application/json' } : undefined,
@@ -18,7 +19,22 @@ async function request<T>(path: string, method = 'GET', body?: IntakeInput): Pro
   return result as T;
 }
 export const api = {
-  create: (input: IntakeInput) => request<OperatorJobDetail>('', 'POST', input),
+  suggestions: async (): Promise<IntakeSuggestions> => {
+    const response = await fetch('/api/ingestion/suggestions');
+    if (!response.ok) throw new Error('Canonical suggestions could not be loaded.');
+    return response.json();
+  },
+  create: (input: IntakeInput) =>
+    request<OperatorJobDetail>('', 'POST', {
+      manufacturer: input.manufacturer,
+      product_model: input.product_model,
+      ...(input.manufacturer_part_number.trim()
+        ? { manufacturer_part_number: input.manufacturer_part_number }
+        : {}),
+      ...(input.official_product_uri.trim()
+        ? { official_product_uri: input.official_product_uri }
+        : {}),
+    }),
   prepare: (id: string) => request<OperatorJobDetail>(`/${encodeURIComponent(id)}/prepare`, 'POST'),
   get: (id: string) => request<OperatorJobDetail>(`/${encodeURIComponent(id)}`),
   list: () => request<{ jobs: OperatorJobSummary[] }>(''),

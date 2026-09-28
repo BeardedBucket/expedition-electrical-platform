@@ -186,6 +186,23 @@ const service = (storageRoot: string, prepared: ReviewReadyProductionIngest) => 
 };
 
 describe('persistent ingestion job runtime', () => {
+  it('persists MPN-only intake awaiting resolution and rejects preparation before invoking it', async () => {
+    const store = new FileIngestionJobStore(await root());
+    const prepare = vi.fn();
+    const runtime = new IngestionJobService({
+      store,
+      preparationRequest: () => ({ adapter }),
+      prepare,
+    });
+    const mpnOnly = { ...intake };
+    delete mpnOnly.official_product_uri;
+    const job = await runtime.createJob(mpnOnly);
+    expect(job.state).toBe('source_resolution_required');
+    expect((await runtime.getJob(job.id)).intake).not.toHaveProperty('official_product_uri');
+    await expect(runtime.prepareJob(job.id)).rejects.toThrow('source_resolution_required');
+    expect(prepare).not.toHaveBeenCalled();
+    expect((await runtime.getJob(job.id)).state).toBe('source_resolution_required');
+  });
   it.each(['rejected', 'deferred'] as const)(
     'persists a bound %s review without a candidate and refuses finalization',
     async (decision) => {

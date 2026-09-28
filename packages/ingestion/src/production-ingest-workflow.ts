@@ -74,6 +74,10 @@ export const prepareProductionIngestReview = async (
   const intakeIssues = validateProductIntake(request.intake);
   if (intakeIssues.length) throw new Error(`Invalid product intake: ${intakeIssues.join('; ')}`);
 
+  if (!request.intake.official_product_uri)
+    throw new Error(
+      'Official source resolution required: supply a verified official product URI before preparation.',
+    );
   const acquisition = await acquireOfficialSources(request);
   const source_acquisitions = acquisition.artifact ? [acquisition.artifact] : [];
   const captured = [
@@ -134,7 +138,9 @@ export const prepareProductionIngestReview = async (
     );
     document_extractions.push(extraction);
     const qualification = qualifyDocumentExtraction(extraction, {
-      manufacturer_part_number: request.intake.manufacturer_part_number,
+      ...(request.intake.manufacturer_part_number
+        ? { manufacturer_part_number: request.intake.manufacturer_part_number }
+        : {}),
       product_model: request.intake.product_model,
     });
     qualifications.push(qualification);

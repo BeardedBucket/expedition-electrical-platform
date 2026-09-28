@@ -33,19 +33,22 @@ export function operatorConfiguration(env: NodeJS.ProcessEnv = process.env) {
 export async function createProductionOperatorService(
   config: ReturnType<typeof operatorConfiguration>,
 ) {
-  const profiles: ManufacturerAcquisitionProfile[] = [];
-  for (const name of (await readdir(config.profileRoot))
-    .filter((name) => name.endsWith('.json'))
-    .sort()) {
-    const raw: unknown = JSON.parse(await readFile(join(config.profileRoot, name), 'utf8'));
-    const validation = validateManufacturerAcquisitionProfile(raw);
-    if (!validation.ok) throw new Error(`Invalid manufacturer acquisition profile: ${name}`);
-    const profile = raw as ManufacturerAcquisitionProfile;
-    if (profile.profile_status === 'reviewed') profiles.push(profile);
-  }
+  const profiles = await loadReviewedProfiles(config.profileRoot);
   const adapter = new HttpSourceCaptureAdapter();
   return new IngestionJobService({
     store: new FileIngestionJobStore(config.jobRoot),
     preparationRequest: () => ({ adapter, profiles, policy: operatorPolicy }),
   });
+}
+
+export async function loadReviewedProfiles(profileRoot: string) {
+  const profiles: ManufacturerAcquisitionProfile[] = [];
+  for (const name of (await readdir(profileRoot)).filter((name) => name.endsWith('.json')).sort()) {
+    const raw: unknown = JSON.parse(await readFile(join(profileRoot, name), 'utf8'));
+    const validation = validateManufacturerAcquisitionProfile(raw);
+    if (!validation.ok) throw new Error(`Invalid manufacturer acquisition profile: ${name}`);
+    const profile = raw as ManufacturerAcquisitionProfile;
+    if (profile.profile_status === 'reviewed') profiles.push(profile);
+  }
+  return profiles;
 }

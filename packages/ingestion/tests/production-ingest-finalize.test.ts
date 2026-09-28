@@ -172,6 +172,38 @@ afterEach(async () => {
 });
 
 describe('production ingest finalization', () => {
+  it('finalizes exact model evidence through human approval without synthesizing a part number', async () => {
+    const urlOnly = { ...intake };
+    delete urlOnly.manufacturer_part_number;
+    const modelAdapter: SourceCaptureAdapter = {
+      async capture(request) {
+        const html = responses[request.uri];
+        if (!html) return { status: 'failed', issues: [] };
+        return {
+          status: 'success',
+          issues: [],
+          source: source(request.uri, html.replaceAll('EX-1</td>', 'Example Model</td>')),
+        };
+      },
+    };
+    const prepared = await prepareProductionIngestReview({
+      intake: urlOnly,
+      profile,
+      adapter: modelAdapter,
+    });
+    expect(prepared.status).toBe('review_ready');
+    if (prepared.status !== 'review_ready') return;
+    expect(prepared.bridge.candidate?.identity_status).toBe('provisional');
+    const result = await finalizeProductionIngest(prepared, approvalFor(prepared), {
+      destinationRoot: await root(),
+      write: true,
+    });
+    expect(result.promotion.result.status).toBe('success');
+    expect(result.write_result.status).toBe('written');
+    const canonical = parseYaml(await readFile(result.write_result.path!, 'utf8'));
+    expect(canonical).not.toHaveProperty('part_number');
+    expect(prepared.intake).not.toHaveProperty('manufacturer_part_number');
+  });
   it('finalizes a prepared reviewed ingest through guarded canonical write', async () => {
     const prepared = await prepare();
     const result = await finalizeProductionIngest(prepared, approvalFor(prepared), {

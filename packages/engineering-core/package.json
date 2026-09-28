@@ -9,6 +9,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./component-library-loader": {
+      "types": "./dist/component-library-loader.d.ts",
+      "import": "./dist/component-library-loader.js"
     }
   },
   "scripts": {

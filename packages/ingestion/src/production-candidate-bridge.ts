@@ -60,8 +60,8 @@ const sourceType = (
   return 'other';
 };
 
-const matches = (left: string, right: string): boolean =>
-  left.trim().toLowerCase() === right.trim().toLowerCase();
+const matches = (left: string, right: string | undefined): boolean =>
+  right !== undefined && left.trim().toLowerCase() === right.trim().toLowerCase();
 
 /** A target identity is a request; only fact-level identity evidence establishes applicability. */
 const applicableIdentity = (
@@ -257,7 +257,9 @@ export const buildProductionProductCandidate = (
         identity: {
           manufacturer: input.intake.manufacturer,
           model: input.intake.product_model,
-          manufacturer_part_number: input.intake.manufacturer_part_number,
+          ...(input.intake.manufacturer_part_number
+            ? { manufacturer_part_number: input.intake.manufacturer_part_number }
+            : {}),
         },
         sources: orderedSources,
         facts: projectedFacts,
