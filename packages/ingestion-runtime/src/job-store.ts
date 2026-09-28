@@ -4,6 +4,12 @@ import { join, resolve } from 'node:path';
 import { deserializeJob, serializeJob } from './codec.js';
 import type { IngestionJob } from './job-service.js';
 import { replaceJobRecord } from './file-replacement.js';
+import {
+  artifactDigest,
+  assertAcceptedSourceResolution,
+  validateProductIntake,
+  validateProductionArtifactSchema,
+} from '@expedition/ingestion';
 
 export interface IngestionJobStore {
   create(job: IngestionJob): Promise<void>;
@@ -30,6 +36,7 @@ const decodeRecord = (raw: string): unknown => {
 };
 const states = new Set([
   'source_resolution_required',
+  'source_resolution_review',
   'created',
   'preparing',
   'review_ready',
@@ -55,6 +62,80 @@ const validJob = (value: unknown, id: string): value is IngestionJob => {
     job.intake.artifact_kind !== 'product_intake'
   )
     return false;
+  if (validateProductIntake(job.intake).length) return false;
+  const attempts = job.source_resolution_attempts ?? [];
+  if (!Array.isArray(attempts)) return false;
+  try {
+    if (new Set(attempts.map((item) => item.resolution.attempt_id)).size !== attempts.length)
+      return false;
+    for (const { resolution, capture } of attempts) {
+      if (
+        validateProductionArtifactSchema(resolution).length ||
+        validateProductionArtifactSchema(capture).length ||
+        resolution.intake.digest !== artifactDigest(job.intake) ||
+        resolution.capture.digest !== artifactDigest(capture) ||
+        resolution.id !== resolution.attempt_id ||
+        resolution.manufacturer !== job.intake.manufacturer ||
+        resolution.product_model !== job.intake.product_model ||
+        resolution.manufacturer_part_number !== job.intake.manufacturer_part_number ||
+        resolution.normalized_uri !== capture.requested_uri ||
+        resolution.final_uri !== capture.final_uri
+      )
+        return false;
+    }
+    const pending = attempts.filter((item) => item.resolution.disposition === 'pending');
+    const accepted = attempts.filter((item) => item.resolution.disposition === 'accepted');
+    if (job.intake.official_product_uri && (attempts.length || job.accepted_source_resolution))
+      return false;
+    if (
+      job.state === 'source_resolution_required' &&
+      (job.intake.official_product_uri ||
+        pending.length ||
+        accepted.length ||
+        job.accepted_source_resolution)
+    )
+      return false;
+    if (
+      job.state === 'source_resolution_review' &&
+      (job.intake.official_product_uri ||
+        pending.length !== 1 ||
+        accepted.length ||
+        job.accepted_source_resolution)
+    )
+      return false;
+    if (
+      !['source_resolution_required', 'source_resolution_review'].includes(job.state) &&
+      !job.intake.official_product_uri
+    ) {
+      if (
+        accepted.length !== 1 ||
+        pending.length ||
+        job.accepted_source_resolution?.kind !== 'source_resolution' ||
+        job.accepted_source_resolution.digest !== artifactDigest(accepted[0].resolution) ||
+        accepted[0].capture.disposition !== 'authoritative'
+      )
+        return false;
+      assertAcceptedSourceResolution(job.intake, accepted[0].resolution);
+    }
+    if (job.preparation) {
+      if (artifactDigest(job.preparation.intake) !== artifactDigest(job.intake)) return false;
+      if (
+        job.accepted_source_resolution?.digest !==
+        (job.preparation.source_resolution
+          ? artifactDigest(job.preparation.source_resolution)
+          : undefined)
+      )
+        return false;
+      if (
+        job.preparation.status === 'review_ready' &&
+        job.preparation.review_package.source_resolution?.digest !==
+          job.accepted_source_resolution?.digest
+      )
+        return false;
+    }
+  } catch {
+    return false;
+  }
   if (
     [
       'review_ready',
@@ -132,6 +213,7 @@ export class FileIngestionJobStore implements IngestionJobStore {
   }
 
   async create(job: IngestionJob): Promise<void> {
+    if (!validJob(job, job.id)) throw new Error('Invalid job schema or state.');
     const path = this.path(job.id);
     await mkdir(this.root, { recursive: true });
     const file = await open(path, 'wx');
@@ -162,7 +244,31 @@ export class FileIngestionJobStore implements IngestionJobStore {
   }
 
   async save(job: IngestionJob): Promise<void> {
-    await this.load(job.id);
+    const previous = await this.load(job.id);
+    if (!validJob(job, job.id)) throw new Error('Invalid job schema or state.');
+    if (artifactDigest(previous.intake) !== artifactDigest(job.intake))
+      throw new Error('Original product intake is immutable.');
+    const attempts = job.source_resolution_attempts ?? [];
+    for (const old of previous.source_resolution_attempts ?? []) {
+      const next = attempts.find(
+        (item) => item.resolution.attempt_id === old.resolution.attempt_id,
+      );
+      if (
+        !next ||
+        artifactDigest(old.capture) !== artifactDigest(next.capture) ||
+        (old.resolution.disposition !== 'pending' &&
+          artifactDigest(old.resolution) !== artifactDigest(next.resolution)) ||
+        artifactDigest({ ...old.resolution, disposition: 'pending', review: undefined }) !==
+          artifactDigest({ ...next.resolution, disposition: 'pending', review: undefined })
+      )
+        throw new Error('Source resolution history is immutable.');
+    }
+    if (
+      previous.accepted_source_resolution &&
+      artifactDigest(previous.accepted_source_resolution) !==
+        artifactDigest(job.accepted_source_resolution)
+    )
+      throw new Error('Accepted source resolution is immutable.');
     const temporary = join(this.root, `.${job.id}.${randomUUID()}.tmp`);
     try {
       const file = await open(temporary, 'wx');

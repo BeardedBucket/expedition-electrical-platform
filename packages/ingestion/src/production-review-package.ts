@@ -13,9 +13,14 @@ import {
 } from './production-contracts.js';
 import type { ProductionCandidateBridgeResult } from './production-candidate-bridge.js';
 import type { QualifiedFactWholeIntakeReconciliationResult } from './reconciliation.js';
+import {
+  assertAcceptedSourceResolution,
+  type SourceResolutionArtifact,
+} from './source-resolution.js';
 
 export interface ProductionReviewPackageInput {
   readonly intake: ProductIntake;
+  readonly source_resolution?: SourceResolutionArtifact;
   readonly reconciliation: QualifiedFactWholeIntakeReconciliationResult;
   readonly bridge: ProductionCandidateBridgeResult;
 }
@@ -42,6 +47,17 @@ export const buildProductionReviewPackage = (
   input: ProductionReviewPackageInput,
 ): ReviewPackage => {
   const { intake, reconciliation, bridge } = input;
+  if (input.source_resolution) assertAcceptedSourceResolution(intake, input.source_resolution);
+  const resolutionBinding = input.source_resolution
+    ? {
+        source_resolution: artifactReference(
+          'source_resolution',
+          input.source_resolution,
+          input.source_resolution.id,
+          input.source_resolution.schema_version,
+        ),
+      }
+    : {};
   const proposals = ordered(bridge.proposals, (proposal) => proposal.id);
   const facts = ordered(bridge.qualified_facts, (fact) => fact.id);
   const factByDigest = new Map(facts.map((fact) => [artifactDigest(fact), fact]));
@@ -191,6 +207,7 @@ export const buildProductionReviewPackage = (
     ).values(),
   ];
   const semanticSnapshot = artifactDigest({
+    ...resolutionBinding,
     intake: artifactDigest(intake),
     reconciliation,
     proposals,
@@ -208,6 +225,7 @@ export const buildProductionReviewPackage = (
     normalized_facts: ordered(bridge.normalized_facts, (fact) => fact.fact.id),
   });
   const content = {
+    ...resolutionBinding,
     intake: artifactReference('product_intake', intake, intake.id, intake.schema_version),
     ...(bridge.candidate
       ? {

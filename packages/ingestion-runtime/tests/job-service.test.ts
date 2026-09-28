@@ -357,8 +357,10 @@ describe('persistent ingestion job runtime', () => {
       await runtime.submitApproval(job.id, approvalFor(prepared));
       const finalized = await runtime.finalizeJob(job.id, { destinationRoot: await root() });
       const store = new FileIngestionJobStore(storageRoot);
-      await store.save({ ...finalized, state, finalization_request: undefined });
-      await expect(store.load(job.id)).rejects.toThrow(/Invalid job schema or state/);
+      await expect(
+        store.save({ ...finalized, state, finalization_request: undefined }),
+      ).rejects.toThrow(/Invalid job schema or state/);
+      expect((await store.load(job.id)).state).toBe('finalized');
     },
   );
 

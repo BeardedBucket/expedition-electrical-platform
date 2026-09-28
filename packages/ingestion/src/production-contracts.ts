@@ -26,8 +26,14 @@ const registerProductionFormats = addFormats as unknown as (instance: {
 registerProductionFormats(productionAjv as unknown as { addFormat?: (...args: unknown[]) => void });
 const validateProductionArtifact = productionAjv.compile(productionIngestionSchema);
 
+export const validateProductionArtifactSchema = (value: unknown): readonly string[] =>
+  validateProductionArtifact(value)
+    ? []
+    : ['Artifact does not satisfy production-ingestion schema.'];
+
 export type ArtifactKind =
   | 'product_intake'
+  | 'source_resolution'
   | 'source_acquisition'
   | 'source_capture'
   | 'source_revision'
@@ -161,6 +167,7 @@ export interface SourceAcquisitionArtifact {
   readonly artifact_kind: 'source_acquisition';
   readonly id: string;
   readonly intake: ProductIntakeReference;
+  readonly source_resolution?: ArtifactReference<'source_resolution'>;
   readonly seed_capture: ArtifactReference<'source_capture'>;
   readonly profile_binding?: SourceAcquisitionProfileBinding;
   readonly officiality: SourceOfficiality;
@@ -691,6 +698,7 @@ export interface ReviewPackage {
   readonly artifact_kind: 'review_package';
   readonly id: string;
   readonly intake: ProductIntakeReference;
+  readonly source_resolution?: ArtifactReference<'source_resolution'>;
   readonly candidate?: ProductCandidateReference;
   readonly source_refs: readonly SourceReference[];
   readonly fact_refs: readonly FactReference[];

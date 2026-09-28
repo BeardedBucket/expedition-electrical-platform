@@ -7,7 +7,7 @@ export interface IntakeInput {
   manufacturer_part_number: string;
   official_product_uri: string;
 }
-async function request<T>(path: string, method = 'GET', body?: Partial<IntakeInput>): Promise<T> {
+async function request<T>(path: string, method = 'GET', body?: object): Promise<T> {
   const response = await fetch(`/api/ingestion/jobs${path}`, {
     method,
     headers: body ? { 'Content-Type': 'application/json' } : undefined,
@@ -36,6 +36,18 @@ export const api = {
         : {}),
     }),
   prepare: (id: string) => request<OperatorJobDetail>(`/${encodeURIComponent(id)}/prepare`, 'POST'),
+  submitSourceCandidate: (id: string, uri: string) =>
+    request<OperatorJobDetail>(`/${encodeURIComponent(id)}/source-resolution/candidates`, 'POST', {
+      official_product_uri: uri,
+    }),
+  acceptSource: (id: string, attemptId: string) =>
+    request<OperatorJobDetail>(`/${encodeURIComponent(id)}/source-resolution/accept`, 'POST', {
+      attempt_id: attemptId,
+    }),
+  rejectSource: (id: string, attemptId: string) =>
+    request<OperatorJobDetail>(`/${encodeURIComponent(id)}/source-resolution/reject`, 'POST', {
+      attempt_id: attemptId,
+    }),
   get: (id: string) => request<OperatorJobDetail>(`/${encodeURIComponent(id)}`),
   list: () => request<{ jobs: OperatorJobSummary[] }>(''),
 };

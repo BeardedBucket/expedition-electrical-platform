@@ -66,8 +66,7 @@ export function Review({ job }: { job: OperatorJobDetail }) {
         {s.state === 'source_resolution_required' && (
           <p>
             Official source resolution is required before preparation. This job preserves your
-            original request. Until source resolution is implemented, create a new intake with a
-            verified official manufacturer URL.
+            original request. Propose an official manufacturer URL for source identity review.
           </p>
         )}
         {s.state === 'created' && (
@@ -82,8 +81,22 @@ export function Review({ job }: { job: OperatorJobDetail }) {
           <dd>{s.manufacturer}</dd>
           <dt>MPN</dt>
           <dd>{s.manufacturer_part_number ?? 'Not supplied'}</dd>
-          <dt>Official product URL</dt>
+          <dt>{s.official_product_uri ? 'Official product URL' : 'Original product URL'}</dt>
           <dd>{s.official_product_uri ?? 'Not supplied'}</dd>
+          {!s.official_product_uri && job.source_resolution?.accepted_uri && (
+            <>
+              <dt>Resolved official source</dt>
+              <dd>
+                <a
+                  href={job.source_resolution.accepted_uri}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {job.source_resolution.accepted_uri}
+                </a>
+              </dd>
+            </>
+          )}
           <dt>Created</dt>
           <dd>{s.created_at}</dd>
           <dt>Updated</dt>
@@ -285,6 +298,158 @@ export function Review({ job }: { job: OperatorJobDetail }) {
     </>
   );
 }
+export function SourceResolution({
+  job,
+  client,
+  onUpdate,
+}: {
+  job: OperatorJobDetail;
+  client: OperatorApi;
+  onUpdate: (job: OperatorJobDetail) => void;
+}) {
+  const [uri, setUri] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const section = job.source_resolution;
+  if (!section) return null;
+  async function run(action: () => Promise<OperatorJobDetail>) {
+    setBusy(true);
+    setError('');
+    try {
+      onUpdate(await action());
+      setUri('');
+    } catch (error) {
+      setError(message(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <section>
+      <h2>Official source required</h2>
+      <p>
+        Source identity review. Accepting a source confirms which product you intended; product
+        specifications require a separate later review.
+      </p>
+      <h3>Requested product</h3>
+      <Values value={section.requested_identity} />
+      <p>The original intake remains unchanged and has no official product URL.</p>
+      {job.summary.state === 'source_resolution_required' && (
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void run(() => client.submitSourceCandidate(job.summary.id, uri));
+          }}
+        >
+          <label>
+            Candidate official manufacturer URL
+            <input
+              type="url"
+              required
+              maxLength={4096}
+              value={uri}
+              onChange={(event) => setUri(event.target.value)}
+            />
+          </label>
+          <button disabled={busy} type="submit">
+            {busy ? 'Capturing candidate…' : 'Submit source candidate'}
+          </button>
+        </form>
+      )}
+      {error && <p role="alert">{error}</p>}
+      {section.history_truncated && (
+        <p>
+          Showing the latest 50 of {section.attempt_count} attempts. Complete history remains in the
+          durable job.
+        </p>
+      )}
+      {section.attempts.map((attempt) => (
+        <article key={attempt.attempt_id}>
+          <h3>
+            {attempt.disposition === 'accepted' ? 'Accepted resolved source' : 'Candidate source'}
+          </h3>
+          <p>Disposition: {attempt.disposition}</p>
+          <dl>
+            <dt>Candidate URL</dt>
+            <dd>
+              <a href={attempt.candidate_uri} target="_blank" rel="noopener noreferrer">
+                {attempt.candidate_uri}
+              </a>
+            </dd>
+            <dt>Final URL</dt>
+            <dd>
+              {attempt.final_uri ? (
+                <a href={attempt.final_uri} target="_blank" rel="noopener noreferrer">
+                  {attempt.final_uri}
+                </a>
+              ) : (
+                display(attempt.final_uri)
+              )}
+            </dd>
+            <dt>Title</dt>
+            <dd>{display(attempt.title)}</dd>
+          </dl>
+          <h4>Official-domain / profile evidence</h4>
+          <p>
+            {attempt.domain_evidence.state === 'profile_supported'
+              ? 'Reviewed profile supports the requested and final official domains.'
+              : attempt.domain_evidence.state === 'no_reviewed_profile'
+                ? 'Operator-proposed source without reviewed-domain corroboration.'
+                : attempt.domain_evidence.state === 'final_domain_unobserved'
+                  ? 'Requested domain is supported by a reviewed profile. The final domain is unknown because capture did not supply a final URL.'
+                  : 'Outside reviewed official domains. Human acceptance does not override acquisition domain policy.'}
+          </p>
+          <Values value={attempt.domain_evidence} />
+          {attempt.disposition === 'accepted' &&
+            attempt.domain_evidence.state === 'outside_reviewed_domains' && (
+              <p>
+                This accepted source is outside reviewed official domains. Preparation may still
+                fail officiality checks.
+              </p>
+            )}
+          <h4>Identity observations</h4>
+          <p>
+            Exact occurrences are observations, not proof of product identity. Inspect the source
+            and distinguish variants.
+          </p>
+          <Values value={attempt.observations} />
+          <h4>Capture evidence and diagnostics</h4>
+          <Values value={attempt.capture} />
+          <Values value={attempt.diagnostics} />
+          {attempt.review && <p>Reviewed at {attempt.review.reviewed_at} by local operator.</p>}
+          {attempt.disposition === 'pending' &&
+            job.summary.state === 'source_resolution_review' && (
+              <>
+                <button
+                  disabled={busy || !attempt.can_accept}
+                  onClick={() =>
+                    void run(() => client.acceptSource(job.summary.id, attempt.attempt_id))
+                  }
+                >
+                  Accept official source
+                </button>
+                <button
+                  disabled={busy}
+                  onClick={() =>
+                    void run(() => client.rejectSource(job.summary.id, attempt.attempt_id))
+                  }
+                >
+                  Reject source
+                </button>
+              </>
+            )}
+        </article>
+      ))}
+      {section.accepted_reference && (
+        <p>
+          Source accepted. Use Start preparation to continue. Capture and manufacturer domain checks
+          still apply.
+        </p>
+      )}
+    </section>
+  );
+}
+
 function JobPage({ id, client }: { id: string; client: OperatorApi }) {
   const [job, setJob] = useState<OperatorJobDetail>();
   const [error, setError] = useState('');
@@ -337,6 +502,7 @@ function JobPage({ id, client }: { id: string; client: OperatorApi }) {
         </button>
       )}
       {job ? <Review job={job} /> : <p role="status">Loading persisted job…</p>}
+      {job && <SourceResolution job={job} client={client} onUpdate={setJob} />}
     </>
   );
 }

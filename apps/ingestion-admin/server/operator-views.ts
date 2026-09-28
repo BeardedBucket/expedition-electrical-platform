@@ -1,5 +1,6 @@
 import type { IngestionJob } from '@expedition/ingestion-runtime';
 import type { ArtifactReference } from '@expedition/ingestion';
+import { artifactDigest } from '@expedition/ingestion';
 
 // Allowlisted reference metadata only; no internal provenance or captured bodies.
 const reference = (ref: ArtifactReference) => ({
@@ -38,8 +39,70 @@ export const jobDetail = (job: IngestionJob) => {
   const r = p?.status === 'review_ready' ? p : undefined;
   const candidate = r?.bridge.candidate;
   const pkg = r?.review_package;
+  const acceptedResolution =
+    job.accepted_source_resolution?.kind === 'source_resolution'
+      ? job.source_resolution_attempts?.find(
+          ({ resolution }) =>
+            resolution.disposition === 'accepted' &&
+            artifactDigest(resolution) === job.accepted_source_resolution?.digest,
+        )?.resolution
+      : undefined;
   return {
     summary: jobSummary(job),
+    source_resolution: !job.intake.official_product_uri
+      ? {
+          state: job.state,
+          requested_identity: {
+            manufacturer: job.intake.manufacturer,
+            product_model: job.intake.product_model,
+            manufacturer_part_number: job.intake.manufacturer_part_number,
+          },
+          accepted_reference: job.accepted_source_resolution
+            ? reference(job.accepted_source_resolution)
+            : undefined,
+          accepted_uri: acceptedResolution?.final_uri,
+          attempt_count: job.source_resolution_attempts?.length ?? 0,
+          history_truncated: (job.source_resolution_attempts?.length ?? 0) > 50,
+          attempts: (job.source_resolution_attempts ?? [])
+            .slice(-50)
+            .map(({ resolution: r, capture: c }) => ({
+              attempt_id: r.attempt_id,
+              candidate_uri: r.candidate_uri,
+              normalized_uri: r.normalized_uri,
+              final_uri: r.final_uri,
+              discovery_method: r.discovery_method,
+              domain_evidence: r.domain_evidence,
+              title: r.title,
+              observations: r.observations.slice(0, 30),
+              diagnostics: r.diagnostics.slice(0, 30).map(({ code, message }) => ({
+                code,
+                message: code.startsWith('snapshot_')
+                  ? 'Snapshot operation failed; inspect local service diagnostics.'
+                  : message,
+              })),
+              disposition: r.disposition,
+              review: r.review,
+              captured_at: r.captured_at,
+              capture: {
+                reference: reference(r.capture),
+                disposition: c.disposition,
+                content_digest: c.content_digest,
+                media_type: c.media_type,
+                response_status: c.response_status,
+                reason_codes: c.reason_codes,
+                redirects: c.redirect_chain
+                  ?.slice(0, 5)
+                  .map(({ requested_uri, destination_uri, response_status }) => ({
+                    requested_uri,
+                    destination_uri,
+                    response_status,
+                  })),
+              },
+              can_accept:
+                r.disposition === 'pending' && c.disposition === 'authoritative' && !!r.final_uri,
+            })),
+        }
+      : undefined,
     intake: {
       manufacturer: job.intake.manufacturer,
       product_model: job.intake.product_model,

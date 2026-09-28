@@ -24,6 +24,10 @@ import {
   type ManufacturerAcquisitionStrategy,
 } from './manufacturer-acquisition.js';
 import { validateCaptureUri } from './http-capture.js';
+import {
+  assertAcceptedSourceResolution,
+  type SourceResolutionArtifact,
+} from './source-resolution.js';
 import type { CapturedSource, SourceCaptureAdapter } from './capture-types.js';
 import {
   captureSourceForProduction,
@@ -49,6 +53,7 @@ export interface SourceAcquisitionPolicy {
 
 export interface SourceAcquisitionRequest {
   readonly intake: ProductIntake;
+  readonly source_resolution?: SourceResolutionArtifact;
   readonly adapter: SourceCaptureAdapter;
   readonly profiles?: readonly ManufacturerAcquisitionProfile[];
   readonly profile?: ManufacturerAcquisitionProfile;
@@ -190,9 +195,14 @@ const hostAllowed = (
 const profilePolicy = (
   intake: ProductIntake,
   profile?: ManufacturerAcquisitionProfile,
+  resolvedSeed?: string,
 ): DomainPolicy => {
   const seedHost =
-    (intake.official_product_uri ? hostname(intake.official_product_uri) : undefined) ?? '';
+    (resolvedSeed
+      ? hostname(resolvedSeed)
+      : intake.official_product_uri
+        ? hostname(intake.official_product_uri)
+        : undefined) ?? '';
   return {
     official_domains: profile?.official_domains ?? [seedHost],
     approved_subdomains: profile?.approved_subdomains ?? [],
@@ -481,13 +491,14 @@ const emptySeedResult = (
   intake: ProductIntake,
   message: string,
   reasonCode: CaptureReasonCode = 'invalid_uri',
+  resolvedSeed?: string,
 ): ProductionSourceCaptureResult => ({
   disposition: 'failed',
   artifact: {
     schema_version: PRODUCTION_SCHEMA_VERSION,
     artifact_kind: 'source_capture',
     id: `${intake.id}.seed`,
-    requested_uri: intake.official_product_uri!,
+    requested_uri: resolvedSeed ?? intake.official_product_uri!,
     retrieved_at: '1970-01-01T00:00:00.000Z',
     disposition: 'failed',
     reason_codes: [reasonCode],
@@ -536,13 +547,14 @@ const statusFor = (
     : 'acquired';
 };
 
-const buildAcquisitionArtifact = (
+const createAcquisitionArtifact = (
   intake: ProductIntake,
   seed: ProductionSourceCaptureResult,
   profile: ManufacturerAcquisitionProfile | undefined,
   status: SourceAcquisitionStatus,
   officiality: SourceOfficiality,
   candidates: readonly SourceAcquisitionCandidate[],
+  resolution?: SourceResolutionArtifact,
 ): SourceAcquisitionArtifact => {
   const seedReference = artifactReference(
     'source_capture',
@@ -559,6 +571,16 @@ const buildAcquisitionArtifact = (
     artifact_kind: 'source_acquisition' as const,
     id: `${intake.id}.source-acquisition`,
     intake: artifactReference('product_intake', intake),
+    ...(resolution
+      ? {
+          source_resolution: artifactReference(
+            'source_resolution',
+            resolution,
+            resolution.id,
+            resolution.schema_version,
+          ),
+        }
+      : {}),
     seed_capture: seedReference,
     ...(profile
       ? {
@@ -584,7 +606,20 @@ export const acquireOfficialSources = async (
   request: SourceAcquisitionRequest,
 ): Promise<SourceAcquisitionResult> => {
   const policy = request.policy ?? {};
-  if (!request.intake.official_product_uri)
+  const buildAcquisitionArtifact = (
+    ...args: [
+      ProductIntake,
+      ProductionSourceCaptureResult,
+      ManufacturerAcquisitionProfile | undefined,
+      SourceAcquisitionStatus,
+      SourceOfficiality,
+      readonly SourceAcquisitionCandidate[],
+    ]
+  ) => createAcquisitionArtifact(...args, request.source_resolution);
+  if (request.source_resolution)
+    assertAcceptedSourceResolution(request.intake, request.source_resolution);
+  const effectiveSeed = request.source_resolution?.final_uri ?? request.intake.official_product_uri;
+  if (!effectiveSeed)
     throw new Error('Official source resolution required before source acquisition.');
   const maxDiscovered = policy.max_discovered_candidates ?? DEFAULT_MAX_DISCOVERED;
   const maxCaptured = policy.max_captured_candidates ?? DEFAULT_MAX_CAPTURED;
@@ -603,13 +638,14 @@ export const acquireOfficialSources = async (
   const reviewedProfile =
     selectedProfile?.profile_status === 'reviewed' ? selectedProfile : undefined;
   const profile = reviewedProfile;
-  const domain = profilePolicy(request.intake, profile);
-  const seedUri = validateCaptureUri(request.intake.official_product_uri!);
+  const domain = profilePolicy(request.intake, profile, effectiveSeed);
+  const seedUri = validateCaptureUri(effectiveSeed);
   if (!(seedUri instanceof URL)) {
     const seed = emptySeedResult(
       request.intake,
       seedUri.issues.map((item) => item.message).join('; '),
       (seedUri.issues[0]?.code as CaptureReasonCode | undefined) ?? 'invalid_uri',
+      effectiveSeed,
     );
     const status = 'seed_failed' as const;
     return {
@@ -624,6 +660,8 @@ export const acquireOfficialSources = async (
     const seed = emptySeedResult(
       request.intake,
       'The seed URI is outside the reviewed official-domain policy.',
+      'invalid_uri',
+      effectiveSeed,
     );
     const status = 'unresolved_officiality' as const;
     return {

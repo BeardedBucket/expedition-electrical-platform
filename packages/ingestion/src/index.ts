@@ -33,3 +33,4 @@ export * from './production-ingest-finalize.js';
 export * from './production-approval-bridge.js';
 export * from './production-promotion.js';
 export * from './production-promotion-write.js';
+export * from './source-resolution.js';

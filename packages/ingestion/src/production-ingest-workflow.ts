@@ -33,6 +33,7 @@ import { buildProductionReviewPackage } from './production-review-package.js';
 
 export interface ProductionIngestWorkflowRequest {
   readonly intake: ProductIntake;
+  readonly source_resolution?: SourceAcquisitionRequest['source_resolution'];
   readonly adapter: SourceCaptureAdapter;
   readonly profiles?: SourceAcquisitionRequest['profiles'];
   readonly profile?: SourceAcquisitionRequest['profile'];
@@ -43,6 +44,7 @@ export interface ProductionIngestWorkflowRequest {
 export type ProductionIngestWorkflowResult =
   | {
       readonly status: 'review_ready';
+      readonly source_resolution?: SourceAcquisitionRequest['source_resolution'];
       readonly intake: ProductIntake;
       readonly acquisition: SourceAcquisitionResult;
       readonly source_acquisitions: readonly SourceAcquisitionArtifact[];
@@ -57,6 +59,7 @@ export type ProductionIngestWorkflowResult =
     }
   | {
       readonly status: 'preparation_failed';
+      readonly source_resolution?: SourceAcquisitionRequest['source_resolution'];
       readonly intake: ProductIntake;
       readonly acquisition: SourceAcquisitionResult;
       readonly source_acquisitions: readonly SourceAcquisitionArtifact[];
@@ -74,7 +77,7 @@ export const prepareProductionIngestReview = async (
   const intakeIssues = validateProductIntake(request.intake);
   if (intakeIssues.length) throw new Error(`Invalid product intake: ${intakeIssues.join('; ')}`);
 
-  if (!request.intake.official_product_uri)
+  if (!request.intake.official_product_uri && !request.source_resolution)
     throw new Error(
       'Official source resolution required: supply a verified official product URI before preparation.',
     );
@@ -90,6 +93,7 @@ export const prepareProductionIngestReview = async (
   const qualified_facts: QualifiedFactArtifact[] = [];
   const common = {
     intake: request.intake,
+    ...(request.source_resolution ? { source_resolution: request.source_resolution } : {}),
     acquisition,
     source_acquisitions,
     captures,
@@ -176,6 +180,7 @@ export const prepareProductionIngestReview = async (
   });
   const review_package = buildProductionReviewPackage({
     intake: request.intake,
+    ...(request.source_resolution ? { source_resolution: request.source_resolution } : {}),
     reconciliation,
     bridge,
   });

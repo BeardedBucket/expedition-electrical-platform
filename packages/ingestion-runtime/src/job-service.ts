@@ -1,6 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import {
   approvalMatchesReviewPackage,
+  artifactDigest,
+  artifactReference,
+  assertAcceptedSourceResolution,
+  captureSourceResolutionCandidate,
   finalizeProductionIngest,
   prepareProductionIngestReview,
   productionApprovalToPromotionReview,
@@ -14,12 +18,16 @@ import {
   type ProductionIngestWorkflowResult,
   type PromotionCatalogContext,
   type ReviewReadyProductionIngest,
+  type SourceResolutionArtifact,
+  type SourceCaptureArtifact,
+  type ArtifactReference,
 } from '@expedition/ingestion';
 import { assertJsonInput, deserializeJob, serializeJob } from './codec.js';
 import type { IngestionJobStore } from './job-store.js';
 
 export type IngestionJobState =
   | 'source_resolution_required'
+  | 'source_resolution_review'
   | 'created'
   | 'preparing'
   | 'review_ready'
@@ -44,6 +52,11 @@ export interface IngestionJob {
   readonly updated_at: string;
   readonly intake: ProductIntake;
   readonly state: IngestionJobState;
+  readonly source_resolution_attempts?: readonly {
+    readonly resolution: SourceResolutionArtifact;
+    readonly capture: SourceCaptureArtifact;
+  }[];
+  readonly accepted_source_resolution?: ArtifactReference<'source_resolution'>;
   readonly preparation?: ProductionIngestWorkflowResult;
   readonly approval?: ProductionApproval;
   readonly finalization_request?: FinalizationRequest;
@@ -60,6 +73,15 @@ export interface IngestionRuntimeDependencies {
   readonly finalize?: typeof finalizeProductionIngest;
   readonly now?: () => string;
   readonly newId?: () => string;
+}
+
+export class SourceResolutionError extends Error {
+  constructor(
+    readonly status: 400 | 409,
+    message: string,
+  ) {
+    super(message);
+  }
 }
 
 export class IngestionJobService {
@@ -120,10 +142,116 @@ export class IngestionJobService {
     );
   }
 
+  async submitSourceResolutionCandidate(id: string, uri: string): Promise<IngestionJob> {
+    return this.exclusive(id, async () => {
+      const job = await this.getJob(id);
+      if (job.state !== 'source_resolution_required' || job.intake.official_product_uri)
+        throw new SourceResolutionError(
+          409,
+          `Cannot submit a source candidate in state ${job.state}.`,
+        );
+      if (typeof uri !== 'string' || !uri.trim() || uri.length > 4096)
+        throw new SourceResolutionError(
+          400,
+          'Provide a candidate HTTP(S) URL of at most 4096 characters.',
+        );
+      let attempt: Awaited<ReturnType<typeof captureSourceResolutionCandidate>>;
+      try {
+        attempt = await captureSourceResolutionCandidate(
+          {
+            ...this.dependencies.preparationRequest(job.intake),
+            intake: job.intake,
+          },
+          uri.trim(),
+          `resolution.${randomUUID()}`,
+        );
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          error.message.startsWith('Invalid source resolution candidate:')
+        )
+          throw new SourceResolutionError(400, error.message);
+        throw error;
+      }
+      const updated: IngestionJob = {
+        ...job,
+        state: 'source_resolution_review',
+        updated_at: this.timestamp(),
+        source_resolution_attempts: [...(job.source_resolution_attempts ?? []), attempt],
+      };
+      await this.dependencies.store.save(updated);
+      return updated;
+    });
+  }
+
+  async decideSourceResolution(
+    id: string,
+    attemptId: string,
+    decision: 'accepted' | 'rejected',
+  ): Promise<IngestionJob> {
+    return this.exclusive(id, async () => {
+      const job = await this.getJob(id);
+      if (job.state !== 'source_resolution_review' || job.intake.official_product_uri)
+        throw new SourceResolutionError(
+          409,
+          `Cannot review a source candidate in state ${job.state}.`,
+        );
+      const attempt = job.source_resolution_attempts?.find(
+        (item) => item.resolution.attempt_id === attemptId,
+      );
+      if (!attempt || attempt.resolution.disposition !== 'pending')
+        throw new SourceResolutionError(409, 'The requested source attempt is not pending review.');
+      if (decision !== 'accepted' && decision !== 'rejected')
+        throw new SourceResolutionError(400, 'Unknown source resolution decision.');
+      if (
+        decision === 'accepted' &&
+        (attempt.capture.disposition !== 'authoritative' || !attempt.capture.final_uri)
+      )
+        throw new SourceResolutionError(
+          409,
+          'A successful authoritative capture with a final URL is required for acceptance.',
+        );
+      const resolved: SourceResolutionArtifact = {
+        ...attempt.resolution,
+        disposition: decision,
+        review: { reviewed_at: this.timestamp(), method: 'local_operator' },
+      };
+      if (decision === 'accepted') assertAcceptedSourceResolution(job.intake, resolved);
+      const updated: IngestionJob = {
+        ...job,
+        state: decision === 'accepted' ? 'created' : 'source_resolution_required',
+        updated_at: this.timestamp(),
+        source_resolution_attempts: job.source_resolution_attempts!.map((item) =>
+          item === attempt ? { ...item, resolution: resolved } : item,
+        ),
+        ...(decision === 'accepted'
+          ? {
+              accepted_source_resolution: artifactReference(
+                'source_resolution',
+                resolved,
+                resolved.id,
+                resolved.schema_version,
+              ),
+            }
+          : {}),
+      };
+      await this.dependencies.store.save(updated);
+      return updated;
+    });
+  }
+
   async prepareJob(id: string): Promise<IngestionJob> {
     return this.exclusive(id, async () => {
       const job = await this.getJob(id);
       if (job.state !== 'created') throw new Error(`Cannot prepare job in state ${job.state}.`);
+      const resolution = job.source_resolution_attempts?.find(
+        (item) => artifactDigest(item.resolution) === job.accepted_source_resolution?.digest,
+      )?.resolution;
+      if (!job.intake.official_product_uri) {
+        if (!resolution)
+          throw new SourceResolutionError(409, 'Accept a source resolution before preparation.');
+        assertAcceptedSourceResolution(job.intake, resolution);
+      }
       await this.dependencies.store.save({
         ...job,
         state: 'preparing',
@@ -134,6 +262,7 @@ export class IngestionJobService {
         preparation = await (this.dependencies.prepare ?? prepareProductionIngestReview)({
           ...this.dependencies.preparationRequest(job.intake),
           intake: job.intake,
+          ...(resolution ? { source_resolution: resolution } : {}),
         });
       } catch (error) {
         const updated: IngestionJob = {

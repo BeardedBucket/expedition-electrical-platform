@@ -52,8 +52,9 @@ describe('job-store atomic replacement and cleanup', () => {
       const intake = { ...job.intake };
       delete intake[field];
       const state = field === 'official_product_uri' ? 'source_resolution_required' : 'created';
-      await store.save({ ...job, intake, state });
-      const reloaded = await new FileIngestionJobStore(root).load(job.id);
+      const absentId = '22222222-2222-2222-2222-222222222222';
+      await store.create({ ...job, id: absentId, intake, state });
+      const reloaded = await new FileIngestionJobStore(root).load(absentId);
       expect(reloaded.intake).toEqual(intake);
       expect(reloaded.intake).not.toHaveProperty(field);
       expect(reloaded.state).toBe(state);

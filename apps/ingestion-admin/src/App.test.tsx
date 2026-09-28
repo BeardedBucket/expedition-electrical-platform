@@ -2,11 +2,12 @@ import '@testing-library/jest-dom/vitest';
 import { StrictMode } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import App, { Review } from './App.js';
+import App, { Review, SourceResolution } from './App.js';
 import type { OperatorApi, OperatorJobDetail } from './api.js';
 
 const id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const detail: OperatorJobDetail = {
+  source_resolution: undefined,
   summary: {
     id,
     state: 'review_ready',
@@ -48,6 +49,9 @@ const detail: OperatorJobDetail = {
   diagnostics: [],
 };
 const client = (): OperatorApi => ({
+  submitSourceCandidate: vi.fn().mockResolvedValue(detail),
+  acceptSource: vi.fn().mockResolvedValue(detail),
+  rejectSource: vi.fn().mockResolvedValue(detail),
   suggestions: vi.fn().mockResolvedValue({ manufacturers: [], products: [] }),
   create: vi
     .fn()
@@ -195,7 +199,7 @@ describe('ingestion admin operator interface', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create & Prepare' }));
     await screen.findByText('source_resolution_required');
     expect(screen.getByText(/This job preserves your original request/)).toHaveTextContent(
-      'Until source resolution is implemented, create a new intake with a verified official manufacturer URL.',
+      'Propose an official manufacturer URL for source identity review.',
     );
     expect(api.prepare).not.toHaveBeenCalled();
   });
@@ -395,4 +399,199 @@ describe('ingestion admin operator interface', () => {
     );
     expect(screen.getByText('Unknown / not available')).toBeInTheDocument();
   });
+});
+
+function sourceJob(
+  state: 'source_resolution_required' | 'source_resolution_review' | 'created',
+): OperatorJobDetail {
+  const pending = state === 'source_resolution_review';
+  return {
+    ...detail,
+    summary: { ...detail.summary, state, official_product_uri: undefined },
+    intake: { ...detail.intake, official_product_uri: undefined },
+    source_resolution: {
+      state,
+      requested_identity: {
+        manufacturer: 'Example',
+        product_model: 'Model',
+        manufacturer_part_number: 'EX-1',
+      },
+      accepted_reference: undefined,
+      accepted_uri: state === 'created' ? 'https://example.test/product' : undefined,
+      attempt_count: state === 'source_resolution_required' ? 0 : 1,
+      history_truncated: false,
+      attempts:
+        state === 'source_resolution_required'
+          ? []
+          : [
+              {
+                attempt_id: 'attempt.test',
+                candidate_uri: 'https://example.test/product',
+                normalized_uri: 'https://example.test/product',
+                final_uri: 'https://example.test/product',
+                discovery_method: 'operator_supplied_url',
+                domain_evidence: { state: 'no_reviewed_profile' },
+                title: 'Example product',
+                observations: [
+                  { kind: 'exact_mpn', value: 'EX-1', locator: { kind: 'html', path: '/p[1]' } },
+                ],
+                diagnostics: [],
+                disposition: pending ? 'pending' : 'accepted',
+                review: pending
+                  ? undefined
+                  : { method: 'local_operator', reviewed_at: '2026-09-08T00:00:01.000Z' },
+                captured_at: '2026-09-08T00:00:00.000Z',
+                capture: {
+                  reference: {
+                    kind: 'source_capture',
+                    reference: 'capture.test',
+                    reference_schema_version: '1.0',
+                    digest: `sha256:${'a'.repeat(64)}`,
+                    digest_algorithm: 'sha256',
+                  },
+                  disposition: 'authoritative',
+                  content_digest: undefined,
+                  media_type: 'text/html',
+                  response_status: 200,
+                  reason_codes: undefined,
+                  redirects: undefined,
+                },
+                can_accept: pending,
+              },
+            ],
+    },
+  };
+}
+it('renders required source review and submits the candidate URL for the existing job', async () => {
+  const c = client();
+  const update = vi.fn();
+  render(
+    <SourceResolution job={sourceJob('source_resolution_required')} client={c} onUpdate={update} />,
+  );
+  expect(screen.getByText('Official source required')).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText('Candidate official manufacturer URL'), {
+    target: { value: 'https://example.test/product' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Submit source candidate' }));
+  await waitFor(() =>
+    expect(c.submitSourceCandidate).toHaveBeenCalledWith(id, 'https://example.test/product'),
+  );
+  expect(c.prepare).not.toHaveBeenCalled();
+});
+it('shows the ordinary original official URL without a resolved-source row', () => {
+  render(<Review job={detail} />);
+  expect(screen.getByText('Official product URL').nextElementSibling).toHaveTextContent(
+    'https://example.test/product',
+  );
+  expect(screen.queryByText('Original product URL')).not.toBeInTheDocument();
+  expect(screen.queryByText('Resolved official source')).not.toBeInTheDocument();
+});
+it('shows an unresolved MPN-only original URL as not supplied without a resolved-source row', () => {
+  render(<Review job={sourceJob('source_resolution_required')} />);
+  expect(screen.getByText('Original product URL').nextElementSibling).toHaveTextContent(
+    'Not supplied',
+  );
+  expect(screen.queryByText('Resolved official source')).not.toBeInTheDocument();
+});
+it.each(['created', 'review_ready'] as const)(
+  'shows the accepted source separately in the %s Overview with a safe link',
+  (state) => {
+    const job = sourceJob('created');
+    job.summary.state = state;
+    job.source_resolution!.state = state;
+    render(<Review job={job} />);
+    expect(screen.getByText('Original product URL').nextElementSibling).toHaveTextContent(
+      'Not supplied',
+    );
+    const row = screen.getByText('Resolved official source').nextElementSibling;
+    const link = row?.querySelector('a');
+    expect(link).toHaveTextContent('https://example.test/product');
+    expect(link).toHaveAttribute('href', job.source_resolution!.accepted_uri);
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    expect(job.intake.official_product_uri).toBeUndefined();
+  },
+);
+it('loads the resolved-source Overview when reopening a persisted review-ready job', async () => {
+  const c = client();
+  const job = sourceJob('created');
+  job.summary.state = 'review_ready';
+  job.source_resolution!.state = 'review_ready';
+  vi.mocked(c.get).mockResolvedValue(job);
+  window.location.hash = `#/jobs/${id}`;
+  render(<App client={c} />);
+  expect(await screen.findByText('Resolved official source')).toBeInTheDocument();
+  expect(screen.getByText('Original product URL').nextElementSibling).toHaveTextContent(
+    'Not supplied',
+  );
+  expect(c.get).toHaveBeenCalledWith(id);
+  expect(c.prepare).not.toHaveBeenCalled();
+});
+it('renders pending identity evidence and invokes explicit source acceptance', async () => {
+  const c = client();
+  render(
+    <SourceResolution job={sourceJob('source_resolution_review')} client={c} onUpdate={vi.fn()} />,
+  );
+  expect(
+    screen.getByText('Operator-proposed source without reviewed-domain corroboration.'),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText(/product specifications require a separate later review/),
+  ).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Accept official source' }));
+  await waitFor(() => expect(c.acceptSource).toHaveBeenCalledWith(id, 'attempt.test'));
+  expect(c.prepare).not.toHaveBeenCalled();
+});
+it('opens literal candidate and final source URLs in safe external tabs', () => {
+  const job = sourceJob('source_resolution_review');
+  job.source_resolution!.attempts[0].final_uri = 'https://example.test/final-product';
+  render(<SourceResolution job={job} client={client()} onUpdate={vi.fn()} />);
+  for (const uri of ['https://example.test/product', 'https://example.test/final-product']) {
+    const link = screen.getByRole('link', { name: uri });
+    expect(link).toHaveAttribute('href', uri);
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+  }
+});
+it('keeps an unavailable final URL as unknown without manufacturing a link', () => {
+  const job = sourceJob('source_resolution_review');
+  job.source_resolution!.attempts[0].final_uri = undefined;
+  render(<SourceResolution job={job} client={client()} onUpdate={vi.fn()} />);
+  expect(screen.getAllByRole('link')).toHaveLength(1);
+  expect(screen.getByText('Unknown / not available')).toBeInTheDocument();
+});
+it('warns after off-domain acceptance that preparation may still fail officiality checks', () => {
+  const job = sourceJob('created');
+  job.source_resolution!.attempts[0].domain_evidence = { state: 'outside_reviewed_domains' };
+  render(<SourceResolution job={job} client={client()} onUpdate={vi.fn()} />);
+  expect(
+    screen.getByText(/Human acceptance does not override acquisition domain policy/),
+  ).toBeInTheDocument();
+  expect(screen.getByText(/Preparation may still fail officiality checks/)).toBeInTheDocument();
+});
+it('rejects a source and renders the returned state for another attempt', async () => {
+  const c = client();
+  const update = vi.fn();
+  vi.mocked(c.rejectSource).mockResolvedValue(sourceJob('source_resolution_required'));
+  render(
+    <SourceResolution job={sourceJob('source_resolution_review')} client={c} onUpdate={update} />,
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Reject source' }));
+  await waitFor(() => expect(c.rejectSource).toHaveBeenCalledWith(id, 'attempt.test'));
+  expect(update).toHaveBeenCalledWith(sourceJob('source_resolution_required'));
+});
+it('shows accepted source separately, enables explicit preparation, and skips resolution for URL-present jobs', async () => {
+  const c = client();
+  vi.mocked(c.get).mockResolvedValue(sourceJob('created'));
+  window.location.hash = `#/jobs/${id}`;
+  render(<App client={c} />);
+  expect(await screen.findByText('Accepted resolved source')).toBeInTheDocument();
+  expect(
+    screen.getByText('The original intake remains unchanged and has no official product URL.'),
+  ).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Start preparation' })).toBeEnabled();
+  expect(c.prepare).not.toHaveBeenCalled();
+  cleanup();
+  render(<SourceResolution job={detail} client={c} onUpdate={vi.fn()} />);
+  expect(screen.queryByText('Official source required')).not.toBeInTheDocument();
 });

@@ -2,6 +2,7 @@ import { validateProductIntake, type ProductIntake } from '@expedition/ingestion
 import { randomUUID } from 'node:crypto';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import type { IngestionJobService } from '@expedition/ingestion-runtime';
+import { SourceResolutionError } from '@expedition/ingestion-runtime';
 import type { IntakeSuggestions } from './suggestions.js';
 import { jobDetail, jobSummary } from './operator-views.js';
 import { errorDiagnostic, logRequest, requestContext } from './request-logging.js';
@@ -9,7 +10,8 @@ import { errorDiagnostic, logRequest, requestContext } from './request-logging.j
 export type OperatorService = Pick<
   IngestionJobService,
   'createJob' | 'prepareJob' | 'getJob' | 'listJobs'
->;
+> &
+  Partial<Pick<IngestionJobService, 'submitSourceResolutionCandidate' | 'decideSourceResolution'>>;
 class RequestError extends Error {
   constructor(
     readonly status: number,
@@ -26,7 +28,7 @@ const fields = [
 ] as const;
 const validId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
-async function intakeBody(req: IncomingMessage) {
+async function jsonBody(req: IncomingMessage) {
   if (req.headers['content-type']?.split(';')[0].trim() !== 'application/json')
     throw new RequestError(415, 'Send application/json.');
   let bytes = 0;
@@ -45,6 +47,11 @@ async function intakeBody(req: IncomingMessage) {
   if (!body || typeof body !== 'object' || Array.isArray(body))
     throw new RequestError(400, 'Expected an intake object.');
   const record = body as Record<string, unknown>;
+  return record;
+}
+
+async function intakeBody(req: IncomingMessage) {
+  const record = await jsonBody(req);
   if (
     Object.keys(record).some((key) => !fields.includes(key as (typeof fields)[number])) ||
     ['manufacturer', 'product_model'].some(
@@ -128,10 +135,35 @@ export function createOperatorApi(
         }
         throw new RequestError(405, 'Method not allowed.');
       }
-      const match = /^\/api\/ingestion\/jobs\/([^/]+)(\/prepare)?$/.exec(pathname);
+      const match =
+        /^\/api\/ingestion\/jobs\/([^/]+)(\/prepare|\/source-resolution\/(?:candidates|accept|reject))?$/.exec(
+          pathname,
+        );
       if (!match) throw new RequestError(404, 'Route not found.');
       if (!validId.test(match[1])) throw new RequestError(400, 'Malformed ingestion job ID.');
-      if (match[2] && req.method === 'POST') {
+      if (match[2]?.startsWith('/source-resolution/') && req.method === 'POST') {
+        const body = await jsonBody(req);
+        const action = match[2].split('/').at(-1);
+        const field = action === 'candidates' ? 'official_product_uri' : 'attempt_id';
+        if (
+          Object.keys(body).length !== 1 ||
+          typeof body[field] !== 'string' ||
+          !body[field].trim()
+        )
+          throw new RequestError(400, `Provide only a nonempty ${field}.`);
+        if (!service.submitSourceResolutionCandidate || !service.decideSourceResolution)
+          throw new Error('Source resolution service is not configured.');
+        const job =
+          action === 'candidates'
+            ? await service.submitSourceResolutionCandidate(match[1], body[field])
+            : await service.decideSourceResolution(
+                match[1],
+                body[field],
+                action === 'accept' ? 'accepted' : 'rejected',
+              );
+        return send(res, 200, jobDetail(job));
+      }
+      if (match[2] === '/prepare' && req.method === 'POST') {
         prepareStarted = performance.now();
         logRequest('PREPARE REQUEST START', context);
         const job = await service.prepareJob(match[1]);
@@ -150,14 +182,16 @@ export function createOperatorApi(
       const status =
         error instanceof RequestError
           ? error.status
-          : message.startsWith('Invalid product intake:')
-            ? 400
-            : message.startsWith('Unknown ingestion job ID:')
-              ? 404
-              : message.startsWith('Cannot prepare job in state ') ||
-                  message.includes('already has an operation in progress.')
-                ? 409
-                : 500;
+          : error instanceof SourceResolutionError
+            ? error.status
+            : message.startsWith('Invalid product intake:')
+              ? 400
+              : message.startsWith('Unknown ingestion job ID:')
+                ? 404
+                : message.startsWith('Cannot prepare job in state ') ||
+                    message.includes('already has an operation in progress.')
+                  ? 409
+                  : 500;
       if (prepareStarted !== undefined) {
         logRequest('PREPARE REQUEST FAILED', context, {
           status,
