@@ -1,0 +1,1 @@
+export const MAX_INGESTION_BATCH_SIZE = 50;
