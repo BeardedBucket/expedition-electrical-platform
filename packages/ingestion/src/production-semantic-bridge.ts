@@ -10,12 +10,13 @@ import {
 } from './production-contracts.js';
 import {
   reconcileQualifiedFactsForWholeIntake,
+  type QualifiedFactGroupReconciliationOutcome,
   type QualifiedFactWholeIntakeReconciliationResult,
 } from './reconciliation.js';
 import { parseExactUnitValue } from './units.js';
 import type { JsonValue } from './contracts.js';
 
-const METHOD_VERSION = 'production-semantic-bridge.v1';
+const METHOD_VERSION = 'production-semantic-bridge.v2';
 
 export interface ProductionSemanticBridgeInput {
   readonly facts: readonly QualifiedFactArtifact[];
@@ -41,7 +42,7 @@ export const buildProductionSemanticProposals = (
 
   const propose = (
     ids: readonly string[],
-    outcome: 'agreement' | 'conflict' | 'unresolved',
+    outcome: QualifiedFactGroupReconciliationOutcome,
     reason: string,
   ): SemanticProposal => {
     const facts = [...ids].sort().map((id) => {
@@ -77,7 +78,7 @@ export const buildProductionSemanticProposals = (
     let rationale = reason;
     if (outcome === 'conflict') {
       disposition = 'conflicting';
-    } else if (outcome === 'agreement') {
+    } else if (outcome === 'agreement' || outcome === 'single_observation') {
       if (unsafe) {
         rationale = `${reason}; contextual or qualification information requires review`;
       } else if (!mapping) {

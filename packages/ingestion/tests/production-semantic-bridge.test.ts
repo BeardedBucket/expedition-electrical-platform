@@ -4,6 +4,7 @@ import {
   buildProductionSemanticProposals,
   buildQualifiedFactArtifact,
   PRODUCTION_SCHEMA_VERSION,
+  artifactDigest,
   reconcileQualifiedFactsForWholeIntake,
   type QualifiedFactArtifact,
   type SourceAcquisitionArtifact,
@@ -70,6 +71,46 @@ const bridge = (
 };
 
 describe('production semantic proposal bridge', () => {
+  it('maps single observations while preserving their own provenance and F digest', () => {
+    const source = acquisition('source');
+    const only = fact('only', source, 'nominal voltage', '24', {}, 'structurally_supported');
+    const facts = [only];
+    const reconciliation = reconcileQualifiedFactsForWholeIntake({
+      facts,
+      source_acquisitions: [source],
+    });
+    const proposal = buildProductionSemanticProposals({
+      facts,
+      source_acquisitions: [source],
+      reconciliation,
+    })[0];
+    expect(proposal).toMatchObject({ disposition: 'mapped', proposed_value: 24 });
+    expect(proposal.provenance.rationale).toContain('F group single_observation');
+    expect(proposal.provenance.rationale).not.toMatch(/agreement|corroborat|independent/i);
+    expect(proposal.fact_refs).toEqual([
+      artifactReference('qualified_fact', only, only.id, only.schema_version),
+    ]);
+    expect(proposal.evidence_refs).toEqual(
+      expect.arrayContaining([only.source_capture, only.source_acquisition]),
+    );
+    expect(proposal.input_artifact_digests).toContain(artifactDigest(reconciliation));
+    expect(bridge(facts, [source])).toEqual(bridge(facts, [source]));
+    expect(only.metadata.applicability).toEqual({ kind: 'exact_product', value: 'MPN' });
+  });
+
+  it('exposes unknown singleton labels at mapping without manufacturing a value', () => {
+    const source = acquisition('source');
+    const proposal = bridge(
+      [fact('only', source, 'mystery rating', 'Yes', { source_unit: undefined })],
+      [source],
+    )[0];
+    expect(proposal).toMatchObject({
+      target: 'source_label:mystery rating',
+      disposition: 'unsupported',
+    });
+    expect(proposal.provenance.rationale).toContain('F group single_observation');
+    expect(proposal).not.toHaveProperty('proposed_value');
+  });
   it('maps agreed exact labels with all fact and evidence references', () => {
     const source = acquisition('source');
     const proposals = bridge(
@@ -189,7 +230,7 @@ describe('production semantic proposal bridge', () => {
     const source = acquisition('source');
     const proposals = bridge(
       [
-        fact('singleton', source, 'nominal voltage', '24'),
+        fact('singleton', source, 'nominal voltage', '24', {}, 'unresolved'),
         fact('unscoped', undefined, 'continuous current', '5'),
         fact('missing', source, undefined, '24'),
       ],

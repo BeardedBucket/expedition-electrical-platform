@@ -26,6 +26,7 @@ const fact = (
     }),
     metadata: {
       source_wording: 'Example scalar',
+      source_label: 'Example scalar',
       raw_value,
       ...(source_unit ? { source_unit } : {}),
       applicability: { kind: 'exact_product', value: 'MODEL-A' },
@@ -87,10 +88,79 @@ describe('Checkpoint F group reconciliation', () => {
     );
   });
 
-  it('keeps a singleton comparison group unresolved', () => {
+  it('records a safe singleton without inventing comparisons or agreement', () => {
     const only = fact('only', '24', 'V');
 
+    const result = reconcileQualifiedFactComparisonGroup(group(only), [only]);
+    expect(result.outcome).toBe('single_observation');
+    expect(result.comparisons).toEqual([]);
+    expect(result.qualified_fact_ids).toEqual([only.id]);
+    expect(result.has_unresolved_comparisons).toBe(false);
+  });
+
+  it.each(['exact', 'structurally_supported'] as const)(
+    'accepts %s singleton qualification without parsing complex values',
+    (state) => {
+      for (const value of [
+        'Yes',
+        'IEC 62368-1',
+        'Front: IP54; Back: IP21',
+        '124 x 187 x 29.8 mm',
+        'Relay: 6 A at 250 VAC',
+      ]) {
+        const only = fact('only', value, undefined, state);
+        expect(reconcileQualifiedFactComparisonGroup(group(only), [only]).outcome).toBe(
+          'single_observation',
+        );
+      }
+    },
+  );
+
+  it.each(['ambiguous', 'unresolved', 'rejected', undefined] as const)(
+    'rejects singleton with qualification %s',
+    (state) => {
+      const only = { ...fact('only', '24', 'V'), qualification_state: state };
+      expect(reconcileQualifiedFactComparisonGroup(group(only), [only]).outcome).toBe('unresolved');
+    },
+  );
+
+  it.each([
+    { conditions: ['at 25 C'] },
+    { duration: '1 second' },
+    { temperature_context: '25 C' },
+    { revision_context: 'rev 2' },
+    { derived_value: 24 },
+    { derivation: 'calculated' },
+    { alternative_interpretations: ['24 or 25'] },
+    { applicability: { kind: 'unresolved' as const } },
+    { source_label: undefined },
+  ])('preserves unsafe or unresolved singleton metadata %j', (metadata) => {
+    const original = fact('only', '24', 'V');
+    const only = { ...original, metadata: { ...original.metadata, ...metadata } };
     expect(reconcileQualifiedFactComparisonGroup(group(only), [only]).outcome).toBe('unresolved');
+  });
+
+  it('recomputes singleton into agreement or conflict with later observations', () => {
+    const first = fact('first', '24', 'V');
+    const equal = fact('equal', '24.0', 'V');
+    const different = fact('different', '25', 'V');
+    expect(reconcileQualifiedFactComparisonGroup(group(first), [first]).outcome).toBe(
+      'single_observation',
+    );
+    expect(reconcileQualifiedFactComparisonGroup(group(first, equal), [first, equal]).outcome).toBe(
+      'agreement',
+    );
+    expect(
+      reconcileQualifiedFactComparisonGroup(group(first, different), [first, different]).outcome,
+    ).toBe('conflict');
+    expect(reconcileQualifiedFactComparisonGroup(group(first), [first])).toEqual(
+      reconcileQualifiedFactComparisonGroup(group(first), [first]),
+    );
+  });
+
+  it('keeps a missing singleton member unresolved', () => {
+    const only = fact('only', '24', 'V');
+    expect(reconcileQualifiedFactComparisonGroup(group(only), []).outcome).toBe('unresolved');
   });
 
   it('keeps a group unresolved when no difference is proven but one member is not mechanically comparable', () => {

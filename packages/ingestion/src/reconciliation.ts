@@ -115,7 +115,8 @@ export interface QualifiedFactScalarComparisonResult {
   ];
 }
 
-export type QualifiedFactGroupReconciliationOutcome = 'agreement' | 'conflict' | 'unresolved';
+export type QualifiedFactGroupReconciliationOutcome =
+  'single_observation' | 'agreement' | 'conflict' | 'unresolved';
 
 export interface QualifiedFactGroupReconciliationResult {
   readonly id: string;
@@ -165,7 +166,7 @@ const stableQualifiedFactComparisonMembers = (
     QualifiedFactScalarComparisonMember,
   ];
 
-const hasUnsafeScalarContext = (fact: QualifiedFactArtifact): boolean =>
+const hasUnsafeObservationContext = (fact: QualifiedFactArtifact): boolean =>
   fact.qualification_state === 'ambiguous' ||
   fact.qualification_state === 'unresolved' ||
   fact.qualification_state === 'rejected' ||
@@ -232,7 +233,11 @@ export const compareQualifiedFactExactScalars = (
 
   const leftDomain = explicitElectricalDomain(left);
   const rightDomain = explicitElectricalDomain(right);
-  if (hasUnsafeScalarContext(left) || hasUnsafeScalarContext(right) || leftDomain !== rightDomain) {
+  if (
+    hasUnsafeObservationContext(left) ||
+    hasUnsafeObservationContext(right) ||
+    leftDomain !== rightDomain
+  ) {
     return result('unresolved');
   }
   const leftValue = parseExactUnitValue(left.metadata.raw_value, left.metadata.source_unit);
@@ -312,14 +317,27 @@ export const reconcileQualifiedFactComparisonGroup = (
     unresolvedQualifiedFactIds.length > 0 ||
     comparisons.some((comparison) => comparison.outcome === 'unresolved');
   const hasConflict = comparisons.some((comparison) => comparison.outcome === 'different');
+  // An established group supplies scope, but grouping intentionally retains
+  // unsafe evidence too. One observation is neither equality nor authority.
+  const only = qualifiedFactIds.length === 1 ? groupFacts[0] : undefined;
+  const safeSingleObservation =
+    only !== undefined &&
+    (only.qualification_state === 'exact' ||
+      only.qualification_state === 'structurally_supported') &&
+    !!only.metadata.source_label?.trim() &&
+    group.key.applicability.kind !== 'unresolved' &&
+    only.metadata.applicability.kind !== 'unresolved' &&
+    !hasUnsafeObservationContext(only);
   const outcome = hasConflict
     ? 'conflict'
-    : qualifiedFactIds.length >= 2 &&
-        groupFacts.length === qualifiedFactIds.length &&
-        comparisons.length > 0 &&
-        !hasUnresolvedComparisons
-      ? 'agreement'
-      : 'unresolved';
+    : safeSingleObservation
+      ? 'single_observation'
+      : qualifiedFactIds.length >= 2 &&
+          groupFacts.length === qualifiedFactIds.length &&
+          comparisons.length > 0 &&
+          !hasUnresolvedComparisons
+        ? 'agreement'
+        : 'unresolved';
 
   return {
     id: `qualified-fact-group-reconciliation.${artifactDigest({
@@ -665,6 +683,7 @@ const issue = (
 const identityStatus = (
   identity: ProductIdentity,
   sources: readonly ProductSource[],
+  legacyUndefinedApplicability = false,
 ): 'verified' | 'provisional' | 'unresolved' | 'conflicting' => {
   const claims = sources
     .map((source) => source.product_identity_claim)
@@ -680,7 +699,28 @@ const identityStatus = (
   )
     return 'unresolved';
   const requiredIdentityFields = ['manufacturer', 'model', 'manufacturer_part_number'] as const;
-  return requiredIdentityFields.every((field) => identity[field] !== undefined)
+  // Intake completeness is not source evidence. A model-only claim cannot
+  // verify an operator-supplied MPN, even when the two are compatible. Keep
+  // all claims in conflict detection; this gate never selects a winner.
+  const hasMatchingManufacturerMpn = sources.some((source) => {
+    const claimedMpn = source.product_identity_claim?.manufacturer_part_number;
+    return (
+      isSourceApplicable(source, {
+        legacy_undefined_applicability: legacyUndefinedApplicability,
+      }) &&
+      (source.authority === 'manufacturer_technical' ||
+        source.authority === 'manufacturer_product' ||
+        source.authority === 'manufacturer_support') &&
+      !!claimedMpn?.trim() &&
+      normalizeIdentityValueForComparison('manufacturer_part_number', claimedMpn) ===
+        normalizeIdentityValueForComparison(
+          'manufacturer_part_number',
+          identity.manufacturer_part_number,
+        )
+    );
+  });
+  return requiredIdentityFields.every((field) => identity[field] !== undefined) &&
+    hasMatchingManufacturerMpn
     ? 'verified'
     : 'provisional';
 };
@@ -744,7 +784,11 @@ export const reconcileProductFacts = (
   const status =
     identityIssues.length || variantIssues.length
       ? 'conflicting'
-      : identityStatus(input.identity, input.sources);
+      : identityStatus(
+          input.identity,
+          input.sources,
+          input.legacy_undefined_applicability === true,
+        );
   if (status === 'unresolved') {
     issues.push(
       issue(
@@ -808,6 +852,7 @@ export const reconcileProductFacts = (
     ),
     issues,
     review_required:
+      status !== 'verified' ||
       issues.length > 0 ||
       normalized.some(
         (item) => item.fact.fact_state === 'provisional' || item.fact.review_required === true,

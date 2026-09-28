@@ -97,6 +97,55 @@ const pair = (source: SourceCaptureArtifact, acquired: SourceAcquisitionArtifact
 ];
 
 describe('production candidate bridge', () => {
+  it('projects a singleton model binding as a model source claim only', () => {
+    const source = capture();
+    const acquired = acquisition(source);
+    const only = fact(source, acquired, 'nominal voltage', '24', {
+      applicability: { kind: 'exact_product', value: 'Model' },
+    });
+    const result = run([only], [acquired], [source]);
+    expect(result.sources[0].product_identity_claim).toEqual({ model: 'Model' });
+    expect(result.candidate).toMatchObject({
+      identity: { manufacturer: 'Example', model: 'Model', manufacturer_part_number: 'MPN' },
+      identity_status: 'provisional',
+      identity_source_ids: [result.sources[0].id],
+      review_status: 'pending',
+      promotion_status: 'review_required',
+      review_reasons: ['fact_review_required'],
+    });
+    expect(result.facts[0]).toMatchObject({ fact_state: 'provisional', review_required: true });
+  });
+
+  it('retains exact manufacturer MPN verification for a singleton while requiring fact review', () => {
+    const source = capture();
+    const acquired = acquisition(source);
+    const result = run([fact(source, acquired, 'nominal voltage', '24')], [acquired], [source]);
+    expect(result.sources[0].product_identity_claim).toEqual({ manufacturer_part_number: 'MPN' });
+    expect(result.candidate).toMatchObject({
+      identity_status: 'verified',
+      identity: { manufacturer: 'Example', model: 'Model', manufacturer_part_number: 'MPN' },
+      review_status: 'pending',
+      promotion_status: 'review_required',
+    });
+    expect(result.facts[0]).toMatchObject({ fact_state: 'provisional', review_required: true });
+  });
+
+  it.each(['capture', 'acquisition'] as const)(
+    'rejects singleton projection without authoritative official %s',
+    (boundary) => {
+      const source = {
+        ...capture(),
+        ...(boundary === 'capture' ? { disposition: 'non_authoritative' as const } : {}),
+      };
+      const acquired = {
+        ...acquisition(source),
+        ...(boundary === 'acquisition' ? { officiality: 'unofficial' as const } : {}),
+      };
+      const result = run([fact(source, acquired, 'nominal voltage', '24')], [acquired], [source]);
+      expect(result.candidate).toBeUndefined();
+      expect(result.non_projected[0].reason).toContain('authoritative official');
+    },
+  );
   it('projects exact product model facts without inventing an MPN source claim', () => {
     const source = capture();
     const acquired = acquisition(source);

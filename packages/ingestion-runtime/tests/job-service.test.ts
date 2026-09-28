@@ -5,8 +5,10 @@ import { join } from 'node:path';
 import { parse as parseYaml } from 'yaml';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FileIngestionJobStore, IngestionJobService } from '../src/index.js';
+import { serializeJob } from '../src/codec.js';
 import {
   artifactReference,
+  artifactDigest,
   deterministicSerialize,
   finalizeProductionIngest,
   prepareProductionIngestReview,
@@ -186,6 +188,56 @@ const service = (storageRoot: string, prepared: ReviewReadyProductionIngest) => 
 };
 
 describe('persistent ingestion job runtime', () => {
+  it.each([
+    ['single_observation', specifications('24 V', '10 A')],
+    ['agreement', specifications('24 V', '10 A') + specifications('24.0 V', '10.0 A')],
+    ['conflict', specifications('24 V', '10 A') + specifications('25 V', '11 A')],
+    ['unresolved', specifications('≤ 24 V', '≤ 10 A') + specifications('24 V', '10 A')],
+  ] as const)('durably reloads preparation with %s after restart', async (outcome, tables) => {
+    const customAdapter: SourceCaptureAdapter = {
+      async capture(request) {
+        const html =
+          request.uri === documentUri
+            ? `<html><body>${tables}</body></html>`
+            : responses[request.uri];
+        return { status: 'success', source: source(request.uri, html), issues: [] };
+      },
+    };
+    const prepared = await prepareProductionIngestReview({
+      intake,
+      profile,
+      adapter: customAdapter,
+      policy: { now: () => '2026-09-08T00:00:00.000Z' },
+    });
+    if (prepared.status !== 'review_ready') throw new Error('Fixture failed preparation');
+    expect(prepared.reconciliation.group_reconciliations.map((group) => group.outcome)).toEqual([
+      outcome,
+      outcome,
+    ]);
+    const storageRoot = await root();
+    const { runtime } = service(storageRoot, prepared);
+    const created = await runtime.createJob(intake);
+    await runtime.prepareJob(created.id);
+    const restarted = new FileIngestionJobStore(storageRoot);
+    const reloaded = await restarted.load(created.id);
+    expect(serializeJob(reloaded.preparation)).toBe(serializeJob(prepared));
+    if (reloaded.preparation?.status !== 'review_ready') throw new Error('Reload lost preparation');
+    expect(reloaded.preparation.reconciliation).toEqual(prepared.reconciliation);
+    expect(deterministicSerialize(reloaded.preparation)).toBe(deterministicSerialize(prepared));
+    expect(artifactDigest(reloaded.preparation)).toBe(artifactDigest(prepared));
+    const changed = {
+      ...prepared.reconciliation,
+      group_reconciliations: prepared.reconciliation.group_reconciliations.map((group) => ({
+        ...group,
+        outcome: group.outcome === 'unresolved' ? ('agreement' as const) : ('unresolved' as const),
+      })),
+    };
+    expect(artifactDigest(changed)).not.toBe(artifactDigest(prepared.reconciliation));
+    expect(artifactDigest({ ...prepared, reconciliation: changed })).not.toBe(
+      artifactDigest(prepared),
+    );
+  });
+
   it('persists MPN-only intake awaiting resolution and rejects preparation before invoking it', async () => {
     const store = new FileIngestionJobStore(await root());
     const prepare = vi.fn();

@@ -74,7 +74,8 @@ export function productReviewView(job: IngestionJob) {
                 conflicts: p.reconciliation.group_reconciliations
                   .filter(
                     (group) =>
-                      group.qualified_fact_ids.includes(fact.id) && group.outcome !== 'agreement',
+                      group.qualified_fact_ids.includes(fact.id) &&
+                      (group.outcome === 'conflict' || group.outcome === 'unresolved'),
                   )
                   .map((group) => ({ id: group.id, outcome: group.outcome })),
               };

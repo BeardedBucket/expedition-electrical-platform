@@ -211,7 +211,7 @@ describe('Checkpoint F whole-intake reconciliation', () => {
     expect(result.has_unresolved).toBe(true);
   });
 
-  it('keeps singleton or otherwise noncomparable groups unresolved', () => {
+  it('records safely established singleton groups as single observations', () => {
     const source = acquisition('source', ['candidate']);
     const singleton = qualifiedFact('singleton', source, 'Voltage', '24', 'V', 'candidate');
     const result = reconcileQualifiedFactsForWholeIntake({
@@ -219,7 +219,9 @@ describe('Checkpoint F whole-intake reconciliation', () => {
       source_acquisitions: [source],
     });
 
-    expect(result.group_reconciliations[0].outcome).toBe('unresolved');
+    expect(result.group_reconciliations[0].outcome).toBe('single_observation');
+    expect(result.unresolved_count).toBe(0);
+    expect(result.has_unresolved).toBe(false);
   });
 
   it('produces deterministic whole-intake reconciliation independent of input order', () => {

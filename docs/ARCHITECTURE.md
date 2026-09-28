@@ -43,6 +43,56 @@ Advisory evaluation receives an explicit `evaluatedAt` from the app boundary. Th
 
 Product ingestion is a first-class backend subsystem responsible for acquiring and capturing source evidence, extracting, qualifying, and reconciling claims, preparing proposals for review, and promoting reviewed facts while preserving provenance and historical revisions. It keeps uncertainty and review status explicit and remains separate from installed-system engineering, compatibility, architecture generation, recommendation, and UI concerns.
 
+### Qualified-fact reconciliation outcomes
+
+Reconciliation groups source-native observations by established intake/candidate
+scope, source label, and applicability identity. It preserves every fact and
+does not select a winner or assign confidence. Its outcomes are:
+
+- `single_observation`: exactly one present, safely qualified observation in an
+  established group, with an available label and resolved applicability. The
+  qualification must be `exact` or `structurally_supported`, with no unsafe
+  conditions, duration, temperature/revision context, derivation, or alternative
+  interpretations under the existing observation context gate. No pairwise
+  comparison occurred; the comparison array is empty. Complex source-native
+  values need not parse as scalars to receive this outcome.
+- `agreement`: at least two present observations, with all required pairwise
+  comparisons safe and mechanically equal. This is multiple-observation
+  agreement; it does not prove independent-source corroboration. Fact IDs may
+  share a capture or acquisition.
+- `conflict`: a safe pairwise comparison establishes contradictory values.
+  Other unresolved comparisons remain visible alongside the conflict.
+- `unresolved`: missing members, unsafe qualification/context, non-comparable
+  evidence, or another existing safety reason prevents the other outcomes.
+
+Unscoped, scope-inconsistent, and label-unavailable facts retain their separate
+whole-intake accounting categories. Groups are recomputed from current evidence:
+a later comparable observation can change `single_observation` to `agreement`
+or `conflict`; prior results do not mask new disagreement.
+
+Source authority remains outside reconciliation. The production workflow checks
+official acquisition and authoritative captures before qualification, and the
+candidate bridge checks those boundaries again before projection. The standalone
+reconciliation API does not establish source authority. Neither outcome grants
+canonical truth, reviewed status, source independence, or promotion authority.
+
+The semantic bridge accepts `single_observation` and `agreement` into its existing
+mapping/normalization pipeline while retaining the actual F outcome in provenance.
+Context safety, explicit field mappings, evidence references, and human review
+remain required; unknown labels remain unsupported. The additive outcome is
+serialized in preparation job state using the existing codec and schema version;
+legacy outcomes remain readable. Recomputed results and dependent proposal/review
+digests reflect the new semantics; historical snapshots are not rewritten.
+
+Candidate intake identity remains a request, including any operator-supplied MPN.
+Legacy candidate identity verification requires a matching explicit MPN claim
+from an applicable manufacturer technical, product, or support source, as well
+as the existing identity completeness and compatibility checks. Model-only
+claims leave an MPN-containing identity provisional and requiring review; they
+never become MPN source claims. Conflicting identity claims remain visible and
+block verification regardless of source authority. Identity verification does
+not verify provisional extracted facts or remove their human-review requirement.
+
 ### Structured HTML extraction evidence
 
 HTML table cells retain their own `th`/`td` header/data role and optional

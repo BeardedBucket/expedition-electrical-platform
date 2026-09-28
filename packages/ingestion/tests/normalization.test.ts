@@ -658,6 +658,65 @@ describe('product reconciliation and candidates', () => {
 
 describe('multi-source identity policy', () => {
   it.each([
+    ['model only', { model: 'Model X24' }, 'provisional'],
+    ['exact MPN', { manufacturer_part_number: 'X24-001' }, 'verified'],
+    ['conflicting MPN', { manufacturer_part_number: 'X24-002' }, 'conflicting'],
+    ['missing claim', undefined, 'unresolved'],
+    ['empty claim', {}, 'provisional'],
+  ] as const)('preserves candidate identity boundaries for %s', (_label, claim, expected) => {
+    const identity = {
+      manufacturer: 'Acme Power',
+      model: 'Model X24',
+      manufacturer_part_number: 'X24-001',
+    };
+    const evidence = source({ product_identity_claim: claim });
+    const candidate = buildProductCandidate({
+      id: 'acme.candidate',
+      identity,
+      sources: [evidence],
+      facts: [],
+      normalized_facts: [],
+    });
+    expect(candidate.identity).toEqual(identity);
+    expect(candidate.identity_status).toBe(expected);
+    expect(evidence.product_identity_claim).toEqual(claim);
+    if (expected !== 'verified') expect(candidate.review_status).toBe('pending');
+    if (expected === 'conflicting') expect(candidate.promotion_status).toBe('blocked');
+  });
+
+  it.each([
+    { authority: 'community_or_social' as const },
+    { authority: 'unknown' as const },
+    { applicability: 'unresolved' as const },
+    { applicability: 'not_applicable' as const },
+    { applicability: undefined },
+  ])('does not verify an MPN from ineligible identity evidence %j', (overrides) => {
+    const evidence = source(overrides);
+    const result = reconcileProductFacts({
+      candidate_id: 'acme.candidate',
+      identity: evidence.product_identity_claim ?? {},
+      sources: [evidence],
+      facts: [],
+      normalized_facts: [],
+    });
+    expect(result.identity_status).toBe('provisional');
+    expect(result.review_required).toBe(true);
+  });
+
+  it('preserves the existing explicit legacy applicability opt-in for exact MPN evidence', () => {
+    const evidence = source({ applicability: undefined });
+    const result = reconcileProductFacts({
+      candidate_id: 'acme.candidate',
+      identity: evidence.product_identity_claim ?? {},
+      sources: [evidence],
+      facts: [],
+      normalized_facts: [],
+      legacy_undefined_applicability: true,
+    });
+    expect(result.identity_status).toBe('verified');
+  });
+
+  it.each([
     [
       'same exact identity from two official sources',
       {
