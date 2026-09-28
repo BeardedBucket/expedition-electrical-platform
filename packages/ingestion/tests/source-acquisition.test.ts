@@ -6,6 +6,8 @@ import {
   acquireOfficialSources,
   manufacturerAcquisitionProfileDigest,
   PRODUCTION_SCHEMA_VERSION,
+  validateProductionArtifactSchema,
+  validateSourceAcquisition,
   type CapturedSource,
   type ManufacturerAcquisitionProfile,
   type ProductIntake,
@@ -65,6 +67,117 @@ describe('one-level manual child-document discovery', () => {
   it('keeps child discovery disabled at default depth zero', async () => {
     const result = await run();
     expect(result.candidates.map(({ candidate }) => candidate.normalized_uri)).toEqual([index]);
+  });
+
+  it('admits exactly fifty distinct seed resources despite repeated fragment anchors', async () => {
+    const anchors = Array.from({ length: 51 }, (_, resource) =>
+      Array.from(
+        { length: 12 },
+        (_, fragment) =>
+          `<a href="/manual-${String(resource).padStart(2, '0')}.html#part-${fragment}">Manual part ${fragment}</a>`,
+      ).join(''),
+    ).join('');
+    const result = await run(fixtures(html(anchors)), { max_captured_candidates: 0 });
+    expect(new Set(result.candidates.map(({ candidate }) => candidate.normalized_uri)).size).toBe(
+      50,
+    );
+    expect(result.candidates).toHaveLength(50 * 8);
+    expect(validateSourceAcquisition(result.artifact!)).toEqual([]);
+    expect(validateProductionArtifactSchema(result.artifact)).toEqual([]);
+    expect(
+      result.candidates.filter(({ candidate }) => candidate.selection_status === 'duplicate_uri'),
+    ).toHaveLength(50 * 7);
+    expect(result.candidates.at(-1)?.candidate.normalized_uri).toBe(
+      'https://example.test/manual-49.html',
+    );
+    expect(result.candidates.some(({ candidate }) => candidate.discovery.parent_uri !== seed)).toBe(
+      false,
+    );
+  });
+
+  it('budgets fragment resources globally while bounding and retaining parent provenance', async () => {
+    const fragments = Array.from(
+      { length: 2000 },
+      (_, i) => `<a href="installation.html#section-${i}">Installation section ${i}</a>`,
+    ).join('');
+    const responses = fixtures(
+      seedLinks(
+        `<a href="${installation}#direct">Installation direct</a><a href="/z-manual.pdf">Manual</a>`,
+      ),
+      indexLinks(fragments),
+    );
+    const calls: string[] = [];
+    const adapter = adapterFor(responses);
+    const request = {
+      intake: intake(),
+      profile: noStrategyProfile,
+      adapter: {
+        async capture(request: Parameters<SourceCaptureAdapter['capture']>[0]) {
+          calls.push(request.uri);
+          return adapter.capture(request);
+        },
+      },
+      policy: { max_recursion_depth: 1, max_discovered_candidates: 3, max_captured_candidates: 2 },
+    };
+    const result = await acquireOfficialSources(request);
+    const uris = result.candidates.map(({ candidate }) => candidate.normalized_uri);
+    expect([...new Set(uris)]).toEqual([index, installation, specs]);
+    expect(uris).not.toContain('https://example.test/z-manual.pdf');
+    const installations = result.candidates.filter(
+      ({ candidate }) => candidate.normalized_uri === installation,
+    );
+    expect(installations).toHaveLength(9);
+    expect(
+      installations.filter(({ candidate }) => candidate.selection_status === 'duplicate_uri'),
+    ).toHaveLength(8);
+    expect(installations.map(({ candidate }) => candidate.discovery.parent_uri)).toEqual([
+      ...Array<string>(8).fill(index),
+      seed,
+    ]);
+    expect(installations[1]?.candidate.discovery).toMatchObject({
+      parent_capture_id: result.candidates[0]?.capture?.artifact.id,
+      raw_discovered_uri: 'installation.html#section-0',
+      source_label: 'Installation section 0',
+      method: 'seed_page_anchor',
+      locator: 'href[2]',
+    });
+    expect(calls.filter((uri) => uri === installation)).toHaveLength(1);
+    expect(result.candidates.filter(({ capture }) => capture)).toHaveLength(2);
+    expect(
+      result.candidates.find(({ candidate }) => candidate.normalized_uri === specs)?.candidate
+        .selection_status,
+    ).toBe('discovered');
+    expect(result.issues).toContain(
+      'Discovery provenance limited to eight occurrences per resource per parent.',
+    );
+    const repeated = await acquireOfficialSources(request);
+    expect(repeated.artifact?.deterministic_snapshot).toBe(result.artifact?.deterministic_snapshot);
+  });
+
+  it('preserves redirect alias suppression independently of resource budgeting', async () => {
+    const alias = 'https://example.test/a-manual.html';
+    const target = 'https://example.test/b-manual.html';
+    const adapter = adapterFor({
+      [seed]: source(
+        seed,
+        bytes(html(`<a href="${alias}">Manual</a><a href="${target}#part">Manual target</a>`)),
+        'text/html',
+      ),
+      [alias]: source(alias, bytes(html('Manual content')), 'text/html', target),
+    });
+    const result = await acquireOfficialSources({
+      intake: intake(),
+      adapter,
+      policy: { max_discovered_candidates: 2 },
+    });
+    expect(result.candidates.map(({ candidate }) => candidate.selection_status)).toEqual([
+      'selected',
+      'duplicate_uri',
+    ]);
+    expect(result.candidates[1]?.candidate.duplicate_of_candidate_id).toBe(
+      result.candidates[0]?.candidate.id,
+    );
+    expect(result.candidates.filter(({ capture }) => capture)).toHaveLength(1);
   });
 
   it('expands an authoritative structurally admitted HTML index with an unknown role', async () => {
@@ -902,7 +1015,9 @@ describe('Checkpoint C official-source discovery and acquisition', () => {
       adapter: adapterFor(successfulResponses()),
       policy: { max_discovered_candidates: 3, max_captured_candidates: 1, max_recursion_depth: 1 },
     });
-    expect(result.candidates).toHaveLength(3);
+    expect(new Set(result.candidates.map(({ candidate }) => candidate.normalized_uri)).size).toBe(
+      3,
+    );
     expect(result.candidates.filter(({ candidate }) => candidate.capture).length).toBe(1);
     expect(
       result.candidates.some(({ candidate }) => candidate.selection_status === 'discovered'),

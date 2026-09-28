@@ -97,6 +97,10 @@ interface DomainPolicy {
 const DEFAULT_MAX_DISCOVERED = 50;
 const DEFAULT_MAX_CAPTURED = 20;
 const DEFAULT_MAX_DEPTH = 0;
+// Retain the first eight sorted occurrences per resource per immediate parent.
+// Depth one expands at most discoveredLimit parents, so retained provenance and
+// pending work remain bounded without changing the durable candidate contract.
+const MAX_OCCURRENCES_PER_RESOURCE_PER_PARENT = 8;
 const TECHNICAL_TERMS =
   /datasheet|data[-_\s]?sheet|manual|install|technical|spec(?:ification)?|dimension|drawing|support|help|certificate|firmware|compatib|product/i;
 const DOCUMENT_CONTEXT_TERMS =
@@ -744,10 +748,37 @@ export const acquireOfficialSources = async (
   }
   const discoveredLimit =
     Number.isInteger(maxDiscovered) && maxDiscovered >= 0 ? maxDiscovered : DEFAULT_MAX_DISCOVERED;
-  const links = discoverLinks(seedSource, request.intake, profile, strategy)
-    .filter((link) => link.normalized_uri !== seedSource.final_uri)
-    .sort(compareLinks)
-    .slice(0, discoveredLimit);
+  const discoveredResources = new Set<string>();
+  const provenanceIssues: string[] = [];
+  const boundedLinks = (links: readonly DiscoveredLink[]): DiscoveredLink[] => {
+    const occurrences = new Map<string, number>();
+    let newResources = 0;
+    let truncated = false;
+    const retained = [...links].sort(compareLinks).filter((link) => {
+      if (
+        link.normalized_uri === seedSource.final_uri ||
+        link.normalized_uri === seedUri.toString()
+      )
+        return false;
+      const count = occurrences.get(link.normalized_uri) ?? 0;
+      if (!count && !discoveredResources.has(link.normalized_uri)) {
+        if (newResources >= discoveredLimit) return false;
+        newResources += 1;
+      }
+      occurrences.set(link.normalized_uri, count + 1);
+      if (count >= MAX_OCCURRENCES_PER_RESOURCE_PER_PARENT) {
+        truncated = true;
+        return false;
+      }
+      return true;
+    });
+    if (truncated)
+      provenanceIssues.push(
+        'Discovery provenance limited to eight occurrences per resource per parent.',
+      );
+    return retained;
+  };
+  const links = boundedLinks(discoverLinks(seedSource, request.intake, profile, strategy));
   const byUri = new Map<string, string>();
   const candidateResults: SourceAcquisitionCandidateResult[] = [];
   const digestOwners = new Map<string, string>();
@@ -764,10 +795,13 @@ export const acquireOfficialSources = async (
   }));
   let capturedCount = 0;
   for (let position = 0; position < pending.length; position += 1) {
-    if (candidateResults.length >= discoveredLimit) break;
     const { link, parent, parentCaptureId, depth } = pending[position];
     if (link.normalized_uri === seedSource.final_uri || link.normalized_uri === seedUri.toString())
       continue;
+    if (!discoveredResources.has(link.normalized_uri)) {
+      if (discoveredResources.size >= discoveredLimit) continue;
+      discoveredResources.add(link.normalized_uri);
+    }
     const id = makeCandidateId(request.intake.id, candidateResults.length);
     const officiality = candidateOfficiality(link.normalized_uri, domain);
     const duplicateOf = byUri.get(link.normalized_uri);
@@ -880,14 +914,9 @@ export const acquireOfficialSources = async (
         finalOfficiality === 'official'
       ) {
         const childParent = capture.source;
-        const children = [...discoverLinks(childParent, request.intake, profile, undefined, false)]
-          .filter(
-            (child) =>
-              child.normalized_uri !== seedSource.final_uri &&
-              child.normalized_uri !== seedUri.toString(),
-          )
-          .sort(compareLinks)
-          .slice(0, discoveredLimit - candidateResults.length);
+        const children = boundedLinks(
+          discoverLinks(childParent, request.intake, profile, undefined, false),
+        );
         pending.splice(
           position + 1,
           0,
@@ -917,9 +946,12 @@ export const acquireOfficialSources = async (
     artifact,
     seed_capture: seed,
     candidates: candidateResults,
-    issues: candidateResults.flatMap(
-      ({ capture }) => capture?.reasons.map((reason) => reason.message) ?? [],
-    ),
+    issues: [
+      ...provenanceIssues,
+      ...candidateResults.flatMap(
+        ({ capture }) => capture?.reasons.map((reason) => reason.message) ?? [],
+      ),
+    ],
   };
 };
 
