@@ -121,7 +121,7 @@ describe('one-level manual child-document discovery', () => {
     };
     const result = await acquireOfficialSources(request);
     const uris = result.candidates.map(({ candidate }) => candidate.normalized_uri);
-    expect([...new Set(uris)]).toEqual([index, installation, specs]);
+    expect([...new Set(uris)]).toEqual([index, specs, installation]);
     expect(uris).not.toContain('https://example.test/z-manual.pdf');
     const installations = result.candidates.filter(
       ({ candidate }) => candidate.normalized_uri === installation,
@@ -141,11 +141,11 @@ describe('one-level manual child-document discovery', () => {
       method: 'seed_page_anchor',
       locator: 'href[2]',
     });
-    expect(calls.filter((uri) => uri === installation)).toHaveLength(1);
+    expect(calls.filter((uri) => uri === installation)).toHaveLength(0);
     expect(result.candidates.filter(({ capture }) => capture)).toHaveLength(2);
     expect(
-      result.candidates.find(({ candidate }) => candidate.normalized_uri === specs)?.candidate
-        .selection_status,
+      result.candidates.find(({ candidate }) => candidate.normalized_uri === installation)
+        ?.candidate.selection_status,
     ).toBe('discovered');
     expect(result.issues).toContain(
       'Discovery provenance limited to eight occurrences per resource per parent.',
@@ -185,8 +185,8 @@ describe('one-level manual child-document discovery', () => {
     expect(result.candidates[0]?.candidate.role).toBe('unknown');
     expect(result.candidates.map(({ candidate }) => candidate.normalized_uri)).toEqual([
       index,
-      installation,
       specs,
+      installation,
     ]);
   });
 
@@ -223,15 +223,15 @@ describe('one-level manual child-document discovery', () => {
     );
     expect(result.candidates.map(({ candidate }) => candidate.normalized_uri)).toEqual([
       index,
-      installation,
       specs,
+      installation,
       later,
     ]);
     expect(
       result.candidates
         .filter(({ capture }) => capture)
         .map(({ candidate }) => candidate.normalized_uri),
-    ).toEqual([index, installation]);
+    ).toEqual([index, specs]);
     expect(result.candidates[3]?.candidate.selection_status).toBe('discovered');
   });
 
@@ -242,8 +242,8 @@ describe('one-level manual child-document discovery', () => {
     );
     expect(result.candidates.map(({ candidate }) => candidate.normalized_uri)).toEqual([
       index,
-      installation,
       specs,
+      installation,
     ]);
   });
 
@@ -336,7 +336,7 @@ describe('one-level manual child-document discovery', () => {
     const result = await run(fixtures(), { max_recursion_depth: 1, max_discovered_candidates: 2 });
     expect(result.candidates.map(({ candidate }) => candidate.normalized_uri)).toEqual([
       index,
-      installation,
+      specs,
     ]);
   });
 

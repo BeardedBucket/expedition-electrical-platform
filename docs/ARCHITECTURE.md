@@ -43,6 +43,50 @@ Advisory evaluation receives an explicit `evaluatedAt` from the app boundary. Th
 
 Product ingestion is a first-class backend subsystem responsible for acquiring and capturing source evidence, extracting, qualifying, and reconciling claims, preparing proposals for review, and promoting reviewed facts while preserving provenance and historical revisions. It keeps uncertainty and review status explicit and remains separate from installed-system engineering, compatibility, architecture generation, recommendation, and UI concerns.
 
+### Bounded technical-resource acquisition
+
+The retained resource set is the result of a deterministic bounded priority-aware
+traversal, not the first 50 resources from the former lexical traversal. Generic
+capture priority may change which depth-one resources enter that set. The global
+limits remain 50 distinct normalized resources and 20 candidate captures by
+default; the seed capture is separate. Structural manual-link admission, reviewed
+domain eligibility, bounded duplicate provenance, redirect suppression, and the
+depth-one maximum remain unchanged.
+
+Scheduling uses transient acquisition metadata, never confidence or reviewed
+product semantics. A tuple puts technical resources with exact requested model
+or MPN context before technical resources whose context is not asserted, then
+support/product navigation, then generic resources. Within each technical tier:
+
+1. Potential expansion-capable structural manual/document indexes (only at depth
+   zero with depth-one discovery enabled).
+2. Explicit technical specifications, specification sheets, and concrete datasheets.
+3. Manuals and installation material.
+4. Dimensions, drawings, cut-outs, and schematics.
+5. Certificates, compatibility, and firmware material.
+
+Signals come from the URI leaf, label, inferred role, structural context, and
+immediate parent provenance. A child's exact model/MPN context may come from its
+manual parent's URI; the seed product URI does not confer product specificity on
+every linked resource. Identity matching is case-insensitive, uses spaces,
+hyphens, and underscores as equivalent separators, and requires complete token
+boundaries. It does not fuzzy-match or infer irrelevance from absent identity.
+Broad support/navigation collections remain below concrete technical documents.
+Declared CAD/media/archive URI forms remain generic scheduling candidates; their
+eligibility is unchanged. Index priority is only a pre-capture hint: actual
+expansion still requires authoritative official HTML under the existing rule.
+
+One owning occurrence per normalized resource enters each priority comparison.
+The first pending occurrence supplies its metadata; per-parent occurrences remain
+lexically ordered and newly discovered children are inserted first. Duplicate
+occurrences retain bounded provenance without priority votes or independent
+captures. Equal tuples use the existing normalized-URI/method/raw-URI/label/locator
+comparator. Newly discovered children immediately compete with pending seeds.
+No additional HTTP work is performed for ranking. Captured content, redirects,
+MIME types, extraction, qualification, and proposal outcomes are not priority
+inputs. Same inputs and capture responses reproduce membership, traversal,
+selection, and artifact snapshots.
+
 Deferred work remains future-facing: live advisory feeds and embed/widget integration for later phases.
 
 ## Domain profiles

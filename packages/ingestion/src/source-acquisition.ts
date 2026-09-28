@@ -29,6 +29,7 @@ import {
   type SourceResolutionArtifact,
 } from './source-resolution.js';
 import type { CapturedSource, SourceCaptureAdapter } from './capture-types.js';
+import { classifyCapturePriority, compareCapturePriorities } from './capture-priority.js';
 import {
   captureSourceForProduction,
   type ExpectedContentAssertion,
@@ -794,8 +795,47 @@ export const acquireOfficialSources = async (
     depth: 0,
   }));
   let capturedCount = 0;
-  for (let position = 0; position < pending.length; position += 1) {
-    const { link, parent, parentCaptureId, depth } = pending[position];
+  while (pending.length) {
+    // Provenance occurrences have no independent priority. Choose one stable
+    // representative per normalized resource, then compare unique resources.
+    // Children are inserted at the front, preserving child-first ownership when
+    // occurrence metadata ties. The queue retains its existing bounded shape.
+    const owners = new Map<string, number>();
+    let next = pending.findIndex((work) => byUri.has(work.link.normalized_uri));
+    if (next < 0) {
+      pending.forEach((work, index) => {
+        const previous = owners.get(work.link.normalized_uri);
+        if (previous === undefined) owners.set(work.link.normalized_uri, index);
+      });
+      const priorityFor = (index: number) => {
+        const work = pending[index];
+        return classifyCapturePriority(
+          {
+            ...work.link,
+            role: classifyRole(work.link, work.depth === 0 ? strategy : undefined).role,
+            parent_uri: work.parent.final_uri,
+            depth: work.depth,
+            max_depth: maxDepth,
+          },
+          request.intake,
+        );
+      };
+      for (const index of owners.values()) {
+        if (next < 0) {
+          next = index;
+          continue;
+        }
+        const officialOrder =
+          Number(candidateOfficiality(pending[index].link.normalized_uri, domain) !== 'official') -
+          Number(candidateOfficiality(pending[next].link.normalized_uri, domain) !== 'official');
+        const comparison =
+          officialOrder ||
+          compareCapturePriorities(priorityFor(index), priorityFor(next)) ||
+          compareLinks(pending[index].link, pending[next].link);
+        if (comparison < 0) next = index;
+      }
+    }
+    const { link, parent, parentCaptureId, depth } = pending.splice(next, 1)[0];
     if (link.normalized_uri === seedSource.final_uri || link.normalized_uri === seedUri.toString())
       continue;
     if (!discoveredResources.has(link.normalized_uri)) {
@@ -917,9 +957,7 @@ export const acquireOfficialSources = async (
         const children = boundedLinks(
           discoverLinks(childParent, request.intake, profile, undefined, false),
         );
-        pending.splice(
-          position + 1,
-          0,
+        pending.unshift(
           ...children.map((child) => ({
             link: child,
             parent: childParent,
