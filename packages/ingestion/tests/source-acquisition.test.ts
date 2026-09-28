@@ -612,6 +612,59 @@ const adapterFor = (
   },
 });
 
+describe('candidate capture timeout isolation', () => {
+  it('records a timed-out candidate and continues to a later eligible source', async () => {
+    const seed = intake().official_product_uri;
+    const timedOut = 'https://example.test/docs/first-datasheet.pdf';
+    const later = 'https://example.test/docs/second-datasheet.pdf';
+    const seedBody = bytes(
+      `<html><body><h1>Example Model</h1><p>${'product information '.repeat(100)}</p><a href="${timedOut}">First datasheet</a><a href="${later}">Second datasheet</a></body></html>`,
+    );
+    const adapter: SourceCaptureAdapter = {
+      async capture(request) {
+        if (request.uri === seed) {
+          return { status: 'success', source: source(seed, seedBody, 'text/html'), issues: [] };
+        }
+        if (request.uri === timedOut) {
+          return {
+            status: 'failed',
+            bytes_observed: 17,
+            issues: [{ code: 'aborted', message: 'The capture timed out or was aborted.' }],
+          };
+        }
+        return {
+          status: 'success',
+          source: source(later, bytes('%PDF-1.7 later'), 'application/pdf'),
+          issues: [],
+        };
+      },
+    };
+
+    const result = await acquireOfficialSources({
+      intake: intake(),
+      profile: noStrategyProfile,
+      adapter,
+      policy: { max_captured_candidates: 2 },
+    });
+    const timedOutResult = result.candidates.find(
+      ({ candidate }) => candidate.normalized_uri === timedOut,
+    );
+    const laterResult = result.candidates.find(
+      ({ candidate }) => candidate.normalized_uri === later,
+    );
+
+    expect(timedOutResult?.capture?.disposition).toBe('failed');
+    expect(timedOutResult?.candidate.capture_outcome).toBe('failed');
+    expect(timedOutResult?.candidate.capture_reason_codes).toContain('aborted');
+    expect(timedOutResult?.capture?.bytes_observed).toBe(17);
+    expect(laterResult?.capture?.disposition).toBe('authoritative');
+    expect(result.acquisition_bytes_used).toBe(
+      seedBody.byteLength + 17 + bytes('%PDF-1.7 later').byteLength,
+    );
+    expect(result.status).toBe('partially_acquired');
+  });
+});
+
 const successfulResponses = (
   overrides: Readonly<Record<string, CapturedSource | 'failed'>> = {},
 ) => {

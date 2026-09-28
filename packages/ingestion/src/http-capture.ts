@@ -290,7 +290,29 @@ export class HttpSourceCaptureAdapter implements SourceCaptureAdapter {
       const chunks: Uint8Array[] = [];
       let size = 0;
       while (true) {
-        const next = await reader.read();
+        let next: ReadableStreamReadResult<Uint8Array>;
+        try {
+          next = await reader.read();
+        } catch (error) {
+          const aborted = timeout.signal.aborted || request.signal?.aborted === true;
+          try {
+            await reader.cancel();
+          } catch {
+            // Preserve the transport failure when a timed-out stream rejects cancellation.
+          } finally {
+            reader.releaseLock();
+          }
+          return {
+            status: 'failed',
+            bytes_observed: size,
+            issues: [
+              issue(
+                aborted ? 'aborted' : 'network_error',
+                aborted ? 'The capture timed out or was aborted.' : String(error),
+              ),
+            ],
+          };
+        }
         if (next.done) break;
         const chunkLength = next.value.byteLength;
         if (chunkLength > effectiveLimit - size) {

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   HttpSourceCaptureAdapter,
   createProductSource,
@@ -135,6 +135,182 @@ describe('HTTP source capture', () => {
       status: 'failed',
       issues: [{ code: 'response_too_large' }],
     });
+  });
+
+  it('contains fetch and body-read timeouts as structured failures', async () => {
+    const fetchTimeout = new HttpSourceCaptureAdapter(
+      async (_input, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener(
+            'abort',
+            () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })),
+            { once: true },
+          );
+        }),
+      undefined,
+      resolvePublicHost,
+    );
+    await expect(
+      fetchTimeout.capture({ uri: 'https://example.invalid/fetch-timeout', timeout_ms: 1 }),
+    ).resolves.toMatchObject({
+      status: 'failed',
+      issues: [{ code: 'aborted' }],
+    });
+
+    const bodyTimeout = new HttpSourceCaptureAdapter(
+      async (_input, init) =>
+        ({
+          status: 200,
+          ok: true,
+          url: 'https://example.invalid/body-timeout',
+          headers: new Headers({ 'content-type': 'application/pdf' }),
+          body: {
+            getReader: () => ({
+              read: async () =>
+                new Promise<never>((_resolve, reject) => {
+                  init?.signal?.addEventListener(
+                    'abort',
+                    () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })),
+                    { once: true },
+                  );
+                }),
+              cancel: async () => undefined,
+              releaseLock: () => undefined,
+            }),
+          },
+        }) as unknown as Response,
+      undefined,
+      resolvePublicHost,
+    );
+    await expect(
+      bodyTimeout.capture({ uri: 'https://example.invalid/body-timeout', timeout_ms: 1 }),
+    ).resolves.toMatchObject({
+      status: 'failed',
+      bytes_observed: 0,
+      issues: [{ code: 'aborted' }],
+    });
+  });
+
+  it('preserves partial bytes and distinguishes non-timeout reader errors', async () => {
+    let cancelCalls = 0;
+    let releaseCalls = 0;
+    const adapter = new HttpSourceCaptureAdapter(
+      async (_input, init) =>
+        ({
+          status: 200,
+          ok: true,
+          url: 'https://example.invalid/partial-timeout',
+          headers: new Headers({ 'content-type': 'application/pdf' }),
+          body: {
+            getReader: () => ({
+              read: async () => {
+                if (cancelCalls === 0) {
+                  cancelCalls = -1;
+                  return { done: false, value: new Uint8Array([1, 2, 3]) };
+                }
+                return new Promise<never>((_resolve, reject) => {
+                  init?.signal?.addEventListener(
+                    'abort',
+                    () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })),
+                    { once: true },
+                  );
+                });
+              },
+              cancel: async () => {
+                cancelCalls = Math.max(cancelCalls, 0) + 1;
+              },
+              releaseLock: () => {
+                releaseCalls += 1;
+              },
+            }),
+          },
+        }) as unknown as Response,
+      undefined,
+      resolvePublicHost,
+    );
+    const timedOut = await adapter.capture({
+      uri: 'https://example.invalid/partial-timeout',
+      timeout_ms: 1,
+    });
+    expect(timedOut).toMatchObject({
+      status: 'failed',
+      bytes_observed: 3,
+      issues: [{ code: 'aborted' }],
+    });
+    expect(timedOut.source).toBeUndefined();
+    expect(timedOut.source?.content_hash).toBeUndefined();
+    expect(cancelCalls).toBe(1);
+    expect(releaseCalls).toBe(1);
+
+    const errorAdapter = new HttpSourceCaptureAdapter(
+      async () =>
+        ({
+          status: 200,
+          ok: true,
+          url: 'https://example.invalid/reader-error',
+          headers: new Headers({ 'content-type': 'application/pdf' }),
+          body: {
+            getReader: () => ({
+              read: async () => {
+                throw new Error('reader failed');
+              },
+              cancel: async () => undefined,
+              releaseLock: () => undefined,
+            }),
+          },
+        }) as unknown as Response,
+      undefined,
+      resolvePublicHost,
+    );
+    await expect(
+      errorAdapter.capture({ uri: 'https://example.invalid/reader-error' }),
+    ).resolves.toMatchObject({
+      status: 'failed',
+      issues: [{ code: 'network_error', message: 'Error: reader failed' }],
+    });
+  });
+
+  it('cleans up the timeout timer after a body-read failure', async () => {
+    vi.useFakeTimers();
+    try {
+      const adapter = new HttpSourceCaptureAdapter(
+        async (_input, init) =>
+          ({
+            status: 200,
+            ok: true,
+            url: 'https://example.invalid/timer-cleanup',
+            headers: new Headers({ 'content-type': 'text/plain' }),
+            body: {
+              getReader: () => ({
+                read: async () =>
+                  new Promise<never>((_resolve, reject) => {
+                    init?.signal?.addEventListener(
+                      'abort',
+                      () => reject(new DOMException('aborted', 'AbortError')),
+                      { once: true },
+                    );
+                  }),
+                cancel: async () => undefined,
+                releaseLock: () => undefined,
+              }),
+            },
+          }) as unknown as Response,
+        undefined,
+        resolvePublicHost,
+      );
+      const pending = adapter.capture({
+        uri: 'https://example.invalid/timer-cleanup',
+        timeout_ms: 10,
+      });
+      await vi.advanceTimersByTimeAsync(10);
+      await expect(pending).resolves.toMatchObject({
+        status: 'failed',
+        issues: [{ code: 'aborted' }],
+      });
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('uses the strictest of media class, absolute cap, and explicit max_bytes', async () => {
