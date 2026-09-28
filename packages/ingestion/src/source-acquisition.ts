@@ -32,6 +32,7 @@ import type { CapturedSource, SourceCaptureAdapter } from './capture-types.js';
 import { classifyCapturePriority, compareCapturePriorities } from './capture-priority.js';
 import {
   captureSourceForProduction,
+  type ProductionSourceCaptureRequest,
   type ExpectedContentAssertion,
   type ProductionSourceCaptureResult,
   type SnapshotStore,
@@ -46,6 +47,7 @@ export interface SourceAcquisitionPolicy {
   readonly max_discovered_candidates?: number;
   readonly max_captured_candidates?: number;
   readonly max_recursion_depth?: number;
+  readonly max_acquisition_bytes?: number;
   readonly retention_status?: 'retained' | 'not_retained' | 'not_permitted' | 'unknown';
   readonly snapshot_store?: SnapshotStore;
   readonly now?: () => string;
@@ -73,6 +75,8 @@ export interface SourceAcquisitionResult {
   readonly seed_capture: ProductionSourceCaptureResult;
   readonly candidates: readonly SourceAcquisitionCandidateResult[];
   readonly issues: readonly string[];
+  readonly acquisition_bytes_used?: number;
+  readonly acquisition_byte_limit?: number;
 }
 
 interface DiscoveredLink {
@@ -98,6 +102,10 @@ interface DomainPolicy {
 const DEFAULT_MAX_DISCOVERED = 50;
 const DEFAULT_MAX_CAPTURED = 20;
 const DEFAULT_MAX_DEPTH = 0;
+// A whole-run allowance for one seed and up to twenty ordinary manufacturer
+// resources. It is intentionally below the sum of all PDF caps so a run
+// cannot approach the per-response worst case repeatedly.
+const DEFAULT_ACQUISITION_MAX_BYTES = 40_000_000;
 // Retain the first eight sorted occurrences per resource per immediate parent.
 // Depth one expands at most discoveredLimit parents, so retained provenance and
 // pending work remain bounded without changing the durable candidate contract.
@@ -629,6 +637,13 @@ export const acquireOfficialSources = async (
   const maxDiscovered = policy.max_discovered_candidates ?? DEFAULT_MAX_DISCOVERED;
   const maxCaptured = policy.max_captured_candidates ?? DEFAULT_MAX_CAPTURED;
   const maxDepth = policy.max_recursion_depth ?? DEFAULT_MAX_DEPTH;
+  const requestedAcquisitionLimit = policy.max_acquisition_bytes;
+  const acquisitionLimit =
+    typeof requestedAcquisitionLimit === 'number' &&
+    Number.isInteger(requestedAcquisitionLimit) &&
+    requestedAcquisitionLimit > 0
+      ? requestedAcquisitionLimit
+      : DEFAULT_ACQUISITION_MAX_BYTES;
   const selectedProfile =
     request.profile ??
     (request.profiles
@@ -659,6 +674,8 @@ export const acquireOfficialSources = async (
       seed_capture: seed,
       candidates: [],
       issues: seed.reasons.map((item) => item.message),
+      acquisition_bytes_used: 0,
+      acquisition_byte_limit: acquisitionLimit,
     };
   }
   if (!seedOfficial(seedUri.toString(), domain)) {
@@ -675,6 +692,8 @@ export const acquireOfficialSources = async (
       seed_capture: seed,
       candidates: [],
       issues: ['seed officiality unresolved'],
+      acquisition_bytes_used: 0,
+      acquisition_byte_limit: acquisitionLimit,
     };
   }
   const strategy = profile
@@ -683,25 +702,27 @@ export const acquireOfficialSources = async (
         return resolved.status === 'resolved' ? resolved.strategy : undefined;
       })()
     : undefined;
-  const seed = await captureSourceForProduction(
-    request.adapter,
-    {
-      capture_id: `${request.intake.id}.seed`,
-      uri: seedUri.toString(),
-      retention_status: policy.retention_status ?? 'not_retained',
-      expected_content: [
-        ...profileExpectedContent(strategy),
-        ...(policy.expected_content ?? []),
-        ...(request.expected_content ?? []),
-      ],
-      source_provenance: {
-        acquisition_stage: 'source_acquisition',
-        source_role: 'product_page',
-        ...(profile ? { publisher: profile.publisher } : {}),
-      },
+  const seedRequest: ProductionSourceCaptureRequest = {
+    capture_id: `${request.intake.id}.seed`,
+    uri: seedUri.toString(),
+    retention_status: policy.retention_status ?? 'not_retained',
+    max_bytes: acquisitionLimit,
+    expected_content: [
+      ...profileExpectedContent(strategy),
+      ...(policy.expected_content ?? []),
+      ...(request.expected_content ?? []),
+    ],
+    source_provenance: {
+      acquisition_stage: 'source_acquisition',
+      source_role: 'product_page',
+      ...(profile ? { publisher: profile.publisher } : {}),
     },
-    { snapshot_store: policy.snapshot_store, now: policy.now },
-  );
+  };
+  const seed = await captureSourceForProduction(request.adapter, seedRequest, {
+    snapshot_store: policy.snapshot_store,
+    now: policy.now,
+  });
+  const seedObservedBytes = seed.bytes_observed ?? seed.source?.body.bytes.byteLength ?? 0;
   const seedFinalOfficiality =
     seed.source && candidateOfficiality(seed.source.final_uri, domain) === 'official'
       ? 'official'
@@ -724,9 +745,12 @@ export const acquireOfficialSources = async (
       seed_capture: seed,
       candidates: [],
       issues: seed.reasons.map((item) => item.message),
+      acquisition_bytes_used: seedObservedBytes,
+      acquisition_byte_limit: acquisitionLimit,
     };
   }
   const seedSource = seed.source;
+  let acquisitionBytesUsed = seedObservedBytes;
   if (!seedSource) {
     const status = 'seed_failed' as const;
     return {
@@ -735,6 +759,8 @@ export const acquireOfficialSources = async (
       seed_capture: seed,
       candidates: [],
       issues: ['authoritative seed capture did not include source content'],
+      acquisition_bytes_used: seedObservedBytes,
+      acquisition_byte_limit: acquisitionLimit,
     };
   }
   if (maxDepth < 0 || maxDepth > 1 || !Number.isInteger(maxDepth)) {
@@ -745,6 +771,8 @@ export const acquireOfficialSources = async (
       seed_capture: seed,
       candidates: [],
       issues: ['source discovery supports only depth 0 or 1'],
+      acquisition_bytes_used: seedObservedBytes,
+      acquisition_byte_limit: acquisitionLimit,
     };
   }
   const discoveredLimit =
@@ -843,6 +871,7 @@ export const acquireOfficialSources = async (
       discoveredResources.add(link.normalized_uri);
     }
     const id = makeCandidateId(request.intake.id, candidateResults.length);
+    const remainingBudget = Math.max(0, acquisitionLimit - acquisitionBytesUsed);
     const officiality = candidateOfficiality(link.normalized_uri, domain);
     const duplicateOf = byUri.get(link.normalized_uri);
     const provenance: SourceDiscoveryProvenance = {
@@ -876,6 +905,14 @@ export const acquireOfficialSources = async (
     };
     if (!duplicateOf) byUri.set(link.normalized_uri, id);
     if (candidate.selection_status === 'discovered' && capturedCount < maxCaptured) {
+      const maxCandidateBytes = Math.max(0, remainingBudget);
+      if (maxCandidateBytes <= 0) {
+        candidateResults.push({ candidate });
+        provenanceIssues.push(
+          `Capture skipped for ${id}: the aggregate acquisition byte budget is exhausted.`,
+        );
+        continue;
+      }
       capturedCount += 1;
       candidate = { ...candidate, selection_status: 'selected' };
       const capture = await captureSourceForProduction(
@@ -884,6 +921,7 @@ export const acquireOfficialSources = async (
           capture_id: `${id}.capture`,
           uri: link.normalized_uri,
           retention_status: policy.retention_status ?? 'not_retained',
+          max_bytes: maxCandidateBytes,
           expected_content: [
             ...(policy.expected_content ?? []),
             ...(request.expected_content ?? []),
@@ -943,6 +981,7 @@ export const acquireOfficialSources = async (
         const finalUri = normalizeUri(capture.source.final_uri);
         if (finalUri && !byUri.has(finalUri)) byUri.set(finalUri, id);
       }
+      acquisitionBytesUsed += capture.bytes_observed ?? capture.source?.body.bytes.byteLength ?? 0;
       candidateResults.push({ candidate, capture });
       if (
         depth === 0 &&
@@ -990,6 +1029,8 @@ export const acquireOfficialSources = async (
         ({ capture }) => capture?.reasons.map((reason) => reason.message) ?? [],
       ),
     ],
+    acquisition_bytes_used: acquisitionBytesUsed,
+    acquisition_byte_limit: acquisitionLimit,
   };
 };
 

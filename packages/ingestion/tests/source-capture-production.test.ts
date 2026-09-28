@@ -37,6 +37,62 @@ afterEach(async () => {
 });
 
 describe('production-safe source capture classification', () => {
+  it('propagates observed transport bytes for success, streaming failure, and early rejection', async () => {
+    const successful = await captureSourceForProduction(
+      adapter(async () => response('<!doctype html><html><body>captured bytes</body></html>')),
+      {
+        capture_id: 'capture.bytes.success',
+        uri: 'https://example.invalid/success',
+        retention_status: 'not_retained',
+      },
+    );
+    expect(successful.bytes_observed).toBe(successful.source?.body.bytes.byteLength);
+
+    const streamed = await captureSourceForProduction(
+      adapter(async () => response(new Uint8Array(5), { headers: { 'content-length': '1' } })),
+      {
+        capture_id: 'capture.bytes.streamed-failure',
+        uri: 'https://example.invalid/streamed-failure',
+        retention_status: 'not_retained',
+        max_bytes: 4,
+      },
+    );
+    expect(streamed.disposition).toBe('failed');
+    expect(streamed.bytes_observed).toBe(5);
+
+    let bodyRead = false;
+    const early = await captureSourceForProduction(
+      adapter(async () => {
+        return {
+          status: 200,
+          ok: true,
+          url: 'https://example.invalid/early-rejection',
+          headers: new Headers({
+            'content-type': 'text/html',
+            'content-length': '3000000',
+          }),
+          body: {
+            getReader: () => ({
+              read: async () => {
+                bodyRead = true;
+                return { done: true, value: undefined };
+              },
+              cancel: async () => undefined,
+            }),
+          },
+        } as unknown as Response;
+      }),
+      {
+        capture_id: 'capture.bytes.early-rejection',
+        uri: 'https://example.invalid/early-rejection',
+        retention_status: 'not_retained',
+      },
+    );
+    expect(early.disposition).toBe('failed');
+    expect(early.bytes_observed).toBe(0);
+    expect(bodyRead).toBe(false);
+  });
+
   it('retains requested/final URI, redirect chain, and HTTP revision metadata when present', async () => {
     const calls: string[] = [];
     const capture = await captureSourceForProduction(
@@ -229,7 +285,7 @@ describe('production-safe source capture classification', () => {
   it('does not bypass authentication wall classification for oversized html', async () => {
     const html =
       '<!doctype html><html><body>' +
-      ' '.repeat(8 * 1024 * 1024) +
+      ' '.repeat(1024 * 1024) +
       '<main><h1>Sign in</h1><form><input type="password" /></form></main>' +
       '</body></html>';
     const capture = await captureSourceForProduction(

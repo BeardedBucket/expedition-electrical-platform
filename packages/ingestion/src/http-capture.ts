@@ -8,9 +8,14 @@ import type {
   SourceCaptureAdapter,
 } from './capture-types.js';
 
-export const DEFAULT_MAX_BYTES = 2_000_000;
 export const DEFAULT_TIMEOUT_MS = 10_000;
 export const DEFAULT_MAX_REDIRECTS = 5;
+// The HTML allowance preserves the former 2 MB ordinary-capture headroom.
+export const TEXT_RESPONSE_MAX_BYTES = 2_000_000;
+// The current Ekrano/Cerbo/Nucleo manual is about 28.6 MB.
+export const PDF_RESPONSE_MAX_BYTES = 32_000_000;
+export const OTHER_BINARY_RESPONSE_MAX_BYTES = 4_000_000;
+export const ABSOLUTE_RESPONSE_MAX_BYTES = 32_000_000;
 
 const issue = (code: string, message: string) => ({ code, message });
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
@@ -81,6 +86,16 @@ const mediaTypeFrom = (headers: Readonly<Record<string, string>>): string | unde
   return normalized ? normalized : undefined;
 };
 
+const mediaClassLimit = (mediaType?: string): number => {
+  if (!mediaType) return OTHER_BINARY_RESPONSE_MAX_BYTES;
+  if (mediaType === 'application/pdf') return PDF_RESPONSE_MAX_BYTES;
+  if (mediaType.startsWith('text/') || mediaType.includes('html')) return TEXT_RESPONSE_MAX_BYTES;
+  return OTHER_BINARY_RESPONSE_MAX_BYTES;
+};
+
+const effectiveResponseLimit = (requestMaxBytes: number, mediaType?: string): number =>
+  Math.min(requestMaxBytes, mediaClassLimit(mediaType), ABSOLUTE_RESPONSE_MAX_BYTES);
+
 export const validateCaptureUri = (value: string): URL | CaptureResult => {
   let uri: URL;
   try {
@@ -144,7 +159,7 @@ export class HttpSourceCaptureAdapter implements SourceCaptureAdapter {
   public async capture(request: CaptureRequest): Promise<CaptureResult> {
     const parsed = validateCaptureUri(request.uri);
     if (!(parsed instanceof URL)) return parsed;
-    const maxBytes = request.max_bytes ?? DEFAULT_MAX_BYTES;
+    const maxBytes = request.max_bytes ?? ABSOLUTE_RESPONSE_MAX_BYTES;
     const timeoutMs = request.timeout_ms ?? DEFAULT_TIMEOUT_MS;
     const maxRedirects = request.max_redirects ?? DEFAULT_MAX_REDIRECTS;
     if (!Number.isInteger(maxBytes) || maxBytes < 1) {
@@ -248,21 +263,50 @@ export class HttpSourceCaptureAdapter implements SourceCaptureAdapter {
           issues: [issue('missing_body', 'The response did not provide a readable body.')],
         };
       }
+      const metadata = normalizeResponseHeaders(response.headers);
+      const mediaType = mediaTypeFrom(metadata);
+      const effectiveLimit = effectiveResponseLimit(maxBytes, mediaType);
+      const contentLengthHeader = response.headers.get('content-length');
+      const declaredLength =
+        contentLengthHeader !== null && contentLengthHeader !== ''
+          ? Number.parseInt(contentLengthHeader, 10)
+          : undefined;
+      if (
+        Number.isFinite(declaredLength) &&
+        declaredLength !== undefined &&
+        declaredLength > effectiveLimit
+      ) {
+        return {
+          status: 'failed',
+          bytes_observed: 0,
+          issues: [
+            issue(
+              'response_too_large',
+              `The response exceeds the ${effectiveLimit}-byte ${mediaType ?? 'response'} limit.`,
+            ),
+          ],
+        };
+      }
       const chunks: Uint8Array[] = [];
       let size = 0;
       while (true) {
         const next = await reader.read();
         if (next.done) break;
-        size += next.value.byteLength;
-        if (size > maxBytes) {
+        const chunkLength = next.value.byteLength;
+        if (chunkLength > effectiveLimit - size) {
           await reader.cancel();
           return {
             status: 'failed',
+            bytes_observed: size + chunkLength,
             issues: [
-              issue('response_too_large', `The response exceeds the ${maxBytes}-byte limit.`),
+              issue(
+                'response_too_large',
+                `The response exceeds the ${effectiveLimit}-byte ${mediaType ?? 'response'} limit.`,
+              ),
             ],
           };
         }
+        size += chunkLength;
         chunks.push(next.value);
       }
       const bytes = new Uint8Array(size);
@@ -271,11 +315,10 @@ export class HttpSourceCaptureAdapter implements SourceCaptureAdapter {
         bytes.set(chunk, offset);
         offset += chunk.byteLength;
       }
-      const metadata = normalizeResponseHeaders(response.headers);
-      const mediaType = mediaTypeFrom(metadata);
       const content = new TextDecoder().decode(bytes);
       return {
         status: response.ok ? 'success' : 'failed',
+        bytes_observed: size,
         source: {
           requested_uri: request.uri,
           final_uri: response.url || current.toString(),

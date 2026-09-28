@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   acquireOfficialSources,
+  HttpSourceCaptureAdapter,
   manufacturerAcquisitionProfileDigest,
   PRODUCTION_SCHEMA_VERSION,
   validateProductionArtifactSchema,
@@ -348,6 +349,159 @@ describe('one-level manual child-document discovery', () => {
         .slice(1)
         .every(({ candidate }) => candidate.capture_outcome === 'not_attempted'),
     ).toBe(true);
+  });
+
+  it('counts successful seed and candidate bytes within the acquisition budget', async () => {
+    const seedHtml = `<html><body>${'seed-'.repeat(220)}<a href="${index}">Product page</a></body></html>`;
+    const indexHtml = `<html><body>${'Example device information. '.repeat(36)}<a href="technical-specifications.html">Technical specifications</a></body></html>`;
+    const result = await acquireOfficialSources({
+      intake: intake(),
+      profile: noStrategyProfile,
+      adapter: adapterFor({
+        ...fixtures(),
+        [seed]: source(seed, bytes(seedHtml), 'text/html'),
+        [index]: source(index, bytes(indexHtml), 'text/html'),
+      }),
+      policy: { max_acquisition_bytes: 3000, max_recursion_depth: 1 },
+    });
+    expect(bytes(seedHtml).length).toBeGreaterThan(1000);
+    expect(bytes(indexHtml).length).toBeGreaterThan(1000);
+    expect(result.acquisition_bytes_used).toBeGreaterThanOrEqual(2000);
+    expect(result.acquisition_bytes_used).toBeLessThanOrEqual(3000);
+    expect(result.acquisition_byte_limit).toBe(3000);
+    expect(result.candidates[0]?.capture).toBeDefined();
+  });
+
+  it('cannot bypass the acquisition budget by a sequence of individually legal captures', async () => {
+    const seedHtml = `<html><body>${'seed-'.repeat(80)}<a href="${index}">Product page</a></body></html>`;
+    const indexHtml = `<html><body>${'Example device information. '.repeat(18)}<a href="technical-specifications.html">Technical specifications</a><a href="installation.html">Installation</a></body></html>`;
+    const specsHtml = `<html><body>${'Example device information. '.repeat(18)}</body></html>`;
+    const installationHtml = `<html><body>${'Example device information. '.repeat(18)}</body></html>`;
+    const result = await acquireOfficialSources({
+      intake: intake(),
+      profile: noStrategyProfile,
+      adapter: adapterFor({
+        ...fixtures(),
+        [seed]: source(seed, bytes(seedHtml), 'text/html'),
+        [index]: source(index, bytes(indexHtml), 'text/html'),
+        [specs]: source(specs, bytes(specsHtml), 'text/html'),
+        [installation]: source(installation, bytes(installationHtml), 'text/html'),
+      }),
+      policy: { max_acquisition_bytes: 1400, max_recursion_depth: 1, max_captured_candidates: 10 },
+    });
+    expect(bytes(seedHtml).length).toBeLessThan(1400);
+    expect(bytes(indexHtml).length).toBeLessThan(1400);
+    expect(result.acquisition_bytes_used).toBeLessThanOrEqual(1400);
+    expect(result.candidates.filter(({ capture }) => capture)).toHaveLength(1);
+  });
+
+  it('does not charge an early Content-Length rejection and lets a later resource use the budget', async () => {
+    const seed = intake().official_product_uri;
+    const first = 'https://example.test/docs/a-datasheet.pdf';
+    const second = 'https://example.test/docs/b-datasheet.pdf';
+    const seedHtml = `<html><body><h1>Example Model</h1><p>${'manufacturer product technical information '.repeat(100)}</p></body></html>`;
+    const seedSize = bytes(seedHtml).byteLength;
+    let firstBodyRead = false;
+    const requests: string[] = [];
+    const transport = new HttpSourceCaptureAdapter(
+      async (input) => {
+        const uri = String(input);
+        requests.push(uri);
+        if (uri === seed)
+          return new Response(seedHtml, { headers: { 'content-type': 'text/html' } });
+        if (uri === first) {
+          return {
+            status: 200,
+            ok: true,
+            url: uri,
+            headers: new Headers({
+              'content-type': 'application/pdf',
+              'content-length': '5000',
+            }),
+            body: {
+              getReader: () => ({
+                read: async () => {
+                  firstBodyRead = true;
+                  return { done: true, value: undefined };
+                },
+                cancel: async () => undefined,
+              }),
+            },
+          } as unknown as Response;
+        }
+        return new Response(bytes('%PDF-1.7 small fixture'), {
+          headers: { 'content-type': 'application/pdf' },
+        });
+      },
+      undefined,
+      async () => ['93.184.216.34'],
+    );
+    const result = await acquireOfficialSources({
+      intake: intake({ additional_official_source_uris: [first, second] }),
+      profile: noStrategyProfile,
+      adapter: transport,
+      policy: {
+        max_acquisition_bytes: seedSize + 200,
+        max_captured_candidates: 2,
+      },
+    });
+    const rejected = result.candidates.find(({ candidate }) => candidate.normalized_uri === first);
+    const later = result.candidates.find(({ candidate }) => candidate.normalized_uri === second);
+    expect(firstBodyRead).toBe(false);
+    expect(rejected?.capture?.artifact.reason_codes).toContain('response_too_large');
+    expect(rejected?.capture?.bytes_observed).toBe(0);
+    expect(later?.capture?.disposition).toBe('authoritative');
+    expect(requests).toContain(second);
+    expect(result.acquisition_bytes_used).toBe(
+      seedSize + bytes('%PDF-1.7 small fixture').byteLength,
+    );
+    expect(result.acquisition_bytes_used).toBeLessThanOrEqual(seedSize + 200);
+  });
+
+  it('counts streamed bytes beyond the threshold and skips all later candidate captures', async () => {
+    const seed = intake().official_product_uri;
+    const first = 'https://example.test/docs/a-datasheet.pdf';
+    const second = 'https://example.test/docs/b-datasheet.pdf';
+    const seedHtml = `<html><body><h1>Example Model</h1><p>${'manufacturer product technical information '.repeat(100)}</p></body></html>`;
+    const seedSize = bytes(seedHtml).byteLength;
+    const streamedChunk = bytes('%PDF-1.7 ' + 'x'.repeat(300));
+    const requests: string[] = [];
+    const transport = new HttpSourceCaptureAdapter(
+      async (input) => {
+        const uri = String(input);
+        requests.push(uri);
+        if (uri === seed)
+          return new Response(seedHtml, { headers: { 'content-type': 'text/html' } });
+        if (uri === first)
+          return new Response(streamedChunk, { headers: { 'content-type': 'application/pdf' } });
+        return new Response(bytes('%PDF-1.7 later'), {
+          headers: { 'content-type': 'application/pdf' },
+        });
+      },
+      undefined,
+      async () => ['93.184.216.34'],
+    );
+    const result = await acquireOfficialSources({
+      intake: intake({ additional_official_source_uris: [first, second] }),
+      profile: noStrategyProfile,
+      adapter: transport,
+      policy: {
+        max_acquisition_bytes: seedSize + 200,
+        max_captured_candidates: 2,
+      },
+    });
+    const rejected = result.candidates.find(({ candidate }) => candidate.normalized_uri === first);
+    const skipped = result.candidates.find(({ candidate }) => candidate.normalized_uri === second);
+    expect(rejected?.capture?.artifact.reason_codes).toContain('response_too_large');
+    expect(rejected?.capture?.bytes_observed).toBe(streamedChunk.byteLength);
+    expect(result.acquisition_bytes_used).toBe(seedSize + streamedChunk.byteLength);
+    expect(result.acquisition_bytes_used).toBeGreaterThan(result.acquisition_byte_limit!);
+    expect(skipped?.candidate.selection_status).toBe('discovered');
+    expect(skipped?.capture).toBeUndefined();
+    expect(requests).not.toContain(second);
+    expect(result.issues).toContain(
+      `Capture skipped for ${skipped?.candidate.id}: the aggregate acquisition byte budget is exhausted.`,
+    );
   });
 
   it('retains immediate-parent provenance for children and seed links', async () => {

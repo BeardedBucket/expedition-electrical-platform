@@ -53,6 +53,31 @@ default; the seed capture is separate. Structural manual-link admission, reviewe
 domain eligibility, bounded duplicate provenance, redirect suppression, and the
 depth-one maximum remain unchanged.
 
+### Bounded source-capture bytes
+
+Each HTTP response has an internal media-aware transport allowance: `text/html`
+and `text/*` are limited to 2,000,000 bytes, `application/pdf` to 32,000,000
+bytes, and other or unknown binary media to 4,000,000 bytes. An absolute
+per-response ceiling of 32,000,000 bytes applies to every class. The PDF
+allowance reflects measured manufacturer evidence, including a 28,630,824-byte
+technical manual; this measurement is policy rationale, not a manufacturer-
+specific exception or rule.
+
+An explicitly supplied `max_bytes` can only narrow the applicable media-class
+allowance. The default whole-acquisition scheduling threshold is 40,000,000
+bytes and includes the seed plus candidate captures. `Content-Length` is only
+an early-rejection hint, never byte-accounting truth. Actual streamed bytes
+drive `bytes_observed` and aggregate accounting. A stream reader may deliver a
+final chunk that crosses the remaining threshold before cancellation; that
+chunk is reported and counted, so observed acquisition bytes can exceed the
+configured threshold. Once the threshold is exhausted, no later candidate
+capture begins.
+
+Source-resolution candidate capture inherits the shared per-response
+media-aware policy automatically. It is a separate single capture and does not
+share the multi-capture acquisition aggregate budget. This policy does not add
+raw response bodies to durable production artifacts or job records.
+
 Scheduling uses transient acquisition metadata, never confidence or reviewed
 product semantics. A tuple puts technical resources with exact requested model
 or MPN context before technical resources whose context is not asserted, then

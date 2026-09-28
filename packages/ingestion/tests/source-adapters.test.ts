@@ -137,6 +137,71 @@ describe('HTTP source capture', () => {
     });
   });
 
+  it('uses the strictest of media class, absolute cap, and explicit max_bytes', async () => {
+    const htmlAdapter = new HttpSourceCaptureAdapter(
+      async () =>
+        response('x'.repeat(2_100_000), {
+          headers: { 'content-type': 'text/html; charset=utf-8' },
+        }),
+      undefined,
+      resolvePublicHost,
+    );
+    await expect(
+      htmlAdapter.capture({ uri: 'https://example.invalid/html', max_bytes: 10_000_000 }),
+    ).resolves.toMatchObject({
+      status: 'failed',
+      bytes_observed: 2_100_000,
+      issues: [{ code: 'response_too_large' }],
+    });
+
+    const pdfAdapter = new HttpSourceCaptureAdapter(
+      async () =>
+        new Response('x'.repeat(8_500_000), {
+          status: 200,
+          headers: { 'content-type': 'application/pdf' },
+        }),
+      undefined,
+      resolvePublicHost,
+    );
+    await expect(
+      pdfAdapter.capture({ uri: 'https://example.invalid/pdf', max_bytes: 20_000_000 }),
+    ).resolves.toMatchObject({
+      status: 'success',
+      bytes_observed: 8_500_000,
+    });
+
+    const binaryAdapter = new HttpSourceCaptureAdapter(
+      async () =>
+        new Response(new Uint8Array(4_000_001), {
+          headers: { 'content-type': 'application/octet-stream' },
+        }),
+      undefined,
+      resolvePublicHost,
+    );
+    await expect(
+      binaryAdapter.capture({ uri: 'https://example.invalid/other-binary' }),
+    ).resolves.toMatchObject({
+      status: 'failed',
+      issues: [{ code: 'response_too_large' }],
+    });
+  });
+
+  it('ignores a smaller content-length and counts the actual streamed bytes', async () => {
+    const adapter = new HttpSourceCaptureAdapter(
+      async () =>
+        new Response(new Uint8Array(25).fill(65), {
+          status: 200,
+          headers: { 'content-type': 'text/plain', 'content-length': '10' },
+        }),
+      undefined,
+      resolvePublicHost,
+    );
+    const result = await adapter.capture({ uri: 'https://example.invalid/length-mismatch' });
+    expect(result.status).toBe('success');
+    expect(result.bytes_observed).toBe(25);
+    expect(result.source?.body.bytes).toHaveLength(25);
+  });
+
   it('validates every redirect hop and preserves the final URI', async () => {
     const calls: string[] = [];
     const adapter = new HttpSourceCaptureAdapter(

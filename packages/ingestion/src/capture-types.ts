@@ -46,6 +46,7 @@ export interface CaptureIssue {
 export interface CaptureResult {
   readonly status: 'success' | 'invalid' | 'failed';
   readonly source?: CapturedSource;
+  readonly bytes_observed?: number;
   readonly issues: readonly CaptureIssue[];
 }
 

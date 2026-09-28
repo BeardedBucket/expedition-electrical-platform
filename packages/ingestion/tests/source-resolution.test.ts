@@ -4,12 +4,14 @@ import {
   artifactDigest,
   artifactReference,
   captureSourceResolutionCandidate,
+  HttpSourceCaptureAdapter,
   prepareProductionIngestReview,
   validateProductionArtifactSchema,
   approvalMatchesReviewPackage,
   reviewPackageSnapshot,
   finalizeProductionIngest,
   type ProductionApproval,
+  type SourceCaptureAdapter,
 } from '../src/index.js';
 import {
   resolutionAdapter,
@@ -138,6 +140,44 @@ describe('production source resolution', () => {
       ]),
     );
   });
+
+  it('uses the shared media-aware PDF default without acquisition-wide accounting', async () => {
+    const pdf = new Uint8Array(2_100_000);
+    pdf.set(new TextEncoder().encode('%PDF-1.7'));
+    const transport = new HttpSourceCaptureAdapter(
+      async () =>
+        new Response(pdf, {
+          headers: { 'content-type': 'application/pdf' },
+        }),
+      undefined,
+      async () => ['93.184.216.34'],
+    );
+    const requests: Parameters<SourceCaptureAdapter['capture']>[0][] = [];
+    const adapter: SourceCaptureAdapter = {
+      capture(request) {
+        requests.push(request);
+        return transport.capture(request);
+      },
+    };
+    const extractor = vi
+      .spyOn(documentExtraction, 'extractDocumentAsync')
+      .mockImplementation(async (source) => ({ source, warnings: [], blocks: [] }));
+    try {
+      const { resolution, capture } = await captureSourceResolutionCandidate(
+        { intake: resolutionIntake, profile: resolutionProfile, adapter },
+        resolutionUri,
+        'resolution.large-pdf',
+      );
+      expect(capture.disposition).toBe('authoritative');
+      expect(capture.content_digest).toMatch(/^sha256:/);
+      expect(resolution.diagnostics).toEqual([]);
+      expect(requests).toHaveLength(1);
+      expect(requests[0]?.max_bytes).toBeUndefined();
+    } finally {
+      extractor.mockRestore();
+    }
+  });
+
   it('keeps missing-profile officiality and publisher unknown', async () => {
     const { resolution } = await candidate({}, false);
     expect(resolution.domain_evidence).toEqual({ state: 'no_reviewed_profile' });

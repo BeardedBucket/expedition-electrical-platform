@@ -64,6 +64,7 @@ export interface ProductionSourceCaptureResult {
   readonly disposition: CaptureDisposition;
   readonly artifact: SourceCaptureArtifact;
   readonly source?: CapturedSource;
+  readonly bytes_observed?: number;
   readonly reasons: readonly SourceCaptureReason[];
 }
 
@@ -675,6 +676,9 @@ export const captureSourceForProduction = async (
       disposition: 'failed',
       artifact,
       ...(transport.source ? { source: transport.source } : {}),
+      ...(transport.bytes_observed !== undefined
+        ? { bytes_observed: transport.bytes_observed }
+        : {}),
       reasons:
         transportReasons.length > 0
           ? transportReasons
@@ -746,6 +750,7 @@ export const captureSourceForProduction = async (
     disposition,
     artifact,
     source: transport.source,
+    ...(transport.bytes_observed !== undefined ? { bytes_observed: transport.bytes_observed } : {}),
     reasons: combinedReasons,
   };
 };
