@@ -5,7 +5,12 @@ import {
   validateManufacturerAcquisitionProfile,
   type ManufacturerAcquisitionProfile,
 } from '@expedition/ingestion';
-import { FileIngestionJobStore, IngestionJobService } from '@expedition/ingestion-runtime';
+import {
+  FileIngestionBatchStore,
+  FileIngestionJobStore,
+  IngestionBatchService,
+  IngestionJobService,
+} from '@expedition/ingestion-runtime';
 
 export const operatorPolicy = {
   max_recursion_depth: 1,
@@ -19,12 +24,15 @@ export function operatorConfiguration(env: NodeJS.ProcessEnv = process.env) {
   const port = Number(env.INGESTION_API_PORT ?? 4318);
   if (!Number.isInteger(port) || port < 1 || port > 65535)
     throw new Error('Invalid INGESTION_API_PORT.');
+  const defaultJobRoot = join(repositoryRoot, '.local-ingestion', 'jobs');
+  const defaultBatchRoot = join(repositoryRoot, '.local-ingestion', 'batches');
   return {
     host: env.INGESTION_API_HOST ?? '127.0.0.1',
     browserOrigin: env.INGESTION_ADMIN_ORIGIN ?? 'http://127.0.0.1:5174',
     port,
     repositoryRoot,
-    jobRoot: resolve(env.INGESTION_JOB_ROOT ?? join(repositoryRoot, '.local-ingestion/jobs')),
+    jobRoot: resolve(env.INGESTION_JOB_ROOT ?? defaultJobRoot),
+    batchRoot: resolve(env.INGESTION_BATCH_ROOT ?? defaultBatchRoot),
     canonicalRoot: resolve(env.INGESTION_CANONICAL_ROOT ?? join(repositoryRoot, 'data/components')),
     profileRoot: join(repositoryRoot, 'data/ingestion/manufacturer-acquisition-profiles'),
   };
@@ -35,10 +43,15 @@ export async function createProductionOperatorService(
 ) {
   const profiles = await loadReviewedProfiles(config.profileRoot);
   const adapter = new HttpSourceCaptureAdapter();
-  return new IngestionJobService({
+  const jobService = new IngestionJobService({
     store: new FileIngestionJobStore(config.jobRoot),
     preparationRequest: () => ({ adapter, profiles, policy: operatorPolicy }),
   });
+  const batchService = new IngestionBatchService({
+    store: new FileIngestionBatchStore(config.batchRoot),
+    jobService,
+  });
+  return Object.assign(batchService, { jobService });
 }
 
 export async function loadReviewedProfiles(profileRoot: string) {

@@ -1,10 +1,14 @@
 import { validateProductIntake, type ProductIntake } from '@expedition/ingestion';
 import { randomUUID } from 'node:crypto';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import type { IngestionJobService } from '@expedition/ingestion-runtime';
+import {
+  MAX_INGESTION_BATCH_SIZE,
+  type IngestionBatchService,
+  type IngestionJobService,
+} from '@expedition/ingestion-runtime';
 import { SourceResolutionError } from '@expedition/ingestion-runtime';
 import type { IntakeSuggestions } from './suggestions.js';
-import { jobDetail, jobSummary } from './operator-views.js';
+import { batchDetail, batchSummary, jobDetail, jobSummary } from './operator-views.js';
 import { errorDiagnostic, logRequest, requestContext } from './request-logging.js';
 import { constructApproval, ProductReviewError } from './product-review.js';
 
@@ -20,7 +24,8 @@ export type OperatorService = Pick<
       | 'submitApproval'
       | 'finalizeJob'
     >
-  >;
+  > &
+  Partial<Pick<IngestionBatchService, 'createBatch' | 'getBatch' | 'listBatches' | 'prepareBatch'>>;
 class RequestError extends Error {
   constructor(
     readonly status: number,
@@ -37,7 +42,7 @@ const fields = [
 ] as const;
 const validId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
-async function jsonBody(req: IncomingMessage) {
+async function jsonValue(req: IncomingMessage) {
   if (req.headers['content-type']?.split(';')[0].trim() !== 'application/json')
     throw new RequestError(415, 'Send application/json.');
   let bytes = 0;
@@ -47,16 +52,18 @@ async function jsonBody(req: IncomingMessage) {
     if (bytes > 16_384) throw new RequestError(413, 'Intake request is too large.');
     chunks.push(Buffer.from(chunk));
   }
-  let body: unknown;
   try {
-    body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    return JSON.parse(Buffer.concat(chunks).toString('utf8'));
   } catch {
     throw new RequestError(400, 'Malformed JSON.');
   }
+}
+
+async function jsonBody(req: IncomingMessage) {
+  const body = await jsonValue(req);
   if (!body || typeof body !== 'object' || Array.isArray(body))
     throw new RequestError(400, 'Expected an intake object.');
-  const record = body as Record<string, unknown>;
-  return record;
+  return body as Record<string, unknown>;
 }
 
 async function intakeBody(req: IncomingMessage) {
@@ -145,22 +152,74 @@ export function createOperatorApi(
         }
         throw new RequestError(405, 'Method not allowed.');
       }
-      const match =
+      if (pathname === '/api/ingestion/batches') {
+        if (!service.listBatches || !service.createBatch)
+          throw new Error('Batch service is not configured.');
+        if (req.method === 'GET')
+          return send(res, 200, { batches: (await service.listBatches()).map(batchSummary) });
+        if (req.method === 'POST') {
+          const input = await jsonValue(req);
+          if (!Array.isArray(input) || input.length === 0)
+            throw new RequestError(400, 'Provide a non-empty array of product intakes.');
+          if (input.length > MAX_INGESTION_BATCH_SIZE)
+            throw new RequestError(
+              400,
+              `Batch size exceeds the maximum of ${MAX_INGESTION_BATCH_SIZE} products.`,
+            );
+          const batches = await Promise.all(
+            input.map(async (item) => {
+              if (!item || typeof item !== 'object' || Array.isArray(item))
+                throw new RequestError(400, 'Each batch item must be an intake object.');
+              const record = item as Record<string, unknown>;
+              const normalized = Object.fromEntries(
+                Object.entries(record).map(([key, value]) => [
+                  key,
+                  typeof value === 'string' ? value.trim() : value,
+                ]),
+              );
+              const issues = validateProductIntake({ id: 'validation', ...normalized });
+              if (issues.length) throw new RequestError(400, issues.join('; '));
+              return {
+                schema_version: '1.0',
+                artifact_kind: 'product_intake',
+                id: `intake.${randomUUID()}`,
+                ...normalized,
+              } as ProductIntake;
+            }),
+          );
+          return send(res, 201, batchDetail(await service.createBatch(batches)));
+        }
+        throw new RequestError(405, 'Method not allowed.');
+      }
+      const jobMatch =
         /^\/api\/ingestion\/jobs\/([^/]+)(\/prepare|\/review\/(?:approve|reject|defer)|\/finalize|\/source-resolution\/(?:candidates|accept|reject))?$/.exec(
           pathname,
         );
-      if (!match) throw new RequestError(404, 'Route not found.');
-      if (!validId.test(match[1])) throw new RequestError(400, 'Malformed ingestion job ID.');
-      if (match[2]?.startsWith('/review/') && req.method === 'POST') {
+      const batchMatch = /^\/api\/ingestion\/batches\/([^/]+)(\/prepare)?$/.exec(pathname);
+      if (batchMatch) {
+        if (!service.getBatch || !service.prepareBatch)
+          throw new Error('Batch service is not configured.');
+        if (!validId.test(batchMatch[1]))
+          throw new RequestError(400, 'Malformed ingestion batch ID.');
+        if (batchMatch[2] === '/prepare' && req.method === 'POST') {
+          return send(res, 200, batchDetail(await service.prepareBatch(batchMatch[1])));
+        }
+        if (!batchMatch[2] && req.method === 'GET')
+          return send(res, 200, batchDetail(await service.getBatch(batchMatch[1])));
+        throw new RequestError(405, 'Method not allowed.');
+      }
+      if (!jobMatch) throw new RequestError(404, 'Route not found.');
+      if (!validId.test(jobMatch[1])) throw new RequestError(400, 'Malformed ingestion job ID.');
+      if (jobMatch[2]?.startsWith('/review/') && req.method === 'POST') {
         const input = await jsonBody(req);
-        const action = match[2].split('/').at(-1);
+        const action = jobMatch[2].split('/').at(-1);
         const decision =
           action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : 'deferred';
-        const approval = constructApproval(await service.getJob(match[1]), decision, input);
+        const approval = constructApproval(await service.getJob(jobMatch[1]), decision, input);
         if (!service.submitApproval) throw new Error('Approval service is not configured.');
-        return send(res, 200, jobDetail(await service.submitApproval(match[1], approval)));
+        return send(res, 200, jobDetail(await service.submitApproval(jobMatch[1], approval)));
       }
-      if (match[2] === '/finalize' && req.method === 'POST') {
+      if (jobMatch[2] === '/finalize' && req.method === 'POST') {
         const input = await jsonBody(req);
         if (Object.keys(input).length !== 1 || input.write !== true)
           throw new RequestError(
@@ -173,7 +232,7 @@ export function createOperatorApi(
           res,
           200,
           jobDetail(
-            await service.finalizeJob(match[1], {
+            await service.finalizeJob(jobMatch[1], {
               destinationRoot: canonicalRoot,
               write: true,
               overwrite: false,
@@ -181,9 +240,9 @@ export function createOperatorApi(
           ),
         );
       }
-      if (match[2]?.startsWith('/source-resolution/') && req.method === 'POST') {
+      if (jobMatch[2]?.startsWith('/source-resolution/') && req.method === 'POST') {
         const body = await jsonBody(req);
-        const action = match[2].split('/').at(-1);
+        const action = jobMatch[2].split('/').at(-1);
         const field = action === 'candidates' ? 'official_product_uri' : 'attempt_id';
         if (
           Object.keys(body).length !== 1 ||
@@ -195,18 +254,18 @@ export function createOperatorApi(
           throw new Error('Source resolution service is not configured.');
         const job =
           action === 'candidates'
-            ? await service.submitSourceResolutionCandidate(match[1], body[field])
+            ? await service.submitSourceResolutionCandidate(jobMatch[1], body[field])
             : await service.decideSourceResolution(
-                match[1],
+                jobMatch[1],
                 body[field],
                 action === 'accept' ? 'accepted' : 'rejected',
               );
         return send(res, 200, jobDetail(job));
       }
-      if (match[2] === '/prepare' && req.method === 'POST') {
+      if (jobMatch[2] === '/prepare' && req.method === 'POST') {
         prepareStarted = performance.now();
         logRequest('PREPARE REQUEST START', context);
-        const job = await service.prepareJob(match[1]);
+        const job = await service.prepareJob(jobMatch[1]);
         send(res, 200, jobDetail(job));
         logRequest('PREPARE REQUEST COMPLETE', context, {
           state: job.state,
@@ -214,8 +273,8 @@ export function createOperatorApi(
         });
         return;
       }
-      if (!match[2] && req.method === 'GET')
-        return send(res, 200, jobDetail(await service.getJob(match[1])));
+      if (!jobMatch[2] && req.method === 'GET')
+        return send(res, 200, jobDetail(await service.getJob(jobMatch[1])));
       throw new RequestError(405, 'Method not allowed.');
     })().catch((error: unknown) => {
       const message = error instanceof Error ? error.message : '';
@@ -224,11 +283,17 @@ export function createOperatorApi(
           ? error.status
           : error instanceof SourceResolutionError || error instanceof ProductReviewError
             ? error.status
-            : message.startsWith('Invalid product intake:')
+            : message.startsWith('Invalid product intake:') ||
+                message.startsWith('Invalid product intake in batch:') ||
+                message.startsWith('Batch input must be an array of product intakes.') ||
+                message.startsWith('Batch must contain at least one product intake.') ||
+                message.startsWith('Batch size exceeds the maximum of ')
               ? 400
-              : message.startsWith('Unknown ingestion job ID:')
+              : message.startsWith('Unknown ingestion job ID:') ||
+                  message.startsWith('Unknown ingestion batch ID:')
                 ? 404
                 : message.startsWith('Cannot prepare job in state ') ||
+                    message.startsWith('Cannot prepare batch in state ') ||
                     message.startsWith('Cannot approve job in state ') ||
                     message.startsWith('Cannot finalize job in state ') ||
                     message === 'Production approval does not match the exact review package.' ||

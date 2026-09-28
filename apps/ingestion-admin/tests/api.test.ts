@@ -478,6 +478,291 @@ describe('operator HTTP API and durable DTO boundary', () => {
       ).status,
     ).toBe(403);
   });
+  it('supports create/list/get/prepare batch routes with durable child summaries and safe DTOs', async () => {
+    const batchRoot = await root();
+    const jobRoot = join(batchRoot, 'jobs');
+    const jobService = fixtureService(jobRoot);
+    const createJobSpy = vi.spyOn(jobService, 'createJob');
+    const batchService = new (await import('@expedition/ingestion-runtime')).IngestionBatchService({
+      store: new (await import('@expedition/ingestion-runtime')).FileIngestionBatchStore(
+        join(batchRoot, 'batches'),
+      ),
+      jobService,
+    });
+    const prepareSpy = vi.spyOn(batchService, 'prepareBatch');
+    const url = await start(batchService);
+
+    const intakeA = {
+      schema_version: '1.0',
+      artifact_kind: 'product_intake',
+      id: 'intake.alpha',
+      ...input,
+      manufacturer: 'Alpha Manufacturer',
+      product_model: 'Alpha Model',
+      manufacturer_part_number: 'AL-1',
+      official_product_uri: 'https://example.test/products/alpha',
+    };
+    const intakeB = {
+      schema_version: '1.0',
+      artifact_kind: 'product_intake',
+      id: 'intake.beta',
+      ...input,
+      manufacturer: 'Beta Manufacturer',
+      product_model: 'Beta Model',
+      manufacturer_part_number: 'BE-2',
+      official_product_uri: 'https://example.test/products/beta',
+    };
+    const created = await post(`${url.replace('/jobs', '')}/batches`, [intakeA, intakeB]);
+    expect(created.status).toBe(201);
+    const createdBody = await created.json();
+    expect(createdBody.summary.requested_count).toBe(2);
+    expect(createdBody.summary.job_count).toBe(2);
+    expect(createdBody.job_ids).toHaveLength(2);
+    expect(new Set(createdBody.job_ids).size).toBe(2);
+    expect(createdBody.summary.jobs.map((job: { id: string }) => job.id)).toEqual(
+      createdBody.job_ids,
+    );
+    expect(createdBody.summary.counts.created).toBe(2);
+    expect(createdBody.summary.counts.pending).toBe(2);
+    expect(createdBody.summary.state).toBe('pending');
+    expect(createJobSpy).toHaveBeenCalledTimes(2);
+
+    const listed = await fetch(`${url.replace('/jobs', '')}/batches`);
+    expect(listed.status).toBe(200);
+    const listedBody = await listed.json();
+    expect(listedBody.batches).toHaveLength(1);
+    expect(listedBody.batches[0].id).toBe(createdBody.summary.id);
+    expect(listedBody.batches[0].state).toBe('pending');
+    expect(listedBody.batches[0].jobs.map((job: { id: string }) => job.id)).toEqual(
+      createdBody.job_ids,
+    );
+
+    const read = await fetch(`${url.replace('/jobs', '')}/batches/${createdBody.summary.id}`);
+    expect(read.status).toBe(200);
+    const readBody = await read.json();
+    expect(readBody.summary).toMatchObject({
+      id: createdBody.summary.id,
+      state: 'pending',
+      requested_count: 2,
+      job_count: 2,
+    });
+    expect(readBody.job_ids).toEqual(createdBody.job_ids);
+    expect(JSON.stringify(readBody)).not.toContain('RAW_BODY_MARKER');
+    expect(JSON.stringify(readBody)).not.toContain('source_provenance');
+    expect(JSON.stringify(readBody)).not.toContain('"bytes"');
+
+    const prepared = await post(
+      `${url.replace('/jobs', '')}/batches/${createdBody.summary.id}/prepare`,
+    );
+    expect(prepared.status).toBe(200);
+    const preparedBody = await prepared.json();
+    expect(prepareSpy).toHaveBeenCalledTimes(1);
+    expect(prepareSpy).toHaveBeenCalledWith(createdBody.summary.id);
+    expect(preparedBody.summary.state).toBe('review_ready');
+    expect(preparedBody.job_ids).toEqual(createdBody.job_ids);
+    expect(preparedBody.summary.counts.review_ready).toBe(2);
+    expect(
+      preparedBody.summary.jobs.every((job: { state: string }) => job.state === 'review_ready'),
+    ).toBe(true);
+    expect(
+      await (await fetch(`${url.replace('/jobs', '')}/batches/${createdBody.summary.id}`)).json(),
+    ).toMatchObject({
+      summary: { state: 'review_ready' },
+    });
+    expect(
+      await (await fetch(`${url.replace('/jobs', '')}/batches/${createdBody.summary.id}`)).json(),
+    ).not.toHaveProperty('raw');
+    const unknown = await fetch(
+      `${url.replace('/jobs', '')}/batches/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa`,
+    );
+    expect(unknown.status).toBe(404);
+    expect(await unknown.json()).toEqual({
+      error: { message: 'Unknown ingestion batch ID: aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' },
+    });
+
+    const secondCreated = await post(`${url.replace('/jobs', '')}/batches`, [intakeA]);
+    expect(secondCreated.status).toBe(201);
+    expect(createJobSpy).toHaveBeenCalledTimes(3);
+    const expectedBatchIds = [
+      createdBody.summary.id,
+      (await secondCreated.json()).summary.id,
+    ].sort();
+    const listUrl = `${url.replace('/jobs', '')}/batches`;
+    const firstList = await fetch(listUrl);
+    const secondList = await fetch(listUrl);
+    expect((await firstList.json()).batches.map((batch: { id: string }) => batch.id)).toEqual(
+      expectedBatchIds,
+    );
+    expect((await secondList.json()).batches.map((batch: { id: string }) => batch.id)).toEqual(
+      expectedBatchIds,
+    );
+  });
+
+  it('fails safely for empty, oversized, malformed, and unknown batch requests', async () => {
+    const jobService = fixtureService(await root());
+    const createJobSpy = vi.spyOn(jobService, 'createJob');
+    const service = new (await import('@expedition/ingestion-runtime')).IngestionBatchService({
+      store: new (await import('@expedition/ingestion-runtime')).FileIngestionBatchStore(
+        await root(),
+      ),
+      jobService,
+    });
+    const url = await start(service);
+    const batchesUrl = url.replace('/jobs', '/batches');
+
+    expect((await post(batchesUrl, [])).status).toBe(400);
+    const tooMany = Array.from({ length: 51 }, (_, index) => ({
+      ...input,
+      manufacturer: `Batch-${index}`,
+      product_model: `Model-${index}`,
+      manufacturer_part_number: `BP-${index}`,
+      official_product_uri: `https://example.test/products/${index}`,
+    }));
+    expect((await post(batchesUrl, tooMany)).status).toBe(400);
+    expect((await post(batchesUrl, [{ ...input, product_model: 123 }])).status).toBe(400);
+    expect(createJobSpy).not.toHaveBeenCalled();
+    expect((await fetch(`${batchesUrl}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa`)).status).toBe(404);
+    expect((await fetch(batchesUrl)).status).toBe(200);
+  });
+
+  it('does not expose batch approval, finalization, or canonical-write routes', async () => {
+    const rootPath = await root();
+    const service = new (await import('@expedition/ingestion-runtime')).IngestionBatchService({
+      store: new (await import('@expedition/ingestion-runtime')).FileIngestionBatchStore(
+        join(rootPath, 'batches'),
+      ),
+      jobService: fixtureService(join(rootPath, 'jobs')),
+    });
+    const url = await start(service);
+    const batchUrl = `${url.replace('/jobs', '')}/batches/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa`;
+
+    for (const action of ['approve', 'finalize', 'write']) {
+      const response = await post(`${batchUrl}/${action}`, { write: true });
+      expect(response.status).toBe(404);
+      expect(await response.json()).toEqual({ error: { message: 'Route not found.' } });
+    }
+  });
+
+  it('sanitizes batch failures while logging batch-aware structured context', async () => {
+    const rootPath = await root();
+    const service = new (await import('@expedition/ingestion-runtime')).IngestionBatchService({
+      store: new (await import('@expedition/ingestion-runtime')).FileIngestionBatchStore(
+        join(rootPath, 'batches'),
+      ),
+      jobService: fixtureService(join(rootPath, 'jobs')),
+    });
+    const failure = Object.assign(new Error('Private batch storage path'), {
+      capture: { body: 'PRIVATE_BATCH_BODY', bytes: [1, 2] },
+    });
+    vi.spyOn(service, 'getBatch').mockRejectedValueOnce(failure);
+    const url = await start(service);
+    const response = await fetch(
+      `${url.replace('/jobs', '')}/batches/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa`,
+    );
+
+    expect(response.status).toBe(500);
+    const responseBody = await response.json();
+    expect(responseBody).toEqual({
+      error: { message: 'The ingestion service could not complete the request.' },
+    });
+    expect(response.headers.get('X-Request-Id')).toBeTruthy();
+    expect(logEntries()).toMatchObject([
+      {
+        event: 'REQUEST FAILED',
+        pathname: '/api/ingestion/batches/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+        batch_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+        operation: 'get',
+        status: 500,
+        request_id: response.headers.get('X-Request-Id'),
+      },
+    ]);
+    expect(JSON.stringify(responseBody)).not.toContain('Private batch storage path');
+    expect(JSON.stringify(logEntries())).not.toContain('PRIVATE_BATCH_BODY');
+  });
+
+  it('keeps child source-resolution states and excludes raw job payloads in batch responses', async () => {
+    const rootPath = await root();
+    const rootJobService = fixtureService(join(rootPath, 'jobs'));
+    const batchService = new (await import('@expedition/ingestion-runtime')).IngestionBatchService({
+      store: new (await import('@expedition/ingestion-runtime')).FileIngestionBatchStore(
+        join(rootPath, 'batches'),
+      ),
+      jobService: rootJobService,
+    });
+    const pendingIntake = {
+      ...input,
+      manufacturer: 'Pending',
+      product_model: 'Pending Model',
+      manufacturer_part_number: 'PD-2',
+    };
+    delete (pendingIntake as Partial<typeof input>).official_product_uri;
+    const batch = await batchService.createBatch([
+      {
+        schema_version: '1.0',
+        artifact_kind: 'product_intake',
+        id: 'intake.ready',
+        ...input,
+        manufacturer: 'Ready',
+        product_model: 'Ready Model',
+        manufacturer_part_number: 'RD-1',
+        official_product_uri: 'https://example.test/products/ready',
+      },
+      {
+        schema_version: '1.0',
+        artifact_kind: 'product_intake',
+        id: 'intake.pending',
+        ...pendingIntake,
+      },
+    ]);
+    const sourceState = await batchService.getBatch(batch.id);
+    expect(sourceState.state).toBe('pending');
+    expect(sourceState.jobs.map((job) => job.state)).toEqual([
+      'created',
+      'source_resolution_required',
+    ]);
+    const url = await start(batchService);
+    const response = await fetch(`${url.replace('/jobs', '')}/batches/${batch.id}`);
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json.summary.jobs.map((job: { state: string }) => job.state)).toEqual([
+      'created',
+      'source_resolution_required',
+    ]);
+    expect(JSON.stringify(json)).not.toContain('RAW_BODY_MARKER');
+    expect(JSON.stringify(json)).not.toContain('source_resolution_attempts');
+    expect(JSON.stringify(json)).not.toContain('"bytes"');
+  });
+
+  it('uses distinct production roots and keeps the shared job service in the composition', async () => {
+    const defaultConfig = operatorConfiguration({
+      INGESTION_REPOSITORY_ROOT: process.cwd(),
+      INGESTION_CANONICAL_ROOT: '/reserved',
+    });
+    expect(defaultConfig.jobRoot).toMatch(
+      /(?:^|[\\/])(?:\.local-ingestion|local-ingestion)[\\/]jobs$/i,
+    );
+    expect(defaultConfig.batchRoot).toMatch(
+      /(?:^|[\\/])(?:\.local-ingestion|local-ingestion)[\\/]batches$/i,
+    );
+    const customJobRoot = await root();
+    const customBatchRoot = await root();
+    const config = operatorConfiguration({
+      INGESTION_REPOSITORY_ROOT: process.cwd(),
+      INGESTION_JOB_ROOT: customJobRoot,
+      INGESTION_BATCH_ROOT: customBatchRoot,
+      INGESTION_CANONICAL_ROOT: '/reserved',
+    });
+    expect(config.jobRoot).not.toBe(config.batchRoot);
+    expect(config.jobRoot).toBe(customJobRoot);
+    expect(config.batchRoot).toBe(customBatchRoot);
+    const service = await createProductionOperatorService(config);
+    expect(service).toHaveProperty('jobService');
+    const latest = await service.createJob(intake);
+    expect(latest.state).toBe('created');
+    expect(service.jobService).toBeDefined();
+    await expect(service.getJob(latest.id)).resolves.toHaveProperty('id', latest.id);
+  });
+
   it('configures the real reviewed profile source and confines recursion to the operator', async () => {
     expect(operatorPolicy).toMatchObject({
       max_recursion_depth: 1,

@@ -3,6 +3,7 @@ export interface RequestContext {
   readonly method: string;
   readonly pathname: string;
   readonly job_id?: string;
+  readonly batch_id?: string;
   readonly operation?: 'create' | 'prepare' | 'get' | 'list' | 'review' | 'finalize';
 }
 
@@ -43,15 +44,17 @@ export function requestContext(
   method: string,
   pathname: string,
 ): RequestContext {
-  const match =
+  const jobMatch =
     /^\/api\/ingestion\/jobs\/([^/]+)(\/prepare|\/review\/(?:approve|reject|defer)|\/finalize)?$/.exec(
       pathname,
     );
+  const batchMatch = /^\/api\/ingestion\/batches\/([^/]+)(\/prepare)?$/.exec(pathname);
   return {
     request_id: requestId,
     method,
     pathname,
-    job_id: match?.[1],
+    job_id: jobMatch?.[1],
+    batch_id: batchMatch?.[1],
     operation:
       pathname === '/api/ingestion/jobs'
         ? method === 'POST'
@@ -59,15 +62,25 @@ export function requestContext(
           : method === 'GET'
             ? 'list'
             : undefined
-        : match?.[2] && method === 'POST'
-          ? match[2].startsWith('/review/')
-            ? 'review'
-            : match[2] === '/finalize'
-              ? 'finalize'
-              : 'prepare'
-          : match && !match[2] && method === 'GET'
-            ? 'get'
-            : undefined,
+        : pathname === '/api/ingestion/batches'
+          ? method === 'POST'
+            ? 'create'
+            : method === 'GET'
+              ? 'list'
+              : undefined
+          : jobMatch?.[2] && method === 'POST'
+            ? jobMatch[2].startsWith('/review/')
+              ? 'review'
+              : jobMatch[2] === '/finalize'
+                ? 'finalize'
+                : 'prepare'
+            : batchMatch?.[2] && method === 'POST'
+              ? 'prepare'
+              : jobMatch && !jobMatch[2] && method === 'GET'
+                ? 'get'
+                : batchMatch && !batchMatch[2] && method === 'GET'
+                  ? 'get'
+                  : undefined,
   };
 }
 

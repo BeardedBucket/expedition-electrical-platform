@@ -151,6 +151,40 @@ export const jobSummary = (job: IngestionJob) => {
   };
 };
 
+export const batchSummary = (batch: {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  state: string;
+  requested_count: number;
+  job_count: number;
+  counts: Record<string, number>;
+  jobs: readonly { id: string; state: string }[];
+}) => ({
+  id: batch.id,
+  created_at: batch.created_at,
+  updated_at: batch.updated_at,
+  state: batch.state,
+  requested_count: batch.requested_count,
+  job_count: batch.job_count,
+  counts: batch.counts,
+  jobs: batch.jobs,
+});
+
+export const batchDetail = (batch: {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  state: string;
+  requested_count: number;
+  job_count: number;
+  counts: Record<string, number>;
+  jobs: readonly { id: string; state: string }[];
+}) => ({
+  summary: batchSummary(batch),
+  job_ids: batch.jobs.map((job) => job.id),
+});
+
 export const jobDetail = (job: IngestionJob) => {
   const p = job.preparation;
   const r = p?.status === 'review_ready' ? p : undefined;
