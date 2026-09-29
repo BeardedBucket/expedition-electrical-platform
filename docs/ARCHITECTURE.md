@@ -1,5 +1,71 @@
 # Architecture
 
+## Explicit non-table product specification blocks
+
+The reviewed-profile `explicit_label_value_blocks` region (profile schema 1.5)
+represents source-authored, directly owned label/value blocks. It is a sibling of
+`model_label_value_rows`, whose Xantrex header and repeated model attribute remain
+unchanged. A block rule uses one exact official intake seed, a reviewed value-cell
+identity selector, and one specification container. Exactly one selected value must
+equal the requested model. The first direct row must be a labeled model row whose
+value is that same selected node. A sole direct section heading and sole region
+bind context; all rows, labels, values, and value lines must be directly owned by
+their declared parents. Other selected regions, competing identity values, extra
+children, nested axes, mixed labeled/unlabeled lines, and malformed late rows
+reject the entire region before any of its observations become facts. The two
+direct row children are structural label/value arity, not a resource limit.
+
+One value line yields its exact raw text. Multiple unlabeled lines remain one
+ordered raw array, rather than a fabricated combined scalar. Explicit `Label:
+value` lines become separate observations with the parent block label and section
+heading preserved as material conditions. This retains Charging Mode / Input and
+Output separately without interpreting their electrical meaning. Repeated nested
+labels and mixed line forms reject the region. Empty values remain unknown and
+produce a diagnostic, never zero or false; an explicit sublabel ending at its
+colon rejects the malformed region rather than becoming a flat value. QualifiedFacts retain raw value and
+label paths, and context evidence points to the actual section heading and parent
+label paths. These facts are structural proposals; semantic mapping, engineering
+interpretation, and human review remain separate.
+
+The source-shape research capture of the official [EcoFlow 800W Alternator
+Charger](https://us.ecoflow.com/products/800w-alternator-charger) on 2026-09-29
+(SHA-256 `ae5b41a69fd7ef43395213e097bd3bfed0a6587c28dfcdc0e60bc515a5be10ab`)
+showed one section with 14 direct blocks and first block `Model` =
+`EF-FC-301-1`. Its reviewed declarative profile bound that retained capture
+through the ordinary preparation function and produced 18 provisional facts,
+including separate mode Input/Output observations. This is offline source-shape
+research, not a Wave 3 production batch or reviewed product evidence. The new
+region reuses the existing digest-verified HTML input and retained-output
+budgets; it adds no independent size, depth, or item limit. Reconsider its
+structural contract only when another independently inspected source demonstrates
+a safely expressible shape, rather than relaxing ownership for a count increase.
+
+## Serialized application-state boundary
+
+The 2026-09-29 raw capture of the official [Dometic SeaStar I7800
+Dual](https://www.dometic.com/en-us/product/dometic-seastar-i7800-dual-4)
+(SHA-256 `dc411484cebe19a48d438b1619194a87bb80e0fc241791e5ec54b1a0a2012393`)
+contains exact SKU `9610001409` and technical attributes in a Next.js Flight
+`variants[].product` fragment. That fragment is physically present in inert HTML
+script text, but its 14 script elements carry executable
+`self.__next_f.push([1, ...])` wrappers, no unique script ID or JSON media type,
+and a framework record stream with chunk markers and `$` references. Decoding
+the outer quoted strings offline is possible without executing JavaScript;
+reducing the complete inner stream to one uniquely selectable, source-owned raw
+record would require a defined Flight grammar, continuation/reference handling,
+and atomic malformed-stream rejection. A substring or regex extraction would not
+establish record completeness or sibling isolation. The plain JSON-LD Product
+instead uses the page slug as SKU and lacks these exact variant attributes.
+
+This source remains **unsupported framework content** under the current
+structured-record contract. No Flight decoder or new parser bounds are introduced.
+A future separately scoped decoder would need a stable finite grammar, reviewed
+script and record selection, exact duplicate rejection, provenance to frame and
+property, and measured bounds for script bytes, frames, nesting, references, and
+decoded output before it could be considered. The presence of parseable quoted
+strings alone does not justify those assumptions. The exact-record Wave 3 source
+gap therefore remains open.
+
 ## Reviewed source-shape recovery into production evidence
 
 Wave 2 adds declarative `identity_region` narrowing and

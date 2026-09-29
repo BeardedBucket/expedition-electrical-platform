@@ -228,7 +228,8 @@
                     "definition",
                     "label_value_lines",
                     "label_value_list",
-                    "model_label_value_rows"
+                    "model_label_value_rows",
+                    "explicit_label_value_blocks"
                   ]
                 },
                 "model_rows": {
@@ -251,6 +252,26 @@
                     "value_identity_attribute": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" }
                   }
                 },
+                "explicit_blocks": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "row_selector",
+                    "label_selector",
+                    "value_selector",
+                    "value_line_selector",
+                    "identity_label",
+                    "context_heading_selector"
+                  ],
+                  "properties": {
+                    "row_selector": { "$ref": "#/$defs/htmlSelectorChain" },
+                    "label_selector": { "$ref": "#/$defs/htmlSelectorChain" },
+                    "value_selector": { "$ref": "#/$defs/htmlSelectorChain" },
+                    "value_line_selector": { "$ref": "#/$defs/htmlSelectorChain" },
+                    "identity_label": { "type": "string", "minLength": 1 },
+                    "context_heading_selector": { "$ref": "#/$defs/htmlSelectorChain" }
+                  }
+                },
                 "heading": {
                   "type": "object",
                   "additionalProperties": false,
@@ -266,6 +287,11 @@
                   "if": { "properties": { "kind": { "const": "model_label_value_rows" } } },
                   "then": { "required": ["model_rows"] },
                   "else": { "not": { "required": ["model_rows"] } }
+                },
+                {
+                  "if": { "properties": { "kind": { "const": "explicit_label_value_blocks" } } },
+                  "then": { "required": ["explicit_blocks"] },
+                  "else": { "not": { "required": ["explicit_blocks"] } }
                 }
               ]
             }

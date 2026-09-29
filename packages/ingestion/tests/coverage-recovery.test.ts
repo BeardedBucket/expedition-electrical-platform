@@ -312,6 +312,118 @@ describe('reviewed model label/value DOM rows', () => {
   });
 });
 
+describe('reviewed explicit non-table specification blocks', () => {
+  const ecoflow = (): ManufacturerAcquisitionProfile =>
+    JSON.parse(
+      readFileSync('data/ingestion/manufacturer-acquisition-profiles/ecoflow.json', 'utf8'),
+    );
+  const target: ProductIntake = {
+    ...intake,
+    manufacturer: 'EcoFlow',
+    product_model: 'EF-FC-301-1',
+    official_product_uri: 'https://us.ecoflow.com/products/800w-alternator-charger',
+  };
+  const block = (label: string, lines: string) =>
+    `<div class="pdp-specs-block"><p class="pdp-specs-title">${label}</p><div class="pdp-specs-content">${lines}</div></div>`;
+  const model = block('Model', '<p>EF-FC-301-1</p>');
+  const flat = block('Fuse current', '<p>125A</p>');
+  const nested = block('Charging Mode', '<p>Input: 11V-31V</p><p>Output: 800W Max.</p>');
+  const page = (rows = model + flat + nested) =>
+    `<section class="pdp-specs"><h2>Specs</h2><div class="pdp-specs-container">${rows}</div></section>`;
+  const prepare = (html = page()) =>
+    prepareProfileQualifiedEvidence(fixture(html, ecoflow(), target))!;
+
+  it('binds one exact model and preserves flat and nested source context with locators', () => {
+    expect(validateManufacturerAcquisitionProfile(ecoflow()).ok).toBe(true);
+    const result = prepare(page() + '<section><p>Current: 999 A</p></section>');
+    expect(result).toEqual(prepare(page() + '<section><p>Current: 999 A</p></section>'));
+    expect(result.qualification.facts).toHaveLength(3);
+    expect(result.qualification.facts.map((f) => f.metadata.raw_value)).toEqual([
+      '125A',
+      '11V-31V',
+      '800W Max.',
+    ]);
+    expect(result.qualification.facts[1].metadata.source_label).toBe('Input');
+    expect(result.qualification.facts[1].metadata.conditions).toEqual(['Specs', 'Charging Mode']);
+    expect(result.qualification.facts[2].metadata.source_label).toBe('Output');
+    expect(
+      result.qualification.facts[1].evidence.find(
+        (e) => e.role === 'qualifier' && e.text === 'Charging Mode',
+      )?.locator?.path,
+    ).toContain('/p[1]');
+    expect(
+      result.qualification.facts.every((f) => validateProductionArtifactSchema(f).length === 0),
+    ).toBe(true);
+  });
+  it('keeps multiple unlabelled source lines as one ordered raw array', () => {
+    const result = prepare(page(model + block('Dimensions', '<p>9.5 in</p><p>242 mm</p>')));
+    expect(result.qualification.facts).toHaveLength(1);
+    expect(result.qualification.facts[0].metadata.raw_value).toEqual(['9.5 in', '242 mm']);
+  });
+  it('requires a unique exact model and retains missing values as unknown', () => {
+    expect(prepare(page().replace('EF-FC-301-1', 'Other')).qualification.facts).toHaveLength(0);
+    expect(prepare(page(model + model + flat)).qualification.facts).toHaveLength(0);
+    const result = prepare(page(model + flat + block('Unknown', '<p></p>')));
+    expect(result.qualification.facts).toHaveLength(1);
+    expect(result.qualification.diagnostics.some((d) => d.code === 'missing_value')).toBe(true);
+  });
+  it.each([
+    page(model + flat + block('Other model', '<p>Other</p>')),
+    page(model + flat + block('Voltage', '<p>12 V</p><span>24 V</span>')),
+    page(model + flat + block('Voltage', '<p><strong>12 V</strong></p>')),
+    page(model + flat + block('Voltage', '<p>Input: 12 V</p><p>24 V</p>')),
+    page(model + flat + block('Charging Mode', '<p>Input:</p>')),
+    page(model + flat + block('Voltage', '<p>Input: 12 V</p><p>Input: 24 V</p>')),
+    page(model + flat + block('SKU', '<p>Other</p>')),
+    page(model + flat + '<div class="unexpected">extra axis</div>'),
+    page(
+      model +
+        flat +
+        '<div class="pdp-specs-block"><p class="pdp-specs-title">Voltage</p><div class="pdp-specs-content"><p>12 V</p></div><span>extra</span></div>',
+    ),
+    page(
+      model +
+        flat +
+        '<div class="pdp-specs-block"><p class="pdp-specs-title">Voltage</p><div class="pdp-specs-content"><div class="pdp-specs-block"></div></div></div>',
+    ),
+    page(model + flat + nested) + page(model + flat),
+    page(model + flat).replace('</section>', '<div>unselected section axis</div></section>'),
+  ])('rejects a whole region when later structure is ambiguous (%#)', (html) => {
+    const result = prepare(html);
+    expect(result.qualification.facts).toHaveLength(0);
+    expect(
+      result.qualification.diagnostics.some(
+        (d) => d.code === 'unsupported_structure' || d.code === 'identity_unresolved',
+      ),
+    ).toBe(true);
+  });
+  it('rejects absent or misplaced structural profile configuration', () => {
+    const p = ecoflow(),
+      rule = p.html_fact_rules![0],
+      region = rule.regions[0];
+    expect(
+      validateManufacturerAcquisitionProfile({
+        ...p,
+        html_fact_rules: [{ ...rule, regions: [{ ...region, explicit_blocks: undefined }] }],
+      }).ok,
+    ).toBe(false);
+    expect(
+      validateManufacturerAcquisitionProfile({
+        ...p,
+        html_fact_rules: [{ ...rule, regions: [{ ...region, kind: 'table' }] }],
+      }).ok,
+    ).toBe(false);
+    expect(
+      validateManufacturerAcquisitionProfile({
+        ...p,
+        html_fact_rules: [
+          { ...rule, regions: [region, { kind: 'table', selector: [{ id: 'other' }] }] },
+        ],
+      }).ok,
+    ).toBe(false);
+  });
+});
+
 describe('unique model-column applicability', () => {
   const matrix =
     '<table><tr><th>Model</th><th>EX-X</th><th>EX-Y</th></tr><tr><th>Voltage</th><td>12 / 24 V</td><td>999 V</td></tr></table>';

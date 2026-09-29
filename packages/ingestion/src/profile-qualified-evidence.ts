@@ -111,6 +111,7 @@ interface Observation {
   scope: ApplicabilityBinding;
   context: string;
   conditions?: readonly string[];
+  condition_locations?: readonly DocumentSourceLocation[];
 }
 
 /** Recover reviewed source-shape extraction into production QualifiedFacts, not
@@ -287,16 +288,26 @@ export const prepareProfileQualifiedEvidence = (input: {
           );
         })
       : undefined;
-    const identity = selected(entries, rule.identity_selector).filter(
+    const explicitOnly = rule.regions.every(
+      (region) => region.kind === 'explicit_label_value_blocks',
+    );
+    const identityCandidates = selected(entries, rule.identity_selector).filter(
       (e) =>
         !identityRegions ||
         (identityRegions.length === 1 && e.path.startsWith(`${identityRegions[0].path}/`)),
     );
     const requested =
       rule.identity_kind === 'mpn' ? intake.manufacturer_part_number : intake.product_model;
+    // Block pages designate the exact model through a reviewed value-cell
+    // selector. Other selected values are allowed, but a duplicate exact value
+    // anywhere in that scope makes identity ambiguous.
+    const identity = explicitOnly
+      ? identityCandidates.filter((e) => clean(text(e.node)) === requested?.trim())
+      : identityCandidates;
     if (
       !requested ||
       !identity.length ||
+      (explicitOnly && (rule.identity_kind !== 'model' || identity.length !== 1)) ||
       identity.some((e) => clean(text(e.node)) !== requested.trim())
     )
       diagnostics.push({
@@ -334,10 +345,11 @@ export const prepareProfileQualifiedEvidence = (input: {
           seen.add(entry.path);
           const pairs: {
             label: string;
-            value: string;
+            value: JsonValue;
             path: string;
             label_path?: string;
             conditions?: readonly string[];
+            condition_paths?: readonly string[];
           }[] = [];
           const native = input.document.blocks.find((b) => b.locator.path === entry.path);
           if (region.kind === 'table') {
@@ -429,6 +441,149 @@ export const prepareProfileQualifiedEvidence = (input: {
               diagnostics.push({
                 code: 'unsupported_structure',
                 message: `Reviewed table region '${entry.path}' has ambiguous spans, identity axes or rows.`,
+              });
+              continue;
+            }
+          } else if (region.kind === 'explicit_label_value_blocks') {
+            const structure = region.explicit_blocks;
+            if (!structure || !explicitOnly || rule.identity_kind !== 'model') continue;
+            const regionMatches = selected(entries, region.selector);
+            const parent = entries.find((e) => e.node === entry.node.parentNode);
+            const headings = selected(entries, structure.context_heading_selector).filter(
+              (e) => e.node.parentNode === parent?.node,
+            );
+            const rows = selected(entries, structure.row_selector).filter((e) =>
+              e.path.startsWith(`${entry.path}/`),
+            );
+            const labels = selected(entries, structure.label_selector);
+            const values = selected(entries, structure.value_selector);
+            const lines = selected(entries, structure.value_line_selector);
+            const directElements = (node: Element) =>
+              node.childNodes.filter((child): child is Element => 'tagName' in child);
+            const hasDirectText = (node: Element) =>
+              node.childNodes.some((child) => 'value' in child && !!clean(child.value));
+            // A sole owning section, heading and model-first row bind this
+            // source. Every row is checked before the buffered pairs escape.
+            let unsafe =
+              regionMatches.length !== 1 ||
+              !parent ||
+              headings.length !== 1 ||
+              !clean(text(headings[0]?.node)) ||
+              (parent &&
+                (directElements(parent.node).length !== 2 ||
+                  !directElements(parent.node).includes(entry.node) ||
+                  !directElements(parent.node).includes(headings[0]?.node))) ||
+              !rows.length ||
+              rows.some((row) => row.node.parentNode !== entry.node) ||
+              directElements(entry.node).length !== rows.length ||
+              hasDirectText(entry.node);
+            for (const [index, row] of rows.entries()) {
+              const rowLabels = labels.filter((e) => e.node.parentNode === row.node);
+              const rowValues = values.filter((e) => e.node.parentNode === row.node);
+              const children = directElements(row.node);
+              if (
+                rowLabels.length !== 1 ||
+                rowValues.length !== 1 ||
+                children.length !== 2 ||
+                children[0] !== rowLabels[0]?.node ||
+                children[1] !== rowValues[0]?.node ||
+                hasDirectText(row.node) ||
+                directElements(rowLabels[0].node).length ||
+                hasDirectText(rowValues[0].node)
+              ) {
+                unsafe = true;
+                continue;
+              }
+              const label = clean(text(rowLabels[0].node));
+              const valueLines = lines.filter((e) => e.path.startsWith(`${rowValues[0].path}/`));
+              if (
+                !label ||
+                directElements(rowValues[0].node).length !== valueLines.length ||
+                valueLines.some(
+                  (line) =>
+                    line.node.parentNode !== rowValues[0].node ||
+                    directElements(line.node).length !== 0,
+                )
+              ) {
+                unsafe = true;
+                continue;
+              }
+              const content = valueLines.map((line) => clean(text(line.node)));
+              if (index === 0) {
+                if (
+                  label !== structure.identity_label ||
+                  content.length !== 1 ||
+                  content[0] !== requested.trim() ||
+                  rowValues[0].node !== identity[0].node
+                )
+                  unsafe = true;
+                continue;
+              }
+              if (
+                label === structure.identity_label ||
+                /\b(?:models?|variants?|sku|mpn|part\s*(?:number|no\.?))\b/i.test(label)
+              ) {
+                unsafe = true;
+                continue;
+              }
+              if (!content.length || content.every((value) => !value)) {
+                diagnostics.push({
+                  code: 'missing_value',
+                  message: 'Empty explicit block remains unknown.',
+                });
+                continue;
+              }
+              if (content.some((value) => !value)) {
+                unsafe = true;
+                continue;
+              }
+              // An explicit sublabel with no value is missing evidence, not a
+              // flat scalar consisting of the sublabel's punctuation.
+              if (content.some((value) => /^[^:]+:\s*$/.test(value))) {
+                unsafe = true;
+                continue;
+              }
+              const nested = content.map((value) => /^([^:]+):\s*(.+)$/.exec(value));
+              if (nested.some(Boolean) && nested.some((match) => !match)) {
+                unsafe = true;
+                continue;
+              }
+              if (
+                nested.every(Boolean) &&
+                new Set(nested.map((match) => match![1].trim().toLowerCase())).size !==
+                  nested.length
+              ) {
+                unsafe = true;
+                continue;
+              }
+              const heading = clean(text(headings[0].node));
+              if (nested.every(Boolean)) {
+                content.forEach((_value, lineIndex) => {
+                  const match = nested[lineIndex]!;
+                  pairs.push({
+                    label: match[1].trim(),
+                    value: match[2].trim(),
+                    path: valueLines[lineIndex].path,
+                    label_path: valueLines[lineIndex].path,
+                    conditions: [heading, label],
+                    condition_paths: [headings[0].path, rowLabels[0].path],
+                  });
+                });
+              } else {
+                pairs.push({
+                  label,
+                  value: content.length === 1 ? content[0] : content,
+                  path: rowValues[0].path,
+                  label_path: rowLabels[0].path,
+                  conditions: [heading],
+                  condition_paths: [headings[0].path],
+                });
+              }
+            }
+            if (unsafe) {
+              diagnostics.push({
+                code: 'unsupported_structure',
+                message: `Ambiguous explicit label/value blocks in '${entry.path}'.`,
               });
               continue;
             }
@@ -619,7 +774,10 @@ export const prepareProfileQualifiedEvidence = (input: {
                 pairs,
               }),
               entry.path,
-              pairs.map(({ label, value }) => ({ label, value })),
+              pairs.map(({ label, value }) => ({
+                label,
+                value: typeof value === 'string' ? value : JSON.stringify(value),
+              })),
             );
           for (const pair of pairs)
             observations.push({
@@ -632,6 +790,7 @@ export const prepareProfileQualifiedEvidence = (input: {
               scope,
               context: profileContext,
               conditions: pair.conditions,
+              condition_locations: pair.condition_paths?.map((path) => ({ kind: 'html', path })),
             });
         }
       }
@@ -719,7 +878,9 @@ export const prepareProfileQualifiedEvidence = (input: {
               source_reference: documentRef,
               locator: o.location,
             },
-            ...(o.conditions ?? []).map((c) => evidence('qualifier', c, o.location)),
+            ...(o.conditions ?? []).map((c, index) =>
+              evidence('qualifier', c, o.condition_locations?.[index] ?? o.location),
+            ),
           ],
           qualifier: o.scope.reason?.startsWith('reviewed-structured-record')
             ? 'reviewed-structured-record'

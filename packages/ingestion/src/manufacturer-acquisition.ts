@@ -126,7 +126,12 @@ export interface HtmlFactRule {
   readonly regions: readonly {
     readonly selector: readonly HtmlNodeSelector[];
     readonly kind:
-      'table' | 'definition' | 'label_value_lines' | 'label_value_list' | 'model_label_value_rows';
+      | 'table'
+      | 'definition'
+      | 'label_value_lines'
+      | 'label_value_list'
+      | 'model_label_value_rows'
+      | 'explicit_label_value_blocks';
     /** Explicit direct row/cell structure; not visual CSS table inference. */
     readonly model_rows?: {
       readonly row_selector: readonly HtmlNodeSelector[];
@@ -134,6 +139,15 @@ export interface HtmlFactRule {
       readonly header_selector: readonly HtmlNodeSelector[];
       readonly value_identity_attribute: string;
       readonly context_container_selector: readonly HtmlNodeSelector[];
+      readonly context_heading_selector: readonly HtmlNodeSelector[];
+    };
+    /** One exact model block followed by directly owned label/value blocks. */
+    readonly explicit_blocks?: {
+      readonly row_selector: readonly HtmlNodeSelector[];
+      readonly label_selector: readonly HtmlNodeSelector[];
+      readonly value_selector: readonly HtmlNodeSelector[];
+      readonly value_line_selector: readonly HtmlNodeSelector[];
+      readonly identity_label: string;
       readonly context_heading_selector: readonly HtmlNodeSelector[];
     };
     readonly heading?: { readonly selector: readonly HtmlNodeSelector[]; readonly text: string };
@@ -542,6 +556,25 @@ export const validateManufacturerAcquisitionProfile = (
         }
       }
     }
+  }
+  if (isJsonObject(profile) && Array.isArray(profile.html_fact_rules)) {
+    profile.html_fact_rules.forEach((rule, index) => {
+      if (!isJsonObject(rule) || !Array.isArray(rule.regions)) return;
+      const kinds = rule.regions.filter(isJsonObject).map((region) => region.kind);
+      if (
+        kinds.includes('explicit_label_value_blocks') &&
+        (rule.identity_kind !== 'model' ||
+          kinds.some((kind) => kind !== 'explicit_label_value_blocks'))
+      ) {
+        issues.push(
+          issue(
+            'mixed_explicit_block_identity',
+            `html_fact_rules[${index}].regions`,
+            'Explicit blocks require model identity and cannot share a rule with another identity contract.',
+          ),
+        );
+      }
+    });
   }
   const sortedIssues = [...issues].sort(issueCompare);
   return {

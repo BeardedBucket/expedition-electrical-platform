@@ -1,0 +1,47 @@
+{
+  "schema_version": "1.5",
+  "id": "ecoflow.web.acquisition-profile",
+  "profile_status": "reviewed",
+  "manufacturer": "EcoFlow",
+  "publisher": "EcoFlow",
+  "official_domains": ["us.ecoflow.com"],
+  "strategies": [],
+  "provenance": {
+    "source_artifact": "https://us.ecoflow.com/products/800w-alternator-charger (source-shape research, 2026-09-29)",
+    "observed_source_content_hash": "sha256:ae5b41a69fd7ef43395213e097bd3bfed0a6587c28dfcdc0e60bc515a5be10ab"
+  },
+  "html_fact_rules": [
+    {
+      "id": "exact-model-explicit-specification-blocks",
+      "status": "reviewed",
+      "path_prefix": "/products/800w-alternator-charger",
+      "identity_kind": "model",
+      "identity_selector": [
+        { "tag": "section", "class_name": "pdp-specs" },
+        { "tag": "div", "class_name": "pdp-specs-container" },
+        { "tag": "div", "class_name": "pdp-specs-block" },
+        { "tag": "div", "class_name": "pdp-specs-content" }
+      ],
+      "regions": [
+        {
+          "kind": "explicit_label_value_blocks",
+          "selector": [
+            { "tag": "section", "class_name": "pdp-specs" },
+            { "tag": "div", "class_name": "pdp-specs-container" }
+          ],
+          "explicit_blocks": {
+            "row_selector": [{ "tag": "div", "class_name": "pdp-specs-block" }],
+            "label_selector": [{ "tag": "p", "class_name": "pdp-specs-title" }],
+            "value_selector": [{ "tag": "div", "class_name": "pdp-specs-content" }],
+            "value_line_selector": [{ "tag": "p" }],
+            "identity_label": "Model",
+            "context_heading_selector": [
+              { "tag": "section", "class_name": "pdp-specs" },
+              { "tag": "h2" }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
