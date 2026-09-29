@@ -61,6 +61,46 @@ const client = (): OperatorApi => ({
   prepare: vi.fn().mockResolvedValue(detail),
   get: vi.fn().mockResolvedValue(detail),
   list: vi.fn().mockResolvedValue({ jobs: [] }),
+  createBatch: vi.fn().mockResolvedValue({
+    summary: {
+      id,
+      created_at: '',
+      updated_at: '',
+      state: 'pending',
+      requested_count: 1,
+      job_count: 1,
+      counts: { pending: 1 },
+      jobs: [{ id, state: 'created' }],
+    },
+    job_ids: [id],
+  }),
+  listBatches: vi.fn().mockResolvedValue({ batches: [] }),
+  getBatch: vi.fn().mockResolvedValue({
+    summary: {
+      id,
+      created_at: '',
+      updated_at: '',
+      state: 'pending',
+      requested_count: 1,
+      job_count: 1,
+      counts: { pending: 1 },
+      jobs: [{ id, state: 'created' }],
+    },
+    job_ids: [id],
+  }),
+  prepareBatch: vi.fn().mockResolvedValue({
+    summary: {
+      id,
+      created_at: '',
+      updated_at: '',
+      state: 'review_ready',
+      requested_count: 1,
+      job_count: 1,
+      counts: { review_ready: 1 },
+      jobs: [{ id, state: 'review_ready' }],
+    },
+    job_ids: [id],
+  }),
 });
 afterEach(async () => {
   cleanup();
@@ -99,6 +139,16 @@ function expectEnteredIntake() {
     expect(screen.getByLabelText(intakeLabels[index])).toHaveValue(value);
 }
 describe('ingestion admin operator interface', () => {
+  it('navigates to persisted batches and the batch creation surface', async () => {
+    const api = client();
+    render(<App client={api} />);
+    fireEvent.click(screen.getByRole('link', { name: 'Batches' }));
+    await screen.findByRole('heading', { name: 'Ingestion batches' });
+    expect(api.listBatches).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('link', { name: 'Create batch' }));
+    await screen.findByRole('heading', { name: 'Create batch' });
+    expect(screen.getByLabelText('Product 1 Manufacturer')).toBeInTheDocument();
+  });
   it('warns non-blockingly when suggestions fail and still creates a free-entry product', async () => {
     const api = client();
     vi.mocked(api.suggestions).mockRejectedValue(new Error('Unavailable'));

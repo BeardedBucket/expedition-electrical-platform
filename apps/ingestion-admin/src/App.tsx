@@ -7,6 +7,7 @@ import {
   type OperatorJobDetail,
   type OperatorJobSummary,
 } from './api.js';
+import { BatchCreate, BatchList, BatchPage } from './BatchWorkflow.js';
 
 const display = (value: unknown): string =>
   value === undefined
@@ -648,6 +649,7 @@ export default function App({ client = api }: { client?: OperatorApi }) {
     }
   }
   const id = /^#\/jobs\/([^/]+)$/.exec(route)?.[1];
+  const batchId = /^#\/batches\/([^/]+)$/.exec(route)?.[1];
   return (
     <>
       <header>
@@ -659,12 +661,19 @@ export default function App({ client = api }: { client?: OperatorApi }) {
             Add product
           </a>
           <a href="#/jobs">Recent jobs</a>
+          <a href="#/batches">Batches</a>
         </nav>
       </header>
       <main>
         {error && <p role="alert">{error}</p>}
         {id ? (
           <JobPage key={id} id={id} client={client} />
+        ) : route === '#/batches/new' ? (
+          <BatchCreate client={client} />
+        ) : batchId ? (
+          <BatchPage key={batchId} id={batchId} client={client} />
+        ) : route === '#/batches' ? (
+          <BatchList client={client} />
         ) : route === '#/jobs' ? (
           <RecentJobs client={client} />
         ) : (

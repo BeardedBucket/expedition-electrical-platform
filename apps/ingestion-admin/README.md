@@ -44,6 +44,10 @@ The `INGESTION_ADMIN_ORIGIN` setting defaults to `http://127.0.0.1:5174`. It is 
 | `POST /api/ingestion/jobs/:id/prepare` | No body                                                                                                                  | 200 operator detail DTO after preparation completes, including persisted failures |
 | `GET /api/ingestion/jobs/:id`          | UUID job ID                                                                                                              | 200 operator detail DTO                                                           |
 | `GET /api/ingestion/jobs`              | None                                                                                                                     | `{ jobs: OperatorJobSummary[] }`, latest updated first; ID ascending breaks ties  |
+| `POST /api/ingestion/batches`          | Non-empty array of 1–50 ordinary product-intake identity records                                                        | 201 `{ summary, job_ids }`                                                        |
+| `GET /api/ingestion/batches`            | None                                                                                                                     | `{ batches: BatchSummary[] }`                                                     |
+| `GET /api/ingestion/batches/:id`        | UUID batch ID                                                                                                            | 200 `{ summary, job_ids }`                                                        |
+| `POST /api/ingestion/batches/:id/prepare` | No body                                                                                                                | 200 refreshed `{ summary, job_ids }`                                              |
 
 The server constructs a versioned `ProductIntake` with `intake.<random UUID>` as a convenience intake ID. It does not derive canonical product identity from this ID. Existing runtime intake validation remains authoritative; source URI and officiality handling stay in acquisition/capture.
 
@@ -84,3 +88,9 @@ Canonical intake suggestions are served at `GET /api/ingestion/suggestions` from
 MPN-only intake is persisted awaiting official source resolution and cannot prepare evidence yet. See [the identity audit](../../docs/FLEXIBLE_PRODUCT_IDENTITY_AUDIT.md) for the resolver architecture boundary and validation contract.
 
 Suggestion loading is lazy and isolated to its endpoint. A loading failure returns HTTP 503 with a safe unavailable message; job routes remain usable through free entry. Each later suggestion request can retry. Failed loading never returns an authoritative empty list.
+
+## Batch operator workflow
+
+The Batches navigation uses the existing batch API to create one durable group from 1–50 ordinary product-intake records, list persisted batches, inspect server-provided timestamps/state/counts and ordered child states, and prepare eligible children. The form reuses the same four operator identity fields and validation requirements as Add Product; the server constructs the versioned `ProductIntake` records. It rejects an invalid size or missing product identity rather than truncating or silently dropping an entry.
+
+A batch is only an orchestration/grouping layer: its children remain the authoritative individual jobs. Prepare invokes the existing child preparation flow; it neither approves nor finalizes children, writes canonical data, nor retries failed or reviewed children. Mixed child outcomes and exact lifecycle states stay visible, and each child links to its existing job review route. Approval, rejection, defer, and finalization remain available only in the individual job workflow.
