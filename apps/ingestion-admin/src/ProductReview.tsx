@@ -161,7 +161,10 @@ export function ProductReview({
               Candidate supporting facts: <ReviewValue value={assertion.candidate_fact_ids} />
             </div>
             {assertion.proposals.map((proposal) => (
-              <div className="source-evidence" key={proposal.id}>
+              <details className="source-evidence" key={proposal.id}>
+                <summary>
+                  Source evidence for proposal {proposal.id} · {proposal.disposition}
+                </summary>
                 <p>
                   Proposal: {proposal.id} · {proposal.disposition}
                 </p>
@@ -178,7 +181,7 @@ export function ProductReview({
                     </p>
                   </div>
                 ))}
-              </div>
+              </details>
             ))}
             <label>
               <input
@@ -202,7 +205,10 @@ export function ProductReview({
               Proposed canonical value: <ReviewValue value={field.value} />
             </p>
             {field.proposals.map((proposal) => (
-              <div className="source-evidence" key={proposal.id}>
+              <details className="source-evidence" key={proposal.id}>
+                <summary>
+                  Source evidence for proposal {proposal.id} · {proposal.disposition}
+                </summary>
                 <p>
                   Proposal disposition: <strong>{proposal.disposition}</strong>
                   {!proposal.projected && ' · Excluded from candidate projection'}
@@ -256,7 +262,7 @@ export function ProductReview({
                   <p>{proposal.id}</p>
                   <ReviewValue value={proposal.references} />
                 </details>
-              </div>
+              </details>
             ))}
             {field.selectable ? (
               <>

@@ -36,6 +36,36 @@ nav {
   display: flex;
   gap: 1.5rem;
 }
+.review-nav {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  background: #edf2f5;
+  padding: 0.6rem 0;
+}
+.review-nav button {
+  padding: 0.5rem 0.8rem;
+}
+.review-nav button.active {
+  background: #182c3c;
+}
+.pipeline-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem;
+}
+.pipeline-grid p {
+  margin: 0;
+  padding: 0.8rem;
+  background: #f4f7f9;
+  border: 1px solid #d4e0e7;
+  border-radius: 4px;
+}
+[hidden] {
+  display: none !important;
+}
 main {
   max-width: 1440px;
   padding: 2rem 4vw;

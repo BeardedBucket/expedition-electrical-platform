@@ -79,6 +79,26 @@ async function fixture(candidate: boolean | 'qualified' | 'mixed' = true, resolv
   return { root, canonical, service, url: `${url}/${id}`, id, job, detail, human, selections };
 }
 describe('human review and guarded finalization API', () => {
+  it('derives operator stage counts from the durable preparation without treating extraction as qualification', async () => {
+    const f = await fixture();
+    const p = f.job.preparation;
+    if (!p || p.status !== 'review_ready') throw new Error('Fixture did not prepare');
+    const stage = f.detail.pipeline_summary;
+    expect(stage.capture_dispositions.authoritative).toBe(
+      p.captures.filter((capture) => capture.disposition === 'authoritative').length,
+    );
+    expect(stage.extraction_results).toBe(p.document_extractions.length);
+    expect(stage.extracted_observations).toBe(
+      p.document_extractions.reduce((count, extraction) => count + extraction.blocks.length, 0),
+    );
+    expect(stage.qualified_facts).toBe(p.qualified_facts.length);
+    expect(stage.reconciliation_groups).toBe(p.reconciliation.group_reconciliations.length);
+    expect(stage.semantic_proposals).toBe(p.proposals.length);
+    expect(stage.projected_fields).toBe(
+      Object.keys(p.bridge.candidate?.field_evidence ?? {}).length,
+    );
+    expect(stage.qualified_values).toBe(0);
+  });
   it('approves offline Ekrano-shaped qualified-only evidence through the real operator API, then separately finalizes', async () => {
     const f = await fixture('qualified');
     const review = f.detail.product_review;

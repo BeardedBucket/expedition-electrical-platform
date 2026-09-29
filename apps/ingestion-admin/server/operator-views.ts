@@ -190,6 +190,56 @@ export const jobDetail = (job: IngestionJob) => {
   const r = p?.status === 'review_ready' ? p : undefined;
   const candidate = r?.bridge.candidate;
   const pkg = r?.review_package;
+  // Counts describe persisted stage outputs, not a browser inference that a captured
+  // source is a fact or that a semantic proposal is eligible for promotion.
+  const pipeline_summary = p
+    ? {
+        capture_dispositions: {
+          authoritative: p.captures.filter((capture) => capture.disposition === 'authoritative')
+            .length,
+          non_authoritative: p.captures.filter(
+            (capture) => capture.disposition === 'non_authoritative',
+          ).length,
+          failed: p.captures.filter((capture) => capture.disposition === 'failed').length,
+          empty: p.captures.filter((capture) => capture.disposition === 'empty').length,
+        },
+        extraction_results: p.document_extractions.length,
+        extracted_observations: p.document_extractions.reduce(
+          (count, extraction) => count + extraction.blocks.length,
+          0,
+        ),
+        qualified_facts: p.qualified_facts.length,
+        reconciliation_groups: r?.reconciliation.group_reconciliations.length,
+        reconciliation_dispositions: r
+          ? Object.fromEntries(
+              [
+                ...new Set(r.reconciliation.group_reconciliations.map((group) => group.outcome)),
+              ].map((outcome) => [
+                outcome,
+                r.reconciliation.group_reconciliations.filter((group) => group.outcome === outcome)
+                  .length,
+              ]),
+            )
+          : undefined,
+        semantic_proposals: r?.proposals.length,
+        proposal_dispositions: r
+          ? Object.fromEntries(
+              [...new Set(r.proposals.map((proposal) => proposal.disposition))].map(
+                (disposition) => [
+                  disposition,
+                  r.proposals.filter((proposal) => proposal.disposition === disposition).length,
+                ],
+              ),
+            )
+          : undefined,
+        projected_fields: r ? Object.keys(candidate?.field_evidence ?? {}).length : undefined,
+        qualified_values: r
+          ? Array.isArray(candidate?.component_data.qualified_values)
+            ? candidate.component_data.qualified_values.length
+            : 0
+          : undefined,
+      }
+    : undefined;
   const acceptedResolution =
     job.accepted_source_resolution?.kind === 'source_resolution'
       ? job.source_resolution_attempts?.find(
@@ -200,6 +250,7 @@ export const jobDetail = (job: IngestionJob) => {
       : undefined;
   return {
     summary: jobSummary(job),
+    pipeline_summary,
     product_review: productReviewView(job),
     approval: job.approval
       ? {
@@ -455,6 +506,11 @@ export const jobDetail = (job: IngestionJob) => {
 export type OperatorJobSummary = ReturnType<typeof jobSummary>;
 export type OperatorJobDetail = Omit<
   ReturnType<typeof jobDetail>,
-  'product_review' | 'approval' | 'finalization'
+  'product_review' | 'approval' | 'finalization' | 'pipeline_summary'
 > &
-  Partial<Pick<ReturnType<typeof jobDetail>, 'product_review' | 'approval' | 'finalization'>>;
+  Partial<
+    Pick<
+      ReturnType<typeof jobDetail>,
+      'product_review' | 'approval' | 'finalization' | 'pipeline_summary'
+    >
+  >;

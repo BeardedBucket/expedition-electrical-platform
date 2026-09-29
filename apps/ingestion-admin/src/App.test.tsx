@@ -139,6 +139,153 @@ function expectEnteredIntake() {
     expect(screen.getByLabelText(intakeLabels[index])).toHaveValue(value);
 }
 describe('ingestion admin operator interface', () => {
+  it('summarizes populated preparation, partial acquisition and reviewable fields before details', () => {
+    const job = {
+      ...detail,
+      acquisition: {
+        status: 'partially_acquired',
+        issues: ['HTTP 503'],
+        candidate_count: 4,
+        selected_count: 2,
+        captured_count: 2,
+        duplicate_count: 1,
+        excluded_by_policy_count: 0,
+      },
+      pipeline_summary: {
+        capture_dispositions: { authoritative: 1, non_authoritative: 0, failed: 1, empty: 0 },
+        extraction_results: 2,
+        extracted_observations: 14,
+        qualified_facts: 3,
+        reconciliation_groups: 3,
+        reconciliation_dispositions: { single_observation: 3 },
+        semantic_proposals: 3,
+        proposal_dispositions: { mapped: 1, unsupported: 2 },
+        projected_fields: 1,
+        qualified_values: 0,
+      },
+      product_review: {
+        roles: ['battery'],
+        truncated: false,
+        fields: [
+          {
+            path: 'weight_kg',
+            value: 12,
+            selectable: true,
+            candidate_fact_ids: ['fact.1'],
+            proposals: [],
+          },
+        ],
+        qualified_values: [],
+        candidate_facts: [],
+      },
+    } as unknown as OperatorJobDetail;
+    render(<Review job={job} />);
+    expect(
+      screen.getByText(/1 authoritative · 0 non-authoritative · 1 failed/),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/3 ordinary fields|1 ordinary fields/)).toBeInTheDocument();
+    expect(screen.getByText('weight_kg: 12')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Some sources failed');
+    expect(screen.queryByText('No promotable fields are currently available.')).toBeNull();
+  });
+  it('explains facts that stop at unresolved proposals without offering approval', async () => {
+    const job = {
+      ...detail,
+      pipeline_summary: {
+        capture_dispositions: { authoritative: 1, non_authoritative: 0, failed: 0, empty: 0 },
+        extraction_results: 1,
+        extracted_observations: 5,
+        qualified_facts: 3,
+        reconciliation_groups: 3,
+        reconciliation_dispositions: { single_observation: 3 },
+        semantic_proposals: 3,
+        proposal_dispositions: { unsupported: 3 },
+        projected_fields: 0,
+        qualified_values: 0,
+      },
+      proposals: [
+        {
+          id: 'proposal.1',
+          target: 'source_label:capacity',
+          disposition: 'unsupported',
+          proposed_value: undefined,
+          evidence_refs: [],
+          fact_refs: [],
+        },
+      ],
+    } as unknown as OperatorJobDetail;
+    const c = client();
+    vi.mocked(c.get).mockResolvedValue(job);
+    window.location.hash = `#/jobs/${id}`;
+    render(<App client={c} />);
+    expect(
+      await screen.findByText(/Facts were recovered, but no fields reached candidate projection/),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Unresolved' }));
+    expect(screen.getByText('source_label:capacity')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Reviewable fields' }));
+    expect(screen.queryByRole('button', { name: 'Approve selected assertions' })).toBeNull();
+    expect(c.review).not.toHaveBeenCalled();
+  });
+  it('keeps review selections while navigating and leaves approval and write guarded', async () => {
+    const job = {
+      ...detail,
+      candidate: { ...detail.candidate, present: true },
+      product_review: {
+        roles: ['battery'],
+        truncated: false,
+        canonical_id: 'example.model',
+        fields: [
+          {
+            path: 'weight_kg',
+            value: 12,
+            selectable: true,
+            candidate_fact_ids: ['fact.1'],
+            proposals: [],
+          },
+        ],
+        qualified_values: [],
+        candidate_facts: [],
+      },
+    } as unknown as OperatorJobDetail;
+    const c = client();
+    vi.mocked(c.get).mockResolvedValue(job);
+    window.location.hash = `#/jobs/${id}`;
+    render(<App client={c} />);
+    await screen.findByText('weight_kg: 12');
+    expect(screen.queryByRole('button', { name: 'Approve selected assertions' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Reviewable fields' }));
+    expect(screen.getByRole('button', { name: 'Approve selected assertions' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Write canonical component' })).toBeNull();
+    fireEvent.change(screen.getByLabelText('Human decision for weight_kg'), {
+      target: { value: 'approve' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Sources' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Reviewable fields' }));
+    expect(screen.getByLabelText('Human decision for weight_kg')).toHaveValue('approve');
+    expect(screen.getByRole('button', { name: 'Approve selected assertions' })).toBeDisabled();
+    expect(c.review).not.toHaveBeenCalled();
+    expect(c.finalize).not.toHaveBeenCalled();
+  });
+  it('keeps preparation failure distinct from a successful empty result', () => {
+    render(
+      <Review
+        job={{
+          ...detail,
+          summary: { ...detail.summary, state: 'preparation_failed' },
+          candidate: undefined,
+          diagnostics: [{ code: 'capture_failed', message: 'Capture failed' }],
+        }}
+      />,
+    );
+    expect(
+      screen.getByText('Preparation failed. Inspect the diagnostics below.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/This failed preparation is not eligible for approval/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/No promotable fields are currently available/)).toBeNull();
+  });
   it('navigates to persisted batches and the batch creation surface', async () => {
     const api = client();
     render(<App client={api} />);
@@ -337,9 +484,8 @@ describe('ingestion admin operator interface', () => {
     expect(api.create).toHaveBeenCalledWith(detail.intake);
     expect(api.prepare).toHaveBeenCalledWith(id);
     expect(window.location.hash).toBe(`#/jobs/${id}`);
-    expect(
-      screen.getByText('No product candidate was produced from the currently qualified evidence.'),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/No promotable fields are currently available/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Evidence / facts' }));
     expect(screen.getByText('0 semantic proposals')).toBeInTheDocument();
     expect(screen.getByText(/^0 facts\./)).toBeInTheDocument();
   });
@@ -361,7 +507,9 @@ describe('ingestion admin operator interface', () => {
     );
     expect(screen.getByText('preparing')).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('Preparation is running');
-    expect(screen.getByText('Candidate projection is not available yet.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Preparation has not produced pipeline artifacts.'),
+    ).toBeInTheDocument();
   });
   it('distinguishes capture, extraction capability, and qualification outcomes', () => {
     render(
@@ -412,9 +560,47 @@ describe('ingestion admin operator interface', () => {
             },
           ],
         }}
+        section="sources"
       />,
     );
-    for (const text of ['not_attempted', 'duplicate_uri', 'unsupported', 'no_qualifiable_facts'])
+    for (const text of ['not_attempted', 'duplicate_uri'])
+      expect(screen.getByText(text)).toBeInTheDocument();
+    cleanup();
+    render(
+      <Review
+        job={{
+          ...detail,
+          extractions: [
+            {
+              id: 'extract',
+              source_capture: {
+                kind: 'source_capture',
+                reference: 'capture',
+                reference_schema_version: '1.0',
+                digest: 'sha256:a',
+                digest_algorithm: 'sha256',
+              },
+              acquisition_candidate_id: undefined,
+              status: 'unsupported',
+              capability: 'capability_not_implemented',
+              remediation: 'implementation_required',
+              page_count: undefined,
+              block_count: 0,
+              table_count: 0,
+              diagnostics: [],
+              qualification: {
+                status: 'no_qualifiable_facts',
+                completeness: 'incomplete',
+                fact_count: 0,
+                diagnostics: [],
+              },
+            },
+          ],
+        }}
+        section="evidence"
+      />,
+    );
+    for (const text of ['unsupported', 'no_qualifiable_facts'])
       expect(screen.getByText(text)).toBeInTheDocument();
     expect(screen.getByText(/Capability: capability_not_implemented/)).toBeInTheDocument();
   });
@@ -637,7 +823,9 @@ it('shows accepted source separately, enables explicit preparation, and skips re
   vi.mocked(c.get).mockResolvedValue(sourceJob('created'));
   window.location.hash = `#/jobs/${id}`;
   render(<App client={c} />);
-  expect(await screen.findByText('Accepted resolved source')).toBeInTheDocument();
+  await screen.findByText('Resolved official source');
+  fireEvent.click(screen.getByRole('button', { name: 'Sources' }));
+  expect(screen.getByText('Accepted resolved source')).toBeInTheDocument();
   expect(
     screen.getByText('The original intake remains unchanged and has no official product URL.'),
   ).toBeInTheDocument();

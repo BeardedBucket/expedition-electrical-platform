@@ -57,252 +57,406 @@ function Table({
     </div>
   );
 }
-export function Review({ job }: { job: OperatorJobDetail }) {
+type ReviewSection = 'overview' | 'unresolved' | 'evidence' | 'sources' | 'diagnostics';
+export function Review({
+  job,
+  section = 'overview',
+}: {
+  job: OperatorJobDetail;
+  section?: ReviewSection;
+}) {
   const { summary: s } = job;
+  const pipeline = job.pipeline_summary;
+  const reviewable = job.product_review?.fields.filter((field) => field.selectable) ?? [];
+  const qualified = job.product_review?.qualified_values ?? [];
   return (
     <>
-      <section>
-        <div className="eyebrow">Job {s.id}</div>
-        <h1>{s.product_model}</h1>
-        <p className={`state state-${s.state}`}>{s.state}</p>
-        {s.state === 'preparing' && (
-          <p role="status">
-            Preparation is running. Acquiring, extracting, and qualifying official evidence can take
-            several minutes.
-          </p>
-        )}
-        {s.state === 'source_resolution_required' && (
+      {section === 'overview' && (
+        <section>
+          <div className="eyebrow">Job {s.id}</div>
+          <h1>{s.product_model}</h1>
+          <p className={`state state-${s.state}`}>{s.state}</p>
+          {s.state === 'preparing' && (
+            <p role="status">
+              Preparation is running. Acquiring, extracting, and qualifying official evidence can
+              take several minutes.
+            </p>
+          )}
+          {s.state === 'source_resolution_required' && (
+            <p>
+              Official source resolution is required before preparation. This job preserves your
+              original request. Propose an official manufacturer URL for source identity review.
+            </p>
+          )}
+          {s.state === 'created' && (
+            <p>Job created. Preparation has not yet been persisted as running.</p>
+          )}
+          {s.state === 'preparation_failed' && (
+            <p>Preparation failed. Inspect the diagnostics below.</p>
+          )}
+          <h2>Overview</h2>
+          <dl>
+            <dt>Manufacturer</dt>
+            <dd>{s.manufacturer}</dd>
+            <dt>MPN</dt>
+            <dd>{s.manufacturer_part_number ?? 'Not supplied'}</dd>
+            <dt>{s.official_product_uri ? 'Official product URL' : 'Original product URL'}</dt>
+            <dd>{s.official_product_uri ?? 'Not supplied'}</dd>
+            {!s.official_product_uri && job.source_resolution?.accepted_uri && (
+              <>
+                <dt>Resolved official source</dt>
+                <dd>
+                  <a
+                    href={job.source_resolution.accepted_uri}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {job.source_resolution.accepted_uri}
+                  </a>
+                </dd>
+              </>
+            )}
+            <dt>Created</dt>
+            <dd>{s.created_at}</dd>
+            <dt>Updated</dt>
+            <dd>{s.updated_at}</dd>
+            <dt>Facts</dt>
+            <dd>{display(s.fact_count)}</dd>
+            <dt>Proposals</dt>
+            <dd>{display(s.proposal_count)}</dd>
+            <dt>Candidate present</dt>
+            <dd>{display(s.candidate_present)}</dd>
+            <dt>Conflicts / unresolved</dt>
+            <dd>
+              {display(s.conflict_count)} / {display(s.unresolved_count)}
+            </dd>
+            {s.write_status !== undefined && (
+              <>
+                <dt>Write status</dt>
+                <dd>{s.write_status}</dd>
+                <dt>Final result</dt>
+                <dd>{display(s.final_result_status)}</dd>
+              </>
+            )}
+          </dl>
+          {s.state === 'review_ready' && (
+            <p>Preparation is ready for human review. Evidence and proposals remain provisional.</p>
+          )}
+          <h2>Pipeline health</h2>
+          {pipeline ? (
+            <div className="pipeline-grid">
+              <p>
+                <strong>Acquisition</strong>
+                <br />
+                {job.acquisition?.status ?? 'Unknown'}
+                <br />
+                {pipeline.capture_dispositions.authoritative} authoritative ·{' '}
+                {pipeline.capture_dispositions.non_authoritative} non-authoritative ·{' '}
+                {pipeline.capture_dispositions.failed} failed ·{' '}
+                {pipeline.capture_dispositions.empty} empty
+              </p>
+              <p>
+                <strong>Extraction</strong>
+                <br />
+                {pipeline.extraction_results} results · {pipeline.extracted_observations} retained
+                blocks
+              </p>
+              <p>
+                <strong>Qualified facts</strong>
+                <br />
+                {pipeline.qualified_facts}
+              </p>
+              <p>
+                <strong>Reconciliation</strong>
+                <br />
+                {display(pipeline.reconciliation_groups)} groups
+                <br />
+                {display(pipeline.reconciliation_dispositions)}
+              </p>
+              <p>
+                <strong>Semantic proposals</strong>
+                <br />
+                {display(pipeline.semantic_proposals)}
+                <br />
+                {display(pipeline.proposal_dispositions)}
+              </p>
+              <p>
+                <strong>Candidate projection</strong>
+                <br />
+                {display(pipeline.projected_fields)} fields · {display(pipeline.qualified_values)}{' '}
+                qualified values
+              </p>
+            </div>
+          ) : (
+            <p>Preparation has not produced pipeline artifacts.</p>
+          )}
+          {pipeline?.capture_dispositions.failed ? (
+            <p role="status">
+              {pipeline.capture_dispositions.authoritative
+                ? 'Some sources failed. Check Sources for their identities; retained authoritative evidence remains available for review.'
+                : 'Source capture failed and no authoritative capture was retained. Check Sources and Diagnostics.'}
+            </p>
+          ) : null}
+          <h2>Human review</h2>
           <p>
-            Official source resolution is required before preparation. This job preserves your
-            original request. Propose an official manufacturer URL for source identity review.
+            {job.product_review ? reviewable.length : 'Unknown'} ordinary fields and{' '}
+            {job.product_review ? qualified.length : 'Unknown'} qualified assertions are selectable
+            for human review. {display(job.review_package?.unresolved_count)} review package items
+            remain unresolved.
           </p>
-        )}
-        {s.state === 'created' && (
-          <p>Job created. Preparation has not yet been persisted as running.</p>
-        )}
-        {s.state === 'preparation_failed' && (
-          <p>Preparation failed. Inspect the diagnostics below.</p>
-        )}
-        <h2>Overview</h2>
-        <dl>
-          <dt>Manufacturer</dt>
-          <dd>{s.manufacturer}</dd>
-          <dt>MPN</dt>
-          <dd>{s.manufacturer_part_number ?? 'Not supplied'}</dd>
-          <dt>{s.official_product_uri ? 'Official product URL' : 'Original product URL'}</dt>
-          <dd>{s.official_product_uri ?? 'Not supplied'}</dd>
-          {!s.official_product_uri && job.source_resolution?.accepted_uri && (
-            <>
-              <dt>Resolved official source</dt>
-              <dd>
-                <a
-                  href={job.source_resolution.accepted_uri}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {job.source_resolution.accepted_uri}
-                </a>
-              </dd>
-            </>
-          )}
-          <dt>Created</dt>
-          <dd>{s.created_at}</dd>
-          <dt>Updated</dt>
-          <dd>{s.updated_at}</dd>
-          <dt>Facts</dt>
-          <dd>{display(s.fact_count)}</dd>
-          <dt>Proposals</dt>
-          <dd>{display(s.proposal_count)}</dd>
-          <dt>Candidate present</dt>
-          <dd>{display(s.candidate_present)}</dd>
-          <dt>Conflicts / unresolved</dt>
-          <dd>
-            {display(s.conflict_count)} / {display(s.unresolved_count)}
-          </dd>
-          {s.write_status !== undefined && (
-            <>
-              <dt>Write status</dt>
-              <dd>{s.write_status}</dd>
-              <dt>Final result</dt>
-              <dd>{display(s.final_result_status)}</dd>
-            </>
-          )}
-        </dl>
-        {s.state === 'review_ready' && (
-          <p>Preparation is ready for human review. Evidence and proposals remain provisional.</p>
-        )}
-      </section>
-      <section>
-        <h2>Sources</h2>
-        {job.acquisition ? (
-          <>
-            <Values value={job.acquisition} />
-            <p>
-              Captured count includes the intake seed. Duplicate and excluded sources can remain
-              not_attempted.
+          {reviewable.length || qualified.length ? (
+            <ul>
+              {reviewable.map((field) => (
+                <li key={field.path}>
+                  {field.path}: {display(field.value)}
+                </li>
+              ))}
+              {qualified.map((assertion) => (
+                <li key={assertion.id}>
+                  {assertion.target}: {display(assertion.value)} ({assertion.id})
+                </li>
+              ))}
+            </ul>
+          ) : s.state === 'review_ready' ? (
+            <p className="empty">
+              No promotable fields are currently available. Inspect Unresolved and Evidence to
+              locate the stage where evidence stopped.
             </p>
-          </>
-        ) : (
-          <p>Acquisition is not available yet.</p>
-        )}
-        {job.sources && (
-          <Table
-            rows={job.sources}
-            columns={[
-              ['role', 'Role'],
-              ['label', 'Label'],
-              ['uri', 'URI'],
-              ['officiality', 'Officiality'],
-              ['selection', 'Selection'],
-              ['capture_outcome', 'Capture'],
-              ['capture_disposition', 'Disposition'],
-              ['media_type', 'Media type'],
-              ['parent_uri', 'Parent'],
-              ['duplicate_of', 'Duplicate of'],
-              ['equivalent_content_of', 'Equivalent content'],
-              ['reason_codes', 'Reason codes'],
-            ]}
-          />
-        )}
-      </section>
-      <section>
-        <h2>Extraction</h2>
-        <p>
-          Not captured sources have no extraction. Captured sources may be unsupported or have no
-          extractable content; extraction and qualification are separate outcomes.
-        </p>
-        {job.extractions === undefined ? (
-          <p>Extraction is not available yet.</p>
-        ) : job.extractions.length === 0 ? (
-          <p>No extraction results were produced.</p>
-        ) : (
-          job.extractions.map((e) => (
-            <article key={e.id}>
-              <h3>{e.id}</h3>
-              <p>
-                Extraction: <strong>{e.status}</strong> · Capability: {e.capability} · Remediation:{' '}
-                {e.remediation}
-              </p>
-              <p>
-                Pages: {display(e.page_count)} · Blocks: {e.block_count} · Tables: {e.table_count}
-              </p>
-              <details>
-                <summary>Source / capture identity</summary>
-                <Values value={e.source_capture} />
-                <p>Candidate: {display(e.acquisition_candidate_id)}</p>
-              </details>
-              {e.diagnostics && <Values value={e.diagnostics} />}
-              <h4>Qualification</h4>
-              {e.qualification ? (
-                <>
-                  <p>
-                    <strong>{e.qualification.status}</strong> · {e.qualification.completeness} ·{' '}
-                    {e.qualification.fact_count} facts
-                  </p>
-                  <Values value={e.qualification.diagnostics} />
-                </>
-              ) : (
-                <p>Qualification is not available.</p>
-              )}
-            </article>
-          ))
-        )}
-      </section>
-      <section>
-        <h2>Qualified Evidence</h2>
-        {job.facts ? (
-          <>
+          ) : null}
+          {pipeline?.qualified_facts &&
+          pipeline.semantic_proposals &&
+          !pipeline.projected_fields ? (
             <p>
-              {job.facts.length} facts. Qualification preserves source wording, units,
-              applicability, and uncertainty.
+              Facts were recovered, but no fields reached candidate projection. Inspect proposal
+              dispositions and non-projected reasons in Unresolved.
             </p>
+          ) : null}
+          <h2>Next action</h2>
+          <p>
+            {s.state === 'created'
+              ? 'Start preparation.'
+              : s.state === 'review_ready'
+                ? reviewable.length || qualified.length
+                  ? 'Inspect source evidence, then make an explicit human decision in Reviewable fields.'
+                  : 'Inspect unresolved evidence; defer or reject the review if it cannot be resolved.'
+                : s.state === 'approved'
+                  ? 'A separate confirmed finalization action is available in Reviewable fields.'
+                  : s.state === 'preparation_failed'
+                    ? 'Inspect Diagnostics and Sources. This failed preparation is not eligible for approval.'
+                    : s.state === 'source_resolution_required'
+                      ? 'Provide an official source candidate.'
+                      : 'Inspect the current job state and diagnostics.'}
+          </p>
+        </section>
+      )}
+      {section === 'sources' && (
+        <section>
+          <h2>Sources</h2>
+          {job.acquisition ? (
+            <>
+              <Values value={job.acquisition} />
+              <p>
+                Captured count includes the intake seed. Duplicate and excluded sources can remain
+                not_attempted.
+              </p>
+            </>
+          ) : (
+            <p>Acquisition is not available yet.</p>
+          )}
+          {job.sources && (
             <Table
-              rows={job.facts}
+              rows={job.sources}
               columns={[
-                ['id', 'Fact ID'],
-                ['source_label', 'Source label'],
-                ['raw_value', 'Raw value'],
-                ['source_unit', 'Source unit'],
-                ['applicability', 'Applicability'],
-                ['qualification_state', 'Qualification state'],
-                ['source_reference', 'Source reference'],
+                ['role', 'Role'],
+                ['label', 'Label'],
+                ['uri', 'URI'],
+                ['officiality', 'Officiality'],
+                ['selection', 'Selection'],
+                ['capture_outcome', 'Capture'],
+                ['capture_disposition', 'Disposition'],
+                ['media_type', 'Media type'],
+                ['parent_uri', 'Parent'],
+                ['duplicate_of', 'Duplicate of'],
+                ['equivalent_content_of', 'Equivalent content'],
+                ['reason_codes', 'Reason codes'],
               ]}
             />
-          </>
-        ) : (
-          <p>Qualified evidence is not available yet.</p>
-        )}
-      </section>
-      <section>
-        <h2>Reconciliation / Proposals</h2>
-        {job.reconciliation ? (
-          <>
+          )}
+        </section>
+      )}
+      {section === 'evidence' && (
+        <>
+          <section>
+            <h2>Extraction</h2>
             <p>
-              {job.reconciliation.agreement_count} agreement groups ·{' '}
-              {job.reconciliation.conflict_count} conflict groups ·{' '}
-              {job.reconciliation.unresolved_count} unresolved groups
+              Not captured sources have no extraction. Captured sources may be unsupported or have
+              no extractable content; extraction and qualification are separate outcomes.
             </p>
-            <Values value={job.reconciliation} />
-          </>
-        ) : (
-          <p>Reconciliation is not available.</p>
-        )}
-        {job.proposals && (
-          <>
-            <p>{job.proposals.length} semantic proposals</p>
+            {job.extractions === undefined ? (
+              <p>Extraction is not available yet.</p>
+            ) : job.extractions.length === 0 ? (
+              <p>No extraction results were produced.</p>
+            ) : (
+              job.extractions.map((e) => (
+                <article key={e.id}>
+                  <h3>{e.id}</h3>
+                  <p>
+                    Extraction: <strong>{e.status}</strong> · Capability: {e.capability} ·
+                    Remediation: {e.remediation}
+                  </p>
+                  <p>
+                    Pages: {display(e.page_count)} · Blocks: {e.block_count} · Tables:{' '}
+                    {e.table_count}
+                  </p>
+                  <details>
+                    <summary>Source / capture identity</summary>
+                    <Values value={e.source_capture} />
+                    <p>Candidate: {display(e.acquisition_candidate_id)}</p>
+                  </details>
+                  {e.diagnostics && <Values value={e.diagnostics} />}
+                  <h4>Qualification</h4>
+                  {e.qualification ? (
+                    <>
+                      <p>
+                        <strong>{e.qualification.status}</strong> · {e.qualification.completeness} ·{' '}
+                        {e.qualification.fact_count} facts
+                      </p>
+                      <Values value={e.qualification.diagnostics} />
+                    </>
+                  ) : (
+                    <p>Qualification is not available.</p>
+                  )}
+                </article>
+              ))
+            )}
+          </section>
+          <section>
+            <h2>Qualified Evidence</h2>
+            {job.facts ? (
+              <>
+                <p>
+                  {job.facts.length} facts. Qualification preserves source wording, units,
+                  applicability, and uncertainty.
+                </p>
+                <Table
+                  rows={job.facts}
+                  columns={[
+                    ['id', 'Fact ID'],
+                    ['source_label', 'Source label'],
+                    ['raw_value', 'Raw value'],
+                    ['source_unit', 'Source unit'],
+                    ['applicability', 'Applicability'],
+                    ['qualification_state', 'Qualification state'],
+                    ['source_reference', 'Source reference'],
+                  ]}
+                />
+              </>
+            ) : (
+              <p>Qualified evidence is not available yet.</p>
+            )}
+          </section>
+          <section>
+            <h2>Reconciliation / Proposals</h2>
+            {job.reconciliation ? (
+              <>
+                <p>
+                  {job.reconciliation.agreement_count} agreement groups ·{' '}
+                  {job.reconciliation.conflict_count} conflict groups ·{' '}
+                  {job.reconciliation.unresolved_count} unresolved groups
+                </p>
+                <Values value={job.reconciliation} />
+              </>
+            ) : (
+              <p>Reconciliation is not available.</p>
+            )}
+            {job.proposals && (
+              <>
+                <p>{job.proposals.length} semantic proposals</p>
+                <Table
+                  rows={job.proposals}
+                  columns={[
+                    ['id', 'Proposal ID'],
+                    ['target', 'Target'],
+                    ['disposition', 'Disposition'],
+                    ['proposed_value', 'Proposed value'],
+                    ['evidence_refs', 'Evidence references'],
+                    ['fact_refs', 'Fact references'],
+                  ]}
+                />
+              </>
+            )}
+          </section>
+          <section>
+            <h2>Candidate</h2>
+            {job.candidate === undefined ? (
+              <p>Candidate projection is not available yet.</p>
+            ) : (
+              <>
+                {job.candidate.present ? (
+                  <>
+                    <h3>Projected canonical fields</h3>
+                    <Values value={job.candidate.projected_fields} />
+                    <h3>Field evidence</h3>
+                    <Values value={job.candidate.field_evidence} />
+                  </>
+                ) : (
+                  <p className="empty">
+                    No product candidate was produced from the currently qualified evidence.
+                  </p>
+                )}
+                <h3>Non-projected diagnostics</h3>
+                <Values value={job.candidate.non_projected} />
+              </>
+            )}
+          </section>
+          <section>
+            <h2>Review Package</h2>
+            {job.review_package ? (
+              <Values value={job.review_package} />
+            ) : (
+              <p>No review package is available yet.</p>
+            )}
+          </section>
+        </>
+      )}
+      {section === 'unresolved' && (
+        <section>
+          <h2>Unresolved and unsupported</h2>
+          <p>
+            These dispositions and reasons come from persisted preparation artifacts. Unknown values
+            remain unknown; unsupported proposals are not eligible for projection.
+          </p>
+          {job.proposals?.filter((proposal) => proposal.disposition !== 'mapped').length ? (
             <Table
-              rows={job.proposals}
+              rows={job.proposals.filter((proposal) => proposal.disposition !== 'mapped')}
               columns={[
                 ['id', 'Proposal ID'],
                 ['target', 'Target'],
                 ['disposition', 'Disposition'],
-                ['proposed_value', 'Proposed value'],
-                ['evidence_refs', 'Evidence references'],
+                ['proposed_value', 'Value'],
                 ['fact_refs', 'Fact references'],
               ]}
             />
-          </>
-        )}
-      </section>
-      <section>
-        <h2>Candidate</h2>
-        {job.candidate === undefined ? (
-          <p>Candidate projection is not available yet.</p>
-        ) : (
-          <>
-            {job.candidate.present ? (
-              <>
-                <h3>Projected canonical fields</h3>
-                <Values value={job.candidate.projected_fields} />
-                <h3>Field evidence</h3>
-                <Values value={job.candidate.field_evidence} />
-              </>
-            ) : (
-              <p className="empty">
-                No product candidate was produced from the currently qualified evidence.
-              </p>
-            )}
-            <h3>Non-projected diagnostics</h3>
-            <Values value={job.candidate.non_projected} />
-          </>
-        )}
-      </section>
-      <section>
-        <h2>Review Package</h2>
-        {job.review_package ? (
-          <Values value={job.review_package} />
-        ) : (
-          <p>No review package is available yet.</p>
-        )}
-      </section>
-      <section>
-        <h2>Diagnostics</h2>
-        {job.diagnostics.length ? (
-          <Values value={job.diagnostics} />
-        ) : (
-          <p>No terminal runtime diagnostics recorded.</p>
-        )}
-      </section>
+          ) : (
+            <p>No unresolved or unsupported semantic proposals are recorded.</p>
+          )}
+          <h3>Candidate projection reasons</h3>
+          <Values value={job.candidate?.non_projected} />
+          <h3>Review package unresolved items and conflicts</h3>
+          <Values value={job.review_package?.unresolved_items} />
+          <Values value={job.review_package?.conflicts} />
+        </section>
+      )}
+      {section === 'diagnostics' && (
+        <section>
+          <h2>Diagnostics</h2>
+          {job.diagnostics.length ? (
+            <Values value={job.diagnostics} />
+          ) : (
+            <p>No terminal runtime diagnostics recorded.</p>
+          )}
+        </section>
+      )}
     </>
   );
 }
@@ -460,6 +614,7 @@ export function SourceResolution({
 
 function JobPage({ id, client }: { id: string; client: OperatorApi }) {
   const [job, setJob] = useState<OperatorJobDetail>();
+  const [section, setSection] = useState<ReviewSection | 'reviewable'>('overview');
   const [error, setError] = useState('');
   const [starting, setStarting] = useState(false);
   const [refresh, setRefresh] = useState(0);
@@ -509,11 +664,53 @@ function JobPage({ id, client }: { id: string; client: OperatorApi }) {
           {starting ? 'Starting preparation…' : 'Start preparation'}
         </button>
       )}
-      {job && job.candidate && (
-        <ProductReview key={job.summary.id} job={job} client={client} onUpdate={setJob} />
+      {job ? (
+        <>
+          <nav className="review-nav" aria-label="Job review sections">
+            {(
+              [
+                'overview',
+                'reviewable',
+                'unresolved',
+                'evidence',
+                'sources',
+                'diagnostics',
+              ] as const
+            ).map((item) => (
+              <button
+                key={item}
+                type="button"
+                className={section === item ? 'active' : 'secondary'}
+                aria-current={section === item ? 'page' : undefined}
+                onClick={() => setSection(item)}
+              >
+                {item === 'reviewable'
+                  ? 'Reviewable fields'
+                  : item === 'evidence'
+                    ? 'Evidence / facts'
+                    : item[0].toUpperCase() + item.slice(1)}
+              </button>
+            ))}
+          </nav>
+          {section !== 'reviewable' && <Review job={job} section={section} />}
+          {job.candidate && (
+            <div hidden={section !== 'reviewable'}>
+              <ProductReview key={job.summary.id} job={job} client={client} onUpdate={setJob} />
+            </div>
+          )}
+          {section === 'reviewable' && !job.candidate && (
+            <section>
+              <h2>Reviewable fields</h2>
+              <p>Candidate projection is not available; no product approval action is available.</p>
+            </section>
+          )}
+          {section === 'sources' && (
+            <SourceResolution job={job} client={client} onUpdate={setJob} />
+          )}
+        </>
+      ) : (
+        <p role="status">Loading persisted job…</p>
       )}
-      {job ? <Review job={job} /> : <p role="status">Loading persisted job…</p>}
-      {job && <SourceResolution job={job} client={client} onUpdate={setJob} />}
     </>
   );
 }
