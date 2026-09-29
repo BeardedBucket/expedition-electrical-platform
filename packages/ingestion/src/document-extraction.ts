@@ -54,11 +54,18 @@ export const DEFAULT_DOCUMENT_EXTRACTION_LIMITS: Required<DocumentExtractionLimi
   max_text_length: 100_000,
 };
 
+// Parser input is independent of transport policy, intentionally aligned today.
+export const DEFAULT_PDF_EXTRACTION_MAX_INPUT_BYTES = 32_000_000;
+
 export const extractPdfDocument = async (
   source: CapturedSource,
   suppliedLimits: DocumentExtractionLimits = {},
 ): Promise<ExtractedDocument> => {
-  const limits = { ...DEFAULT_DOCUMENT_EXTRACTION_LIMITS, ...suppliedLimits };
+  const limits = {
+    ...DEFAULT_DOCUMENT_EXTRACTION_LIMITS,
+    max_input_bytes: DEFAULT_PDF_EXTRACTION_MAX_INPUT_BYTES,
+    ...suppliedLimits,
+  };
   if (source.body.bytes.byteLength > limits.max_input_bytes) {
     const diagnostic = toDiagnostic(
       'input_limit_reached',
@@ -79,88 +86,133 @@ export const extractPdfDocument = async (
   }
   try {
     const loadingTask = pdfjs.getDocument({
-      data: source.body.bytes,
+      // PDF.js transfers ownership. Preserve captured bytes and their digest binding.
+      data: source.body.bytes.slice(),
       isEvalSupported: false,
       useWorkerFetch: false,
       verbosity: 0,
     });
-    const pdf = await loadingTask.promise;
-    const diagnostics: ExtractionDiagnostic[] = [
-      toDiagnostic(
-        'table_extraction_unsupported',
-        'PDF table structure is not identified by the deterministic text extractor.',
-      ),
-    ];
-    const blocks: ExtractedBlock[] = [];
-    const pageLimit = Math.min(pdf.numPages, limits.max_pages);
-    if (pdf.numPages > limits.max_pages) {
-      diagnostics.push(
+    try {
+      const pdf = await loadingTask.promise;
+      const diagnostics: ExtractionDiagnostic[] = [
         toDiagnostic(
-          'page_limit_reached',
-          `PDF page count exceeded the ${limits.max_pages}-page extraction limit.`,
+          'table_extraction_unsupported',
+          'PDF table structure is not identified by the deterministic text extractor.',
         ),
-      );
-    }
-    for (let pageNumber = 1; pageNumber <= pageLimit; pageNumber += 1) {
-      const page = await pdf.getPage(pageNumber);
-      const content = await page.getTextContent();
-      for (const [ordinal, item] of content.items.entries()) {
-        if (!('str' in item)) continue;
-        const text = clean(item.str);
-        if (!text) continue;
-        if (blocks.length >= limits.max_items) {
-          diagnostics.push(
-            toDiagnostic(
-              'item_limit_reached',
-              `PDF extraction exceeded the ${limits.max_items}-item extraction limit.`,
-            ),
-          );
-          break;
-        }
-        const locator = {
-          kind: 'pdf' as const,
-          fragment: `pdf-page-${pageNumber}-item-${ordinal + 1}`,
-          path: `/pdf/page/${pageNumber}/text/${ordinal + 1}`,
-          page: pageNumber,
-          ordinal: ordinal + 1,
-        };
-        blocks.push({
-          id: stableId('text_block', locator.fragment, locator.path),
-          kind: 'text_block',
-          text,
-          locator,
-          source_location: locator,
-        });
+      ];
+      const blocks: ExtractedBlock[] = [];
+      const pageLimit = Math.min(pdf.numPages, limits.max_pages);
+      if (pdf.numPages > limits.max_pages) {
+        diagnostics.push(
+          toDiagnostic(
+            'page_limit_reached',
+            `PDF page count exceeded the ${limits.max_pages}-page extraction limit.`,
+          ),
+        );
       }
+      let itemLimitReached = false;
+      let textLimitReached = false;
+      for (let pageNumber = 1; pageNumber <= pageLimit; pageNumber += 1) {
+        const page = await pdf.getPage(pageNumber);
+        try {
+          const reader = page.streamTextContent().getReader();
+          let ordinal = 0;
+          let complete = false;
+          try {
+            while (!itemLimitReached) {
+              const chunk = await reader.read();
+              if (chunk.done) {
+                complete = true;
+                break;
+              }
+              for (const item of chunk.value.items) {
+                ordinal += 1;
+                if (!('str' in item)) continue;
+                const text = clean(item.str);
+                if (!text) continue;
+                if (blocks.length >= limits.max_items) {
+                  itemLimitReached = true;
+                  break;
+                }
+                const boundedText = text.slice(0, limits.max_text_length);
+                if (boundedText.length !== text.length) textLimitReached = true;
+                const locator = {
+                  kind: 'pdf' as const,
+                  fragment: `pdf-page-${pageNumber}-item-${ordinal}`,
+                  path: `/pdf/page/${pageNumber}/text/${ordinal}`,
+                  page: pageNumber,
+                  ordinal,
+                };
+                blocks.push({
+                  id: stableId('text_block', locator.fragment, locator.path),
+                  kind: 'text_block',
+                  text: boundedText,
+                  locator,
+                  source_location: locator,
+                });
+              }
+            }
+          } finally {
+            try {
+              // PDF.js requires an Error reason before marking its stream closed.
+              if (!complete)
+                await reader.cancel(new Error('PDF extraction stopped before stream end.'));
+            } finally {
+              reader.releaseLock();
+            }
+          }
+        } finally {
+          page.cleanup();
+        }
+        if (itemLimitReached) break;
+      }
+      if (itemLimitReached)
+        diagnostics.push(
+          toDiagnostic(
+            'item_limit_reached',
+            `PDF extraction exceeded the ${limits.max_items}-item extraction limit.`,
+          ),
+        );
+      if (textLimitReached)
+        diagnostics.push(
+          toDiagnostic(
+            'text_limit_reached',
+            `One or more items exceeded the ${limits.max_text_length}-character limit.`,
+          ),
+        );
+      const status =
+        blocks.length === 0
+          ? 'no_extractable_content'
+          : diagnostics.some((diagnostic) =>
+                ['page_limit_reached', 'item_limit_reached', 'text_limit_reached'].includes(
+                  diagnostic.code,
+                ),
+              )
+            ? 'partially_extracted'
+            : 'extracted';
+      if (blocks.length === 0) {
+        diagnostics.push(
+          toDiagnostic(
+            'likely_image_only',
+            'PDF pages were readable, but no extractable text items were present.',
+          ),
+        );
+      }
+      return {
+        source,
+        status,
+        capability_state: deriveCapabilityState(status, diagnostics),
+        remediation_state: deriveRemediationState(status, diagnostics),
+        blocks,
+        page_count: pdf.numPages,
+        warnings: diagnostics.map(toWarning),
+        diagnostics,
+        extractor: 'pdfjs',
+        extractor_version: '5.4.149',
+      };
+    } finally {
+      await loadingTask.destroy();
     }
-    const status =
-      blocks.length === 0
-        ? 'no_extractable_content'
-        : diagnostics.some((diagnostic) =>
-              ['page_limit_reached', 'item_limit_reached'].includes(diagnostic.code),
-            )
-          ? 'partially_extracted'
-          : 'extracted';
-    if (blocks.length === 0) {
-      diagnostics.push(
-        toDiagnostic(
-          'likely_image_only',
-          'PDF pages were readable, but no extractable text items were present.',
-        ),
-      );
-    }
-    return {
-      source,
-      status,
-      capability_state: deriveCapabilityState(status, diagnostics),
-      remediation_state: deriveRemediationState(status, diagnostics),
-      blocks,
-      page_count: pdf.numPages,
-      warnings: diagnostics.map(toWarning),
-      diagnostics,
-      extractor: 'pdfjs',
-      extractor_version: '5.4.149',
-    };
   } catch (error) {
     const diagnostic = toDiagnostic(
       'parser_failure',

@@ -71,7 +71,10 @@ observed-byte allowance 40,000,000. These are the existing decimal-byte values.
 Content-Length only enables early rejection. Streamed bytes, including the
 size-crossing chunk and bytes preceding a timeout, remain authoritative for
 accounting. Partial bodies never produce captures, content digests, or retained
-snapshots. The separate 8,388,608-byte extraction-input gate is unchanged.
+snapshots. The independent PDF extraction-input ceiling is now intentionally
+aligned at 32,000,000 bytes; HTML retains its 8,388,608-byte gate. See
+[bounded extraction architecture](ARCHITECTURE.md#bounded-source-capture-bytes)
+for parser ownership, cleanup, and remaining output limits.
 
 Timeouts and external cancellation remain `failed` captures with the existing
 `aborted` reason code; reason messages distinguish response-start, inactivity,

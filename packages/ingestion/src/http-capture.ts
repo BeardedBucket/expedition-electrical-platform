@@ -354,7 +354,6 @@ export class HttpSourceCaptureAdapter implements SourceCaptureAdapter {
         bytes.set(chunk, offset);
         offset += chunk.byteLength;
       }
-      const content = new TextDecoder().decode(bytes);
       return {
         status: response.ok ? 'success' : 'failed',
         bytes_observed: size,
@@ -368,7 +367,7 @@ export class HttpSourceCaptureAdapter implements SourceCaptureAdapter {
           body: {
             bytes,
             ...(mediaType?.includes('html') || mediaType?.startsWith('text/')
-              ? { text: content }
+              ? { text: new TextDecoder().decode(bytes) }
               : {}),
           },
           content_hash: `${HASH_ALGORITHM}:${createHash(HASH_ALGORITHM).update(bytes).digest('hex')}`,

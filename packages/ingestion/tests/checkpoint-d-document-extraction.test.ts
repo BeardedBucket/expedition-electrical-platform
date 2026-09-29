@@ -489,6 +489,26 @@ describe('Checkpoint D document extraction', () => {
     expect(first.diagnostics).toEqual(second.diagnostics);
   });
 
+  it('cancels a real PDF.js text stream at the item boundary without closing errors', async () => {
+    const text = Array.from({ length: 300 }, (_, index) => `item ${index + 1}`).join(
+      ') Tj 0 -12 Td (',
+    );
+    const bytes = minimalPdf(text, 3);
+    const originalDigest = bytesDigest(bytes);
+    const result = await extractDocumentAsync(
+      { ...htmlSource(''), media_type: 'application/pdf', body: { bytes } },
+      { max_items: 1 },
+    );
+    expect(result.status).toBe('partially_extracted');
+    expect(result.blocks).toHaveLength(1);
+    expect(result.diagnostics).toContainEqual(
+      expect.objectContaining({ code: 'item_limit_reached' }),
+    );
+    expect(bytesDigest(bytes)).toBe(originalDigest);
+    // Flush loopback worker messages so delayed stream errors cannot hide after return.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+
   it('reaches every declared final extraction status explicitly', async () => {
     const extracted = extractDocument(htmlSource('<p>ok</p>'));
     const partial = extractDocument(htmlSource('<p>ok</p><p>more</p>'), { max_items: 1 });

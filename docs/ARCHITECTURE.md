@@ -153,6 +153,59 @@ depth-one maximum remain unchanged.
 
 ### Bounded source-capture bytes
 
+PDF extraction has an independent parser-input ceiling of 32,000,000 bytes,
+owned explicitly by the extraction layer and intentionally aligned with the
+current PDF transport ceiling. Neither production constant controls the other.
+Transport still uses the unchanged 32,000,000-byte per-resource/absolute PDF allowance and
+40,000,000-byte whole-acquisition allowance. Explicit byte counts are authoritative;
+32,000,000 bytes is decimal 32 MB, approximately 30.52 MiB.
+
+The former shared 8,388,608-byte (8 MiB) extraction gate was introduced in
+`305e306c6832783bb7e8cb9e1148e1131243b732` (Add production document extraction).
+The inspected history contains no architectural justification for that numeric
+value. It prevented a successfully captured 28,630,824-byte official manual from
+reaching PDF.js. That observation justifies supporting the admitted size class;
+it does not establish that this manual represents all PDFs. HTML retains the
+8,388,608-byte extraction ceiling, and text-only dispatch semantics are unchanged.
+Callers can still supply independent extraction limits.
+
+PDF.js 5.4.149 receives an in-memory Uint8Array, with one explicit parser-owned
+full-source copy because its worker messaging transfers and detaches the input
+buffer. The captured source remains available for digest and snapshot identity.
+For a full-buffer Uint8Array, PDF.js's input normalization returns that array;
+its worker/Node loopback messaging transfers it rather than cloning another
+full byte array. No Buffer conversion or text decode occurs in the PDF extractor.
+HTTP capture assembles streamed chunks into a contiguous byte array (both exist
+transiently); it now decodes only HTML/text media, avoiding a discarded full-body
+PDF string. Source classification still decodes at most a 65,536-byte inspection
+prefix. File snapshot reads still copy the readFile Buffer to Uint8Array;
+this pre-existing replay path is unchanged. At parser entry there are two explicit
+source-byte representations: preserved capture/replay bytes and transferred
+parser bytes. This count excludes transport temporaries and parser-internal
+objects, decompressed streams, fonts, and caches; it is not a RAM measurement.
+
+The extractor consumes PDF.js text chunks page by page rather than collecting
+an entire page's text array. It preserves page/item ordinals across chunks,
+cancels the stream at the item boundary, releases its reader, cleans each page,
+and destroys the loading task on success or failure. Stream cancellation supplies
+the Error reason required by PDF.js's message handler before it marks the stream
+closed. Defaults remain 1,000 pages,
+10,000 retained text blocks, and 100,000 characters per block. The declared text
+cap is now enforced for PDF blocks as well as HTML. The HTML table-cell ceiling
+remains 50,000 per table, with table blocks subject to the item cap; PDF table
+structure remains unsupported and produces zero tables. There is no separate
+table-count setting. Parser exceptions, including cleanup failures, produce an
+explicit failed result with no fabricated blocks.
+
+These are application input/output bounds, not hard limits on all PDF.js internal
+allocations or CPU time. PDF.js initializes document metadata in memory and can
+expand compressed streams internally; no independent extraction wall-clock or
+process timeout exists. Evaluation is disabled and worker fetching is disabled;
+no rendering or OCR is requested. Larger admitted input does not guarantee full
+extraction. Page, item, or text limits produce diagnosed bounded partial results;
+source authority, snapshot verification, qualification, and review remain
+separate unchanged boundaries. No OCR or image extraction was added.
+
 Each HTTP response has an internal media-aware transport allowance: `text/html`
 and `text/*` are limited to 2,000,000 bytes, `application/pdf` to 32,000,000
 bytes, and other or unknown binary media to 4,000,000 bytes. An absolute
