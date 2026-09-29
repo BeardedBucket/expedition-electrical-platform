@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { extractDocument, DEFAULT_DOCUMENT_EXTRACTION_LIMITS } from '../src/document-extraction.js';
 import {
@@ -58,12 +59,12 @@ const profile = (
     },
   ],
 });
-const fixture = (html: string, p = profile()) => {
+const fixture = (html: string, p = profile(), target = intake) => {
   const bytes = new TextEncoder().encode(html),
     digest = `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
   const source = {
-    requested_uri: intake.official_product_uri,
-    final_uri: intake.official_product_uri,
+    requested_uri: target.official_product_uri,
+    final_uri: target.official_product_uri,
     retrieved_at: '2026-09-29T00:00:00Z',
     media_type: 'text/html',
     response_status: 200,
@@ -88,7 +89,7 @@ const fixture = (html: string, p = profile()) => {
     schema_version: '1.0',
     artifact_kind: 'source_acquisition',
     id: 'coverage.acquisition',
-    intake: artifactReference('product_intake', intake),
+    intake: artifactReference('product_intake', target),
     seed_capture: artifactReference('source_capture', capture),
     profile_binding: {
       profile_id: p.id,
@@ -105,7 +106,7 @@ const fixture = (html: string, p = profile()) => {
     artifactReference('source_capture', capture),
     { source_acquisition: artifactReference('source_acquisition', acquisition) },
   );
-  return { source, capture, acquisition, document, intake, profile: p };
+  return { source, capture, acquisition, document, intake: target, profile: p };
 };
 const identity = '<span id="sku">EX-X</span>';
 const table = '<table id="spec"><tr><th>Nominal voltage</th><td>12 V</td></tr></table>';
@@ -194,6 +195,121 @@ describe('reviewed page regions and complete evidence ownership', () => {
   ] as const)('rejects malformed %s without prose inference', (kind, html) =>
     expect(facts(identity + html, profile(kind))).toHaveLength(0),
   );
+});
+
+describe('reviewed model label/value DOM rows', () => {
+  const load = (name: string): ManufacturerAcquisitionProfile =>
+    JSON.parse(
+      readFileSync(`data/ingestion/manufacturer-acquisition-profiles/${name}.json`, 'utf8'),
+    );
+  const target: ProductIntake = {
+    ...intake,
+    manufacturer: 'Xantrex',
+    official_product_uri: 'https://xantrex.com/products/fixture',
+  };
+  const row =
+    '<div class="xtable-row"><div class="xtable-cell" data-title="">Output power at 40 C</div><div class="xtable-cell" data-title="Model X">3000 W at 40 C</div></div>';
+  const header =
+    '<div class="xtable-row xtable-header"><div class="xtable-cell"></div><div class="xtable-cell">Model X</div></div>';
+  const html = `<section class="table-section"><h2>Electrical Specifications – Inverter</h2><div class="xtable">${header}${row}</div></section>`;
+  const prepare = (body = html, p = load('xantrex')) =>
+    prepareProfileQualifiedEvidence(fixture(body, p, target));
+  it('uses the actual declarative profile for two different models and retains source conditions and locators', () => {
+    expect(validateManufacturerAcquisitionProfile(load('xantrex')).ok).toBe(true);
+    const first = prepare()!;
+    expect(first).toEqual(prepare());
+    expect(first.qualification.facts).toHaveLength(1);
+    const fact = first.qualification.facts[0];
+    expect(fact.metadata.raw_value).toBe('3000 W at 40 C');
+    expect(fact.metadata.conditions).toEqual([
+      'Electrical Specifications – Inverter',
+      'Output power at 40 C',
+    ]);
+    expect(fact.evidence.find((e) => e.role === 'value')?.locator?.path).toContain(
+      '/div[2]/div[2]',
+    );
+    expect(validateProductionArtifactSchema(first.document)).toEqual([]);
+    expect(validateProductionArtifactSchema(fact)).toEqual([]);
+    const other = prepareProfileQualifiedEvidence(
+      fixture(html.replaceAll('Model X', 'Model Y'), load('xantrex'), {
+        ...target,
+        product_model: 'Model Y',
+      }),
+    );
+    expect(other?.qualification.facts).toHaveLength(1);
+    expect(other?.qualification.facts[0].metadata.applicability.value).toBe('Model Y');
+  });
+  it.each([
+    html.replace('data-title="Model X"', 'data-title="Model Y"'),
+    html.replace(header, header + header),
+    html.replace(
+      row,
+      row.replace('</div></div>', '</div><div class="xtable-cell">999 W</div></div>'),
+    ),
+    html.replace(row, row.replace('data-title="Model X"', 'colspan="2" data-title="Model X"')),
+    html.replace(row, `<div>${row}</div>`),
+    html.replace(row, row.replace('3000 W at 40 C', '<div class="xtable-cell">3000 W</div>')),
+    html.replace(row, row.replace('Output power at 40 C', 'Part Number')),
+    html.replace(header + row, row + header),
+    html.replace('</h2>', '</h2><h2>Competing heading</h2>'),
+    html + html,
+    html.replace(row, 'note outside cells' + row),
+  ])('rejects ambiguous structure atomically', (body) =>
+    expect(prepare(body)?.qualification.facts ?? []).toHaveLength(0),
+  );
+  it('skips unknown values and preserves valid earlier rows only within a valid region', () => {
+    const result = prepare(html.replace(row, row + row.replace('3000 W at 40 C', '')))!;
+    expect(result.qualification.facts).toHaveLength(1);
+    expect(result.qualification.diagnostics.some((d) => d.code === 'missing_value')).toBe(true);
+  });
+  it('keeps accessory/sibling headers outside identity scope and rejects their regions', () => {
+    const body =
+      html +
+      html
+        .replace('Electrical Specifications – Inverter', 'Accessories')
+        .replaceAll('Model X', 'Other');
+    const result = prepare(body)!;
+    expect(result.qualification.facts).toHaveLength(1);
+    expect(result.qualification.diagnostics.some((d) => d.code === 'unsupported_structure')).toBe(
+      true,
+    );
+  });
+  it('requires the structural configuration and rejects misplaced configuration in the schema', () => {
+    const p = load('xantrex');
+    const rule = p.html_fact_rules![0],
+      region = rule.regions[0];
+    expect(
+      validateManufacturerAcquisitionProfile({
+        ...p,
+        html_fact_rules: [{ ...rule, regions: [{ ...region, model_rows: undefined }] }],
+      }).ok,
+    ).toBe(false);
+    expect(
+      validateManufacturerAcquisitionProfile({
+        ...p,
+        html_fact_rules: [{ ...rule, regions: [{ ...region, kind: 'table' }] }],
+      }).ok,
+    ).toBe(false);
+  });
+  it('uses the Eaton profile on a second synthetic SKU without granting sibling specifications scope', () => {
+    const p = load('eaton');
+    expect(validateManufacturerAcquisitionProfile(p).ok).toBe(true);
+    const t = {
+      ...intake,
+      manufacturer: 'Eaton',
+      manufacturer_part_number: 'OTHER-24',
+      official_product_uri: 'https://www.eaton.com/us/en-us/skuPage.OTHER-24.html',
+    };
+    const body =
+      '<h1 class="module-product-detail-card-v2__title">OTHER-24</h1><div class="product-specification-container"><table class="specifications-table"><tr><td>Voltage rating</td><td>24 Vdc</td></tr></table></div><table><tr><td>Voltage rating</td><td>999 V</td></tr></table>';
+    expect(prepareProfileQualifiedEvidence(fixture(body, p, t))?.qualification.facts).toHaveLength(
+      1,
+    );
+    expect(
+      prepareProfileQualifiedEvidence(fixture(body.replace('>OTHER-24<', '>OTHER-48<'), p, t))
+        ?.qualification.facts,
+    ).toHaveLength(0);
+  });
 });
 
 describe('unique model-column applicability', () => {

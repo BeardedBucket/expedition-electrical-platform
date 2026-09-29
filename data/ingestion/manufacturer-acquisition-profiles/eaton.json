@@ -1,0 +1,42 @@
+{
+  "schema_version": "1.4",
+  "id": "eaton.web.acquisition-profile",
+  "profile_status": "reviewed",
+  "manufacturer": "Eaton",
+  "publisher": "Eaton",
+  "official_domains": ["www.eaton.com"],
+  "strategies": [],
+  "provenance": {
+    "source_artifact": "docs/CORPUS_CAMPAIGN_WAVE_2.md",
+    "observed_source_content_hash": "sha256:ca8e1f4a868c0410e29148e733f8451bcf13dffc74c0a6d8c424c65d47f976f9"
+  },
+  "html_fact_rules": [
+    {
+      "id": "exact-product-specification-tables",
+      "status": "reviewed",
+      "path_prefix": "/us/en-us/skuPage.",
+      "identity_kind": "mpn",
+      "identity_selector": [
+        {
+          "tag": "h1",
+          "class_name": "module-product-detail-card-v2__title"
+        }
+      ],
+      "regions": [
+        {
+          "kind": "table",
+          "selector": [
+            {
+              "tag": "div",
+              "class_name": "product-specification-container"
+            },
+            {
+              "tag": "table",
+              "class_name": "specifications-table"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

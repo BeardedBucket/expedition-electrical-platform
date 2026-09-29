@@ -1,0 +1,86 @@
+{
+  "schema_version": "1.4",
+  "id": "xantrex.web.acquisition-profile",
+  "profile_status": "reviewed",
+  "manufacturer": "Xantrex",
+  "publisher": "Xantrex",
+  "official_domains": ["xantrex.com"],
+  "strategies": [],
+  "provenance": {
+    "source_artifact": "docs/CORPUS_CAMPAIGN_WAVE_2.md",
+    "observed_source_content_hash": "sha256:3d1dffd8a6b27b659b046518120703cb4b52b1ffd8fc02c1394fcdfaeeb73633"
+  },
+  "html_fact_rules": [
+    {
+      "id": "exact-model-specification-rows",
+      "status": "reviewed",
+      "path_prefix": "/products/",
+      "identity_kind": "model",
+      "identity_region": {
+        "selector": [
+          {
+            "tag": "section",
+            "class_name": "table-section"
+          }
+        ],
+        "heading": {
+          "selector": [
+            {
+              "tag": "h2"
+            }
+          ],
+          "text": "Electrical Specifications – Inverter"
+        }
+      },
+      "identity_selector": [
+        {
+          "tag": "div",
+          "class_name": "xtable-header"
+        }
+      ],
+      "regions": [
+        {
+          "kind": "model_label_value_rows",
+          "selector": [
+            {
+              "tag": "div",
+              "class_name": "xtable"
+            }
+          ],
+          "model_rows": {
+            "row_selector": [
+              {
+                "tag": "div",
+                "class_name": "xtable-row"
+              }
+            ],
+            "cell_selector": [
+              {
+                "tag": "div",
+                "class_name": "xtable-cell"
+              }
+            ],
+            "header_selector": [
+              {
+                "tag": "div",
+                "class_name": "xtable-header"
+              }
+            ],
+            "value_identity_attribute": "data-title",
+            "context_container_selector": [
+              {
+                "tag": "section",
+                "class_name": "table-section"
+              }
+            ],
+            "context_heading_selector": [
+              {
+                "tag": "h2"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

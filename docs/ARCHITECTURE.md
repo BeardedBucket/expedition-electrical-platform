@@ -2,6 +2,35 @@
 
 ## Reviewed source-shape recovery into production evidence
 
+Wave 2 adds declarative `identity_region` narrowing and
+`model_label_value_rows` regions; see `CORPUS_CAMPAIGN_WAVE_2.md` for the
+captured-source review. Identity narrowing requires exactly one container with
+exactly one matching reviewed heading before the existing exact visible identity
+check. It does not interpolate a model into selectors or grant sibling pages
+scope. Existing profiles omit this option and retain their prior behavior.
+
+The new row form is an explicit DOM contract, not CSS layout inference: all rows
+must be direct container children and have exactly two direct selected cells.
+The sole first header has an empty label cell and the exact requested model in
+its value cell. Every subsequent value cell must repeat that exact model in the
+reviewed source attribute. Additional cells, nested rows/cells, spans, competing
+headers, identity axes, unselected children and text outside cells reject the
+entire region before facts are emitted. Two is the label/value structural arity,
+not an adjustable resource quota. Empty data values remain unknown and do not
+borrow the next row. One enclosing reviewed context container and one heading
+are required; the heading is retained conservatively as a material qualifier,
+including charger/inverter domain context, without interpreting its meaning.
+Raw labels and values retain temperature, duration and mode wording. Semantic
+mapping and qualified-value contracts are unchanged.
+
+The additive profile schema accepts the new structural configuration only on the
+new region kind. New profiles use schema version 1.4; older profile contracts
+remain readable. Source provenance, profile digests, exact intake seed ownership,
+byte verification, ordinary extraction completeness and shared supplementary
+output bounds still gate this path. Profile source mechanics are reviewed;
+generated product facts remain provisional. The Wave 2 Eaton profile uses the
+existing simple-table mechanism without a manufacturer-specific implementation.
+
 The Wave 1 capability audit is recorded in `CORPUS_CAMPAIGN_WAVE_1.md`. Legacy
 `extractProductFacts` and `extractStructuredProductFacts` remain separate APIs;
 production review preparation does not call them or copy their normalized output.

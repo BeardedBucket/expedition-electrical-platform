@@ -276,7 +276,22 @@ export const prepareProfileQualifiedEvidence = (input: {
   if (rules.length === 1) {
     const rule = rules[0],
       entries = elements(parse(html));
-    const identity = selected(entries, rule.identity_selector);
+    const identityRegions = rule.identity_region
+      ? selected(entries, rule.identity_region.selector).filter((region) => {
+          const headings = selected(entries, rule.identity_region!.heading.selector).filter((e) =>
+            e.path.startsWith(`${region.path}/`),
+          );
+          return (
+            headings.length === 1 &&
+            clean(text(headings[0].node)) === rule.identity_region!.heading.text
+          );
+        })
+      : undefined;
+    const identity = selected(entries, rule.identity_selector).filter(
+      (e) =>
+        !identityRegions ||
+        (identityRegions.length === 1 && e.path.startsWith(`${identityRegions[0].path}/`)),
+    );
     const requested =
       rule.identity_kind === 'mpn' ? intake.manufacturer_part_number : intake.product_model;
     if (
@@ -414,6 +429,105 @@ export const prepareProfileQualifiedEvidence = (input: {
               diagnostics.push({
                 code: 'unsupported_structure',
                 message: `Reviewed table region '${entry.path}' has ambiguous spans, identity axes or rows.`,
+              });
+              continue;
+            }
+          } else if (region.kind === 'model_label_value_rows') {
+            // A reviewed DOM row contract is narrower than a CSS/visual table.
+            // Only direct two-cell rows are admitted. A unique first header must
+            // have an empty label cell and the exact requested model in its value
+            // cell; every data value repeats that model in a source attribute.
+            // Reject the entire region before emitting any observations if a row
+            // is malformed, nested, spans columns, or belongs to another model.
+            const structure = region.model_rows;
+            if (!structure || rule.identity_kind !== 'model') continue;
+            const rows = selected(entries, structure.row_selector).filter((e) =>
+              e.path.startsWith(`${entry.path}/`),
+            );
+            const headers = selected(entries, structure.header_selector).filter((e) =>
+              e.path.startsWith(`${entry.path}/`),
+            );
+            const cells = selected(entries, structure.cell_selector);
+            const directCells = (row: (typeof entries)[number]) =>
+              cells.filter((e) => e.node.parentNode === row.node);
+            const headerCells = rows.length ? directCells(rows[0]) : [];
+            const contextContainers = selected(
+              entries,
+              structure.context_container_selector,
+            ).filter((e) => entry.path.startsWith(`${e.path}/`));
+            const contextHeadings =
+              contextContainers.length === 1
+                ? selected(entries, structure.context_heading_selector).filter((e) =>
+                    e.path.startsWith(`${contextContainers[0].path}/`),
+                  )
+                : [];
+            let unsafe =
+              contextHeadings.length !== 1 ||
+              !clean(text(contextHeadings[0]?.node)) ||
+              !rows.length ||
+              headers.length !== 1 ||
+              headers[0] !== rows[0] ||
+              rows.some((e) => e.node.parentNode !== entry.node) ||
+              headerCells.length !== 2 ||
+              clean(text(headerCells[0]?.node)) !== '' ||
+              clean(text(headerCells[1]?.node)) !== intake.product_model.trim();
+            for (const row of rows) {
+              const rowCells = directCells(row);
+              const children = row.node.childNodes.filter((n) => 'tagName' in n);
+              if (
+                rowCells.length !== 2 ||
+                children.length !== 2 ||
+                rowCells.some(
+                  (e) =>
+                    attr(e.node, 'rowspan') ||
+                    attr(e.node, 'colspan') ||
+                    cells.some((c) => c.path.startsWith(`${e.path}/`)),
+                )
+              )
+                unsafe = true;
+              if (row.node.childNodes.some((n) => 'value' in n && !!clean(n.value))) unsafe = true;
+              if (row === rows[0]) continue;
+              if (rowCells.length !== 2) continue;
+              const label = clean(text(rowCells[0].node)),
+                value = clean(text(rowCells[1].node));
+              if (
+                !label ||
+                attr(rowCells[1].node, structure.value_identity_attribute) !==
+                  intake.product_model.trim() ||
+                /^(?:models?|variants?|sku|mpn|part\s*(?:number|no\.?))\b/i.test(label)
+              )
+                unsafe = true;
+              if (!value) {
+                diagnostics.push({
+                  code: 'missing_value',
+                  message: 'Empty model-row value remains unknown.',
+                });
+                continue;
+              }
+              pairs.push({
+                label,
+                value,
+                path: rowCells[1].path,
+                label_path: rowCells[0].path,
+                // Section context can distinguish charger/inverter domains or
+                // operating conditions. Keep it conservatively material until
+                // the semantic contract can interpret the exact source heading.
+                conditions:
+                  contextHeadings.length === 1 ? [clean(text(contextHeadings[0].node))] : undefined,
+              });
+            }
+            // Direct text or unselected DOM children could contain omitted notes
+            // or a third axis. Do not silently qualify only a convenient subset.
+            if (
+              entry.node.childNodes.some((n) =>
+                'tagName' in n ? !rows.some((r) => r.node === n) : 'value' in n && !!clean(n.value),
+              )
+            )
+              unsafe = true;
+            if (unsafe) {
+              diagnostics.push({
+                code: 'unsupported_structure',
+                message: `Ambiguous model label/value rows in '${entry.path}'.`,
               });
               continue;
             }

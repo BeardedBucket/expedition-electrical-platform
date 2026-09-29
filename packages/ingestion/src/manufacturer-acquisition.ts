@@ -115,9 +115,27 @@ export interface HtmlFactRule {
   readonly path_prefix: string;
   readonly identity_selector: readonly HtmlNodeSelector[];
   readonly identity_kind: 'mpn' | 'model';
+  /** Narrow identity lookup to one source container with an exact reviewed heading.
+   * This distinguishes technical sections from accessory/sibling headers without
+   * inserting a requested model into the profile's selectors.
+   */
+  readonly identity_region?: {
+    readonly selector: readonly HtmlNodeSelector[];
+    readonly heading: { readonly selector: readonly HtmlNodeSelector[]; readonly text: string };
+  };
   readonly regions: readonly {
     readonly selector: readonly HtmlNodeSelector[];
-    readonly kind: 'table' | 'definition' | 'label_value_lines' | 'label_value_list';
+    readonly kind:
+      'table' | 'definition' | 'label_value_lines' | 'label_value_list' | 'model_label_value_rows';
+    /** Explicit direct row/cell structure; not visual CSS table inference. */
+    readonly model_rows?: {
+      readonly row_selector: readonly HtmlNodeSelector[];
+      readonly cell_selector: readonly HtmlNodeSelector[];
+      readonly header_selector: readonly HtmlNodeSelector[];
+      readonly value_identity_attribute: string;
+      readonly context_container_selector: readonly HtmlNodeSelector[];
+      readonly context_heading_selector: readonly HtmlNodeSelector[];
+    };
     readonly heading?: { readonly selector: readonly HtmlNodeSelector[]; readonly text: string };
   }[];
 }

@@ -204,6 +204,15 @@
           "path_prefix": { "type": "string", "pattern": "^/" },
           "identity_selector": { "$ref": "#/$defs/htmlSelectorChain" },
           "identity_kind": { "enum": ["mpn", "model"] },
+          "identity_region": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["selector", "heading"],
+            "properties": {
+              "selector": { "$ref": "#/$defs/htmlSelectorChain" },
+              "heading": { "$ref": "#/$defs/htmlHeading" }
+            }
+          },
           "regions": {
             "type": "array",
             "minItems": 1,
@@ -214,7 +223,33 @@
               "properties": {
                 "selector": { "$ref": "#/$defs/htmlSelectorChain" },
                 "kind": {
-                  "enum": ["table", "definition", "label_value_lines", "label_value_list"]
+                  "enum": [
+                    "table",
+                    "definition",
+                    "label_value_lines",
+                    "label_value_list",
+                    "model_label_value_rows"
+                  ]
+                },
+                "model_rows": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "row_selector",
+                    "cell_selector",
+                    "header_selector",
+                    "value_identity_attribute",
+                    "context_container_selector",
+                    "context_heading_selector"
+                  ],
+                  "properties": {
+                    "row_selector": { "$ref": "#/$defs/htmlSelectorChain" },
+                    "cell_selector": { "$ref": "#/$defs/htmlSelectorChain" },
+                    "header_selector": { "$ref": "#/$defs/htmlSelectorChain" },
+                    "context_container_selector": { "$ref": "#/$defs/htmlSelectorChain" },
+                    "context_heading_selector": { "$ref": "#/$defs/htmlSelectorChain" },
+                    "value_identity_attribute": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" }
+                  }
                 },
                 "heading": {
                   "type": "object",
@@ -225,7 +260,14 @@
                     "text": { "type": "string", "minLength": 1 }
                   }
                 }
-              }
+              },
+              "allOf": [
+                {
+                  "if": { "properties": { "kind": { "const": "model_label_value_rows" } } },
+                  "then": { "required": ["model_rows"] },
+                  "else": { "not": { "required": ["model_rows"] } }
+                }
+              ]
             }
           }
         }
@@ -246,6 +288,15 @@
     { "required": ["html_fact_rules"], "properties": { "html_fact_rules": { "minItems": 1 } } }
   ],
   "$defs": {
+    "htmlHeading": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["selector", "text"],
+      "properties": {
+        "selector": { "$ref": "#/$defs/htmlSelectorChain" },
+        "text": { "type": "string", "minLength": 1 }
+      }
+    },
     "htmlSelectorChain": {
       "type": "array",
       "minItems": 1,
