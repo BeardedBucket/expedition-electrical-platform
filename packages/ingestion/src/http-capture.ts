@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
+import { CaptureTimeout } from './capture-timeout.js';
 import type {
   CaptureRequest,
   CaptureResult,
@@ -9,6 +10,8 @@ import type {
 } from './capture-types.js';
 
 export const DEFAULT_TIMEOUT_MS = 10_000;
+export const DEFAULT_BODY_IDLE_TIMEOUT_MS = 10_000;
+export const DEFAULT_BODY_TIMEOUT_MS = 120_000;
 export const DEFAULT_MAX_REDIRECTS = 5;
 // The HTML allowance preserves the former 2 MB ordinary-capture headroom.
 export const TEXT_RESPONSE_MAX_BYTES = 2_000_000;
@@ -161,6 +164,8 @@ export class HttpSourceCaptureAdapter implements SourceCaptureAdapter {
     if (!(parsed instanceof URL)) return parsed;
     const maxBytes = request.max_bytes ?? ABSOLUTE_RESPONSE_MAX_BYTES;
     const timeoutMs = request.timeout_ms ?? DEFAULT_TIMEOUT_MS;
+    const idleMs = request.body_idle_timeout_ms ?? DEFAULT_BODY_IDLE_TIMEOUT_MS;
+    const bodyMs = request.body_timeout_ms ?? DEFAULT_BODY_TIMEOUT_MS;
     const maxRedirects = request.max_redirects ?? DEFAULT_MAX_REDIRECTS;
     if (!Number.isInteger(maxBytes) || maxBytes < 1) {
       return {
@@ -168,11 +173,17 @@ export class HttpSourceCaptureAdapter implements SourceCaptureAdapter {
         issues: [issue('invalid_size_limit', 'max_bytes must be a positive integer.')],
       };
     }
-    if (!Number.isInteger(timeoutMs) || timeoutMs < 1) {
-      return {
-        status: 'invalid',
-        issues: [issue('invalid_timeout', 'timeout_ms must be a positive integer.')],
-      };
+    for (const [name, value] of [
+      ['timeout_ms', timeoutMs],
+      ['body_idle_timeout_ms', idleMs],
+      ['body_timeout_ms', bodyMs],
+    ] as const) {
+      if (!Number.isSafeInteger(value) || value < 1 || value > 2_147_483_647) {
+        return {
+          status: 'invalid',
+          issues: [issue('invalid_timeout', `${name} must be a positive timer-safe integer.`)],
+        };
+      }
     }
     if (!Number.isInteger(maxRedirects) || maxRedirects < 0) {
       return {
@@ -180,26 +191,33 @@ export class HttpSourceCaptureAdapter implements SourceCaptureAdapter {
         issues: [issue('invalid_redirect_limit', 'max_redirects must be a non-negative integer.')],
       };
     }
-    const timeout = new AbortController();
-    const abortFromCaller = () => timeout.abort();
-    if (request.signal?.aborted) timeout.abort();
-    request.signal?.addEventListener('abort', abortFromCaller, { once: true });
-    const timer = setTimeout(() => timeout.abort(), timeoutMs);
+    const boundary = new CaptureTimeout(timeoutMs, idleMs, bodyMs, request.signal);
+    const timeout = boundary.controller;
+    let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+    let completed = false;
+    let size = 0;
     try {
       if (timeout.signal.aborted) {
         return {
           status: 'failed',
-          issues: [issue('aborted', 'The capture timed out or was aborted.')],
+          issues: [issue('aborted', boundary.reason)],
         };
       }
       let current = parsed;
-      const resolvedDestination = await this.validateResolvedDestination(current);
+      const resolvedDestination = await boundary.wait(() =>
+        this.validateResolvedDestination(current),
+      );
       if (resolvedDestination) return resolvedDestination;
       let response: Response | undefined;
       const redirectChain: RedirectHop[] = [];
       for (let redirects = 0; ; redirects += 1) {
         try {
-          response = await this.fetcher(current, { redirect: 'manual', signal: timeout.signal });
+          response = await boundary.wait<Response>(() =>
+            this.fetcher(current, { redirect: 'manual', signal: timeout.signal }).then((result) => {
+              if (timeout.signal.aborted) void result.body?.cancel().catch(() => {});
+              return result;
+            }),
+          );
         } catch (error) {
           const aborted = timeout.signal.aborted || request.signal?.aborted;
           return {
@@ -207,12 +225,13 @@ export class HttpSourceCaptureAdapter implements SourceCaptureAdapter {
             issues: [
               issue(
                 aborted ? 'aborted' : 'network_error',
-                aborted ? 'The capture timed out or was aborted.' : String(error),
+                aborted ? boundary.reason : String(error),
               ),
             ],
           };
         }
         if (!REDIRECT_STATUSES.has(response.status)) break;
+        void response.body?.cancel().catch(() => {});
         if (redirects >= maxRedirects) {
           return {
             status: 'failed',
@@ -239,7 +258,9 @@ export class HttpSourceCaptureAdapter implements SourceCaptureAdapter {
         }
         const destination = validateCaptureUri(redirectUri);
         if (!(destination instanceof URL)) return destination;
-        const destinationResolution = await this.validateResolvedDestination(destination);
+        const destinationResolution = await boundary.wait(() =>
+          this.validateResolvedDestination(destination),
+        );
         if (destinationResolution) return destinationResolution;
         redirectChain.push({
           requested_uri: current.toString(),
@@ -256,7 +277,8 @@ export class HttpSourceCaptureAdapter implements SourceCaptureAdapter {
           issues: [issue('network_error', 'The source response was unavailable.')],
         };
       }
-      const reader = response.body?.getReader();
+      boundary.startBody();
+      reader = response.body?.getReader();
       if (!reader) {
         return {
           status: 'failed',
@@ -288,35 +310,29 @@ export class HttpSourceCaptureAdapter implements SourceCaptureAdapter {
         };
       }
       const chunks: Uint8Array[] = [];
-      let size = 0;
       while (true) {
         let next: ReadableStreamReadResult<Uint8Array>;
         try {
-          next = await reader.read();
+          next = await boundary.wait(() => reader!.read());
         } catch (error) {
           const aborted = timeout.signal.aborted || request.signal?.aborted === true;
-          try {
-            await reader.cancel();
-          } catch {
-            // Preserve the transport failure when a timed-out stream rejects cancellation.
-          } finally {
-            reader.releaseLock();
-          }
           return {
             status: 'failed',
             bytes_observed: size,
             issues: [
               issue(
                 aborted ? 'aborted' : 'network_error',
-                aborted ? 'The capture timed out or was aborted.' : String(error),
+                aborted ? boundary.reason : String(error),
               ),
             ],
           };
         }
-        if (next.done) break;
+        if (next.done) {
+          completed = true;
+          break;
+        }
         const chunkLength = next.value.byteLength;
         if (chunkLength > effectiveLimit - size) {
-          await reader.cancel();
           return {
             status: 'failed',
             bytes_observed: size + chunkLength,
@@ -328,6 +344,7 @@ export class HttpSourceCaptureAdapter implements SourceCaptureAdapter {
             ],
           };
         }
+        if (chunkLength > 0) boundary.progress();
         size += chunkLength;
         chunks.push(next.value);
       }
@@ -361,9 +378,24 @@ export class HttpSourceCaptureAdapter implements SourceCaptureAdapter {
           ? []
           : [issue('http_status', `The source returned HTTP status ${response.status}.`)],
       };
+    } catch (error) {
+      return {
+        status: 'failed',
+        bytes_observed: size,
+        issues: [
+          issue(
+            timeout.signal.aborted ? 'aborted' : 'network_error',
+            timeout.signal.aborted ? boundary.reason : String(error),
+          ),
+        ],
+      };
     } finally {
-      clearTimeout(timer);
-      request.signal?.removeEventListener('abort', abortFromCaller);
+      boundary.dispose();
+      if (reader) {
+        // Cancellation must not keep a worker alive if a transport never settles it.
+        if (!completed) void reader.cancel().catch(() => {});
+        reader.releaseLock();
+      }
     }
   }
 }

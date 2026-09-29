@@ -425,6 +425,7 @@ describe('one-level manual child-document discovery', () => {
                   return { done: true, value: undefined };
                 },
                 cancel: async () => undefined,
+                releaseLock: () => undefined,
               }),
             },
           } as unknown as Response;

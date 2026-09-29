@@ -78,6 +78,7 @@ describe('production-safe source capture classification', () => {
                 return { done: true, value: undefined };
               },
               cancel: async () => undefined,
+              releaseLock: () => undefined,
             }),
           },
         } as unknown as Response;

@@ -183,7 +183,7 @@ describe('HTTP source capture', () => {
       resolvePublicHost,
     );
     await expect(
-      bodyTimeout.capture({ uri: 'https://example.invalid/body-timeout', timeout_ms: 1 }),
+      bodyTimeout.capture({ uri: 'https://example.invalid/body-timeout', body_idle_timeout_ms: 1 }),
     ).resolves.toMatchObject({
       status: 'failed',
       bytes_observed: 0,
@@ -230,7 +230,7 @@ describe('HTTP source capture', () => {
     );
     const timedOut = await adapter.capture({
       uri: 'https://example.invalid/partial-timeout',
-      timeout_ms: 1,
+      body_idle_timeout_ms: 1,
     });
     expect(timedOut).toMatchObject({
       status: 'failed',
@@ -300,7 +300,7 @@ describe('HTTP source capture', () => {
       );
       const pending = adapter.capture({
         uri: 'https://example.invalid/timer-cleanup',
-        timeout_ms: 10,
+        body_idle_timeout_ms: 10,
       });
       await vi.advanceTimersByTimeAsync(10);
       await expect(pending).resolves.toMatchObject({

@@ -32,7 +32,10 @@ export interface RedirectHop {
 export interface CaptureRequest {
   readonly uri: string;
   readonly retrieved_at?: string;
+  /** DNS, redirects, and final response headers; excludes body transfer. */
   readonly timeout_ms?: number;
+  readonly body_idle_timeout_ms?: number;
+  readonly body_timeout_ms?: number;
   readonly max_bytes?: number;
   readonly max_redirects?: number;
   readonly signal?: AbortSignal;

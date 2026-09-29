@@ -45,3 +45,44 @@ Contract validation requires duplicate owner IDs to reference retained candidate
 Admin presentation displays duplicate selection status; production preparation
 processes only entries with actual authoritative captures. These dependencies are
 preserved without a new graph or candidate schema.
+
+## Streaming transport time policy
+
+The shared HTTP capture adapter separates three configurable boundaries on
+`CaptureRequest`. `timeout_ms` defaults to 10,000 ms and bounds DNS, redirect
+resolution, and final response headers collectively. Once the final response
+starts, `body_idle_timeout_ms` defaults to 10,000 ms; each nonempty body chunk
+resets that clock. Text and binary bodies use the same progress rule.
+`body_timeout_ms` defaults to 120,000 ms and caps the complete body transfer
+independently of progress. All three values must be positive safe integers no
+larger than 2,147,483,647 ms (the timer implementation range).
+
+The two-minute body cap permits a near-32,000,000-byte resource at about
+267,000 bytes/second while bounding a trickle stream. With the unchanged 20
+candidate-attempt budget plus the seed, the default transport waits are bounded
+by 21 * (10 + 120) seconds, excluding local processing. There is no separate
+acquisition-wide wall-clock deadline or implicit retry. The default balances
+ordinary technical-document throughput against finite sequential worker
+occupancy; it is not derived from a particular publisher's download duration.
+
+Byte policies remain independent: text/HTML 2,000,000 bytes, PDF 32,000,000,
+other binary 4,000,000, absolute resource ceiling 32,000,000, and acquisition
+observed-byte allowance 40,000,000. These are the existing decimal-byte values.
+Content-Length only enables early rejection. Streamed bytes, including the
+size-crossing chunk and bytes preceding a timeout, remain authoritative for
+accounting. Partial bodies never produce captures, content digests, or retained
+snapshots. The separate 8,388,608-byte extraction-input gate is unchanged.
+
+Timeouts and external cancellation remain `failed` captures with the existing
+`aborted` reason code; reason messages distinguish response-start, inactivity,
+absolute transfer timeout, and external abort. Genuine transport exceptions
+remain `network_error`. Terminal abort prevents accepting later chunks. Timers
+and abort listeners are removed on every exit; unsuccessful readers are
+cancelled and all acquired reader locks are released. Cancellation rejection or
+non-settlement does not replace the original failure or hold the worker open.
+One failed candidate remains isolated and later candidates continue under the
+existing resource, attempt, byte, and ordering policies.
+
+Fake-clock offline regressions establish deterministic timing and containment.
+Live network acceptance is separate evidence about current publisher behavior,
+not part of the normal unit suite or proof of a reviewed product fact.
