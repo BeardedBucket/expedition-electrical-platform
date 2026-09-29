@@ -317,6 +317,9 @@ export interface DocumentSourceLocation {
   readonly fragment?: string;
   readonly section?: string;
   readonly page?: number;
+  /** Optional source order; PDF uses raw page-local item positions, including skipped items.
+   * This is not a retained-block index: PDF paths/IDs preserve those source positions.
+   */
   readonly ordinal?: number;
   readonly row?: number;
   readonly column?: number;

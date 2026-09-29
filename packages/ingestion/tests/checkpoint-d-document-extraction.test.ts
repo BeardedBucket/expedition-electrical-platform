@@ -4,6 +4,7 @@ import {
   artifactReference,
   buildDocumentExtractionArtifact,
   validateDocumentExtraction,
+  validateProductionArtifactSchema,
   type SourceCaptureArtifact,
 } from '../src/production-contracts.js';
 import {
@@ -124,6 +125,25 @@ const acquisition = artifactReference('source_acquisition', {
 });
 
 describe('Checkpoint D document extraction', () => {
+  it('validates a real one-block PDF artifact with its emitted source ordinal', async () => {
+    const document = await extractDocumentAsync({
+      ...htmlSource(''),
+      media_type: 'application/pdf',
+      body: { bytes: minimalPdf('Source wording') },
+    });
+    const artifact = buildDocumentExtractionArtifact(
+      document,
+      artifactReference('source_capture', capture),
+      { source_acquisition: acquisition },
+    );
+    expect(artifact.status).toBe('extracted');
+    expect(artifact.blocks).toHaveLength(1);
+    expect(artifact.blocks[0].locator).toMatchObject({ kind: 'pdf', page: 1, ordinal: 1 });
+    expect(artifact.blocks[0].source_location).toEqual(artifact.blocks[0].locator);
+    expect(validateDocumentExtraction(artifact)).toEqual([]);
+    expect(validateProductionArtifactSchema(artifact)).toEqual([]);
+  });
+
   it('preserves HTML structure and literal fidelity without semantic interpretation', () => {
     const source = htmlSource(`
       <title>Exact Product Title</title>

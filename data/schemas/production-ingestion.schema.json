@@ -635,6 +635,7 @@
                   "row": { "type": "string" },
                   "path": { "type": "string" },
                   "page": { "type": "integer", "minimum": 1 },
+                  "ordinal": { "type": "integer", "minimum": 1 },
                   "column": { "type": "integer", "minimum": 1 }
                 },
                 "additionalProperties": false

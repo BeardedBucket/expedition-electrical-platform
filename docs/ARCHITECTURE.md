@@ -151,6 +151,22 @@ default; the seed capture is separate. Structural manual-link admission, reviewe
 domain eligibility, bounded duplicate provenance, redirect suppression, and the
 depth-one maximum remain unchanged.
 
+### Document source locators
+
+Document block `locator` and optional `source_location` both carry source-location
+metadata in the production TypeScript contract and runtime validator. Their
+optional `ordinal` must be a positive integer. Current PDF extraction records the
+raw PDF.js item position within each page, including positions skipped from
+retained output; it is not a global retained-block index. Page and raw ordinal
+also appear in deterministic PDF paths/fragments and therefore block IDs.
+HTML locators may omit ordinal. This metadata does not assert semantic grouping
+of PDF text. The closed inline serialized block-locator schema previously omitted
+ordinal despite production emission; permitting it corrects schema drift without
+changing extraction, artifact hashing, or location meaning. The inline schema
+retains its legacy string-valued `row`, distinct from the numeric row in the
+shared location schema, so this correction adds only ordinal rather than replacing
+the inline schema and altering unrelated serialized compatibility.
+
 ### Bounded source-capture bytes
 
 PDF extraction has an independent parser-input ceiling of 32,000,000 bytes,
