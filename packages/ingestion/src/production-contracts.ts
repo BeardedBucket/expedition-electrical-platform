@@ -307,8 +307,8 @@ export type DocumentDiagnosticCode =
   | 'item_limit_reached'
   | 'table_cell_limit_reached'
   | 'page_limit_reached'
-  | 'page_limit_reached'
   | 'text_limit_reached'
+  | 'total_text_limit_reached'
   | 'snapshot_read_failure';
 
 export interface DocumentSourceLocation {
@@ -1106,7 +1106,9 @@ export const validateDocumentExtraction = (
     'input_limit_reached',
     'item_limit_reached',
     'table_cell_limit_reached',
+    'page_limit_reached',
     'text_limit_reached',
+    'total_text_limit_reached',
     'snapshot_read_failure',
   ]);
   const blockKinds = new Set<DocumentBlockKind>([
@@ -1772,6 +1774,7 @@ export const qualifyDocumentExtraction = (
     'table_cell_limit_reached',
     'page_limit_reached',
     'text_limit_reached',
+    'total_text_limit_reached',
     'snapshot_read_failure',
   ]);
   const coverageTruncated =

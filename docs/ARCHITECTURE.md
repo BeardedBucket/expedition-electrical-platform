@@ -205,8 +205,8 @@ an entire page's text array. It preserves page/item ordinals across chunks,
 cancels the stream at the item boundary, releases its reader, cleans each page,
 and destroys the loading task on success or failure. Stream cancellation supplies
 the Error reason required by PDF.js's message handler before it marks the stream
-closed. Defaults remain 1,000 pages,
-10,000 retained text blocks, and 100,000 characters per block. The declared text
+closed. Defaults remain 1,000 pages and 100,000 characters per block; PDF output
+has independent block and total-text budgets described below. The declared text
 cap is now enforced for PDF blocks as well as HTML. The HTML table-cell ceiling
 remains 50,000 per table, with table blocks subject to the item cap; PDF table
 structure remains unsupported and produces zero tables. There is no separate
@@ -221,6 +221,86 @@ no rendering or OCR is requested. Larger admitted input does not guarantee full
 extraction. Page, item, or text limits produce diagnosed bounded partial results;
 source authority, snapshot verification, qualification, and review remain
 separate unchanged boundaries. No OCR or image extraction was added.
+
+### PDF retained-output policy
+
+PDF extraction independently owns a default maximum of **50,000 retained cleaned
+PDF.js text blocks** and **2,000,000 total retained UTF-16 code units**. HTML still
+uses 10,000 structural items; it ignores the PDF-only total-text setting.
+The numerically equal HTML 50,000-cell-per-table ceiling is independently owned
+and counts different units; it is not coupled to the PDF retained-block cap.
+`PdfDocumentExtractionLimits.max_total_text_code_units` measures the sum of
+retained block string lengths after whitespace cleanup and the independent
+100,000-code-unit per-block cap. Internal cleaned spaces count. No inter-block
+spaces or separators are inserted or counted.
+The historical `max_text_length` name is unchanged; its current JavaScript
+string slicing/length implementation also measures UTF-16 code units.
+Existing `max_items` overrides
+remain effective for either extractor; async dispatch and retained-capture replay
+also forward the optional PDF-only total-text override. Explicit caller overrides
+can narrow or enlarge these defaults; these are trusted application settings.
+
+The historical shared PDF 10,000 value first appeared in checkpoint
+`1ac4f9069cb1a2d11a1974c77a737fb4f558dfc7` and landed in
+`305e306c6832783bb7e8cb9e1148e1131243b732`; no numeric rationale was recovered.
+HTML structures and PDF.js text items are different units. The 2026-09-29 single
+production capture of the official 260-page technical manual produced 19,519 raw
+item positions, 12,886 cleaned nonempty items, and 500,972 code units. Its source
+was 28,630,824 bytes (SHA-256
+`3b2201d910470551b4b959f27d993aeda07c06a6bf5efcdcc3a6d58cd6dd92f5`).
+The legacy output stopped on page 201, with the last retained raw ordinal 13:
+10,000 blocks, 393,795 code units, 3,354,719 JSON bytes. The first omitted item
+was page 201, raw ordinal 14. A count-only page-stream
+diagnostic preceded a production replay with an explicit 12,887-item diagnostic
+override. Full output was 4,325,460 JSON bytes and repeated identically; extraction
+took approximately 1.29 seconds on that diagnostic host, not a performance SLA.
+The prior project-authored 101-page/10,100-block experiment was 3,091,729 JSON bytes.
+
+For the manual, per-page retained counts were min/median/p95/max 3/47/90/175;
+per-page cleaned code units were 59/1,748/3,593/8,178. Item lengths were
+1/24/123/143. Items of at most 1, 3, and 10 code units accounted for
+1,591 (12.35%), 2,518 (19.54%), and 4,249 (32.97%) respectively. Samples from
+pages 1, 30, 100, 180, and 260 mixed headings, line-sized phrases, words,
+bullet markers, and code-like fragments. They do not establish paragraph or
+table semantics. One-item-per-block remains a source-faithful mechanical
+representation, preserving raw page order and skipped-item ordinals. Aggregation
+solely to reduce counts would change evidence content, membership, and identity
+without an established generic grouping rule; none is introduced.
+
+The round 50,000/2,000,000 limits are conservative operating defaults with roughly
+fourfold headroom over this representative large technical PDF, not standards
+values, manufacturer exceptions, or a claim about every admitted PDF. Count bounds
+block/locator metadata and per-block hashing costs; total text independently bounds
+retained strings and prevents the former count-times-per-block allowance from
+permitting enormous logical output. Neither source bytes nor block count alone
+predicts decompressed text or artifact size. JSON escaping, duplicated locator
+metadata, hashing, serialization, and persisted copies add allocation and storage
+cost; no exact RAM measurement or independent artifact-byte quota is asserted.
+Both budgets remain necessary, since many tiny items create metadata overhead
+while a few long items can dominate text. Existing qualification iterates blocks
+but does not infer facts from bare PDF text; this manual still yields zero facts.
+Persistence has no independent 10,000-block contract assumption or extraction
+artifact-byte quota. These limits do not cap parser-internal allocation or CPU.
+
+Before retaining each block, streaming extraction checks count and then the
+total-text allowance. The first crossing block is omitted whole; a remaining
+allowance can therefore be unused. Earlier per-block truncation remains explicitly
+diagnosed. Exactly filling a budget at EOF is complete; an additional nonempty
+item triggers `item_limit_reached` or the additive `total_text_limit_reached`.
+Partial output is a deterministic useful source prefix, never complete coverage
+or verified facts. Even a zero-block budget stop is partial, not image-only.
+Qualification treats the new diagnostic as incomplete coverage; the closed
+diagnostic schema and runtime allowlist both admit it. Existing stream-finally
+ownership cancels with Error, releases the lock, cleans the page, stops subsequent
+pages, and destroys the task; cleanup failures remain contained parser failures.
+Capture bytes and digest ownership are unchanged. Input/page/per-block limits,
+no OCR, and no PDF table inference remain independent.
+
+Reconsider these defaults when a broader supported corpus or measured operational
+allocation/storage/latency evidence demonstrates insufficient headroom or excessive
+cost. Such evidence could justify smaller limits, larger bounded defaults, or a
+separate artifact budget. This single manual supports a conservative default,
+not removal of output boundaries or semantic grouping.
 
 Each HTTP response has an internal media-aware transport allowance: `text/html`
 and `text/*` are limited to 2,000,000 bytes, `application/pdf` to 32,000,000

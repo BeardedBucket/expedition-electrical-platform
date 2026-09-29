@@ -3,6 +3,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import {
   DEFAULT_PDF_EXTRACTION_MAX_INPUT_BYTES,
+  DEFAULT_PDF_EXTRACTION_MAX_ITEMS,
+  DEFAULT_PDF_EXTRACTION_MAX_TOTAL_TEXT_CODE_UNITS,
+  DEFAULT_DOCUMENT_EXTRACTION_LIMITS,
+  extractHtmlDocument,
   extractDocumentAsync,
   extractDocumentArtifactFromRetainedCapture,
   extractDocumentFromRetainedCapture,
@@ -11,6 +15,10 @@ import {
 import {
   artifactDigest,
   artifactReference,
+  buildDocumentExtractionArtifact,
+  qualifyDocumentExtraction,
+  validateDocumentExtraction,
+  validateProductionArtifactSchema,
   type SourceCaptureArtifact,
 } from '../src/production-contracts.js';
 import type { CapturedSource } from '../src/capture-types.js';
@@ -70,6 +78,108 @@ beforeEach(() => {
 });
 
 describe('large PDF extraction boundary', () => {
+  it.each([10_100, 50_000, 50_001])(
+    'bounds %i retained items with independent PDF defaults',
+    async (count) => {
+      const resources = parser(1, [Array.from({ length: count }, () => ({ str: 'x' }))]);
+      const input = source(64);
+      const result = await extractPdfDocument(input);
+      expect(DEFAULT_PDF_EXTRACTION_MAX_ITEMS).toBe(50_000);
+      expect(result.blocks).toHaveLength(Math.min(count, 50_000));
+      expect(result.status).toBe(count > 50_000 ? 'partially_extracted' : 'extracted');
+      expect(result.diagnostics?.some((d) => d.code === 'item_limit_reached')).toBe(count > 50_000);
+      expect(resources.cancel).toHaveBeenCalledTimes(count > 50_000 ? 1 : 0);
+      expect(resources.cleanup).toHaveBeenCalledOnce();
+      expect(resources.destroy).toHaveBeenCalledOnce();
+      expect(digest(input.body.bytes)).toBe(input.content_hash);
+    },
+  );
+  it.each([2_000_000, 2_000_001])(
+    'bounds %i total retained code units independently of count and per-block limits',
+    async (codeUnits) => {
+      const chunks = [Array.from({ length: 20 }, () => ({ str: 'x'.repeat(100_000) }))];
+      if (codeUnits > 2_000_000) chunks.push([{ str: 'y' }]);
+      // Exact EOF must not diagnose merely touching the budget.
+      const resources = parser(1, chunks);
+      const result = await extractPdfDocument(source(64));
+      expect(DEFAULT_PDF_EXTRACTION_MAX_TOTAL_TEXT_CODE_UNITS).toBe(2_000_000);
+      expect(result.blocks.reduce((sum, b) => sum + (b.text?.length ?? 0), 0)).toBe(2_000_000);
+      expect(result.diagnostics?.some((d) => d.code === 'total_text_limit_reached')).toBe(
+        codeUnits > 2_000_000,
+      );
+      expect(
+        result.diagnostics?.some((d) =>
+          ['item_limit_reached', 'text_limit_reached'].includes(d.code),
+        ),
+      ).toBe(false);
+      expect(resources.cancel).toHaveBeenCalledTimes(codeUnits > 2_000_000 ? 1 : 0);
+      expect(resources.cleanup).toHaveBeenCalledOnce();
+      expect(resources.destroy).toHaveBeenCalledOnce();
+    },
+  );
+  it('counts cleaned internal spaces and UTF-16 units, retains a prefix, and validates deterministic partial artifacts', async () => {
+    const resources = parser(3, [
+      [{ str: ' ' }, { str: ' A  \u{1F600} ' }],
+      [{ str: '' }, { str: 'BCDE' }],
+    ]);
+    const input = source(64);
+    const limits = { max_total_text_code_units: 7 };
+    // Cleaned "A <supplementary scalar>" is 4 UTF-16 code units, not 3 code
+    // points. Adding BCDE needs 8 units and crosses 7; code-point accounting
+    // would incorrectly admit both blocks at exactly 7.
+    const first = await extractDocumentAsync(input, limits);
+    const second = await extractDocumentAsync(input, limits);
+    expect(first).toEqual(second);
+    expect(first.blocks.map((b) => [b.text, b.locator.ordinal])).toEqual([['A \u{1F600}', 2]]);
+    expect(first.blocks.reduce((sum, block) => sum + (block.text?.length ?? 0), 0)).toBe(4);
+    expect(first.status).toBe('partially_extracted');
+    expect(first.diagnostics).toContainEqual(
+      expect.objectContaining({ code: 'total_text_limit_reached' }),
+    );
+    expect(resources.getPage).toHaveBeenCalledTimes(2);
+    expect(resources.cancel).toHaveBeenCalledTimes(2);
+    expect(resources.cleanup).toHaveBeenCalledTimes(2);
+    expect(resources.destroy).toHaveBeenCalledTimes(2);
+    const artifact = buildDocumentExtractionArtifact(
+      first,
+      artifactReference('source_capture', { id: 'capture.output' }),
+      { source_acquisition: artifactReference('source_acquisition', { id: 'acquisition.output' }) },
+    );
+    expect(validateDocumentExtraction(artifact)).toEqual([]);
+    expect(validateProductionArtifactSchema(artifact)).toEqual([]);
+    const qualification = qualifyDocumentExtraction(artifact);
+    expect(qualification.facts).toEqual([]);
+    expect(qualification.completeness).toBe('partial');
+    expect(digest(input.body.bytes)).toBe(input.content_hash);
+  });
+  it('applies the per-block cap before total accounting and does not mislabel empty bounded output as image-only', async () => {
+    parser(1, [[{ str: 'abcdef' }, { str: 'gh' }]]);
+    const result = await extractPdfDocument(source(64), {
+      max_text_length: 3,
+      max_total_text_code_units: 5,
+    });
+    expect(result.blocks.map((b) => b.text)).toEqual(['abc', 'gh']);
+    expect(result.diagnostics?.map((d) => d.code)).toContain('text_limit_reached');
+    expect(result.diagnostics?.map((d) => d.code)).not.toContain('total_text_limit_reached');
+    parser();
+    const empty = await extractPdfDocument(source(64), { max_total_text_code_units: 0 });
+    expect(empty.status).toBe('partially_extracted');
+    expect(empty.blocks).toEqual([]);
+    expect(empty.diagnostics?.map((d) => d.code)).not.toContain('likely_image_only');
+  });
+  it('preserves the HTML structural-item default and ignores the PDF-only text budget', async () => {
+    expect(DEFAULT_DOCUMENT_EXTRACTION_LIMITS.max_items).toBe(10_000);
+    const text = '<p>x</p>'.repeat(10_001);
+    const input = {
+      ...source(64),
+      media_type: 'text/html',
+      body: { bytes: new TextEncoder().encode(text), text },
+    };
+    const result = await extractDocumentAsync(input, { max_total_text_code_units: 0 });
+    expect(result.blocks).toHaveLength(10_000);
+    expect(result).toEqual(extractHtmlDocument(input));
+    expect(result.diagnostics?.map((d) => d.code)).toContain('item_limit_reached');
+  });
   it('intentionally aligns independently owned PDF defaults today', () => {
     expect(DEFAULT_PDF_EXTRACTION_MAX_INPUT_BYTES).toBe(32_000_000);
     expect(PDF_RESPONSE_MAX_BYTES).toBe(32_000_000);

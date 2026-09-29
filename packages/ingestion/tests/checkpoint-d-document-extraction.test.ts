@@ -125,6 +125,49 @@ const acquisition = artifactReference('source_acquisition', {
 });
 
 describe('Checkpoint D document extraction', () => {
+  it('replays a generated PDF through a total-output boundary with stable source identity and schema', async () => {
+    const bytes = minimalPdf('ABCDE', 3);
+    const retained = replayCapture(bytes, bytesDigest(bytes), 'application/pdf');
+    const limits = { max_total_text_code_units: 10 };
+    const first = await extractDocumentArtifactFromRetainedCapture(
+      retained,
+      acquisition,
+      memoryStore(bytes),
+      {},
+      limits,
+    );
+    const second = await extractDocumentArtifactFromRetainedCapture(
+      retained,
+      acquisition,
+      memoryStore(bytes),
+      {},
+      limits,
+    );
+    expect(first).toEqual(second);
+    expect(first.status).toBe('partially_extracted');
+    expect(first.blocks.map((b) => [b.content, b.locator.page, b.locator.ordinal])).toEqual([
+      ['ABCDE', 1, 1],
+      ['ABCDE', 2, 1],
+    ]);
+    expect(first.diagnostics).toContainEqual(
+      expect.objectContaining({ code: 'total_text_limit_reached' }),
+    );
+    expect(validateDocumentExtraction(first)).toEqual([]);
+    expect(validateProductionArtifactSchema(first)).toEqual([]);
+    expect(bytesDigest(bytes)).toBe(retained.content_digest);
+    const pageBound = await extractDocumentArtifactFromRetainedCapture(
+      retained,
+      acquisition,
+      memoryStore(bytes),
+      {},
+      { max_pages: 1 },
+    );
+    expect(pageBound.diagnostics).toContainEqual(
+      expect.objectContaining({ code: 'page_limit_reached' }),
+    );
+    expect(validateDocumentExtraction(pageBound)).toEqual([]);
+    expect(validateProductionArtifactSchema(pageBound)).toEqual([]);
+  });
   it('validates a real one-block PDF artifact with its emitted source ordinal', async () => {
     const document = await extractDocumentAsync({
       ...htmlSource(''),

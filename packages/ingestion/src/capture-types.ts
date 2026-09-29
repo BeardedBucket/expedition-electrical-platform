@@ -135,6 +135,7 @@ export type DiagnosticCode =
   | 'table_cell_limit_reached'
   | 'page_limit_reached'
   | 'text_limit_reached'
+  | 'total_text_limit_reached'
   | 'snapshot_read_failure';
 
 export interface ExtractionSourceLocation {

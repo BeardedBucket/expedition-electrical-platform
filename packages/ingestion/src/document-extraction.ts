@@ -43,7 +43,16 @@ export interface DocumentExtractionLimits {
   readonly max_items?: number;
   readonly max_pages?: number;
   readonly max_table_cells?: number;
+  /** Historical name: JavaScript string slicing/length measures UTF-16 code units. */
   readonly max_text_length?: number;
+}
+
+export interface PdfDocumentExtractionLimits extends DocumentExtractionLimits {
+  /** Sum of retained block string lengths (UTF-16 code units), after per-block
+   * truncation. Internal cleaned spaces count; no inter-block separators are added.
+   * HTML ignores this PDF-only output budget.
+   */
+  readonly max_total_text_code_units?: number;
 }
 
 export const DEFAULT_DOCUMENT_EXTRACTION_LIMITS: Required<DocumentExtractionLimits> = {
@@ -57,13 +66,24 @@ export const DEFAULT_DOCUMENT_EXTRACTION_LIMITS: Required<DocumentExtractionLimi
 // Parser input is independent of transport policy, intentionally aligned today.
 export const DEFAULT_PDF_EXTRACTION_MAX_INPUT_BYTES = 32_000_000;
 
+// Extraction-owned conservative output bounds, independent of HTML's structural
+// item cap. The measured 260-page technical PDF yielded 12,886 blocks / 500,972
+// code units / 4.33 MB JSON; these round budgets give roughly fourfold headroom.
+// Count bounds metadata overhead; total text prevents count * per-block expansion.
+// Neither is a PDF.js RAM/CPU or serialized-byte quota. See docs/ARCHITECTURE.md.
+// No numeric rationale was recovered for the historical shared 10,000 PDF cap.
+export const DEFAULT_PDF_EXTRACTION_MAX_ITEMS = 50_000;
+export const DEFAULT_PDF_EXTRACTION_MAX_TOTAL_TEXT_CODE_UNITS = 2_000_000;
+
 export const extractPdfDocument = async (
   source: CapturedSource,
-  suppliedLimits: DocumentExtractionLimits = {},
+  suppliedLimits: PdfDocumentExtractionLimits = {},
 ): Promise<ExtractedDocument> => {
   const limits = {
     ...DEFAULT_DOCUMENT_EXTRACTION_LIMITS,
     max_input_bytes: DEFAULT_PDF_EXTRACTION_MAX_INPUT_BYTES,
+    max_items: DEFAULT_PDF_EXTRACTION_MAX_ITEMS,
+    max_total_text_code_units: DEFAULT_PDF_EXTRACTION_MAX_TOTAL_TEXT_CODE_UNITS,
     ...suppliedLimits,
   };
   if (source.body.bytes.byteLength > limits.max_input_bytes) {
@@ -112,6 +132,8 @@ export const extractPdfDocument = async (
       }
       let itemLimitReached = false;
       let textLimitReached = false;
+      let totalTextLimitReached = false;
+      let retainedTextCodeUnits = 0;
       for (let pageNumber = 1; pageNumber <= pageLimit; pageNumber += 1) {
         const page = await pdf.getPage(pageNumber);
         try {
@@ -119,7 +141,7 @@ export const extractPdfDocument = async (
           let ordinal = 0;
           let complete = false;
           try {
-            while (!itemLimitReached) {
+            while (!itemLimitReached && !totalTextLimitReached) {
               const chunk = await reader.read();
               if (chunk.done) {
                 complete = true;
@@ -135,7 +157,15 @@ export const extractPdfDocument = async (
                   break;
                 }
                 const boundedText = text.slice(0, limits.max_text_length);
+                // Admit complete mechanically bounded blocks only. Reject the first
+                // crossing block before retaining it; preserve a deterministic source
+                // prefix and let the existing finally owners cancel/clean all resources.
+                if (retainedTextCodeUnits + boundedText.length > limits.max_total_text_code_units) {
+                  totalTextLimitReached = true;
+                  break;
+                }
                 if (boundedText.length !== text.length) textLimitReached = true;
+                retainedTextCodeUnits += boundedText.length;
                 const locator = {
                   kind: 'pdf' as const,
                   fragment: `pdf-page-${pageNumber}-item-${ordinal}`,
@@ -164,7 +194,7 @@ export const extractPdfDocument = async (
         } finally {
           page.cleanup();
         }
-        if (itemLimitReached) break;
+        if (itemLimitReached || totalTextLimitReached) break;
       }
       if (itemLimitReached)
         diagnostics.push(
@@ -180,17 +210,26 @@ export const extractPdfDocument = async (
             `One or more items exceeded the ${limits.max_text_length}-character limit.`,
           ),
         );
-      const status =
-        blocks.length === 0
+      if (totalTextLimitReached)
+        diagnostics.push(
+          toDiagnostic(
+            'total_text_limit_reached',
+            `PDF extraction exceeded the ${limits.max_total_text_code_units}-UTF-16-code-unit total retained-text limit.`,
+          ),
+        );
+      const status = diagnostics.some((diagnostic) =>
+        [
+          'page_limit_reached',
+          'item_limit_reached',
+          'text_limit_reached',
+          'total_text_limit_reached',
+        ].includes(diagnostic.code),
+      )
+        ? 'partially_extracted'
+        : blocks.length === 0
           ? 'no_extractable_content'
-          : diagnostics.some((diagnostic) =>
-                ['page_limit_reached', 'item_limit_reached', 'text_limit_reached'].includes(
-                  diagnostic.code,
-                ),
-              )
-            ? 'partially_extracted'
-            : 'extracted';
-      if (blocks.length === 0) {
+          : 'extracted';
+      if (status === 'no_extractable_content') {
         diagnostics.push(
           toDiagnostic(
             'likely_image_only',
@@ -835,7 +874,7 @@ export const extractDocument = (
 
 export const extractDocumentAsync = async (
   source: CapturedSource,
-  limits: DocumentExtractionLimits = {},
+  limits: PdfDocumentExtractionLimits = {},
 ): Promise<ExtractedDocument> => {
   if (source.media_type === 'application/pdf') return extractPdfDocument(source, limits);
   return extractDocument(source, limits);
@@ -844,7 +883,7 @@ export const extractDocumentAsync = async (
 export const extractDocumentFromRetainedCapture = async (
   capture: SourceCaptureArtifact,
   snapshotStore: SnapshotStore,
-  limits: DocumentExtractionLimits = {},
+  limits: PdfDocumentExtractionLimits = {},
 ): Promise<ExtractedDocument> => {
   const replay = await replaySourceCaptureSnapshot(capture, snapshotStore);
   if (replay.status !== 'replayed' || !replay.bytes) {
@@ -895,7 +934,7 @@ export const extractDocumentArtifactFromRetainedCapture = async (
   sourceAcquisition: ArtifactReference<'source_acquisition'>,
   snapshotStore: SnapshotStore,
   options: Omit<DocumentExtractionArtifactOptions, 'source_acquisition'> = {},
-  limits: DocumentExtractionLimits = {},
+  limits: PdfDocumentExtractionLimits = {},
 ): Promise<DocumentExtractionArtifact> => {
   const document = await extractDocumentFromRetainedCapture(capture, snapshotStore, limits);
   const captureReference = artifactReference('source_capture', capture, capture.id);
