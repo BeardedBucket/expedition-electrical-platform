@@ -20,7 +20,7 @@ type ProductionArtifactValidator = ((_value: unknown) => boolean) & {
 const ProductionAjv = Ajv2020 as unknown as new (options?: Record<string, unknown>) => {
   compile: (_schema: unknown) => ProductionArtifactValidator;
 };
-const productionAjv = new ProductionAjv({ allErrors: true, strict: false });
+const productionAjv = new ProductionAjv({ allErrors: true, strict: false, strictNumbers: true });
 const registerProductionFormats = addFormats as unknown as (instance: {
   addFormat?: (...args: unknown[]) => void;
 }) => void;

@@ -4,6 +4,33 @@ export interface JsonObject {
   readonly [key: string]: JsonValue;
 }
 
+type RequireAtLeastOne<T> = {
+  [K in keyof T]-?: Required<Pick<T, K>> & Omit<T, K>;
+}[keyof T];
+
+type PowerConsumptionContext = {
+  readonly supply_voltage_v?: number;
+  readonly measurement_basis?: 'typical' | 'nominal' | 'maximum' | 'minimum' | 'quiescent';
+  readonly electrical_domain?: 'ac' | 'dc';
+};
+
+/** Nonempty source conditions; whole-device off cannot have its display on. */
+export type PowerConsumptionQualifiers =
+  | RequireAtLeastOne<
+      PowerConsumptionContext & {
+        readonly operating_state?: 'idle' | 'standby' | 'sleep' | 'active';
+        readonly display?:
+          | { readonly state: 'off' }
+          | { readonly state: 'on'; readonly brightness_percent?: number };
+      }
+    >
+  | RequireAtLeastOne<
+      PowerConsumptionContext & {
+        readonly operating_state: 'off';
+        readonly display?: { readonly state: 'off' };
+      }
+    >;
+
 /** Mirrors the target-discriminated canonical component schema. */
 export type CanonicalQualifiedValue = JsonObject &
   (
@@ -12,6 +39,12 @@ export type CanonicalQualifiedValue = JsonObject &
         readonly target: 'electrical.input_voltage_range_v';
         readonly value: { readonly min: number; readonly max: number };
         readonly qualifiers: { readonly electrical_domain: 'ac' | 'dc' };
+      }
+    | {
+        readonly id: string;
+        readonly target: 'electrical.power_consumption_w';
+        readonly value: number;
+        readonly qualifiers: PowerConsumptionQualifiers;
       }
     | {
         readonly id: string;

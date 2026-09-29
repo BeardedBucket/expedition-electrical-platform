@@ -43,12 +43,45 @@ export interface ComponentRequirementRef extends Record<string, unknown> {
   readonly note?: string;
 }
 
+type RequireAtLeastOne<T> = {
+  [K in keyof T]-?: Required<Pick<T, K>> & Omit<T, K>;
+}[keyof T];
+
+type PowerConsumptionContext = {
+  readonly supply_voltage_v?: number;
+  readonly measurement_basis?: 'typical' | 'nominal' | 'maximum' | 'minimum' | 'quiescent';
+  readonly electrical_domain?: 'ac' | 'dc';
+};
+
+/** Nonempty source conditions; whole-device off cannot have its display on. */
+export type PowerConsumptionQualifiers =
+  | RequireAtLeastOne<
+      PowerConsumptionContext & {
+        readonly operating_state?: 'idle' | 'standby' | 'sleep' | 'active';
+        readonly display?:
+          | { readonly state: 'off' }
+          | { readonly state: 'on'; readonly brightness_percent?: number };
+      }
+    >
+  | RequireAtLeastOne<
+      PowerConsumptionContext & {
+        readonly operating_state: 'off';
+        readonly display?: { readonly state: 'off' };
+      }
+    >;
+
 export type CanonicalQualifiedValue =
   | {
       readonly id: string;
       readonly target: 'electrical.input_voltage_range_v';
       readonly value: { readonly min: number; readonly max: number };
       readonly qualifiers: { readonly electrical_domain: 'ac' | 'dc' };
+    }
+  | {
+      readonly id: string;
+      readonly target: 'electrical.power_consumption_w';
+      readonly value: number;
+      readonly qualifiers: PowerConsumptionQualifiers;
     }
   | {
       readonly id: string;
@@ -130,6 +163,7 @@ export interface ComponentLibraryElectrical {
   readonly peak_discharge_current_a?: number | null;
   readonly peak_discharge_duration_s?: number | null;
   readonly continuous_power_w?: number | null;
+  readonly power_consumption_w?: number | null;
   readonly apparent_power_va?: number | null;
   readonly ac_output_voltage_v?: number | number[] | null;
   readonly input_voltage_range_v?: ComponentLibraryRange | null;
@@ -742,6 +776,10 @@ const validateEngineeringConstraints = (input: unknown): readonly string[] => {
       electricalRecord.continuous_current_a,
     );
     validateFiniteNonNegative('electrical.continuous_power_w', electricalRecord.continuous_power_w);
+    validateFiniteNonNegative(
+      'electrical.power_consumption_w',
+      electricalRecord.power_consumption_w,
+    );
     validateFiniteNonNegative('electrical.apparent_power_va', electricalRecord.apparent_power_va);
     const nominalVoltage = electricalRecord.nominal_voltage_v;
     if (Array.isArray(nominalVoltage)) {
@@ -778,6 +816,18 @@ const validateEngineeringConstraints = (input: unknown): readonly string[] => {
       const entry = raw as CanonicalQualifiedValue;
       if (ids.has(entry.id)) addMessage('qualified_values', 'duplicate qualified-value ID');
       ids.add(entry.id);
+      if (entry.target === 'electrical.power_consumption_w') {
+        validateFiniteNonNegative('qualified_values.value', entry.value);
+        const supply = entry.qualifiers?.supply_voltage_v;
+        if (supply !== undefined && (!Number.isFinite(supply) || supply <= 0))
+          addMessage('qualified_values', 'supply voltage must be finite and positive');
+        const brightness =
+          entry.qualifiers?.display?.state === 'on'
+            ? entry.qualifiers.display.brightness_percent
+            : undefined;
+        if (brightness !== undefined && !Number.isFinite(brightness))
+          addMessage('qualified_values', 'brightness must be finite');
+      }
       if (
         entry.target === 'electrical.input_voltage_range_v' &&
         entry.value?.min > entry.value?.max

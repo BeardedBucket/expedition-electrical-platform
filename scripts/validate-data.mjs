@@ -53,7 +53,7 @@ const normalizeComponentKey = (value) => {
 
 export const validateDataRoot = async (dataRoot = join(process.cwd(), 'data')) => {
   const schemaRoot = join(dataRoot, 'schemas');
-  const ajv = new Ajv({ allErrors: true, strict: false });
+  const ajv = new Ajv({ allErrors: true, strict: false, strictNumbers: true });
   addFormats(ajv);
   const schemaFiles = (await recursiveFiles(schemaRoot)).filter(
     (file) => extname(file) === '.json',

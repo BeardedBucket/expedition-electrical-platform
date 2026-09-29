@@ -243,6 +243,83 @@
             }
           },
           "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["id", "target", "value", "qualifiers"],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._-]+$"
+            },
+            "target": {
+              "const": "electrical.power_consumption_w"
+            },
+            "value": {
+              "type": "number",
+              "minimum": 0
+            },
+            "qualifiers": {
+              "type": "object",
+              "minProperties": 1,
+              "not": {
+                "required": ["operating_state", "display"],
+                "properties": {
+                  "operating_state": { "const": "off" },
+                  "display": {
+                    "required": ["state"],
+                    "properties": { "state": { "const": "on" } }
+                  }
+                }
+              },
+              "properties": {
+                "supply_voltage_v": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "display": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "required": ["state"],
+                      "properties": {
+                        "state": {
+                          "const": "off"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "required": ["state"],
+                      "properties": {
+                        "state": {
+                          "const": "on"
+                        },
+                        "brightness_percent": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 100
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  ]
+                },
+                "operating_state": {
+                  "enum": ["idle", "standby", "sleep", "active", "off"]
+                },
+                "measurement_basis": {
+                  "enum": ["typical", "nominal", "maximum", "minimum", "quiescent"]
+                },
+                "electrical_domain": {
+                  "enum": ["ac", "dc"]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
         }
       ]
     }

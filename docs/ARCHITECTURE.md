@@ -214,6 +214,11 @@ Deferred work remains future-facing: live advisory feeds and embed/widget integr
 
 ## Canonical qualified product values
 
+Published consumption observations extend this lifecycle through
+`electrical.power_consumption_w`; see
+[Power consumption semantics](POWER_CONSUMPTION_SEMANTICS.md) for the closed
+conditions, source-row fan-out, and explicit downstream-consumer boundary.
+
 Unconditional source assertions continue using existing direct canonical fields.
 Materially qualified assertions use the additive `qualified_values` collection.
 Each member binds a product-local `id`, a schema-supported `target`, a normalized

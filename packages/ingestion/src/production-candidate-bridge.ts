@@ -219,7 +219,7 @@ export const buildProductionProductCandidate = (
       }
       const legacyFact: ProductFact = {
         schema_version: '1.0',
-        id: `production-fact.${artifactDigest(fact).slice(7, 31)}`,
+        id: `production-fact.${artifactDigest(mapping.normalize_observations ? { qualified_fact: artifactDigest(fact), assertion: proposal.qualified_value } : fact).slice(7, 31)}`,
         source_id: sourceResult.source.id,
         field: mapping.canonical_field,
         raw_label: fact.metadata.source_label!,
@@ -229,7 +229,16 @@ export const buildProductionProductCandidate = (
         fact_state: 'provisional',
         review_required: true,
       };
-      const normalized = normalizeProductFact(legacyFact, sourceResult.source);
+      const normalized = normalizeProductFact(
+        legacyFact,
+        sourceResult.source,
+        proposal.qualified_value
+          ? {
+              value: proposal.qualified_value.value,
+              qualifiers: proposal.qualified_value.qualifiers,
+            }
+          : undefined,
+      );
       if (normalized.status !== 'normalized' || !normalized.fact) {
         reason = `legacy normalization: ${normalized.issues.map((issue) => issue.code).join(', ')}`;
         break;

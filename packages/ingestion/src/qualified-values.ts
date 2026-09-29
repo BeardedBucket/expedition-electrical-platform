@@ -1,6 +1,7 @@
 import Ajv2020 from 'ajv/dist/2020.js';
 import componentSchema from '../../../data/schemas/component.schema.json' with { type: 'json' };
-import type { CanonicalQualifiedValue, JsonObject } from './contracts.js';
+import type { CanonicalQualifiedValue, JsonObject, JsonValue, ProductFact } from './contracts.js';
+import { deterministicSerialize } from './production-contracts.js';
 import { resolveUnit } from './units.js';
 
 const Ajv = Ajv2020 as unknown as new (options: object) => {
@@ -14,6 +15,15 @@ const validate = new Ajv({ strict: false }).compile({
 export const isCanonicalQualifiedValue = (value: unknown): value is CanonicalQualifiedValue => {
   if (!validate(value)) return false;
   const assertion = value as CanonicalQualifiedValue;
+  if (assertion.target === 'electrical.power_consumption_w')
+    return (
+      Number.isFinite(assertion.value) &&
+      (assertion.qualifiers.supply_voltage_v === undefined ||
+        Number.isFinite(assertion.qualifiers.supply_voltage_v)) &&
+      (assertion.qualifiers.display?.state !== 'on' ||
+        assertion.qualifiers.display.brightness_percent === undefined ||
+        Number.isFinite(assertion.qualifiers.display.brightness_percent))
+    );
   return (
     assertion.target !== 'electrical.input_voltage_range_v' ||
     assertion.value.min <= assertion.value.max
@@ -30,6 +40,81 @@ export interface ContextualMeasurement {
   readonly value: JsonObject;
   readonly qualifiers?: CanonicalQualifiedValue['qualifiers'];
 }
+
+export interface SourceObservation {
+  readonly value: JsonValue;
+  readonly qualifiers?: CanonicalQualifiedValue['qualifiers'];
+}
+
+/** Exact label grammar; subsystem state is not a whole-device operating state. */
+export const parsePowerDisplayCondition = (
+  label: string,
+):
+  | Extract<
+      CanonicalQualifiedValue,
+      { target: 'electrical.power_consumption_w' }
+    >['qualifiers']['display']
+  | undefined => {
+  const clean = label.trim().toLowerCase().replace(/\s+/g, ' ');
+  if (clean === 'power draw display off') return { state: 'off' };
+  const match = clean.match(/^power draw display on \((\d+(?:\.\d+)?)\s*% brightness\)$/);
+  if (!match) return undefined;
+  const brightness = Number(match[1]);
+  return brightness <= 100 ? { state: 'on', brightness_percent: brightness } : undefined;
+};
+
+/** Whole-row parsing: no convenient-subset projection, interpolation, or inferred units. */
+export const parseSourceObservations = (
+  target: string,
+  label: string,
+  raw: string,
+  sourceUnit?: string,
+): readonly SourceObservation[] | undefined => {
+  if (target !== 'electrical.power_consumption_w') {
+    const context = parseContextualMeasurement(target, raw, sourceUnit);
+    return context ? [context] : undefined;
+  }
+  const display = parsePowerDisplayCondition(label);
+  if (!display || (sourceUnit !== undefined && sourceUnit.trim().toLowerCase() !== 'w'))
+    return undefined;
+  const number = '(\\d+(?:\\.\\d+)?|\\.\\d+)';
+  const pattern = new RegExp(`^\\s*${number}\\s*W\\s*@?\\s*${number}\\s*V\\s*(AC|DC)?\\s*$`, 'i');
+  const byContext = new Map<string, SourceObservation>();
+  for (const segment of raw.split('|')) {
+    const match = segment.match(pattern);
+    if (!match) return undefined;
+    const value = Number(match[1]);
+    const voltage = Number(match[2]);
+    if (!Number.isFinite(value) || !Number.isFinite(voltage) || voltage <= 0) return undefined;
+    const qualifiers = {
+      supply_voltage_v: voltage,
+      display,
+      ...(match[3] ? { electrical_domain: match[3].toLowerCase() as 'ac' | 'dc' } : {}),
+    };
+    const key = deterministicSerialize(qualifiers);
+    const previous = byContext.get(key);
+    if (previous && previous.value !== value) return undefined;
+    byContext.set(key, { value, qualifiers });
+  }
+  // Ordering of source segments does not choose winners or change observation identity.
+  return [...byContext.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([, value]) => value);
+};
+
+export const sourceSupportsQualifiedValue = (
+  fact: Pick<ProductFact, 'raw_label' | 'raw_value' | 'raw_unit'>,
+  assertion: CanonicalQualifiedValue,
+): boolean =>
+  parseSourceObservations(
+    assertion.target,
+    fact.raw_label,
+    String(fact.raw_value),
+    fact.raw_unit,
+  )?.some(
+    (observation) =>
+      deterministicSerialize(observation.value) === deterministicSerialize(assertion.value) &&
+      deterministicSerialize(observation.qualifiers) ===
+        deterministicSerialize(assertion.qualifiers),
+  ) === true;
 
 // Source-unit identity and electrical domain are checked independently.
 const voltageUnit = (text: string): { unit: string; domain?: 'ac' | 'dc' } | undefined => {

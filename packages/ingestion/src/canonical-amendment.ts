@@ -11,7 +11,7 @@ import type { PromotionReview } from './promotion.js';
 import { isSupportedCanonicalField } from './field-mapping.js';
 import {
   isCanonicalQualifiedValue,
-  parseContextualMeasurement,
+  sourceSupportsQualifiedValue,
   qualifiedValueCollectionValid,
 } from './qualified-values.js';
 import { deterministicSerialize } from './production-contracts.js';
@@ -1498,23 +1498,13 @@ export const proposeCanonicalAmendment = ({
       deterministicSerialize(assertion) !== deterministicSerialize(operation.value) ||
       factIds.some((id) => {
         const fact = evidenceFacts.get(id);
-        const context = fact
-          ? parseContextualMeasurement(
-              operation.value.target,
-              String(fact.raw_value),
-              fact.raw_unit,
-            )
-          : undefined;
         return (
           !fact ||
           !candidate.fact_ids?.includes(id) ||
           !candidate.source_ids?.includes(fact.source_id) ||
           !isCanonicalQualifiedValue(fact.qualified_value) ||
           fact.field !== operation.value.target ||
-          deterministicSerialize(context?.value) !==
-            deterministicSerialize(operation.value.value) ||
-          deterministicSerialize(context?.qualifiers) !==
-            deterministicSerialize(operation.value.qualifiers) ||
+          !sourceSupportsQualifiedValue(fact, operation.value) ||
           !sameMeaning(fact.qualified_value, operation.value) ||
           ['unresolved', 'conflicting'].includes(fact.fact_state) ||
           Object.entries(actions).some(([field]) =>

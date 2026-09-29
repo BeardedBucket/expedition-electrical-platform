@@ -1,5 +1,10 @@
 import type { JsonObject, JsonValue } from './contracts.js';
-import { parseContextualMeasurement } from './qualified-values.js';
+import {
+  parseContextualMeasurement,
+  parsePowerDisplayCondition,
+  parseSourceObservations,
+  type SourceObservation,
+} from './qualified-values.js';
 
 export interface CanonicalFieldMapping {
   readonly canonical_field: string;
@@ -7,7 +12,12 @@ export interface CanonicalFieldMapping {
   readonly unit: string;
   readonly aliases: readonly string[];
   readonly target_kind?: 'canonical' | 'evidence';
-  readonly value_kind?: 'measurement' | 'structured';
+  readonly value_kind?: 'measurement' | 'structured' | 'observations';
+  readonly normalize_observations?: (
+    label: string,
+    value: string,
+    sourceUnit?: string,
+  ) => readonly SourceObservation[] | undefined;
   readonly normalize_value?: (value: string, sourceUnit?: string) => JsonValue | undefined;
 }
 
@@ -322,7 +332,18 @@ const schemaPathExists = (path: string): boolean => {
 };
 
 export const resolveCanonicalField = (rawLabel: string): CanonicalFieldMapping | undefined =>
-  mappingsByAlias.get(cleanLabel(rawLabel));
+  mappingsByAlias.get(cleanLabel(rawLabel)) ??
+  (parsePowerDisplayCondition(rawLabel) ? powerConsumptionMapping : undefined);
+
+const powerConsumptionMapping: CanonicalFieldMapping = {
+  canonical_field: 'electrical.power_consumption_w',
+  dimension: 'power',
+  unit: 'W',
+  aliases: [],
+  value_kind: 'observations',
+  normalize_observations: (label, value, unit) =>
+    parseSourceObservations('electrical.power_consumption_w', label, value, unit),
+};
 
 export const isSupportedCanonicalField = (field: string): boolean => schemaPathExists(field);
 import componentSchema from '../../../data/schemas/component.schema.json' with { type: 'json' };

@@ -2,7 +2,8 @@ import type { CanonicalQualifiedValue, ProductFact, ProductSource } from './cont
 import { resolveCanonicalField, isSupportedCanonicalField } from './field-mapping.js';
 import { parseExactUnitValue, resolveUnit } from './units.js';
 import { artifactDigest } from './production-contracts.js';
-import { parseContextualMeasurement } from './qualified-values.js';
+import { parseContextualMeasurement, type SourceObservation } from './qualified-values.js';
+import { deterministicSerialize } from './production-contracts.js';
 import type { NormalizationIssue, ProductFactNormalizationResult } from './normalization-types.js';
 
 const issue = (code: NormalizationIssue['code'], message: string): NormalizationIssue => ({
@@ -13,6 +14,7 @@ const issue = (code: NormalizationIssue['code'], message: string): Normalization
 export const normalizeProductFact = (
   fact: ProductFact,
   source: ProductSource,
+  selectedObservation?: SourceObservation,
 ): ProductFactNormalizationResult => {
   // Context is re-established from source wording, never trusted from a prior normalization.
   fact = { ...fact };
@@ -40,12 +42,28 @@ export const normalizeProductFact = (
       ],
     };
   }
-  if (mapping.value_kind === 'structured') {
-    const normalizedValue = mapping.normalize_value?.(
-      typeof fact.raw_value === 'string' ? fact.raw_value : String(fact.raw_value),
+  if (mapping.value_kind === 'structured' || mapping.value_kind === 'observations') {
+    const observations = mapping.normalize_observations?.(
+      fact.raw_label,
+      String(fact.raw_value),
       fact.raw_unit,
     );
-    if (!normalizedValue) {
+    const selected = observations?.find((observation) =>
+      selectedObservation
+        ? deterministicSerialize(observation) === deterministicSerialize(selectedObservation)
+        : observations.length === 1,
+    );
+    const normalizedValue =
+      mapping.value_kind === 'observations'
+        ? selected?.value
+        : mapping.normalize_value?.(
+            typeof fact.raw_value === 'string' ? fact.raw_value : String(fact.raw_value),
+            fact.raw_unit,
+          );
+    if (
+      normalizedValue === undefined ||
+      (mapping.value_kind === 'observations' && !selected?.qualifiers)
+    ) {
       return {
         status: 'unresolved',
         issues: [
@@ -58,11 +76,9 @@ export const normalizeProductFact = (
         ],
       };
     }
-    const contextual = parseContextualMeasurement(
-      mapping.canonical_field,
-      String(fact.raw_value),
-      fact.raw_unit,
-    );
+    const contextual =
+      selected ??
+      parseContextualMeasurement(mapping.canonical_field, String(fact.raw_value), fact.raw_unit);
     const qualifiedValue = contextual?.qualifiers
       ? ({
           id: `qualified-value.${artifactDigest({ source_id: fact.source_id, fact_id: fact.id, target: mapping.canonical_field, value: contextual.value, qualifiers: contextual.qualifiers }).slice(7, 31)}`,

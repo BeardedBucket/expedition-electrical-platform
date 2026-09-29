@@ -5,7 +5,7 @@ import factSchema from '../../../data/schemas/product-fact.schema.json' with { t
 import sourceSchema from '../../../data/schemas/product-source.schema.json' with { type: 'json' };
 import {
   isCanonicalQualifiedValue,
-  parseContextualMeasurement,
+  sourceSupportsQualifiedValue,
   qualifiedValueCollectionValid,
 } from './qualified-values.js';
 import { deterministicSerialize } from './production-contracts.js';
@@ -39,7 +39,7 @@ type Validator = ((_value: unknown) => boolean) & {
 const AjvCtor = Ajv2020 as unknown as new (options?: Record<string, unknown>) => {
   compile: (_value: unknown) => Validator;
 };
-const ajv = new AjvCtor({ allErrors: true, strict: false });
+const ajv = new AjvCtor({ allErrors: true, strict: false, strictNumbers: true });
 const registerFormats = addFormats as unknown as (instance: {
   addFormat?: (...args: unknown[]) => void;
 }) => void;
@@ -505,9 +505,6 @@ export const validateProductCandidate = (
     for (const id of ids) {
       const fact = factById.get(id);
       const source = fact ? sources.find((source) => source.id === fact.source_id) : undefined;
-      const context = fact
-        ? parseContextualMeasurement(assertion.target, String(fact.raw_value), fact.raw_unit)
-        : undefined;
       if (
         !fact ||
         !candidateFactIds.has(id) ||
@@ -515,9 +512,7 @@ export const validateProductCandidate = (
         !isSourceApplicable(source) ||
         qualifiedFactIds.has(id) ||
         fact.field !== assertion.target ||
-        deterministicSerialize(context?.value) !== deterministicSerialize(assertion.value) ||
-        deterministicSerialize(context?.qualifiers) !==
-          deterministicSerialize(assertion.qualifiers) ||
+        !sourceSupportsQualifiedValue(fact, assertion) ||
         deterministicSerialize(fact.qualified_value) !== deterministicSerialize(assertion) ||
         Object.values(fieldEvidence).some((directIds) => directIds.includes(id))
       ) {

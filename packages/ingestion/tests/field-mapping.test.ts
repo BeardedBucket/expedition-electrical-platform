@@ -145,8 +145,6 @@ describe('explicit ordered existing-semantic mappings', () => {
 
 // Synthetic label-set acceptance, not a retained Ekrano capture or verified corpus data.
 const unsupportedLabels = [
-  'Power draw display on (100% brightness)',
-  'Power draw display off',
   'Relay',
   'VE.Direct ports (always isolated)',
   'VE.Bus (always isolated)',
@@ -258,6 +256,8 @@ describe('real-label synthetic production acceptance', () => {
     const result = run(
       [
         ...unsupportedLabels.map((label) => [label, 'synthetic source-native statement'] as const),
+        ['Power draw display off', '2.6W 12V | 3.0W @ 24V | 3.7W @ 48V'],
+        ['Power draw display on (100% brightness)', '6.2W @ 12V | 6.6W @ 24V |7.4W @ 48V'],
         ['Supply voltage', '8 - 70V DC'],
         [
           'Outer dimensions (h x w x d)',
@@ -274,21 +274,23 @@ describe('real-label synthetic production acceptance', () => {
     ).toBe(true);
     expect(
       result.proposals.filter((proposal) => proposal.disposition === 'unsupported'),
-    ).toHaveLength(28);
+    ).toHaveLength(26);
     expect(result.proposals.filter((proposal) => proposal.disposition === 'mapped')).toHaveLength(
-      2,
+      8,
     );
     expect(
       result.proposals.every((proposal) =>
         proposal.provenance?.rationale?.includes('F group single_observation'),
       ),
     ).toBe(true);
-    expect(result.projected_proposal_ids).toHaveLength(2);
-    expect(result.non_projected).toHaveLength(28);
-    expect(result.candidate?.component_data.qualified_values).toHaveLength(2);
+    expect(result.reconciliation.groups).toHaveLength(30);
+    expect(result.proposals).toHaveLength(34);
+    expect(result.projected_proposal_ids).toHaveLength(8);
+    expect(result.non_projected).toHaveLength(26);
+    expect(result.candidate?.component_data.qualified_values).toHaveLength(8);
     expect(result.candidate?.component_data.dimensions_mm).toBeUndefined();
     expect(result.candidate?.component_data.electrical).toBeUndefined();
-    expect(result.normalized_facts).toHaveLength(2);
+    expect(result.normalized_facts).toHaveLength(8);
   });
   it.each(mappings)(
     'projects safe %s singleton with model-only identity and traceable evidence',

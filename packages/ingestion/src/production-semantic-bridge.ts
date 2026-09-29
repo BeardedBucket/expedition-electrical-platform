@@ -15,9 +15,13 @@ import {
 } from './reconciliation.js';
 import { parseExactUnitValue } from './units.js';
 import type { CanonicalQualifiedValue, JsonValue } from './contracts.js';
-import { parseContextualMeasurement } from './qualified-values.js';
+import {
+  parseContextualMeasurement,
+  parseSourceObservations,
+  type SourceObservation,
+} from './qualified-values.js';
 
-const METHOD_VERSION = 'production-semantic-bridge.v4';
+const METHOD_VERSION = 'production-semantic-bridge.v5';
 
 export interface ProductionSemanticBridgeInput {
   readonly facts: readonly QualifiedFactArtifact[];
@@ -45,7 +49,8 @@ export const buildProductionSemanticProposals = (
     ids: readonly string[],
     outcome: QualifiedFactGroupReconciliationOutcome,
     reason: string,
-  ): SemanticProposal => {
+    selectedObservation?: SourceObservation,
+  ): readonly SemanticProposal[] => {
     const facts = [...ids].sort().map((id) => {
       const fact = factsById.get(id);
       if (!fact) throw new Error(`Semantic bridge cannot resolve qualified fact '${id}'.`);
@@ -58,6 +63,7 @@ export const buildProductionSemanticProposals = (
       (label
         ? `source_label:${label.trim().replace(/\s+/g, ' ').toLowerCase()}`
         : 'source_label:unavailable');
+    const supportingFactIds = [...new Set(facts.map((fact) => fact.id))].sort();
     const unsafe = facts.some(
       (fact) =>
         (fact.qualification_state !== 'exact' &&
@@ -72,11 +78,12 @@ export const buildProductionSemanticProposals = (
         fact.evidence?.some((evidence) => evidence.role === 'qualifier') ||
         ((/\b(?:vac|vdc)\b/i.test(fact.metadata.source_unit ?? '') ||
           /\b(?:vac|vdc)\b/i.test(String(fact.metadata.raw_value))) &&
-          !parseContextualMeasurement(
+          !parseSourceObservations(
             target,
+            fact.metadata.source_label ?? '',
             String(fact.metadata.raw_value),
             fact.metadata.source_unit,
-          )?.qualifiers),
+          )?.every((observation) => observation.qualifiers)),
     );
 
     let disposition: SemanticProposal['disposition'] = 'unresolved';
@@ -98,57 +105,80 @@ export const buildProductionSemanticProposals = (
         disposition = 'unsupported';
         rationale = `${reason}; canonical target is not supported`;
       } else {
-        const values = facts.map((fact) => {
-          if (mapping.value_kind === 'structured') {
-            const raw = fact.metadata.raw_value;
-            return mapping.normalize_value?.(
-              typeof raw === 'string' ? raw : String(raw),
-              fact.metadata.source_unit,
-            );
-          }
-          const parsed = parseExactUnitValue(fact.metadata.raw_value, fact.metadata.source_unit);
-          if (!parsed || parsed.unit.dimension !== mapping.dimension) return undefined;
-          const value = parsed.unit.toCanonical(parsed.value);
-          return Number.isFinite(value) ? value : undefined;
-        });
-        if (
-          values.every((value) => value !== undefined) &&
-          (mapping.value_kind !== 'structured' ||
-            values.every(
-              (value) => deterministicSerialize(value) === deterministicSerialize(values[0]),
-            ))
-        ) {
-          disposition = 'mapped';
-          proposedValue = values[0];
-          const contexts = facts.map((fact) =>
-            parseContextualMeasurement(
-              target,
+        if (mapping.normalize_observations && !selectedObservation) {
+          const observations = facts.map((fact) =>
+            mapping.normalize_observations!(
+              fact.metadata.source_label!,
               String(fact.metadata.raw_value),
               fact.metadata.source_unit,
             ),
           );
-          if (contexts[0]?.qualifiers) {
-            if (
-              !contexts.every(
-                (context) =>
-                  deterministicSerialize(context?.qualifiers) ===
-                  deterministicSerialize(contexts[0]?.qualifiers),
-              )
-            ) {
-              disposition = 'unresolved';
-              proposedValue = undefined;
-            } else {
-              qualifiedValue = {
-                id: `qualified-value.${artifactDigest({ target, value: proposedValue, qualifiers: contexts[0].qualifiers, fact_ids: [...new Set(facts.map((fact) => fact.id))].sort() }).slice(7, 31)}`,
-                target,
-                value: proposedValue,
-                qualifiers: contexts[0].qualifiers,
-              } as CanonicalQualifiedValue;
-            }
-          }
-          rationale = `${reason}; explicit source-label mapping and safely qualified values`;
+          if (
+            observations[0]?.length &&
+            observations.every(
+              (items) => deterministicSerialize(items) === deterministicSerialize(observations[0]),
+            )
+          )
+            return observations[0].flatMap((observation) =>
+              propose(ids, outcome, reason, observation),
+            );
+          rationale = `${reason}; complete source observations cannot be safely normalized`;
         } else {
-          rationale = `${reason}; mapped values cannot be safely normalized to one value`;
+          const values = facts.map((fact) => {
+            if (selectedObservation) return selectedObservation.value;
+            if (mapping.value_kind === 'structured') {
+              const raw = fact.metadata.raw_value;
+              return mapping.normalize_value?.(
+                typeof raw === 'string' ? raw : String(raw),
+                fact.metadata.source_unit,
+              );
+            }
+            const parsed = parseExactUnitValue(fact.metadata.raw_value, fact.metadata.source_unit);
+            if (!parsed || parsed.unit.dimension !== mapping.dimension) return undefined;
+            const value = parsed.unit.toCanonical(parsed.value);
+            return Number.isFinite(value) ? value : undefined;
+          });
+          if (
+            values.every((value) => value !== undefined) &&
+            (mapping.value_kind !== 'structured' ||
+              values.every(
+                (value) => deterministicSerialize(value) === deterministicSerialize(values[0]),
+              ))
+          ) {
+            disposition = 'mapped';
+            proposedValue = values[0];
+            const contexts = facts.map(
+              (fact) =>
+                selectedObservation ??
+                parseContextualMeasurement(
+                  target,
+                  String(fact.metadata.raw_value),
+                  fact.metadata.source_unit,
+                ),
+            );
+            if (contexts[0]?.qualifiers) {
+              if (
+                !contexts.every(
+                  (context) =>
+                    deterministicSerialize(context?.qualifiers) ===
+                    deterministicSerialize(contexts[0]?.qualifiers),
+                )
+              ) {
+                disposition = 'unresolved';
+                proposedValue = undefined;
+              } else {
+                qualifiedValue = {
+                  id: `qualified-value.${artifactDigest({ target, value: proposedValue, qualifiers: contexts[0].qualifiers, fact_ids: supportingFactIds }).slice(7, 31)}`,
+                  target,
+                  value: proposedValue,
+                  qualifiers: contexts[0].qualifiers,
+                } as CanonicalQualifiedValue;
+              }
+            }
+            rationale = `${reason}; explicit source-label mapping and safely qualified values`;
+          } else {
+            rationale = `${reason}; mapped values cannot be safely normalized to one value`;
+          }
         }
       }
     }
@@ -203,18 +233,24 @@ export const buildProductionSemanticProposals = (
       ...(alternatives ? { alternatives } : {}),
       fact_refs: factRefs,
       evidence_refs: stableRefs,
-      provenance: { method: 'rule' as const, rule_version: METHOD_VERSION, rationale },
+      provenance: {
+        method: 'rule' as const,
+        rule_version: METHOD_VERSION,
+        rationale,
+      },
       input_artifact_digests: inputDigests,
     };
-    return {
-      schema_version: PRODUCTION_SCHEMA_VERSION,
-      artifact_kind: 'semantic_proposal',
-      id: `semantic-proposal.${artifactDigest(content).slice('sha256:'.length, 'sha256:'.length + 24)}`,
-      ...content,
-    };
+    return [
+      {
+        schema_version: PRODUCTION_SCHEMA_VERSION,
+        artifact_kind: 'semantic_proposal',
+        id: `semantic-proposal.${artifactDigest(content).slice('sha256:'.length, 'sha256:'.length + 24)}`,
+        ...content,
+      },
+    ];
   };
 
-  const proposals = input.reconciliation.group_reconciliations.map((result) =>
+  const proposals = input.reconciliation.group_reconciliations.flatMap((result) =>
     propose(result.qualified_fact_ids, result.outcome, `F group ${result.outcome}`),
   );
   for (const [reason, ids] of [
@@ -222,7 +258,7 @@ export const buildProductionSemanticProposals = (
     ['scope-inconsistent', input.reconciliation.scope_inconsistent_qualified_fact_ids],
     ['label-unavailable', input.reconciliation.label_unavailable_qualified_fact_ids],
   ] as const) {
-    proposals.push(...ids.map((id) => propose([id], 'unresolved', `F ${reason} fact`)));
+    proposals.push(...ids.flatMap((id) => propose([id], 'unresolved', `F ${reason} fact`)));
   }
   return proposals.sort((left, right) => left.id.localeCompare(right.id));
 };
