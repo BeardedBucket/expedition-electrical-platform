@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.3",
+  "id": "battle-born-batteries.web.acquisition-profile",
+  "profile_status": "reviewed",
+  "manufacturer": "Battle Born Batteries",
+  "publisher": "Battle Born Batteries",
+  "official_domains": ["battlebornbatteries.com"],
+  "strategies": [],
+  "provenance": {
+    "source_artifact": "docs/CORPUS_CAMPAIGN_WAVE_1.md",
+    "observed_source_content_hash": "sha256:fe99c624e0aca5a28f31004246b7808b8a7a8021a7a4d66055c02d30ebe57cc6"
+  },
+  "html_fact_rules": [
+    {
+      "id": "exact-product-specification-tables",
+      "status": "reviewed",
+      "path_prefix": "/products/",
+      "identity_kind": "mpn",
+      "identity_selector": [
+        {
+          "tag": "span",
+          "attribute": {
+            "name": "data-testid",
+            "value": "product-sku"
+          }
+        }
+      ],
+      "regions": [
+        {
+          "kind": "table",
+          "selector": [
+            {
+              "tag": "table",
+              "class_name": "product-spec-table__table"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

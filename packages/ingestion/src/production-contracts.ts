@@ -1,4 +1,5 @@
 import { validateCaptureUri } from './http-capture.js';
+import { modelColumnObservations } from './model-column-qualification.js';
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import { createHash } from 'node:crypto';
@@ -1585,6 +1586,21 @@ const qualifyFromBlock = (
               buildEvidence('value', valueCell.value, document, valueCell.source_location),
             ],
             applicability,
+          );
+        }
+        return { facts, diagnostics };
+      }
+      const columns = modelColumnObservations(document, block, target);
+      if (columns?.length) {
+        for (const observation of columns) {
+          addFact(
+            observation.label.value,
+            observation.value.value,
+            observation.identity.value,
+            observation.identity.value,
+            observation.value.source_location,
+            observation.evidence,
+            observation.applicability,
           );
         }
         return { facts, diagnostics };

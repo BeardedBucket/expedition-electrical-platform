@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
 import { CaptureTimeout } from './capture-timeout.js';
+import { isReadOnlyEvidenceUri } from './evidence-uri.js';
 import type {
   CaptureRequest,
   CaptureResult,
@@ -160,6 +161,13 @@ export class HttpSourceCaptureAdapter implements SourceCaptureAdapter {
   }
 
   public async capture(request: CaptureRequest): Promise<CaptureResult> {
+    // Keep syntactic URI validation separate so discovery can retain excluded
+    // action metadata. Transport owns the final no-action guard, including redirects.
+    if (!isReadOnlyEvidenceUri(request.uri))
+      return {
+        status: 'invalid',
+        issues: [issue('invalid_uri', 'Action URIs are not read-only evidence.')],
+      };
     const parsed = validateCaptureUri(request.uri);
     if (!(parsed instanceof URL)) return parsed;
     const maxBytes = request.max_bytes ?? ABSOLUTE_RESPONSE_MAX_BYTES;
@@ -258,6 +266,16 @@ export class HttpSourceCaptureAdapter implements SourceCaptureAdapter {
         }
         const destination = validateCaptureUri(redirectUri);
         if (!(destination instanceof URL)) return destination;
+        if (!isReadOnlyEvidenceUri(destination.toString()))
+          return {
+            status: 'invalid',
+            issues: [
+              issue(
+                'invalid_redirect',
+                'Redirect destination is an action URI, not read-only evidence.',
+              ),
+            ],
+          };
         const destinationResolution = await boundary.wait(() =>
           this.validateResolvedDestination(destination),
         );

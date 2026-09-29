@@ -27,6 +27,10 @@ export interface ManufacturerAcquisitionProfile {
   readonly allowed_document_domains?: readonly string[];
   readonly allowed_document_subdomains?: readonly string[];
   readonly strategies: readonly ManufacturerAcquisitionStrategy[];
+  /** Reviewed source selectors establish page identity and restrict specification
+   * regions. They never map canonical fields or authorize sibling page evidence.
+   */
+  readonly html_fact_rules?: readonly HtmlFactRule[];
   readonly provenance: {
     readonly source_artifact: string;
     readonly observed_source_content_hash: string;
@@ -96,6 +100,26 @@ export interface StructuredFactMapping {
   readonly source_path: string;
   readonly raw_label: string;
   readonly source_unit?: string;
+}
+
+export interface HtmlNodeSelector {
+  readonly tag?: string;
+  readonly id?: string;
+  readonly class_name?: string;
+  readonly attribute?: { readonly name: string; readonly value: string };
+}
+
+export interface HtmlFactRule {
+  readonly id: string;
+  readonly status: ManufacturerAcquisitionProfileStatus;
+  readonly path_prefix: string;
+  readonly identity_selector: readonly HtmlNodeSelector[];
+  readonly identity_kind: 'mpn' | 'model';
+  readonly regions: readonly {
+    readonly selector: readonly HtmlNodeSelector[];
+    readonly kind: 'table' | 'definition' | 'label_value_lines' | 'label_value_list';
+    readonly heading?: { readonly selector: readonly HtmlNodeSelector[]; readonly text: string };
+  }[];
 }
 
 export type ManufacturerAcquisitionStrategyResolution =
@@ -668,15 +692,29 @@ const embeddedPayload = (
   }
   const document = parse(captured.body.text) as Document;
   let rawJson: string | undefined;
+  let scriptMatches = 0;
   walk(document, (element) => {
-    if (rawJson !== undefined || element.tagName !== 'script') return;
+    if (element.tagName !== 'script') return;
     if (
       attribute(element, 'id') === strategy.embedded_json.script.id &&
       matchesScriptMediaType(strategy.embedded_json.script.media_type, attribute(element, 'type'))
     ) {
+      scriptMatches += 1;
       rawJson = textOf(element);
     }
   });
+  // Duplicate scripts cannot silently select the first/last source-owned record
+  // collection, even when one of them appears to contain the requested SKU.
+  if (scriptMatches > 1)
+    return {
+      issues: [
+        issue(
+          'embedded_json_ambiguous',
+          'embedded_json.script',
+          'The configured JSON script is not unique.',
+        ),
+      ],
+    };
   if (rawJson === undefined) {
     return {
       issues: [

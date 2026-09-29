@@ -93,6 +93,7 @@ export type ExtractionRemediationState =
   | 'human_review_required';
 
 export type DocumentItemKind =
+  | 'structured'
   | 'document_title'
   | 'heading'
   | 'paragraph'

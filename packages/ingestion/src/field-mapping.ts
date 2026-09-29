@@ -150,11 +150,16 @@ const baseCanonicalFieldMappings: readonly CanonicalFieldMapping[] = [
     aliases: ['supported battery voltage'],
     value_kind: 'structured',
     normalize_value: (value) => {
-      const values = value
-        .split(',')
-        .map((item) => Number(item.trim().replace(/V$/i, '')))
-        .filter((item) => Number.isFinite(item));
-      return values.length ? values : undefined;
+      // A source-supported voltage set is atomic. Dropping malformed/missing
+      // members would turn a partial observation into an invented complete set.
+      const members = value.split(',').map((item) => item.trim());
+      if (
+        !members.length ||
+        members.some((item) => !/^[-+]?(?:\d+(?:\.\d+)?|\.\d+)\s*V$/i.test(item))
+      )
+        return undefined;
+      const values = members.map((item) => Number(item.replace(/V$/i, '').trim()));
+      return values.every(Number.isFinite) ? values : undefined;
     },
   },
   {

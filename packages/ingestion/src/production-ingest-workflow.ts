@@ -30,6 +30,7 @@ import {
   type ProductionCandidateBridgeResult,
 } from './production-candidate-bridge.js';
 import { buildProductionReviewPackage } from './production-review-package.js';
+import { prepareProfileQualifiedEvidence } from './profile-qualified-evidence.js';
 
 export interface ProductionIngestWorkflowRequest {
   readonly intake: ProductIntake;
@@ -149,6 +150,24 @@ export const prepareProductionIngestReview = async (
     });
     qualifications.push(qualification);
     qualified_facts.push(...qualification.facts);
+    const profile =
+      request.profile ??
+      request.profiles?.find(
+        (item) => item.id === acquisition.artifact?.profile_binding?.profile_id,
+      );
+    const supplemental = prepareProfileQualifiedEvidence({
+      source: item.capture.source,
+      capture: item.capture.artifact,
+      acquisition: acquisition.artifact,
+      document: extraction,
+      intake: request.intake,
+      profile,
+    });
+    if (supplemental) {
+      document_extractions.push(supplemental.document);
+      qualifications.push(supplemental.qualification);
+      qualified_facts.push(...supplemental.qualification.facts);
+    }
   }
   qualified_facts.sort((left, right) => left.id.localeCompare(right.id));
 

@@ -1,5 +1,64 @@
 # Architecture
 
+## Reviewed source-shape recovery into production evidence
+
+The Wave 1 capability audit is recorded in `CORPUS_CAMPAIGN_WAVE_1.md`. Legacy
+`extractProductFacts` and `extractStructuredProductFacts` remain separate APIs;
+production review preparation does not call them or copy their normalized output.
+`prepareProfileQualifiedEvidence` adapts the reviewed record-selection mechanics
+into ordinary document evidence and `QualifiedFact` artifacts, then uses the same
+whole-intake reconciliation, semantic proposals, candidate bridge and review
+package as existing table qualification. A reviewed acquisition profile establishes
+source mechanics, never reviewed product facts or permission to promote them.
+
+Structured selection requires one reviewed script/path/collection and a unique
+exact raw SKU. Property paths are declarative own-property paths, with raw JSON
+types, units, full selected record, profile digest and record/property locator
+retained. Missing properties remain missing; duplicate records or script nodes
+are ambiguous. No family record or neighboring SKU supplies a missing value.
+
+The generic `model-column-scope.v1` qualifier follows exact-row and existing
+whole-table scope rules. It requires an explicit unique Model/SKU/Variants header
+with a uniquely matching target, source-declared columns and complete extraction.
+It rejects spans, repeated axes, duplicate headers, nested tables and inconsistent
+cell locators. It never expands a merged cell, transfers a neighboring value or
+splits a compound value. Notes and separators become conservative forward context:
+each observation snapshots the context established at its source position. Later
+notes cannot qualify earlier facts; this rule does not infer global scope or reset
+context when another separator appears.
+
+Reviewed HTML profiles may declare conjunctive tag/id/class/attribute descendant
+selectors for visible exact identity and specific specification regions. Only the
+exact intake seed can acquire this scope; manufacturer domain or URL text alone
+cannot. Tables require structurally simple label/value rows; definition lists
+require direct alternating DT/DD siblings; labeled lists require direct LI nodes;
+line specifications require explicit BR boundaries. Plain prose is unsupported.
+Specified region headings narrow source selection; conditional captions/labels
+are retained as qualifiers, so semantic label recognition cannot erase conditions.
+Multiple page rules, competing identities and malformed structures reject scope.
+
+Supplementary extraction is owned by the production preparation loop, after the
+ordinary extraction and qualification for each authoritative capture. It verifies
+capture/acquisition/intake/profile bindings and SHA-256 of retained source bytes;
+independently supplied text cannot replace those bytes. It reuses the HTML input,
+item and per-block text bounds intentionally. The supplementary item envelope
+counts retained blocks plus QualifiedFact observations before artifact construction;
+their sum must not exceed the ordinary HTML `max_items` default. Exceeding any output
+bound rejects all facts from that supplement and reports partial evidence. The
+ordinary complete extraction is required, so this path cannot evade parser limits.
+Supplemental artifact IDs bind the source evidence and reviewed configuration;
+they are deterministic and receive no approval, confidence or canonical status.
+
+Read-only URI eligibility is independent of officiality and capture success.
+Discovered commerce/account/wiki action links retain metadata and officiality but
+are excluded before scheduling, consuming no capture slot. Transport enforces
+the same boundary on seed requests and redirects before destination fetches.
+Explicit action tokens are blocked; technical query/export/download endpoints
+remain eligible. This small generic deny list is empirical Wave 1 policy, not a
+general proof that all GET endpoints are read-only. Discovery and byte budgets
+remain independently owned by acquisition and capture. PDF text extraction and
+its unsupported table/layout diagnostic are unchanged.
+
 ## Logical layers
 
 1. **Physical constants and calculations** — deterministic formulas such as power/current relationships and conductor resistance calculations.

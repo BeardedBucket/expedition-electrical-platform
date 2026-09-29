@@ -30,6 +30,7 @@ import {
 } from './source-resolution.js';
 import type { CapturedSource, SourceCaptureAdapter } from './capture-types.js';
 import { classifyCapturePriority, compareCapturePriorities } from './capture-priority.js';
+import { isReadOnlyEvidenceUri } from './evidence-uri.js';
 import {
   captureSourceForProduction,
   type ProductionSourceCaptureRequest,
@@ -896,7 +897,7 @@ export const acquireOfficialSources = async (
       ...(classified.evidence.length ? { role_evidence: classified.evidence } : {}),
       selection_status: duplicateOf
         ? 'duplicate_uri'
-        : officiality === 'official'
+        : officiality === 'official' && isReadOnlyEvidenceUri(link.normalized_uri)
           ? 'discovered'
           : 'excluded_by_policy',
       capture_outcome: 'not_attempted',
@@ -904,6 +905,10 @@ export const acquireOfficialSources = async (
       ...(duplicateOf ? { duplicate_of_candidate_id: duplicateOf } : {}),
     };
     if (!duplicateOf) byUri.set(link.normalized_uri, id);
+    if (!duplicateOf && !isReadOnlyEvidenceUri(link.normalized_uri))
+      provenanceIssues.push(
+        `Capture excluded for ${id}: URI identifies an action rather than read-only evidence.`,
+      );
     if (candidate.selection_status === 'discovered' && capturedCount < maxCaptured) {
       const maxCandidateBytes = Math.max(0, remainingBudget);
       if (maxCandidateBytes <= 0) {
