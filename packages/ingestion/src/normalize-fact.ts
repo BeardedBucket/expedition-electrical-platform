@@ -1,5 +1,6 @@
 import type { CanonicalQualifiedValue, ProductFact, ProductSource } from './contracts.js';
 import { resolveCanonicalField, isSupportedCanonicalField } from './field-mapping.js';
+import type { ReviewedSemanticContext } from './semantic-context.js';
 import { parseExactUnitValue, resolveUnit } from './units.js';
 import { artifactDigest } from './production-contracts.js';
 import { parseContextualMeasurement, type SourceObservation } from './qualified-values.js';
@@ -15,11 +16,13 @@ export const normalizeProductFact = (
   fact: ProductFact,
   source: ProductSource,
   selectedObservation?: SourceObservation,
+  reviewedContext?: ReviewedSemanticContext,
 ): ProductFactNormalizationResult => {
-  // Context is re-established from source wording, never trusted from a prior normalization.
+  // The production bridge attests reviewedContext from source artifacts. We
+  // still resolve the target from the raw label here, not a prior target claim.
   fact = { ...fact };
   delete (fact as { qualified_value?: CanonicalQualifiedValue }).qualified_value;
-  const mapping = resolveCanonicalField(fact.raw_label);
+  const mapping = resolveCanonicalField(fact.raw_label, reviewedContext);
   if (!mapping) {
     return {
       status: 'unresolved',

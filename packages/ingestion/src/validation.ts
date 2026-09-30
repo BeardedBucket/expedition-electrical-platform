@@ -1,4 +1,5 @@
 import Ajv2020 from 'ajv/dist/2020.js';
+import { atomicProductFields } from './atomic-product-fields.js';
 import addFormats from 'ajv-formats';
 import candidateSchema from '../../../data/schemas/product-candidate.schema.json' with { type: 'json' };
 import factSchema from '../../../data/schemas/product-fact.schema.json' with { type: 'json' };
@@ -425,6 +426,47 @@ export const validateProductCandidate = (
   const candidateFactIds = new Set(candidate.fact_ids);
   const fieldPath = /^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)*$/;
   const fieldEvidence = candidate.field_evidence ?? {};
+  const getPath = (root: JsonObject, path: string): JsonValue | undefined =>
+    path
+      .split('.')
+      .reduce<JsonValue | undefined>(
+        (value, segment) =>
+          value && typeof value === 'object' && !Array.isArray(value)
+            ? (value as JsonObject)[segment]
+            : undefined,
+        root,
+      );
+
+  const validateDerivation = (
+    derivation: ProductFact['derivation'] | undefined,
+    path: string,
+  ): void => {
+    if (!derivation) return;
+    for (const factId of derivation.input_fact_ids) {
+      if (!factById.has(factId) || !candidateFactIds.has(factId))
+        issues.push(
+          issue(
+            'dangling_derivation_input_reference',
+            'invalid',
+            `${path}.input_fact_ids`,
+            `derived input fact '${factId}' does not exist in the candidate.`,
+          ),
+        );
+    }
+  };
+  facts.forEach((fact) => validateDerivation(fact.derivation, `facts.${fact.id}.derivation`));
+  for (const [field, derivation] of Object.entries(candidate.derived_fields ?? {})) {
+    if (getPath(candidate.component_data, field) === undefined)
+      issues.push(
+        issue(
+          'derived_field_missing',
+          'invalid',
+          `derived_fields.${field}`,
+          `derived field '${field}' is not present in component data.`,
+        ),
+      );
+    validateDerivation(derivation, `derived_fields.${field}`);
+  }
 
   candidate.source_ids.forEach((sourceId, index) => {
     if (!sourceIds.has(sourceId))
@@ -716,7 +758,17 @@ export const validateProductCandidate = (
           'must be a dot-separated canonical field path.',
         ),
       );
-    if (!fieldEvidence[field]) {
+    // A structured field (for example a voltage range) is one atomic source
+    // assertion. Its parent evidence covers both members; it must not require
+    // fictitious independent min/max source facts.
+    // Historical direct-ingestion artifacts retain their existing replay
+    // report shape; this atomic field contract is production-bridge owned.
+    const supportedByParent =
+      candidate.id.startsWith('production-candidate.') &&
+      Object.keys(fieldEvidence).some(
+        (path) => atomicProductFields.has(path) && field.startsWith(`${path}.`),
+      );
+    if (!fieldEvidence[field] && !supportedByParent) {
       issues.push(
         issue(
           'missing_field_evidence',

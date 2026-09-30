@@ -171,6 +171,8 @@ export interface ProductFact {
   readonly source_locator?: SourceLocator;
   readonly extraction_method: ExtractionMethod;
   readonly transformation_notes?: string;
+  /** Present only for a calculated value; raw_value then records the calculation output. */
+  readonly derivation?: ProductDerivation;
   readonly review_required?: boolean;
   readonly notes?: string;
   readonly fact_state: FactState;
@@ -196,10 +198,29 @@ export interface ProductCandidate {
   readonly fact_ids: readonly string[];
   readonly component_data: JsonObject;
   readonly field_evidence: Readonly<Record<string, readonly string[]>>;
+  /** Calculated product values remain distinguishable from published assertions. */
+  readonly derived_fields?: Readonly<Record<string, ProductDerivation>>;
   readonly qualified_value_evidence?: Readonly<Record<string, readonly string[]>>;
   readonly topology_evidence?: Readonly<Record<string, readonly string[]>>;
   readonly review_reasons?: readonly string[];
   readonly notes?: string;
+}
+
+export interface SemanticProductDerivation {
+  readonly status: 'derived';
+  readonly rule_version: string;
+  readonly formula: string;
+  readonly input_targets: readonly string[];
+  /** QualifiedFact IDs retained for source-level lineage. */
+  readonly input_qualified_fact_ids?: readonly string[];
+  readonly input_units: readonly string[];
+  readonly output_unit: string;
+  readonly assumptions: readonly string[];
+}
+
+export interface ProductDerivation extends SemanticProductDerivation {
+  /** ProductFact IDs at the candidate/promotion boundary. */
+  readonly input_fact_ids: readonly string[];
 }
 
 export const isSourceApplicable = (

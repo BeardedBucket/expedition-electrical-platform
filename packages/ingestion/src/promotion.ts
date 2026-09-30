@@ -2,6 +2,7 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import { createHash } from 'node:crypto';
 import componentSchema from '../../../data/schemas/component.schema.json' with { type: 'json' };
+import { atomicProductFields } from './atomic-product-fields.js';
 import type {
   JsonObject,
   JsonValue,
@@ -169,6 +170,10 @@ export const promotionCandidateSnapshot = (
     ...Object.values(candidate.qualified_value_evidence ?? {}).flat(),
     ...Object.values(candidate.topology_evidence ?? {}).flat(),
   ]);
+  for (const derivation of Object.values(candidate.derived_fields ?? {}))
+    derivation.input_fact_ids.forEach((factId) => relevantFactIds.add(factId));
+  for (const fact of facts)
+    fact.derivation?.input_fact_ids.forEach((factId) => relevantFactIds.add(factId));
   const snapshot = {
     candidate: {
       id: candidate.id,
@@ -183,6 +188,7 @@ export const promotionCandidateSnapshot = (
         ? { qualified_value_evidence: candidate.qualified_value_evidence }
         : {}),
       ...(candidate.topology_evidence ? { topology_evidence: candidate.topology_evidence } : {}),
+      ...(candidate.derived_fields ? { derived_fields: candidate.derived_fields } : {}),
     },
     facts: facts
       .filter((fact) => relevantFactIds.has(fact.id))
@@ -203,6 +209,7 @@ export const promotionCandidateSnapshot = (
         normalized_unit: fact.normalized_unit ?? null,
         fact_state: fact.fact_state,
         review_required: fact.review_required ?? false,
+        ...(fact.derivation ? { derivation: fact.derivation } : {}),
         ...(fact.topology_target ? { topology_target: fact.topology_target } : {}),
         ...(fact.target ? { target: fact.target } : {}),
       })),
@@ -296,6 +303,23 @@ const sourceRefsFor = (
           )
           .filter(([, ids]) => ids.length > 0),
       );
+      const factsById = new Map(facts.map((fact) => [fact.id, fact] as const));
+      const sourceFactIds = [
+        ...new Set([
+          ...Object.values(selectedFieldEvidence)
+            .flat()
+            .filter((factId) => factsById.get(factId)?.source_id === source.id),
+          ...Object.values(sourceQualifiedEvidence).flat(),
+          ...Object.values(topologyEvidence).flat(),
+          ...Object.values(candidate.derived_fields ?? {})
+            .flatMap((derivation) =>
+              derivation.input_fact_ids.filter(
+                (factId) => factsById.get(factId)?.source_id === source.id,
+              ),
+            )
+            .filter((factId) => candidate.fact_ids.includes(factId)),
+        ]),
+      ].sort();
       return {
         id: source.id,
         type: source.source_type,
@@ -312,15 +336,7 @@ const sourceRefsFor = (
               ),
             }
           : {}),
-        fact_ids: [
-          ...new Set([
-            ...Object.values(selectedFieldEvidence).flat(),
-            ...Object.values(sourceQualifiedEvidence).flat(),
-            ...Object.values(topologyEvidence).flat(),
-          ]),
-        ]
-          .filter((factId) => candidate.fact_ids.includes(factId))
-          .sort(),
+        fact_ids: sourceFactIds.filter((factId) => candidate.fact_ids.includes(factId)),
       };
     });
 
@@ -616,7 +632,13 @@ export const promoteCandidate = (
 
   const candidateFields = [
     ...new Set([
-      ...populatedFields(candidate.component_data),
+      ...populatedFields(candidate.component_data).filter(
+        (field) =>
+          !candidate.id.startsWith('production-candidate.') ||
+          !Object.keys(candidate.field_evidence).some(
+            (path) => atomicProductFields.has(path) && field.startsWith(`${path}.`),
+          ),
+      ),
       ...Object.keys(candidate.field_evidence).filter(
         (field) => getPath(candidate.component_data, field) !== undefined,
       ),
@@ -821,6 +843,11 @@ export const promoteCandidate = (
         ),
       ),
     );
+  const selectedDerivations = Object.fromEntries(
+    Object.entries(candidate.derived_fields ?? {}).filter(
+      ([field]) => selectedFieldEvidence[field] !== undefined,
+    ),
+  );
   const proposal: JsonObject = {
     id: canonicalId,
     manufacturer: canonicalManufacturer,
@@ -842,6 +869,9 @@ export const promoteCandidate = (
       facts,
     ),
     ...proposalData,
+    ...(Object.keys(selectedDerivations).length
+      ? { derived_fields: selectedDerivations as unknown as JsonValue }
+      : {}),
     ...approvedTopologyData,
   };
   if (!canonicalProposalSchemaValid(proposal))

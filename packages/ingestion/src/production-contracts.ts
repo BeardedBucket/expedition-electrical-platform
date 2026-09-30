@@ -4,7 +4,12 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import { createHash } from 'node:crypto';
 import productionIngestionSchema from '../../../data/schemas/production-ingestion.schema.json' with { type: 'json' };
-import type { CanonicalQualifiedValue, JsonObject, JsonValue } from './contracts.js';
+import type {
+  CanonicalQualifiedValue,
+  JsonObject,
+  JsonValue,
+  SemanticProductDerivation,
+} from './contracts.js';
 import type {
   ExtractionCapabilityState,
   ExtractionRemediationState,
@@ -693,6 +698,7 @@ export interface SemanticProposal {
   readonly id: string;
   readonly target: string;
   readonly proposed_value?: JsonValue;
+  readonly derivation?: SemanticProductDerivation;
   readonly qualified_value?: CanonicalQualifiedValue;
   readonly evidence_refs: readonly ArtifactReference[];
   readonly fact_refs?: readonly ArtifactReference[];

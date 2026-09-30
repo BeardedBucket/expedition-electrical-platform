@@ -193,7 +193,7 @@ describe('atomic qualified power consumption', () => {
       for (const proposal of s.proposals) {
         const { id, schema_version: _schema, artifact_kind: _kind, ...content } = proposal;
         expect(id).toBe(`semantic-proposal.${artifactDigest(content).slice(7, 31)}`);
-        expect(proposal.provenance.rule_version).toBe('production-semantic-bridge.v5');
+        expect(proposal.provenance.rule_version).toBe('production-semantic-bridge.v6');
         const assertion = proposal.qualified_value!;
         expect(assertion.id).toBe(
           `qualified-value.${artifactDigest({

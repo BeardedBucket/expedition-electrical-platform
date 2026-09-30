@@ -1,11 +1,12 @@
 import { buildProductCandidate } from './candidate-builder.js';
 import type {
   ProductCandidate,
+  ProductDerivation,
   ProductFact,
   ProductSource,
   ProductSourceType,
 } from './contracts.js';
-import { resolveCanonicalField } from './field-mapping.js';
+import { resolveProductionCanonicalField } from './field-mapping.js';
 import { normalizeProductFact } from './normalize-fact.js';
 import type { NormalizedProductFact } from './normalization-types.js';
 import {
@@ -19,6 +20,7 @@ import {
   type SourceCaptureArtifact,
 } from './production-contracts.js';
 import { buildProductionSemanticProposals } from './production-semantic-bridge.js';
+import { reviewedSemanticContext } from './semantic-context.js';
 import type { QualifiedFactWholeIntakeReconciliationResult } from './reconciliation.js';
 
 export interface ProductionCandidateBridgeInput {
@@ -46,6 +48,8 @@ export interface ProductionCandidateBridgeResult {
   readonly facts: readonly ProductFact[];
   readonly normalized_facts: readonly NormalizedProductFact[];
 }
+
+const platformDerivedSourceId = 'platform.derived';
 
 const sourceType = (
   role: SourceAcquisitionCandidate['role'] | 'product_page',
@@ -179,6 +183,7 @@ export const buildProductionProductCandidate = (
   const proposalFactIds: Record<string, readonly string[]> = {};
 
   for (const proposal of orderedProposals) {
+    if (proposal.derivation) continue;
     if (proposal.disposition !== 'mapped' || proposal.proposed_value === undefined) {
       nonProjected.push({
         proposal_id: proposal.id,
@@ -201,8 +206,9 @@ export const buildProductionProductCandidate = (
     }[] = [];
     let reason: string | undefined;
     for (const fact of proposalFacts as QualifiedFactArtifact[]) {
+      const reviewedContext = reviewedSemanticContext(fact, input.facts, input.source_acquisitions);
       const mapping = fact.metadata.source_label
-        ? resolveCanonicalField(fact.metadata.source_label)
+        ? resolveProductionCanonicalField(fact.metadata.source_label, reviewedContext)
         : undefined;
       if (
         !mapping ||
@@ -238,6 +244,7 @@ export const buildProductionProductCandidate = (
               qualifiers: proposal.qualified_value.qualifiers,
             }
           : undefined,
+        reviewedContext,
       );
       if (normalized.status !== 'normalized' || !normalized.fact) {
         reason = `legacy normalization: ${normalized.issues.map((issue) => issue.code).join(', ')}`;
@@ -278,10 +285,119 @@ export const buildProductionProductCandidate = (
     projected.push(proposal.id);
     proposalFactIds[proposal.id] = staged.map((item) => item.fact.id).sort();
   }
+  const derivedFields: Record<string, ProductDerivation> = {};
+  let platformDerivedSource: ProductSource | undefined;
+  for (const proposal of orderedProposals.filter((item) => item.derivation)) {
+    if (
+      proposal.disposition !== 'mapped' ||
+      proposal.proposed_value === undefined ||
+      !proposal.derivation
+    ) {
+      nonProjected.push({
+        proposal_id: proposal.id,
+        reason: `derived disposition: ${proposal.disposition}`,
+      });
+      continue;
+    }
+    const supporting = proposal.derivation.input_targets.map((target) =>
+      orderedProposals.find(
+        (item) =>
+          item.target === target &&
+          !item.derivation &&
+          item.disposition === 'mapped' &&
+          projected.includes(item.id),
+      ),
+    );
+    if (supporting.some((item) => !item)) {
+      nonProjected.push({ proposal_id: proposal.id, reason: 'derived input was not projected' });
+      continue;
+    }
+    const inputFactIds = [
+      ...new Set(supporting.flatMap((item) => proposalFactIds[item!.id] ?? [])),
+    ].sort();
+    const inputFacts = inputFactIds
+      .map((id) => projectedFacts.find((fact) => fact.id === id))
+      .filter((fact): fact is ProductFact => fact !== undefined);
+    const inputSources = [
+      ...new Map(
+        inputFacts
+          .map((fact) => sources.get(fact.source_id))
+          .filter((source): source is ProductSource => source !== undefined)
+          .map((source) => [source.id, source] as const),
+      ).values(),
+    ].sort((left, right) => left.id.localeCompare(right.id));
+    if (
+      inputFactIds.length === 0 ||
+      inputFacts.length !== inputFactIds.length ||
+      inputSources.length === 0 ||
+      inputFacts.some((fact) => !sources.has(fact.source_id))
+    ) {
+      nonProjected.push({
+        proposal_id: proposal.id,
+        reason: 'derived input source lineage is unavailable',
+      });
+      continue;
+    }
+    const derivation = {
+      ...proposal.derivation,
+      input_qualified_fact_ids: proposal.derivation.input_qualified_fact_ids,
+      input_fact_ids: inputFactIds,
+    };
+    if (!platformDerivedSource) {
+      platformDerivedSource = {
+        schema_version: '1.0',
+        id: platformDerivedSourceId,
+        uri: 'platform://derived',
+        source_type: 'other',
+        authority: 'unknown',
+        publisher: 'platform',
+        retrieved_at: '1970-01-01T00:00:00.000Z',
+        applicability: 'explicitly_reviewed',
+        applicability_reason: 'Platform-derived value from published input facts.',
+        notes:
+          'A derived product fact belongs to the platform derivation layer, not an arbitrary manufacturer source.',
+      };
+    }
+    // A separate calculated fact lets ordinary candidate validation and
+    // promotion bind the output field to its own evidence ID. Reusing input
+    // fact IDs would falsely label those published facts as the derived field.
+    const derivedFact: ProductFact = {
+      schema_version: '1.0',
+      id: `production-derived-fact.${artifactDigest(proposal).slice(7, 31)}`,
+      source_id: platformDerivedSource.id,
+      field: proposal.target,
+      raw_label: `Derived: ${proposal.target}`,
+      raw_value: proposal.proposed_value,
+      normalized_value: proposal.proposed_value,
+      normalized_unit: proposal.derivation.output_unit,
+      extraction_method: 'other',
+      fact_state: 'provisional',
+      review_required: true,
+      transformation_notes: `${derivation.rule_version}: ${derivation.formula}`,
+      derivation,
+    };
+    projectedFacts.push(derivedFact);
+    normalizedFacts.push({
+      fact: derivedFact,
+      source: platformDerivedSource,
+      canonical_field: proposal.target,
+      normalized_value: proposal.proposed_value,
+      normalized_unit: derivation.output_unit,
+      dimension: proposal.derivation.output_unit === 'count' ? 'count' : 'capacity',
+      source_authority: platformDerivedSource.authority,
+      target_kind: 'canonical',
+    });
+    derivedFields[proposal.target] = derivation;
+    proposalFactIds[proposal.id] = [derivedFact.id];
+    projected.push(proposal.id);
+  }
   const orderedSources = [...sources.values()].sort((a, b) => a.id.localeCompare(b.id));
+  const candidateSources = platformDerivedSource
+    ? [...orderedSources, platformDerivedSource].sort((a, b) => a.id.localeCompare(b.id))
+    : orderedSources;
   projectedFacts.sort((a, b) => a.id.localeCompare(b.id));
   normalizedFacts.sort((a, b) => a.fact.id.localeCompare(b.fact.id));
-  const candidate = projectedFacts.length
+  let candidate = projectedFacts.length
     ? buildProductCandidate({
         id: `production-candidate.${artifactDigest(input.intake).slice(7, 31)}`,
         identity: {
@@ -291,11 +407,30 @@ export const buildProductionProductCandidate = (
             ? { manufacturer_part_number: input.intake.manufacturer_part_number }
             : {}),
         },
-        sources: orderedSources,
+        sources: candidateSources,
         facts: projectedFacts,
         normalized_facts: normalizedFacts,
       })
     : undefined;
+  if (candidate) {
+    const inconsistent = orderedProposals.some(
+      (item) => item.derivation && item.disposition === 'conflicting',
+    );
+    candidate = {
+      ...candidate,
+      ...(Object.keys(derivedFields).length ? { derived_fields: derivedFields } : {}),
+      ...(inconsistent
+        ? {
+            promotion_status: 'blocked',
+            review_status: 'pending',
+            review_reasons: [
+              ...(candidate.review_reasons ?? []),
+              'published_derived_inconsistency',
+            ],
+          }
+        : {}),
+    };
+  }
   return {
     ...(candidate ? { candidate } : {}),
     proposals: orderedProposals,
@@ -303,7 +438,7 @@ export const buildProductionProductCandidate = (
     projected_proposal_ids: projected,
     non_projected: nonProjected,
     proposal_fact_ids: proposalFactIds,
-    sources: orderedSources,
+    sources: candidateSources,
     facts: projectedFacts,
     normalized_facts: normalizedFacts,
   };

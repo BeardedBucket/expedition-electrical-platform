@@ -50,6 +50,34 @@
         "minItems": 1
       }
     },
+    "derived_fields": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "status",
+          "rule_version",
+          "formula",
+          "input_targets",
+          "input_fact_ids",
+          "input_units",
+          "output_unit",
+          "assumptions"
+        ],
+        "properties": {
+          "status": { "const": "derived" },
+          "rule_version": { "type": "string", "minLength": 1 },
+          "formula": { "type": "string", "minLength": 1 },
+          "input_targets": { "type": "array", "items": { "type": "string" } },
+          "input_qualified_fact_ids": { "type": "array", "items": { "type": "string" } },
+          "input_fact_ids": { "type": "array", "items": { "type": "string" } },
+          "input_units": { "type": "array", "items": { "type": "string" } },
+          "output_unit": { "type": "string", "minLength": 1 },
+          "assumptions": { "type": "array", "items": { "type": "string" } }
+        },
+        "additionalProperties": false
+      }
+    },
     "topology_evidence": {
       "type": "object",
       "propertyNames": {

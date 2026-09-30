@@ -1,4 +1,5 @@
 import type { JsonObject, JsonValue } from './contracts.js';
+import type { ReviewedSemanticContext } from './semantic-context.js';
 import {
   parseContextualMeasurement,
   parsePowerDisplayCondition,
@@ -252,24 +253,11 @@ const baseCanonicalFieldMappings: readonly CanonicalFieldMapping[] = [
     unit: 'kg',
     aliases: ['weight', 'mass'],
   },
-  {
-    canonical_field: 'dimensions_mm.x',
-    dimension: 'length',
-    unit: 'mm',
-    aliases: ['width'],
-  },
-  {
-    canonical_field: 'dimensions_mm.y',
-    dimension: 'length',
-    unit: 'mm',
-    aliases: ['depth'],
-  },
-  {
-    canonical_field: 'dimensions_mm.z',
-    dimension: 'length',
-    unit: 'mm',
-    aliases: ['height'],
-  },
+  // Retained for the legacy ProductFact normalizer and persisted pilot replay.
+  // Production semantic proposals separately require a reviewed body region.
+  { canonical_field: 'dimensions_mm.x', dimension: 'length', unit: 'mm', aliases: ['width'] },
+  { canonical_field: 'dimensions_mm.y', dimension: 'length', unit: 'mm', aliases: ['depth'] },
+  { canonical_field: 'dimensions_mm.z', dimension: 'length', unit: 'mm', aliases: ['height'] },
   {
     canonical_field: 'mounting.allowed_orientation',
     dimension: 'mounting',
@@ -298,6 +286,157 @@ const baseCanonicalFieldMappings: readonly CanonicalFieldMapping[] = [
     normalize_value: (value) => mountingEvidence('method', value),
   },
 ];
+
+const batteryVoltageRange = (raw: string, sourceUnit?: string): JsonObject | undefined => {
+  if (sourceUnit && sourceUnit.trim().toLowerCase() !== 'v') return undefined;
+  const match = raw.trim().match(/^(\d+(?:\.\d+)?)\s*(?:-|–|to)\s*(\d+(?:\.\d+)?)\s*V$/i);
+  if (!match) return undefined;
+  const min = Number(match[1]);
+  const max = Number(match[2]);
+  return Number.isFinite(min) && Number.isFinite(max) && min > 0 && max >= min
+    ? { min, max }
+    : undefined;
+};
+const depthOfDischarge = (raw: string, sourceUnit?: string): number | undefined => {
+  if (sourceUnit && sourceUnit.trim() !== '%') return undefined;
+  const match = raw.trim().match(/^(\d+(?:\.\d+)?)\s*%$/);
+  if (!match) return undefined;
+  const percent = Number(match[1]);
+  return Number.isFinite(percent) && percent >= 0 && percent <= 100 ? percent / 100 : undefined;
+};
+
+// Role and reviewed-region qualification is supplied by semantic-context.ts.
+// These entries are a versioned vocabulary: exact aliases only, with no fallback
+// from generic Voltage/Capacity/Length when the contextual attestation is absent.
+export const contextualCanonicalFieldMappings: readonly (CanonicalFieldMapping & {
+  readonly role: ReviewedSemanticContext['role'];
+  readonly region: ReviewedSemanticContext['region'];
+})[] = [
+  {
+    role: 'battery',
+    region: 'battery_specs',
+    canonical_field: 'electrical.nominal_voltage_v',
+    dimension: 'voltage',
+    unit: 'V',
+    aliases: ['voltage'],
+  },
+  {
+    role: 'battery',
+    region: 'battery_specs',
+    canonical_field: 'battery.nominal_capacity_ah',
+    dimension: 'capacity',
+    unit: 'Ah',
+    aliases: ['capacity'],
+  },
+  {
+    role: 'battery',
+    region: 'battery_specs',
+    canonical_field: 'battery.usable_capacity_ah',
+    dimension: 'capacity',
+    unit: 'Ah',
+    aliases: ['usable capacity'],
+  },
+  {
+    role: 'battery',
+    region: 'battery_specs',
+    canonical_field: 'battery.chemistry',
+    dimension: 'chemistry',
+    unit: 'string',
+    aliases: ['battery type'],
+    value_kind: 'structured',
+    normalize_value: normalizeChemistryValue,
+  },
+  {
+    role: 'battery',
+    region: 'battery_specs',
+    canonical_field: 'battery.usable_depth_of_discharge_fraction',
+    dimension: 'ratio',
+    unit: 'fraction',
+    aliases: ['usable depth of discharge'],
+    value_kind: 'structured',
+    normalize_value: depthOfDischarge,
+  },
+  {
+    role: 'battery',
+    region: 'battery_specs',
+    canonical_field: 'battery.maximum_series_voltage_v',
+    dimension: 'voltage',
+    unit: 'V',
+    aliases: ['maximum series voltage'],
+  },
+  {
+    role: 'battery',
+    region: 'battery_charge',
+    canonical_field: 'battery.charging_voltage_range_v',
+    dimension: 'voltage',
+    unit: 'V',
+    aliases: ['charging voltage'],
+    value_kind: 'structured',
+    normalize_value: batteryVoltageRange,
+  },
+  {
+    role: 'battery',
+    region: 'battery_charge',
+    canonical_field: 'battery.float_voltage_range_v',
+    dimension: 'voltage',
+    unit: 'V',
+    aliases: ['float voltage'],
+    value_kind: 'structured',
+    normalize_value: batteryVoltageRange,
+  },
+  {
+    role: 'battery',
+    region: 'body_dimensions',
+    canonical_field: 'dimensions_mm.x',
+    dimension: 'length',
+    unit: 'mm',
+    aliases: ['width'],
+  },
+  {
+    role: 'battery',
+    region: 'body_dimensions',
+    canonical_field: 'dimensions_mm.y',
+    dimension: 'length',
+    unit: 'mm',
+    aliases: ['length', 'depth'],
+  },
+  {
+    role: 'battery',
+    region: 'body_dimensions',
+    canonical_field: 'dimensions_mm.z',
+    dimension: 'length',
+    unit: 'mm',
+    aliases: ['height'],
+  },
+];
+
+const productionBatteryOnlyFields = new Set([
+  'battery.nominal_capacity_ah',
+  'battery.nominal_energy_wh',
+  'battery.chemistry',
+  'battery.charge_current.recommended_a',
+  'battery.allowed_series_count',
+  'battery.allowed_parallel_count',
+  'battery.usable_capacity_ah',
+  'battery.usable_depth_of_discharge_fraction',
+  'battery.maximum_series_voltage_v',
+  'battery.charging_voltage_range_v',
+  'battery.float_voltage_range_v',
+]);
+
+export const resolveProductionCanonicalField = (
+  rawLabel: string,
+  context?: ReviewedSemanticContext,
+): CanonicalFieldMapping | undefined => {
+  const mapping = resolveCanonicalField(rawLabel, context);
+  if (
+    mapping &&
+    productionBatteryOnlyFields.has(mapping.canonical_field) &&
+    context?.role !== 'battery'
+  )
+    return undefined;
+  return mapping;
+};
 
 const clearanceCategories = ['service', 'ventilation', 'cable_access', 'safety'] as const;
 const localFaces = ['x_min', 'x_max', 'y_min', 'y_max', 'z_min', 'z_max'] as const;
@@ -336,9 +475,27 @@ const schemaPathExists = (path: string): boolean => {
   return true;
 };
 
-export const resolveCanonicalField = (rawLabel: string): CanonicalFieldMapping | undefined =>
-  mappingsByAlias.get(cleanLabel(rawLabel)) ??
-  (parsePowerDisplayCondition(rawLabel) ? powerConsumptionMapping : undefined);
+export const resolveCanonicalField = (
+  rawLabel: string,
+  context?: ReviewedSemanticContext,
+): CanonicalFieldMapping | undefined => {
+  const label = cleanLabel(rawLabel);
+  if (context) {
+    const applicable = contextualCanonicalFieldMappings.filter(
+      (entry) =>
+        entry.role === context.role &&
+        entry.region === context.region &&
+        entry.aliases.some((alias) => cleanLabel(alias) === label),
+    );
+    // Multiple competing reviewed meanings must not be settled by list order.
+    if (applicable.length > 1) return undefined;
+    if (applicable.length === 1) return applicable[0];
+  }
+  return (
+    mappingsByAlias.get(label) ??
+    (parsePowerDisplayCondition(rawLabel) ? powerConsumptionMapping : undefined)
+  );
+};
 
 const powerConsumptionMapping: CanonicalFieldMapping = {
   canonical_field: 'electrical.power_consumption_w',

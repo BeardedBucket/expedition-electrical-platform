@@ -68,6 +68,14 @@ gap therefore remains open.
 
 ## Reviewed source-shape recovery into production evidence
 
+Contextual battery vocabulary and product-data derivations are specified in
+[Ingestion semantic vocabulary](INGESTION_SEMANTIC_VOCABULARY.md). Reviewed
+source mechanics and exact product applicability establish the context; the
+semantic layer proposes meanings and calculations but cannot approve, finalize,
+or write canonical facts. Promotion approval snapshots include derivation
+metadata and all resolvable input lineage, so a changed formula, input, or
+assumption cannot pass an earlier approval.
+
 Wave 2 adds declarative `identity_region` narrowing and
 `model_label_value_rows` regions; see `CORPUS_CAMPAIGN_WAVE_2.md` for the
 captured-source review. Identity narrowing requires exactly one container with

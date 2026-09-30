@@ -195,6 +195,204 @@ describe('reviewed candidate promotion', () => {
     ).toBe('success');
   });
 
+  it('binds derived metadata and relevant fact derivations to the approval snapshot', () => {
+    const base = candidate();
+    const derivedFact = {
+      ...facts()[0],
+      id: 'derived.fact',
+      field: 'battery.usable_capacity_ah',
+      derivation: {
+        status: 'derived' as const,
+        rule_version: 'rule.v1',
+        formula: 'a * b',
+        input_targets: [
+          'battery.nominal_capacity_ah',
+          'battery.usable_depth_of_discharge_fraction',
+        ],
+        input_fact_ids: [facts()[0].id],
+        input_units: ['Ah', 'fraction'],
+        output_unit: 'Ah',
+        assumptions: ['same exact product'],
+      },
+    };
+    const derivedCandidate = {
+      ...base,
+      derived_fields: { 'battery.usable_capacity_ah': derivedFact.derivation },
+      component_data: {
+        ...base.component_data,
+        battery: { usable_capacity_ah: 10 },
+      },
+      field_evidence: {
+        ...base.field_evidence,
+        'battery.usable_capacity_ah': [derivedFact.id],
+      },
+      fact_ids: [...base.fact_ids, derivedFact.id],
+    };
+    const snapshot = promotionCandidateSnapshot(derivedCandidate, sources(), [
+      ...facts(),
+      derivedFact,
+    ]);
+    expect(
+      promotionCandidateSnapshot(
+        {
+          ...derivedCandidate,
+          derived_fields: {
+            'battery.usable_capacity_ah': { ...derivedFact.derivation, formula: 'a + b' },
+          },
+        },
+        sources(),
+        [...facts(), derivedFact],
+      ),
+    ).not.toBe(snapshot);
+    expect(
+      promotionCandidateSnapshot(
+        {
+          ...derivedCandidate,
+          derived_fields: {
+            'battery.usable_capacity_ah': { ...derivedFact.derivation, input_fact_ids: ['other'] },
+          },
+        },
+        sources(),
+        [...facts(), derivedFact],
+      ),
+    ).not.toBe(snapshot);
+    expect(
+      promotionCandidateSnapshot(
+        {
+          ...derivedCandidate,
+          derived_fields: {
+            'battery.usable_capacity_ah': { ...derivedFact.derivation, assumptions: ['changed'] },
+          },
+        },
+        sources(),
+        [...facts(), derivedFact],
+      ),
+    ).not.toBe(snapshot);
+    expect(
+      promotionCandidateSnapshot(derivedCandidate, sources(), [
+        ...facts(),
+        { ...derivedFact, derivation: { ...derivedFact.derivation, formula: 'changed' } },
+      ]),
+    ).not.toBe(snapshot);
+  });
+
+  it('groups derived lineage by actual source ownership for multi-source calculations', () => {
+    const sourceA = {
+      ...pilot.source,
+      id: 'source.a',
+      uri: 'https://example.invalid/source-a',
+      content_hash: 'sha256:a',
+    };
+    const sourceB = {
+      ...pilot.source,
+      id: 'source.b',
+      uri: 'https://example.invalid/source-b',
+      content_hash: 'sha256:b',
+    };
+    const platformSource = {
+      schema_version: '1.0',
+      id: 'platform.derived',
+      uri: 'platform://derived',
+      source_type: 'other',
+      authority: 'unknown',
+      publisher: 'platform',
+      retrieved_at: '1970-01-01T00:00:00.000Z',
+      applicability: 'explicitly_reviewed',
+      applicability_reason: 'Platform-derived value from published input facts.',
+      notes:
+        'A derived product fact belongs to the platform derivation layer, not an arbitrary manufacturer source.',
+    };
+    const factA = {
+      ...facts()[0],
+      id: 'source.a.fact',
+      source_id: sourceA.id,
+      field: 'battery.nominal_capacity_ah',
+      raw_value: 100,
+      normalized_value: 100,
+    };
+    const factB = {
+      ...facts()[1],
+      id: 'source.b.fact',
+      source_id: sourceB.id,
+      field: 'battery.usable_depth_of_discharge_fraction',
+      raw_value: 0.8,
+      normalized_value: 0.8,
+    };
+    const derivedFact = {
+      ...factA,
+      id: 'derived.source.pair',
+      source_id: platformSource.id,
+      field: 'battery.usable_capacity_ah',
+      raw_value: 80,
+      normalized_value: 80,
+      derivation: {
+        status: 'derived' as const,
+        rule_version: 'rule.v1',
+        formula: 'nominal_capacity_ah * usable_depth_of_discharge_fraction',
+        input_targets: [
+          'battery.nominal_capacity_ah',
+          'battery.usable_depth_of_discharge_fraction',
+        ],
+        input_qualified_fact_ids: ['qualified.a', 'qualified.b'],
+        input_fact_ids: [factA.id, factB.id],
+        input_units: ['Ah', 'fraction'],
+        output_unit: 'Ah',
+        assumptions: ['same exact product'],
+      },
+    };
+    const baseCandidate = candidate();
+    const derivedCandidate = {
+      ...baseCandidate,
+      identity_source_ids: [],
+      source_ids: [sourceA.id, sourceB.id, platformSource.id],
+      fact_ids: [factA.id, factB.id, derivedFact.id],
+      field_evidence: {
+        'battery.nominal_capacity_ah': [factA.id],
+        'battery.usable_depth_of_discharge_fraction': [factB.id],
+        'battery.usable_capacity_ah': [derivedFact.id],
+      },
+      derived_fields: { 'battery.usable_capacity_ah': derivedFact.derivation },
+      component_data: {
+        ...baseCandidate.component_data,
+        battery: {
+          nominal_capacity_ah: 100,
+          usable_depth_of_discharge_fraction: 0.8,
+          usable_capacity_ah: 80,
+        },
+      },
+    };
+    const reviewForDerived: PromotionReview = {
+      schema_version: '1.0',
+      id: 'review.synthetic.multi-source-derived',
+      candidate_id: derivedCandidate.id,
+      candidate_snapshot: promotionCandidateSnapshot(
+        derivedCandidate,
+        [sourceA, sourceB, platformSource],
+        [factA, factB, derivedFact],
+      ),
+      decision: 'approved',
+      reviewer_id: 'reviewer.synthetic',
+      reviewed_at: '2026-09-06T12:00:00.000Z',
+      approved_fields: ['battery.usable_capacity_ah'],
+      evidence_acknowledged: true,
+      product_role: 'battery',
+      category: 'battery',
+    };
+    const result = promoteCandidate(
+      derivedCandidate,
+      [sourceA, sourceB, platformSource],
+      [factA, factB, derivedFact],
+      reviewForDerived,
+    );
+    const sourceRefs = result.proposal?.source_refs ?? [];
+    const sourceARef = sourceRefs.find((item) => item.id === sourceA.id);
+    const sourceBRef = sourceRefs.find((item) => item.id === sourceB.id);
+    expect(sourceARef).toMatchObject({ fact_ids: [factA.id] });
+    expect(sourceBRef).toMatchObject({ fact_ids: [factB.id] });
+    expect(sourceARef?.fact_ids).not.toContain(factB.id);
+    expect(sourceBRef?.fact_ids).not.toContain(factA.id);
+  });
+
   it('promotes structured topology only through explicit parent approval', () => {
     const topologyCandidate = epochPilot.candidate;
     const topologyReview: PromotionReview = {

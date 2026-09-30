@@ -1,4 +1,4 @@
-import { resolveCanonicalField, isSupportedCanonicalField } from './field-mapping.js';
+import { resolveProductionCanonicalField, isSupportedCanonicalField } from './field-mapping.js';
 import {
   artifactDigest,
   artifactReference,
@@ -14,6 +14,8 @@ import {
   type QualifiedFactWholeIntakeReconciliationResult,
 } from './reconciliation.js';
 import { parseExactUnitValue } from './units.js';
+import { reviewedSemanticContext } from './semantic-context.js';
+import { deriveProductSemanticProposals } from './product-derivations.js';
 import type { CanonicalQualifiedValue, JsonValue } from './contracts.js';
 import {
   parseContextualMeasurement,
@@ -21,7 +23,7 @@ import {
   type SourceObservation,
 } from './qualified-values.js';
 
-const METHOD_VERSION = 'production-semantic-bridge.v5';
+const METHOD_VERSION = 'production-semantic-bridge.v6';
 
 export interface ProductionSemanticBridgeInput {
   readonly facts: readonly QualifiedFactArtifact[];
@@ -57,7 +59,22 @@ export const buildProductionSemanticProposals = (
       return fact;
     });
     const label = facts[0]?.metadata.source_label;
-    const mapping = label ? resolveCanonicalField(label) : undefined;
+    const contexts = facts.map((fact) =>
+      reviewedSemanticContext(fact, input.facts, input.source_acquisitions),
+    );
+    const context =
+      contexts[0] &&
+      contexts.every((item) => deterministicSerialize(item) === deterministicSerialize(contexts[0]))
+        ? contexts[0]
+        : undefined;
+    // Legacy direct normalization retains body-axis aliases for historical
+    // pilots. Production proposals require an attested body region, since the
+    // same words can describe a cable, package, or installation clearance.
+    const bodyAxis = label && /^(?:width|length|depth|height)$/i.test(label.trim());
+    const mapping =
+      label && (!bodyAxis || context?.region === 'body_dimensions')
+        ? resolveProductionCanonicalField(label, context)
+        : undefined;
     const target =
       mapping?.canonical_field ??
       (label
@@ -204,6 +221,7 @@ export const buildProductionSemanticProposals = (
         ...factRefs.map((ref) => ref.digest),
         ...acquisitionDigests,
         reconciliationDigest,
+        ...(context ? [context.vocabulary_digest] : []),
       ]),
     ].sort();
     const alternatives =
@@ -236,7 +254,9 @@ export const buildProductionSemanticProposals = (
       provenance: {
         method: 'rule' as const,
         rule_version: METHOD_VERSION,
-        rationale,
+        rationale: context
+          ? `${rationale}; reviewed ${context.role}/${context.region} vocabulary ${context.vocabulary_version}`
+          : rationale,
       },
       input_artifact_digests: inputDigests,
     };
@@ -260,5 +280,8 @@ export const buildProductionSemanticProposals = (
   ] as const) {
     proposals.push(...ids.flatMap((id) => propose([id], 'unresolved', `F ${reason} fact`)));
   }
+  proposals.push(
+    ...deriveProductSemanticProposals(proposals, input.facts, input.source_acquisitions),
+  );
   return proposals.sort((left, right) => left.id.localeCompare(right.id));
 };

@@ -71,6 +71,33 @@ describe('product source contracts', () => {
     expect(result).toEqual({ status: 'valid', issues: [], ok: true });
   });
 
+  describe('derived product lineage', () => {
+    it('rejects a derived field with a dangling input fact', () => {
+      const derivation = {
+        status: 'derived' as const,
+        rule_version: 'test.v1',
+        formula: 'a * b',
+        input_targets: ['a', 'b'],
+        input_fact_ids: ['missing.fact'],
+        input_units: ['Ah', 'fraction'],
+        output_unit: 'Ah',
+        assumptions: ['same product'],
+      };
+      const result = validateProductCandidate(
+        candidate({
+          component_data: { battery: { usable_capacity_ah: 10 } },
+          field_evidence: { 'battery.usable_capacity_ah': ['example.fact'] },
+          derived_fields: { 'battery.usable_capacity_ah': derivation },
+        }),
+        [source()],
+        [fact({ field: 'battery.usable_capacity_ah', derivation })],
+      );
+      expect(result.issues.map((item) => item.code)).toContain(
+        'dangling_derivation_input_reference',
+      );
+    });
+  });
+
   it('rejects invalid URI, date, enum, duplicates, and extra properties', () => {
     const result = validateProductSources([
       source({ uri: 'not a uri', retrieved_at: 'not-a-date', source_type: 'invalid' as never }),
