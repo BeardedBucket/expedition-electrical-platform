@@ -4,13 +4,21 @@ import {
   artifactDigest,
   artifactReference,
   assertAcceptedSourceResolution,
+  buildProductionProductCandidate,
+  buildProductionReviewPackage,
   captureSourceResolutionCandidate,
   finalizeProductionIngest,
   prepareProductionIngestReview,
   productionApprovalToPromotionReview,
+  PRODUCTION_SCHEMA_VERSION,
+  reviewPackageSnapshot,
+  reviewedSemanticInputSnapshot,
+  REVIEWED_SEMANTIC_POLICY_VERSION,
   validateProductIntake,
+  validateProductionArtifactSchema,
   validateProductionApproval,
   type CanonicalWriteRequest,
+  type JsonValue,
   type ProductIntake,
   type ProductionApproval,
   type ProductionIngestFinalizeResult,
@@ -18,12 +26,13 @@ import {
   type ProductionIngestWorkflowResult,
   type PromotionCatalogContext,
   type ReviewReadyProductionIngest,
+  type ReviewedSemanticDecision,
   type SourceResolutionArtifact,
   type SourceCaptureArtifact,
   type ArtifactReference,
 } from '@expedition/ingestion';
 import { assertJsonInput, deserializeJob, serializeJob } from './codec.js';
-import type { IngestionJobStore } from './job-store.js';
+import { JobStoreConflictError, type IngestionJobStore } from './job-store.js';
 
 export type IngestionJobState =
   | 'source_resolution_required'
@@ -75,6 +84,45 @@ export interface IngestionRuntimeDependencies {
   readonly newId?: () => string;
 }
 
+interface SemanticDecisionRequestBase {
+  readonly proposal_id: string;
+  readonly expected_review_snapshot: string;
+  readonly selected_fact_ids?: readonly string[];
+  readonly actor_label: string;
+}
+
+export type SemanticDecisionRequest =
+  | (SemanticDecisionRequestBase & {
+      readonly outcome: 'map';
+      readonly target: string;
+      readonly normalized_value: JsonValue;
+      readonly normalized_unit?: string;
+      readonly source_unit?: string;
+      readonly rationale: string;
+    })
+  | (SemanticDecisionRequestBase & {
+      readonly outcome: 'schema_gap';
+      readonly schema_gap: { readonly concept_key: string; readonly explanation: string };
+      readonly rationale: string;
+    })
+  | (SemanticDecisionRequestBase & {
+      readonly outcome: 'reject' | 'not_applicable';
+      readonly rationale: string;
+    })
+  | (SemanticDecisionRequestBase & {
+      readonly outcome: 'evidence_only' | 'unresolved';
+      readonly rationale?: string;
+    });
+
+export class SemanticDecisionError extends Error {
+  constructor(
+    readonly status: 400 | 409,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
 export class SourceResolutionError extends Error {
   constructor(
     readonly status: 400 | 409,
@@ -86,6 +134,8 @@ export class SourceResolutionError extends Error {
 
 export class IngestionJobService {
   private readonly busy = new Set<string>();
+  // This queue reduces same-process contention; durable store CAS is authoritative.
+  private readonly decisionTails = new Map<string, Promise<void>>();
   constructor(private readonly dependencies: IngestionRuntimeDependencies) {}
 
   private timestamp(): string {
@@ -100,6 +150,27 @@ export class IngestionJobService {
       return await work();
     } finally {
       this.busy.delete(id);
+    }
+  }
+
+  private readVersionedJob(id: string) {
+    return this.dependencies.store.loadVersioned(id);
+  }
+
+  private async exclusiveSemanticDecision<T>(id: string, work: () => Promise<T>): Promise<T> {
+    const predecessor = this.decisionTails.get(id) ?? Promise.resolve();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const tail = predecessor.then(() => gate);
+    this.decisionTails.set(id, tail);
+    await predecessor;
+    try {
+      return await this.exclusive(id, work);
+    } finally {
+      release();
+      if (this.decisionTails.get(id) === tail) this.decisionTails.delete(id);
     }
   }
 
@@ -144,7 +215,7 @@ export class IngestionJobService {
 
   async submitSourceResolutionCandidate(id: string, uri: string): Promise<IngestionJob> {
     return this.exclusive(id, async () => {
-      const job = await this.getJob(id);
+      const { job, version } = await this.readVersionedJob(id);
       if (job.state !== 'source_resolution_required' || job.intake.official_product_uri)
         throw new SourceResolutionError(
           409,
@@ -179,7 +250,7 @@ export class IngestionJobService {
         updated_at: this.timestamp(),
         source_resolution_attempts: [...(job.source_resolution_attempts ?? []), attempt],
       };
-      await this.dependencies.store.save(updated);
+      await this.dependencies.store.save(updated, version);
       return updated;
     });
   }
@@ -190,7 +261,7 @@ export class IngestionJobService {
     decision: 'accepted' | 'rejected',
   ): Promise<IngestionJob> {
     return this.exclusive(id, async () => {
-      const job = await this.getJob(id);
+      const { job, version } = await this.readVersionedJob(id);
       if (job.state !== 'source_resolution_review' || job.intake.official_product_uri)
         throw new SourceResolutionError(
           409,
@@ -235,14 +306,14 @@ export class IngestionJobService {
             }
           : {}),
       };
-      await this.dependencies.store.save(updated);
+      await this.dependencies.store.save(updated, version);
       return updated;
     });
   }
 
   async prepareJob(id: string): Promise<IngestionJob> {
     return this.exclusive(id, async () => {
-      const job = await this.getJob(id);
+      const { job, version } = await this.readVersionedJob(id);
       if (job.state !== 'created') throw new Error(`Cannot prepare job in state ${job.state}.`);
       const resolution = job.source_resolution_attempts?.find(
         (item) => artifactDigest(item.resolution) === job.accepted_source_resolution?.digest,
@@ -252,11 +323,12 @@ export class IngestionJobService {
           throw new SourceResolutionError(409, 'Accept a source resolution before preparation.');
         assertAcceptedSourceResolution(job.intake, resolution);
       }
-      await this.dependencies.store.save({
+      const preparingJob: IngestionJob = {
         ...job,
         state: 'preparing',
         updated_at: this.timestamp(),
-      });
+      };
+      const currentVersion = await this.dependencies.store.save(preparingJob, version);
       let preparation: ProductionIngestWorkflowResult;
       try {
         preparation = await (this.dependencies.prepare ?? prepareProductionIngestReview)({
@@ -266,28 +338,28 @@ export class IngestionJobService {
         });
       } catch (error) {
         const updated: IngestionJob = {
-          ...job,
+          ...preparingJob,
           state: 'preparation_failed',
           updated_at: this.timestamp(),
           error: { operation: 'prepare', message: String(error) },
         };
-        await this.dependencies.store.save(updated);
+        await this.dependencies.store.save(updated, currentVersion);
         return updated;
       }
       const updated: IngestionJob = {
-        ...job,
+        ...preparingJob,
         state: preparation.status,
         preparation,
         updated_at: this.timestamp(),
       };
-      await this.dependencies.store.save(updated);
+      await this.dependencies.store.save(updated, currentVersion);
       return updated;
     });
   }
 
   async submitApproval(id: string, approval: ProductionApproval): Promise<IngestionJob> {
     return this.exclusive(id, async () => {
-      const job = await this.getJob(id);
+      const { job, version } = await this.readVersionedJob(id);
       if (job.state !== 'review_ready' || job.preparation?.status !== 'review_ready')
         throw new Error(`Cannot approve job in state ${job.state}.`);
       const issues = validateProductionApproval(approval);
@@ -311,7 +383,193 @@ export class IngestionJobService {
         approval,
         updated_at: this.timestamp(),
       };
-      await this.dependencies.store.save(updated);
+      await this.dependencies.store.save(updated, version);
+      return updated;
+    });
+  }
+
+  async recordSemanticDecision(
+    id: string,
+    request: SemanticDecisionRequest,
+  ): Promise<IngestionJob> {
+    return this.exclusiveSemanticDecision(id, async () => {
+      const { job, version } = await this.readVersionedJob(id);
+      if (
+        job.state !== 'review_ready' ||
+        job.preparation?.status !== 'review_ready' ||
+        job.approval ||
+        job.finalization_request ||
+        job.final_result
+      )
+        throw new SemanticDecisionError(
+          409,
+          `Semantic decisions are only editable before approval while the job is review_ready (current state: ${job.state}).`,
+        );
+
+      const preparation = job.preparation as ReviewReadyProductionIngest;
+      if (request.expected_review_snapshot !== reviewPackageSnapshot(preparation.review_package))
+        throw new SemanticDecisionError(
+          409,
+          'The reviewed package changed; reload before editing.',
+        );
+      if (typeof request.actor_label !== 'string' || !request.actor_label.trim())
+        throw new SemanticDecisionError(400, 'An operator label is required.');
+
+      const proposal = preparation.proposals.find((item) => item.id === request.proposal_id);
+      if (!proposal)
+        throw new SemanticDecisionError(400, 'The requested semantic proposal is not current.');
+      if (proposal.derivation)
+        throw new SemanticDecisionError(
+          400,
+          'Calculated or derived semantic proposals cannot receive human decisions.',
+        );
+
+      const proposalFactRefs = proposal.fact_refs ?? [];
+      if (!proposalFactRefs.length)
+        throw new Error('The current semantic proposal has no qualified-fact references.');
+      const factsById = new Map(preparation.qualified_facts.map((fact) => [fact.id, fact]));
+      const factsByDigest = new Map(
+        preparation.qualified_facts.map((fact) => [artifactDigest(fact), fact]),
+      );
+      const boundFacts = proposalFactRefs.map((reference) => {
+        const fact = factsByDigest.get(reference.digest);
+        if (
+          reference.kind !== 'qualified_fact' ||
+          !reference.reference ||
+          !fact ||
+          fact.id !== reference.reference ||
+          factsById.get(fact.id) !== fact
+        )
+          throw new Error(
+            'The current semantic proposal contains a foreign or stale fact reference.',
+          );
+        return fact;
+      });
+      const selectedIds = request.selected_fact_ids ?? boundFacts.map((fact) => fact.id);
+      if (
+        !Array.isArray(selectedIds) ||
+        selectedIds.length === 0 ||
+        new Set(selectedIds).size !== selectedIds.length
+      )
+        throw new SemanticDecisionError(400, 'Select one or more distinct supporting facts.');
+      const boundFactIds = new Set(boundFacts.map((fact) => fact.id));
+      const selectedFacts = selectedIds.map((factId) => {
+        const fact = factsById.get(factId);
+        if (!fact || !boundFactIds.has(factId))
+          throw new SemanticDecisionError(
+            400,
+            `Selected qualified fact '${factId}' does not support this proposal.`,
+          );
+        return fact;
+      });
+
+      const decisions: readonly ReviewedSemanticDecision[] =
+        preparation.bridge.reviewed_semantic_decisions ?? [];
+      const history = decisions
+        .filter((decision) => decision.proposal_ref.reference === proposal.id)
+        .sort((left, right) => left.revision - right.revision);
+      const previous = history[history.length - 1];
+      const recordedAt = this.timestamp();
+      const decision: ReviewedSemanticDecision = {
+        schema_version: PRODUCTION_SCHEMA_VERSION,
+        artifact_kind: 'reviewed_semantic_decision',
+        id: `reviewed-semantic-decision.${randomUUID()}`,
+        revision: history.length + 1,
+        ...(previous
+          ? {
+              previous_decision: artifactReference(
+                'reviewed_semantic_decision',
+                previous,
+                previous.id,
+                previous.schema_version,
+              ),
+            }
+          : {}),
+        proposal_ref: artifactReference(
+          'semantic_proposal',
+          proposal,
+          proposal.id,
+          proposal.schema_version,
+        ),
+        fact_refs: boundFacts.map((fact) =>
+          artifactReference('qualified_fact', fact, fact.id, fact.schema_version),
+        ),
+        selected_fact_refs: selectedFacts.map((fact) =>
+          artifactReference('qualified_fact', fact, fact.id, fact.schema_version),
+        ),
+        input_snapshot: reviewedSemanticInputSnapshot({
+          intake: preparation.intake,
+          source_acquisitions: preparation.source_acquisitions,
+          facts: preparation.qualified_facts,
+          reconciliation: preparation.reconciliation,
+          proposals: preparation.proposals,
+        }),
+        outcome: request.outcome,
+        actor: { kind: 'operator_label', identifier: request.actor_label.trim() },
+        recorded_at: recordedAt,
+        validation_policy_version: REVIEWED_SEMANTIC_POLICY_VERSION,
+        ...(request.outcome === 'map'
+          ? {
+              target: request.target,
+              normalized_value: request.normalized_value,
+              ...(request.normalized_unit ? { normalized_unit: request.normalized_unit } : {}),
+              ...(request.source_unit ? { source_unit: request.source_unit } : {}),
+              rationale: request.rationale,
+            }
+          : {}),
+        ...(request.outcome === 'schema_gap'
+          ? { schema_gap: request.schema_gap, rationale: request.rationale }
+          : {}),
+        ...(request.outcome === 'reject' || request.outcome === 'not_applicable'
+          ? { rationale: request.rationale }
+          : {}),
+        ...(request.outcome === 'evidence_only' || request.outcome === 'unresolved'
+          ? request.rationale
+            ? { rationale: request.rationale }
+            : {}
+          : {}),
+      };
+      const nextDecisions = [...decisions, decision];
+      const bridge = buildProductionProductCandidate({
+        intake: preparation.intake,
+        captures: preparation.captures,
+        source_acquisitions: preparation.source_acquisitions,
+        facts: preparation.qualified_facts,
+        reconciliation: preparation.reconciliation,
+        proposals: preparation.proposals,
+        reviewed_semantic_decisions: nextDecisions,
+      });
+      const review_package = buildProductionReviewPackage({
+        intake: preparation.intake,
+        ...(preparation.source_resolution
+          ? { source_resolution: preparation.source_resolution }
+          : {}),
+        reconciliation: preparation.reconciliation,
+        bridge,
+      });
+      const changedArtifacts = [decision, review_package];
+      const schemaIssues = changedArtifacts.flatMap((artifact) =>
+        validateProductionArtifactSchema(artifact).map(
+          (issue) => `${artifact.artifact_kind}: ${issue}`,
+        ),
+      );
+      if (schemaIssues.length)
+        throw new Error(
+          `Rebuilt semantic review artifacts are invalid: ${schemaIssues.join('; ')}`,
+        );
+
+      const updated: IngestionJob = {
+        ...job,
+        preparation: { ...preparation, bridge, review_package },
+        updated_at: recordedAt,
+      };
+      try {
+        await this.dependencies.store.save(updated, version);
+      } catch (error) {
+        if (error instanceof JobStoreConflictError)
+          throw new SemanticDecisionError(409, error.message);
+        throw error;
+      }
       return updated;
     });
   }
@@ -322,7 +580,7 @@ export class IngestionJobService {
     catalogContext?: PromotionCatalogContext,
   ): Promise<IngestionJob> {
     return this.exclusive(id, async () => {
-      const job = await this.getJob(id);
+      const { job, version } = await this.readVersionedJob(id);
       if (job.state !== 'approved' || job.preparation?.status !== 'review_ready' || !job.approval)
         throw new Error(`Cannot finalize job in state ${job.state}.`);
       // Validate and detach the attempt before persisting or invoking any writer.
@@ -333,12 +591,13 @@ export class IngestionJobService {
           ...(catalogContext === undefined ? {} : { catalog_context: catalogContext }),
         }),
       ) as FinalizationRequest;
-      await this.dependencies.store.save({
+      const finalizingJob: IngestionJob = {
         ...job,
         state: 'finalizing',
         finalization_request,
         updated_at: this.timestamp(),
-      });
+      };
+      const finalizingVersion = await this.dependencies.store.save(finalizingJob, version);
       let final_result: ProductionIngestFinalizeResult;
       try {
         final_result = await (this.dependencies.finalize ?? finalizeProductionIngest)(
@@ -349,23 +608,23 @@ export class IngestionJobService {
         );
       } catch (error) {
         const updated: IngestionJob = {
-          ...job,
+          ...finalizingJob,
           state: 'finalization_failed',
           finalization_request,
           updated_at: this.timestamp(),
           error: { operation: 'finalize', message: String(error) },
         };
-        await this.dependencies.store.save(updated);
+        await this.dependencies.store.save(updated, finalizingVersion);
         return updated;
       }
       const updated: IngestionJob = {
-        ...job,
+        ...finalizingJob,
         state: 'finalized',
         finalization_request,
         final_result,
         updated_at: this.timestamp(),
       };
-      await this.dependencies.store.save(updated);
+      await this.dependencies.store.save(updated, finalizingVersion);
       return updated;
     });
   }

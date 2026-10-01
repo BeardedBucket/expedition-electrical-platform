@@ -9,13 +9,24 @@ import {
   assertAcceptedSourceResolution,
   validateProductIntake,
   validateProductionArtifactSchema,
+  type ReviewedSemanticDecision,
 } from '@expedition/ingestion';
 
 export interface IngestionJobStore {
   create(job: IngestionJob): Promise<void>;
   load(id: string): Promise<IngestionJob>;
-  save(job: IngestionJob): Promise<void>;
+  loadVersioned(id: string): Promise<VersionedIngestionJob>;
+  save(job: IngestionJob, expectedVersion: string): Promise<string>;
   listJobIds?(): Promise<readonly string[]>;
+}
+
+export interface VersionedIngestionJob {
+  readonly job: IngestionJob;
+  readonly version: string;
+}
+
+export class JobStoreConflictError extends Error {
+  readonly status = 409;
 }
 
 const validId = (id: string): boolean => /^[0-9a-f-]{36}$/.test(id);
@@ -24,7 +35,7 @@ const encodeRecord = (job: IngestionJob): string => {
   const digest = createHash('sha256').update(payload).digest('hex');
   return JSON.stringify({ digest, payload }) + '\n';
 };
-const decodeRecord = (raw: string): unknown => {
+const decodeRecord = (raw: string): { readonly value: unknown; readonly version: string } => {
   const envelope = JSON.parse(raw) as { digest?: unknown; payload?: unknown };
   if (
     typeof envelope?.digest !== 'string' ||
@@ -32,7 +43,7 @@ const decodeRecord = (raw: string): unknown => {
     createHash('sha256').update(envelope.payload).digest('hex') !== envelope.digest
   )
     throw new Error('Job record checksum mismatch.');
-  return deserializeJob(envelope.payload);
+  return { value: deserializeJob(envelope.payload), version: envelope.digest };
 };
 const states = new Set([
   'source_resolution_required',
@@ -186,6 +197,11 @@ const validJob = (value: unknown, id: string): value is IngestionJob => {
   return true;
 };
 
+const reviewedSemanticDecisionHistory = (job: IngestionJob): readonly ReviewedSemanticDecision[] =>
+  job.preparation?.status === 'review_ready'
+    ? (job.preparation.bridge.reviewed_semantic_decisions ?? [])
+    : [];
+
 export class FileIngestionJobStore implements IngestionJobStore {
   readonly root: string;
   constructor(root: string) {
@@ -196,6 +212,11 @@ export class FileIngestionJobStore implements IngestionJobStore {
   private path(id: string): string {
     if (!validId(id)) throw new Error(`Invalid ingestion job ID: ${id}`);
     return join(this.root, `${id}.json`);
+  }
+
+  private lockPath(id: string): string {
+    this.path(id);
+    return join(this.root, `.${id}.lock`);
   }
 
   async listJobIds(): Promise<readonly string[]> {
@@ -226,6 +247,10 @@ export class FileIngestionJobStore implements IngestionJobStore {
   }
 
   async load(id: string): Promise<IngestionJob> {
+    return (await this.loadVersioned(id)).job;
+  }
+
+  async loadVersioned(id: string): Promise<VersionedIngestionJob> {
     let raw: string;
     try {
       raw = await readFile(this.path(id), 'utf8');
@@ -235,40 +260,77 @@ export class FileIngestionJobStore implements IngestionJobStore {
       throw error;
     }
     try {
-      const value = decodeRecord(raw);
+      const { value, version } = decodeRecord(raw);
       if (!validJob(value, id)) throw new Error('Invalid job schema or state.');
-      return value;
+      return { job: value, version };
     } catch (error) {
       throw new Error(`Corrupt ingestion job ${id}: ${(error as Error).message}`);
     }
   }
 
-  async save(job: IngestionJob): Promise<void> {
-    const previous = await this.load(job.id);
+  async save(job: IngestionJob, expectedVersion: string): Promise<string> {
     if (!validJob(job, job.id)) throw new Error('Invalid job schema or state.');
-    if (artifactDigest(previous.intake) !== artifactDigest(job.intake))
-      throw new Error('Original product intake is immutable.');
-    const attempts = job.source_resolution_attempts ?? [];
-    for (const old of previous.source_resolution_attempts ?? []) {
-      const next = attempts.find(
-        (item) => item.resolution.attempt_id === old.resolution.attempt_id,
-      );
-      if (
-        !next ||
-        artifactDigest(old.capture) !== artifactDigest(next.capture) ||
-        (old.resolution.disposition !== 'pending' &&
-          artifactDigest(old.resolution) !== artifactDigest(next.resolution)) ||
-        artifactDigest({ ...old.resolution, disposition: 'pending', review: undefined }) !==
-          artifactDigest({ ...next.resolution, disposition: 'pending', review: undefined })
-      )
-        throw new Error('Source resolution history is immutable.');
+    await mkdir(this.root, { recursive: true });
+    let lock;
+    try {
+      lock = await open(this.lockPath(job.id), 'wx');
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'EEXIST')
+        throw new JobStoreConflictError(`Ingestion job ${job.id} is being updated.`);
+      throw error;
     }
-    if (
-      previous.accepted_source_resolution &&
-      artifactDigest(previous.accepted_source_resolution) !==
-        artifactDigest(job.accepted_source_resolution)
-    )
-      throw new Error('Accepted source resolution is immutable.');
+    try {
+      // Never steal an existing lock: a crashed writer fails closed until an
+      // operator verifies the process is gone and removes its orphaned lock.
+      const previous = await this.loadVersioned(job.id);
+      if (previous.version !== expectedVersion)
+        throw new JobStoreConflictError(
+          `Ingestion job ${job.id} changed since it was loaded; reload before updating.`,
+        );
+      const previousDecisions = reviewedSemanticDecisionHistory(previous.job);
+      const nextDecisions = reviewedSemanticDecisionHistory(job);
+      if (
+        previousDecisions.length > nextDecisions.length ||
+        previousDecisions.some(
+          (decision, index) => artifactDigest(decision) !== artifactDigest(nextDecisions[index]),
+        )
+      )
+        throw new Error('Reviewed semantic decision history is immutable and append-only.');
+      if (artifactDigest(previous.job.intake) !== artifactDigest(job.intake))
+        throw new Error('Original product intake is immutable.');
+      const attempts = job.source_resolution_attempts ?? [];
+      for (const old of previous.job.source_resolution_attempts ?? []) {
+        const next = attempts.find(
+          (item) => item.resolution.attempt_id === old.resolution.attempt_id,
+        );
+        if (
+          !next ||
+          artifactDigest(old.capture) !== artifactDigest(next.capture) ||
+          (old.resolution.disposition !== 'pending' &&
+            artifactDigest(old.resolution) !== artifactDigest(next.resolution)) ||
+          artifactDigest({ ...old.resolution, disposition: 'pending', review: undefined }) !==
+            artifactDigest({ ...next.resolution, disposition: 'pending', review: undefined })
+        )
+          throw new Error('Source resolution history is immutable.');
+      }
+      if (
+        previous.job.accepted_source_resolution &&
+        artifactDigest(previous.job.accepted_source_resolution) !==
+          artifactDigest(job.accepted_source_resolution)
+      )
+        throw new Error('Accepted source resolution is immutable.');
+      return await this.writeReplacement(job);
+    } finally {
+      try {
+        await lock.close();
+      } finally {
+        await rm(this.lockPath(job.id), { force: true });
+      }
+    }
+  }
+
+  private async writeReplacement(job: IngestionJob): Promise<string> {
+    const payload = serializeJob(job);
     const temporary = join(this.root, `.${job.id}.${randomUUID()}.tmp`);
     try {
       const file = await open(temporary, 'wx');
@@ -282,5 +344,6 @@ export class FileIngestionJobStore implements IngestionJobStore {
     } finally {
       await rm(temporary, { force: true });
     }
+    return createHash('sha256').update(payload).digest('hex');
   }
 }

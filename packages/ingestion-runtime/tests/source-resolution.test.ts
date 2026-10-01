@@ -145,22 +145,31 @@ describe('durable source resolution workflow', () => {
       pending.source_resolution_attempts![0].resolution.attempt_id,
       'accepted',
     );
+    const acceptedVersion = (await store.loadVersioned(job.id)).version;
     await expect(
-      store.save({
-        ...accepted,
-        intake: { ...accepted.intake, official_product_uri: resolutionUri },
-      }),
+      store.save(
+        {
+          ...accepted,
+          intake: { ...accepted.intake, official_product_uri: resolutionUri },
+        },
+        acceptedVersion,
+      ),
     ).rejects.toThrow();
-    await expect(store.save({ ...accepted, source_resolution_attempts: [] })).rejects.toThrow();
+    await expect(
+      store.save({ ...accepted, source_resolution_attempts: [] }, acceptedVersion),
+    ).rejects.toThrow();
     const prepared = await service.prepareJob(job.id);
     await expect(
-      store.save({
-        ...prepared,
-        accepted_source_resolution: {
-          ...prepared.accepted_source_resolution!,
-          digest: `sha256:${'a'.repeat(64)}`,
+      store.save(
+        {
+          ...prepared,
+          accepted_source_resolution: {
+            ...prepared.accepted_source_resolution!,
+            digest: `sha256:${'a'.repeat(64)}`,
+          },
         },
-      }),
+        (await store.loadVersioned(job.id)).version,
+      ),
     ).rejects.toThrow();
   });
   it('keeps URL-present jobs on the ordinary preparation path', async () => {

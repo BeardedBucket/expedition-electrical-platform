@@ -381,23 +381,32 @@ describe('batch runtime service', () => {
     if (readyA.status !== 'review_ready')
       throw new Error('Fixture preparation did not become review-ready.');
 
-    await jobStore.save({
-      ...jobA,
-      state: 'review_ready',
-      preparation: readyA,
-      updated_at: '2026-09-10T00:00:03.000Z',
-    });
-    await jobStore.save({
-      ...jobB,
-      state: 'preparation_failed',
-      updated_at: '2026-09-10T00:00:04.000Z',
-      error: { operation: 'prepare', message: 'capture unavailable' },
-    });
-    await jobStore.save({
-      ...jobC,
-      state: 'preparing',
-      updated_at: '2026-09-10T00:00:05.000Z',
-    });
+    await jobStore.save(
+      {
+        ...jobA,
+        state: 'review_ready',
+        preparation: readyA,
+        updated_at: '2026-09-10T00:00:03.000Z',
+      },
+      (await jobStore.loadVersioned(jobA.id)).version,
+    );
+    await jobStore.save(
+      {
+        ...jobB,
+        state: 'preparation_failed',
+        updated_at: '2026-09-10T00:00:04.000Z',
+        error: { operation: 'prepare', message: 'capture unavailable' },
+      },
+      (await jobStore.loadVersioned(jobB.id)).version,
+    );
+    await jobStore.save(
+      {
+        ...jobC,
+        state: 'preparing',
+        updated_at: '2026-09-10T00:00:05.000Z',
+      },
+      (await jobStore.loadVersioned(jobC.id)).version,
+    );
 
     const batchStore = new FileIngestionBatchStore(batchesRoot);
     const persistedBatch = {

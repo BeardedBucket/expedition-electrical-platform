@@ -45,6 +45,31 @@ automatic alias tables or contextual vocabulary. Candidate construction consumes
 the automatic proposals plus that interpretation while retaining each proposal's
 original target, disposition, and value for comparison.
 
+The ingestion runtime persists decision events inside the durable job's prepared
+candidate bridge. It creates proposal/fact references, input snapshots, revision
+numbers, predecessor links, policy version, actor kind, event ID, and timestamp
+from the current persisted job rather than accepting those bindings from a caller.
+Each correction appends a new revision; earlier events remain immutable so replay
+can validate the complete chain and preserve review provenance. Mutations are
+allowed only while the job is `review_ready`, before approval or finalization, and
+must carry the exact current review-package snapshot. Per-job runtime serialization
+reduces same-process contention but is not the concurrency authority. The review
+snapshot binds the action to what the operator saw; the store's durable checksum
+token independently prevents any stale writer from replacing a job changed after
+it was loaded. The runtime rebuilds the interpretation, candidate, and review
+package before one conditional checksum-protected atomic job-record replacement.
+The file store holds an exclusive per-job lock across checksum comparison and
+replacement, so another process cannot pass the comparison and race the rename.
+An existing lock is never stolen automatically; after a process crash, an operator
+must verify the writer is gone before removing its orphaned lock, preferring a
+fail-closed conflict over unsafe lock expiry.
+Future shared/database stores must preserve this compare-and-swap contract using
+their own transaction or locking mechanism. A failed validation or replacement
+leaves the prior record intact. Older jobs without a decision-history property
+load as an empty history. The deterministic Slice 1 validator remains the owner of
+semantic meaning and evidence support; persisted decisions never teach automatic
+aliases, target contracts, or profiles.
+
 `productionSemanticTargetContract()` is the explicit owner of canonical target
 semantics and does not derive its registry from source-label aliases. Each
 contract combines the component-schema value shape with a reviewed field path,
