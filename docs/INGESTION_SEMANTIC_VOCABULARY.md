@@ -70,6 +70,31 @@ load as an empty history. The deterministic Slice 1 validator remains the owner 
 semantic meaning and evidence support; persisted decisions never teach automatic
 aliases, target contracts, or profiles.
 
+The ingestion-admin API records one reviewer-intent decision at
+`POST /api/ingestion/jobs/{id}/review/semantic-decisions`. It allowlists proposal,
+snapshot, selected-fact, actor-label, outcome, and outcome-specific semantic
+intent fields. The expected review snapshot is the only client-supplied
+concurrency binding; decision IDs and revisions, artifact references and
+digests, input snapshots, policy version, actor kind, and timestamp are created
+from the current persisted job by the runtime. The response uses the existing
+safe operator view and includes the rebuilt interpretation, candidate, review
+package state, current review snapshot, and an allowlisted decision summary.
+
+Before an approved transition, the runtime evaluates semantic-review completion
+from the persisted proposals and replayed reviewed interpretation. Derived
+proposals are excluded because their deterministic derivation contract governs
+them. Non-derived proposals already automatically mapped by the deterministic
+pipeline do not need semantic re-entry; every other non-derived proposal needs
+an active, current human disposition. `map`, `evidence_only`, `schema_gap`,
+`reject`, `not_applicable`, and `unresolved` all count as explicit review.
+Unresolved therefore satisfies reviewer accountability, not semantic
+resolution: it remains visibly unresolved and projects no canonical fact, as do
+the other non-map outcomes. An incomplete approval returns a conflict with the
+proposal IDs still requiring disposition and leaves durable job state unchanged.
+Legacy review-ready jobs without decision history remain loadable, but missing
+history does not satisfy the new approval gate. Decisions cannot be recorded
+after approval or finalization.
+
 `productionSemanticTargetContract()` is the explicit owner of canonical target
 semantics and does not derive its registry from source-label aliases. Each
 contract combines the component-schema value shape with a reviewed field path,

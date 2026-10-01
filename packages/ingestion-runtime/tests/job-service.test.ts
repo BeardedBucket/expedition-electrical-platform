@@ -19,6 +19,7 @@ import {
   buildProductionSemanticProposals,
   deterministicSerialize,
   finalizeProductionIngest,
+  evaluateSemanticReviewCompletion,
   prepareProductionIngestReview,
   PRODUCTION_SCHEMA_VERSION,
   reviewPackageSnapshot,
@@ -242,6 +243,29 @@ const mapRequest = (prepared: ReviewReadyProductionIngest): SemanticDecisionRequ
   normalized_unit: 'A',
   rationale: 'The retained row explicitly identifies the continuous output current.',
 });
+const dispositionRequest = (
+  prepared: ReviewReadyProductionIngest,
+  outcome: 'evidence_only' | 'schema_gap' | 'reject' | 'not_applicable' | 'unresolved',
+): SemanticDecisionRequest => {
+  const base = semanticRequestBase(prepared);
+  if (outcome === 'schema_gap')
+    return {
+      ...base,
+      outcome,
+      schema_gap: {
+        concept_key: 'electrical.mystery_rating',
+        explanation: 'The production schema has no reviewed meaning for this source label.',
+      },
+      rationale: 'The source meaning is not represented by a supported canonical target.',
+    };
+  if (outcome === 'reject' || outcome === 'not_applicable')
+    return {
+      ...base,
+      outcome,
+      rationale: 'The retained evidence does not support applying this assertion.',
+    };
+  return { ...base, outcome };
+};
 const createReviewReady = async (runtime: IngestionJobService) => {
   const created = await runtime.createJob(intake);
   const ready = await runtime.prepareJob(created.id);
@@ -671,6 +695,153 @@ describe('persistent ingestion job runtime', () => {
 });
 
 describe('durable human semantic adjudication', () => {
+  it('blocks approval for an undispositioned unresolved proposal without changing durable bytes', async () => {
+    const storageRoot = await root();
+    const prepared = await prepare('10 A', mysteryRatingTable);
+    const { runtime } = service(storageRoot, prepared);
+    const ready = await createReviewReady(runtime);
+    const recordPath = join(storageRoot, `${ready.id}.json`);
+    const before = await readFile(recordPath, 'utf8');
+    const completion = evaluateSemanticReviewCompletion(
+      ready.preparation.proposals,
+      ready.preparation.bridge.reviewed_semantic_interpretation,
+    );
+    expect(completion.complete).toBe(false);
+    expect(completion.required_dispositions.map(({ proposal_id }) => proposal_id)).toContain(
+      unknownProposal(prepared).id,
+    );
+    await expect(
+      runtime.submitApproval(ready.id, approvalFor(ready.preparation)),
+    ).rejects.toMatchObject({
+      status: 409,
+      proposal_ids: completion.required_dispositions.map(({ proposal_id }) => proposal_id),
+    });
+    expect(await readFile(recordPath, 'utf8')).toBe(before);
+    expect((await runtime.getJob(ready.id)).state).toBe('review_ready');
+  });
+
+  it('approves only after every required proposal has its own explicit disposition', async () => {
+    const storageRoot = await root();
+    const prepared = await prepare('10 A', mysteryRatingTable);
+    const { runtime } = service(storageRoot, prepared);
+    const ready = await createReviewReady(runtime);
+    const required = evaluateSemanticReviewCompletion(
+      ready.preparation.proposals,
+      ready.preparation.bridge.reviewed_semantic_interpretation,
+    ).required_dispositions;
+    expect(required.length).toBeGreaterThan(0);
+
+    let current = ready;
+    for (const { proposal_id } of required) {
+      current = await runtime.recordSemanticDecision(current.id, {
+        proposal_id,
+        expected_review_snapshot: reviewPackageSnapshot(current.preparation!.review_package),
+        actor_label: 'operator.complete-review',
+        outcome: 'evidence_only',
+      });
+      assertReviewReady(current);
+    }
+    expect(
+      evaluateSemanticReviewCompletion(
+        current.preparation.proposals,
+        current.preparation.bridge.reviewed_semantic_interpretation,
+      ),
+    ).toEqual({ complete: true, required_dispositions: [] });
+    expect((await runtime.submitApproval(current.id, approvalFor(current.preparation))).state).toBe(
+      'approved',
+    );
+  });
+
+  it.each([
+    'map',
+    'evidence_only',
+    'schema_gap',
+    'reject',
+    'not_applicable',
+    'unresolved',
+  ] as const)('counts %s as reviewed and only map as projecting', async (outcome) => {
+    const storageRoot = await root();
+    const prepared = await prepare('10 A', mysteryRatingTable);
+    const { runtime } = service(storageRoot, prepared);
+    const ready = await createReviewReady(runtime);
+    const proposal = unknownProposal(prepared);
+    const request =
+      outcome === 'map' ? mapRequest(prepared) : dispositionRequest(prepared, outcome);
+    const updated = await runtime.recordSemanticDecision(ready.id, request);
+    assertReviewReady(updated);
+    const completion = evaluateSemanticReviewCompletion(
+      updated.preparation.proposals,
+      updated.preparation.bridge.reviewed_semantic_interpretation,
+    );
+    expect(completion.complete).toBe(true);
+    expect(completion.required_dispositions).toEqual([]);
+    const entry = updated.preparation.bridge.reviewed_semantic_interpretation.entries.find(
+      ({ proposal_id }) => proposal_id === proposal.id,
+    );
+    expect(entry?.state).toBe(outcome === 'map' ? 'human_mapped' : outcome);
+    expect(updated.preparation.bridge.projected_proposal_ids.includes(proposal.id)).toBe(
+      outcome === 'map',
+    );
+  });
+
+  it('uses the latest correction revision for completion and projection before approval', async () => {
+    const storageRoot = await root();
+    const prepared = await prepare('10 A', mysteryRatingTable);
+    const { runtime } = service(storageRoot, prepared);
+    const ready = await createReviewReady(runtime);
+    const proposal = unknownProposal(prepared);
+    const first = await runtime.recordSemanticDecision(ready.id, mapRequest(prepared));
+    assertReviewReady(first);
+    const second = await runtime.recordSemanticDecision(ready.id, {
+      ...dispositionRequest(prepared, 'unresolved'),
+      expected_review_snapshot: reviewPackageSnapshot(first.preparation.review_package),
+    });
+    assertReviewReady(second);
+    expect(second.preparation.bridge.reviewed_semantic_decisions).toHaveLength(2);
+    expect(
+      second.preparation.bridge.reviewed_semantic_interpretation.entries.find(
+        ({ proposal_id }) => proposal_id === proposal.id,
+      )?.state,
+    ).toBe('unresolved');
+    expect(second.preparation.bridge.projected_proposal_ids).not.toContain(proposal.id);
+    expect(
+      evaluateSemanticReviewCompletion(
+        second.preparation.proposals,
+        second.preparation.bridge.reviewed_semantic_interpretation,
+      ).complete,
+    ).toBe(true);
+    expect((await runtime.submitApproval(ready.id, approvalFor(second.preparation))).state).toBe(
+      'approved',
+    );
+  });
+
+  it('allows approval for a legacy automatically mapped job with no decision history', async () => {
+    const storageRoot = await root();
+    const prepared = await prepare();
+    const { runtime } = service(storageRoot, prepared);
+    const ready = await createReviewReady(runtime);
+    const { reviewed_semantic_decisions: _history, ...legacyBridge } = ready.preparation.bridge;
+    const legacy = {
+      ...ready,
+      preparation: {
+        ...ready.preparation,
+        bridge: legacyBridge,
+      },
+    } as unknown as IngestionJob;
+    const payload = serializeJob(legacy);
+    await writeFile(
+      join(storageRoot, `${ready.id}.json`),
+      JSON.stringify({
+        digest: createHash('sha256').update(payload).digest('hex'),
+        payload,
+      }) + '\n',
+      'utf8',
+    );
+    expect((await runtime.submitApproval(ready.id, approvalFor(ready.preparation))).state).toBe(
+      'approved',
+    );
+  });
+
   it('loads a legacy review-ready job with no decision-history property as empty history', async () => {
     const storageRoot = await root();
     const prepared = await prepare('10 A', mysteryRatingTable);
@@ -697,6 +868,11 @@ describe('durable human semantic adjudication', () => {
     expect(loaded.preparation?.status).toBe('review_ready');
     expect(loaded.preparation?.bridge).not.toHaveProperty('reviewed_semantic_decisions');
 
+    await expect(
+      runtime.submitApproval(ready.id, approvalFor(ready.preparation)),
+    ).rejects.toMatchObject({
+      status: 409,
+    });
     const updated = await runtime.recordSemanticDecision(ready.id, mapRequest(prepared));
     assertReviewReady(updated);
     expect(updated.preparation.bridge.reviewed_semantic_decisions).toHaveLength(1);
@@ -942,6 +1118,71 @@ describe('durable human semantic adjudication', () => {
     );
   });
 
+  it('prevents a stale approval save from overwriting a semantic decision', async () => {
+    const storageRoot = await root();
+    const prepared = await prepare();
+    const durableStore = new FileIngestionJobStore(storageRoot);
+    const seedRuntime = new IngestionJobService({
+      store: durableStore,
+      preparationRequest: () => ({ adapter }),
+      prepare: async () => prepared,
+    });
+    const ready = await createReviewReady(seedRuntime);
+    assertReviewReady(ready);
+    let releaseApprovalSave!: () => void;
+    let signalApprovalSave!: () => void;
+    const approvalSaveStarted = new Promise<void>((resolve) => {
+      signalApprovalSave = resolve;
+    });
+    const approvalSaveGate = new Promise<void>((resolve) => {
+      releaseApprovalSave = resolve;
+    });
+    const pausingStore: IngestionJobStore = {
+      create: (job) => durableStore.create(job),
+      load: (id) => durableStore.load(id),
+      loadVersioned: (id) => durableStore.loadVersioned(id),
+      save: async (job, version) => {
+        if (job.approval?.decision === 'approved') {
+          signalApprovalSave();
+          await approvalSaveGate;
+        }
+        return durableStore.save(job, version);
+      },
+      listJobIds: () => durableStore.listJobIds!(),
+    };
+    const approvalRuntime = new IngestionJobService({
+      store: pausingStore,
+      preparationRequest: () => ({ adapter }),
+    });
+    const decisionRuntime = new IngestionJobService({
+      store: durableStore,
+      preparationRequest: () => ({ adapter }),
+    });
+    const staleApproval = approvalRuntime.submitApproval(ready.id, approvalFor(ready.preparation));
+    await approvalSaveStarted;
+
+    const proposal = prepared.proposals.find(
+      (item) => item.disposition === 'mapped' && !item.derivation && item.fact_refs?.length,
+    );
+    if (!proposal) throw new Error('Fixture has no automatically mapped source proposal');
+    await decisionRuntime.recordSemanticDecision(ready.id, {
+      proposal_id: proposal.id,
+      expected_review_snapshot: reviewPackageSnapshot(ready.preparation.review_package),
+      actor_label: 'operator.race-test',
+      outcome: 'evidence_only',
+    });
+    releaseApprovalSave();
+    await expect(staleApproval).rejects.toMatchObject({ status: 409 });
+
+    const current = await durableStore.load(ready.id);
+    assertReviewReady(current);
+    expect(current.approval).toBeUndefined();
+    expect(current.preparation.bridge.reviewed_semantic_decisions).toHaveLength(1);
+    expect(current.preparation.bridge.reviewed_semantic_decisions[0].proposal_ref.reference).toBe(
+      proposal.id,
+    );
+  });
+
   it('rejects decisions outside review_ready and after approval or finalization', async () => {
     const storageRoot = await root();
     const prepared = await prepare('10 A', mysteryRatingTable);
@@ -952,13 +1193,20 @@ describe('durable human semantic adjudication', () => {
     ).rejects.toMatchObject({ status: 409 });
 
     const ready = await createReviewReady(runtime);
-    await runtime.submitApproval(ready.id, approvalFor(prepared));
+    const reviewed = await runtime.recordSemanticDecision(ready.id, mapRequest(prepared));
+    assertReviewReady(reviewed);
+    await runtime.submitApproval(ready.id, approvalFor(reviewed.preparation));
     await expect(
       runtime.recordSemanticDecision(ready.id, mapRequest(prepared)),
     ).rejects.toMatchObject({ status: 409 });
 
     const secondReady = await createReviewReady(runtime);
-    await runtime.submitApproval(secondReady.id, approvalFor(prepared));
+    const secondReviewed = await runtime.recordSemanticDecision(
+      secondReady.id,
+      mapRequest(prepared),
+    );
+    assertReviewReady(secondReviewed);
+    await runtime.submitApproval(secondReady.id, approvalFor(secondReviewed.preparation));
     const finalized = await runtime.finalizeJob(secondReady.id, {
       destinationRoot: await root(),
       write: true,

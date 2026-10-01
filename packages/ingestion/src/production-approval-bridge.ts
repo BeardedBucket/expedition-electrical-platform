@@ -82,7 +82,7 @@ export const productionApprovalToPromotionReview = (
     ) ||
     !sameReferences(
       reviewPackage.reviewed_semantic_decision_refs ?? [],
-      bridge.reviewed_semantic_decisions.map((decision) =>
+      (bridge.reviewed_semantic_decisions ?? []).map((decision) =>
         artifactReference(
           'reviewed_semantic_decision',
           decision,

@@ -3,9 +3,14 @@ import { randomUUID } from 'node:crypto';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import {
   MAX_INGESTION_BATCH_SIZE,
+  SemanticDecisionError,
+  SemanticReviewIncompleteError,
+  JobStoreConflictError,
   type IngestionBatchService,
   type IngestionJobService,
+  type SemanticDecisionRequest,
 } from '@expedition/ingestion-runtime';
+import type { JsonValue } from '@expedition/ingestion';
 import { SourceResolutionError } from '@expedition/ingestion-runtime';
 import type { IntakeSuggestions } from './suggestions.js';
 import { batchDetail, batchSummary, jobDetail, jobSummary } from './operator-views.js';
@@ -22,6 +27,7 @@ export type OperatorService = Pick<
       | 'submitSourceResolutionCandidate'
       | 'decideSourceResolution'
       | 'submitApproval'
+      | 'recordSemanticDecision'
       | 'finalizeJob'
     >
   > &
@@ -87,6 +93,113 @@ async function intakeBody(req: IncomingMessage) {
   const issues = validateProductIntake({ id: 'validation', ...normalized });
   if (issues.length) throw new RequestError(400, issues.join('; '));
   return normalized as Pick<ProductIntake, (typeof fields)[number]>;
+}
+
+const isJsonValue = (value: unknown): value is JsonValue => {
+  if (
+    value === null ||
+    typeof value === 'string' ||
+    typeof value === 'boolean' ||
+    (typeof value === 'number' && Number.isFinite(value))
+  )
+    return true;
+  if (Array.isArray(value)) return value.every(isJsonValue);
+  return typeof value === 'object' && Object.values(value).every(isJsonValue);
+};
+
+async function semanticDecisionBody(req: IncomingMessage): Promise<SemanticDecisionRequest> {
+  const body = await jsonBody(req);
+  // This allowlist carries reviewer intent only; the runtime resolves durable bindings from
+  // the current job and uses this snapshot solely to reject edits to a package the reviewer missed.
+  const common = ['proposal_id', 'expected_review_snapshot', 'selected_fact_ids', 'actor_label'];
+  const stringField = (key: string, required = false): string | undefined => {
+    const value = body[key];
+    if (value === undefined && !required) return undefined;
+    if (typeof value !== 'string')
+      throw new RequestError(400, `Semantic decision field '${key}' must be a string.`);
+    return value;
+  };
+  const base = {
+    proposal_id: stringField('proposal_id', true)!,
+    expected_review_snapshot: stringField('expected_review_snapshot', true)!,
+    actor_label: stringField('actor_label', true)!,
+    ...(body.selected_fact_ids === undefined
+      ? {}
+      : Array.isArray(body.selected_fact_ids) &&
+          body.selected_fact_ids.every((factId) => typeof factId === 'string')
+        ? { selected_fact_ids: body.selected_fact_ids }
+        : (() => {
+            throw new RequestError(400, 'selected_fact_ids must be an array of strings.');
+          })()),
+  };
+  const outcome = body.outcome;
+  if (
+    outcome !== 'map' &&
+    outcome !== 'schema_gap' &&
+    outcome !== 'reject' &&
+    outcome !== 'not_applicable' &&
+    outcome !== 'evidence_only' &&
+    outcome !== 'unresolved'
+  )
+    throw new RequestError(400, 'Unsupported semantic decision outcome.');
+
+  const specific =
+    outcome === 'map'
+      ? ['target', 'normalized_value', 'normalized_unit', 'source_unit', 'rationale']
+      : outcome === 'schema_gap'
+        ? ['schema_gap', 'rationale']
+        : outcome === 'reject' || outcome === 'not_applicable'
+          ? ['rationale']
+          : ['rationale'];
+  const allowed = new Set([...common, 'outcome', ...specific]);
+  if (Object.keys(body).some((key) => !allowed.has(key)))
+    throw new RequestError(400, 'Send only supported semantic decision intent fields.');
+  const rationale = stringField('rationale');
+
+  if (outcome === 'map') {
+    if (
+      !Object.prototype.hasOwnProperty.call(body, 'normalized_value') ||
+      !isJsonValue(body.normalized_value)
+    )
+      throw new RequestError(400, 'Map decisions require a JSON normalized_value.');
+    const target = stringField('target', true)!;
+    const normalized_unit = stringField('normalized_unit');
+    const source_unit = stringField('source_unit');
+    if (!rationale) throw new RequestError(400, 'Map decisions require a rationale.');
+    return {
+      ...base,
+      outcome,
+      target,
+      normalized_value: body.normalized_value,
+      ...(normalized_unit === undefined ? {} : { normalized_unit }),
+      ...(source_unit === undefined ? {} : { source_unit }),
+      rationale,
+    };
+  }
+  if (outcome === 'schema_gap') {
+    const value = body.schema_gap;
+    if (!value || typeof value !== 'object' || Array.isArray(value))
+      throw new RequestError(400, 'Schema-gap decisions require schema_gap metadata.');
+    const gap = value as Record<string, unknown>;
+    if (
+      Object.keys(gap).some((key) => !['concept_key', 'explanation'].includes(key)) ||
+      typeof gap.concept_key !== 'string' ||
+      typeof gap.explanation !== 'string' ||
+      !rationale
+    )
+      throw new RequestError(400, 'Provide a schema-gap concept, explanation and rationale.');
+    return {
+      ...base,
+      outcome,
+      schema_gap: { concept_key: gap.concept_key, explanation: gap.explanation },
+      rationale,
+    };
+  }
+  if (outcome === 'reject' || outcome === 'not_applicable') {
+    if (!rationale) throw new RequestError(400, `The '${outcome}' decision requires a rationale.`);
+    return { ...base, outcome, rationale };
+  }
+  return { ...base, outcome, ...(rationale ? { rationale } : {}) };
 }
 
 function send(res: ServerResponse, status: number, value: unknown) {
@@ -192,7 +305,7 @@ export function createOperatorApi(
         throw new RequestError(405, 'Method not allowed.');
       }
       const jobMatch =
-        /^\/api\/ingestion\/jobs\/([^/]+)(\/prepare|\/review\/(?:approve|reject|defer)|\/finalize|\/source-resolution\/(?:candidates|accept|reject))?$/.exec(
+        /^\/api\/ingestion\/jobs\/([^/]+)(\/prepare|\/review\/(?:approve|reject|defer|semantic-decisions)|\/finalize|\/source-resolution\/(?:candidates|accept|reject))?$/.exec(
           pathname,
         );
       const batchMatch = /^\/api\/ingestion\/batches\/([^/]+)(\/prepare)?$/.exec(pathname);
@@ -210,6 +323,17 @@ export function createOperatorApi(
       }
       if (!jobMatch) throw new RequestError(404, 'Route not found.');
       if (!validId.test(jobMatch[1])) throw new RequestError(400, 'Malformed ingestion job ID.');
+      if (jobMatch[2] === '/review/semantic-decisions' && req.method === 'POST') {
+        if (!service.recordSemanticDecision)
+          throw new Error('Semantic adjudication service is not configured.');
+        return send(
+          res,
+          200,
+          jobDetail(
+            await service.recordSemanticDecision(jobMatch[1], await semanticDecisionBody(req)),
+          ),
+        );
+      }
       if (jobMatch[2]?.startsWith('/review/') && req.method === 'POST') {
         const input = await jsonBody(req);
         const action = jobMatch[2].split('/').at(-1);
@@ -281,7 +405,11 @@ export function createOperatorApi(
       const status =
         error instanceof RequestError
           ? error.status
-          : error instanceof SourceResolutionError || error instanceof ProductReviewError
+          : error instanceof SourceResolutionError ||
+              error instanceof ProductReviewError ||
+              error instanceof SemanticDecisionError ||
+              error instanceof SemanticReviewIncompleteError ||
+              error instanceof JobStoreConflictError
             ? error.status
             : message.startsWith('Invalid product intake:') ||
                 message.startsWith('Invalid product intake in batch:') ||
@@ -313,6 +441,9 @@ export function createOperatorApi(
         error: {
           message:
             status === 500 ? 'The ingestion service could not complete the request.' : message,
+          ...(error instanceof SemanticReviewIncompleteError
+            ? { proposal_ids: error.proposal_ids }
+            : {}),
         },
       });
     });

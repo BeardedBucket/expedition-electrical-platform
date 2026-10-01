@@ -14,6 +14,7 @@ import { constructApproval } from '../server/product-review.js';
 import { jobDetail } from '../server/operator-views.js';
 import { fixtureService, input } from './fixtures.js';
 import { IngestionJobService, FileIngestionJobStore } from '@expedition/ingestion-runtime';
+import type { SemanticDecisionRequest } from '@expedition/ingestion-runtime';
 
 const roots: string[] = [];
 const servers: Server[] = [];
@@ -35,7 +36,10 @@ const post = (url: string, body: unknown) =>
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
-async function fixture(candidate: boolean | 'qualified' | 'mixed' = true, resolved = false) {
+async function fixture(
+  candidate: boolean | 'qualified' | 'mixed' | 'semantic' = true,
+  resolved = false,
+) {
   const root = await mkdtemp(join(tmpdir(), 'human-review-'));
   roots.push(root);
   const service = fixtureService(join(root, 'jobs'), candidate);
@@ -50,7 +54,7 @@ async function fixture(candidate: boolean | 'qualified' | 'mixed' = true, resolv
   const url = `http://127.0.0.1:${address.port}/api/ingestion/jobs`;
   const intake = { ...input } as Partial<typeof input>;
   if (resolved) delete intake.official_product_uri;
-  if (typeof candidate === 'string') delete intake.manufacturer_part_number;
+  if (candidate === 'qualified' || candidate === 'mixed') delete intake.manufacturer_part_number;
   const created = await (await post(url, intake)).json();
   const id: string = created.summary.id;
   if (resolved) {
@@ -78,7 +82,217 @@ async function fixture(candidate: boolean | 'qualified' | 'mixed' = true, resolv
   const human = { reviewer_id: 'Offline reviewer', promotion_decisions: selections };
   return { root, canonical, service, url: `${url}/${id}`, id, job, detail, human, selections };
 }
+
+const semanticRequest = (
+  job: Awaited<ReturnType<IngestionJobService['getJob']>>,
+): Extract<SemanticDecisionRequest, { outcome: 'map' }> => {
+  const preparation = job.preparation;
+  if (preparation?.status !== 'review_ready') throw new Error('Fixture did not prepare');
+  const proposal = preparation.proposals.find(
+    (item) => item.target === 'source_label:mystery electrical rating',
+  );
+  if (!proposal) throw new Error('Fixture has no unsupported semantic proposal');
+  return {
+    proposal_id: proposal.id,
+    expected_review_snapshot: reviewPackageSnapshot(preparation.review_package),
+    selected_fact_ids: (proposal.fact_refs ?? [])
+      .map((reference) => reference.reference)
+      .filter((value): value is string => !!value),
+    actor_label: 'operator.api-test',
+    outcome: 'map',
+    target: 'electrical.continuous_output_current_a',
+    normalized_value: 150,
+    normalized_unit: 'A',
+    rationale: 'The retained row identifies the current rating.',
+  };
+};
+
 describe('human review and guarded finalization API', () => {
+  it('records a map decision through the API and returns rebuilt safe review state', async () => {
+    const f = await fixture('semantic');
+    const request = semanticRequest(await f.service.getJob(f.id));
+    const response = await post(`${f.url}/review/semantic-decisions`, request);
+    expect(response.status).toBe(200);
+    const detail = await response.json();
+    expect(detail.semantic_review).toMatchObject({
+      complete: true,
+      decisions: [
+        expect.objectContaining({
+          proposal_id: request.proposal_id,
+          revision: 1,
+          active: true,
+          outcome: 'map',
+          target: request.target,
+        }),
+      ],
+    });
+    expect(detail.semantic_review.interpretation).toContainEqual(
+      expect.objectContaining({
+        proposal_id: request.proposal_id,
+        state: 'human_mapped',
+        target: request.target,
+      }),
+    );
+    expect(detail.semantic_review.expected_review_snapshot).toBe(
+      reviewPackageSnapshot((await f.service.getJob(f.id)).preparation!.review_package),
+    );
+    expect(detail.review_package.semantic_snapshot).not.toBe(
+      f.detail.review_package.semantic_snapshot,
+    );
+    expect(JSON.stringify(detail)).not.toMatch(
+      /reviewed_semantic_decisions|input_snapshot|validation_policy_version|previous_decision|lock_version/,
+    );
+  });
+
+  it('records a non-map disposition without projecting a canonical fact', async () => {
+    const f = await fixture('semantic');
+    const map = semanticRequest(await f.service.getJob(f.id));
+    const request = {
+      proposal_id: map.proposal_id,
+      expected_review_snapshot: map.expected_review_snapshot,
+      selected_fact_ids: map.selected_fact_ids,
+      actor_label: map.actor_label,
+      outcome: 'evidence_only',
+    };
+    const response = await post(`${f.url}/review/semantic-decisions`, request);
+    expect(response.status).toBe(200);
+    const detail = await response.json();
+    expect(detail.semantic_review.decisions[0]).toMatchObject({
+      proposal_id: map.proposal_id,
+      outcome: 'evidence_only',
+      active: true,
+    });
+    expect(detail.semantic_review.interpretation).toContainEqual(
+      expect.objectContaining({ proposal_id: map.proposal_id, state: 'evidence_only' }),
+    );
+    expect(
+      detail.candidate.projected_fields.electrical?.continuous_output_current_a,
+    ).toBeUndefined();
+  });
+
+  it('blocks incomplete approval with safe required proposal IDs and no durable change', async () => {
+    const f = await fixture('semantic');
+    const path = join(f.root, 'jobs', `${f.id}.json`);
+    const before = await readFile(path, 'utf8');
+    const response = await post(`${f.url}/review/approve`, f.human);
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({
+      error: {
+        message: expect.stringMatching(/semantic review is incomplete/i),
+        proposal_ids: expect.arrayContaining([expect.stringMatching(/^semantic-proposal\./)]),
+      },
+    });
+    expect(await readFile(path, 'utf8')).toBe(before);
+  });
+
+  it('rejects stale snapshots and invalid map intents without changing durable bytes', async () => {
+    const f = await fixture('semantic');
+    const request = semanticRequest(await f.service.getJob(f.id));
+    const path = join(f.root, 'jobs', `${f.id}.json`);
+    const before = await readFile(path, 'utf8');
+    expect(
+      (
+        await post(`${f.url}/review/semantic-decisions`, {
+          ...request,
+          expected_review_snapshot: 'sha256:stale',
+        })
+      ).status,
+    ).toBe(409);
+    expect(await readFile(path, 'utf8')).toBe(before);
+    expect(
+      (
+        await post(`${f.url}/review/semantic-decisions`, {
+          ...request,
+          target: 'electrical.not_a_supported_target',
+        })
+      ).status,
+    ).toBe(400);
+    expect(await readFile(path, 'utf8')).toBe(before);
+  });
+
+  it('rejects caller-authored decision bindings and derived proposal adjudication', async () => {
+    const f = await fixture('semantic');
+    const request = semanticRequest(await f.service.getJob(f.id));
+    const path = join(f.root, 'jobs', `${f.id}.json`);
+    const beforeForgery = await readFile(path, 'utf8');
+    expect(
+      (
+        await post(`${f.url}/review/semantic-decisions`, {
+          ...request,
+          id: 'caller-id',
+          revision: 99,
+          previous_decision: {},
+          input_snapshot: 'caller-snapshot',
+          recorded_at: '2000-01-01T00:00:00.000Z',
+          validation_policy_version: 'caller-policy',
+        })
+      ).status,
+    ).toBe(400);
+    expect(await readFile(path, 'utf8')).toBe(beforeForgery);
+
+    const store = new FileIngestionJobStore(join(f.root, 'jobs'));
+    const { job, version } = await store.loadVersioned(f.id);
+    if (job.preparation?.status !== 'review_ready') throw new Error('Fixture not review-ready');
+    const derivedProposal = job.preparation.proposals.find(
+      (proposal) => proposal.id === request.proposal_id,
+    );
+    if (!derivedProposal) throw new Error('Fixture proposal disappeared');
+    const derived = {
+      ...derivedProposal,
+      derivation: {
+        status: 'derived' as const,
+        rule_version: 'test',
+        formula: 'test',
+        input_targets: [],
+        input_units: [],
+        output_unit: 'A',
+        assumptions: [],
+      },
+    };
+    const saveDerivedProposal = (proposals: typeof job.preparation.proposals) =>
+      proposals.map((proposal) => (proposal.id === derived.id ? derived : proposal));
+    await store.save(
+      {
+        ...job,
+        preparation: {
+          ...job.preparation,
+          proposals: saveDerivedProposal(job.preparation.proposals),
+          bridge: {
+            ...job.preparation.bridge,
+            proposals: saveDerivedProposal(job.preparation.bridge.proposals),
+          },
+        },
+      },
+      version,
+    );
+    const beforeDerived = await readFile(path, 'utf8');
+    const derivedRequest = semanticRequest(await f.service.getJob(f.id));
+    const response = await post(`${f.url}/review/semantic-decisions`, derivedRequest);
+    expect(response.status).toBe(400);
+    expect(await readFile(path, 'utf8')).toBe(beforeDerived);
+  });
+
+  it('rejects semantic decisions after approval', async () => {
+    const f = await fixture('semantic');
+    const request = semanticRequest(await f.service.getJob(f.id));
+    await post(`${f.url}/review/semantic-decisions`, {
+      proposal_id: request.proposal_id,
+      expected_review_snapshot: request.expected_review_snapshot,
+      actor_label: request.actor_label,
+      outcome: 'evidence_only',
+    });
+    expect((await post(`${f.url}/review/approve`, f.human)).status).toBe(200);
+    const before = await readFile(join(f.root, 'jobs', `${f.id}.json`), 'utf8');
+    const response = await post(`${f.url}/review/semantic-decisions`, {
+      ...request,
+      expected_review_snapshot: reviewPackageSnapshot(
+        (await f.service.getJob(f.id)).preparation!.review_package,
+      ),
+    });
+    expect(response.status).toBe(409);
+    expect(await readFile(join(f.root, 'jobs', `${f.id}.json`), 'utf8')).toBe(before);
+  });
+
   it('derives operator stage counts from the durable preparation without treating extraction as qualification', async () => {
     const f = await fixture();
     const p = f.job.preparation;

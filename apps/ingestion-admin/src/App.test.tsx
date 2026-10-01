@@ -46,6 +46,7 @@ const detail: OperatorJobDetail = {
     non_projected: [],
   },
   review_package: undefined,
+  semantic_review: undefined,
   diagnostics: [],
 };
 const client = (): OperatorApi => ({

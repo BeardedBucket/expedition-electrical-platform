@@ -1,6 +1,11 @@
 import type { IngestionJob } from '@expedition/ingestion-runtime';
 import type { ArtifactReference, CanonicalQualifiedValue } from '@expedition/ingestion';
-import { artifactDigest, canonicalIdFor } from '@expedition/ingestion';
+import {
+  artifactDigest,
+  canonicalIdFor,
+  evaluateSemanticReviewCompletion,
+  reviewPackageSnapshot,
+} from '@expedition/ingestion';
 import { productRoles } from './product-review.js';
 
 const valueAt = (data: unknown, path: string): unknown =>
@@ -190,6 +195,47 @@ export const jobDetail = (job: IngestionJob) => {
   const r = p?.status === 'review_ready' ? p : undefined;
   const candidate = r?.bridge.candidate;
   const pkg = r?.review_package;
+  const semanticCompletion = r
+    ? evaluateSemanticReviewCompletion(r.proposals, r.bridge.reviewed_semantic_interpretation)
+    : undefined;
+  const semanticReview = r
+    ? {
+        complete: semanticCompletion?.complete,
+        required_dispositions: semanticCompletion?.required_dispositions,
+        expected_review_snapshot: reviewPackageSnapshot(r.review_package),
+        interpretation: r.bridge.reviewed_semantic_interpretation.entries.map((entry) => ({
+          proposal_id: entry.proposal_id,
+          state: entry.state,
+          automatic_disposition: entry.automatic_disposition,
+          ...(entry.target ? { target: entry.target } : {}),
+          ...(entry.value !== undefined ? { value: entry.value } : {}),
+          ...(entry.normalized_unit ? { normalized_unit: entry.normalized_unit } : {}),
+        })),
+        decisions: (r.bridge.reviewed_semantic_decisions ?? []).map((decision) => ({
+          id: decision.id,
+          proposal_id: decision.proposal_ref.reference,
+          revision: decision.revision,
+          active: r.bridge.reviewed_semantic_interpretation.entries.some(
+            (entry) =>
+              entry.proposal_id === decision.proposal_ref.reference &&
+              entry.decision_ref?.reference === decision.id,
+          ),
+          outcome: decision.outcome,
+          actor_label: decision.actor.identifier,
+          recorded_at: decision.recorded_at,
+          ...(decision.target ? { target: decision.target } : {}),
+          ...(decision.normalized_value !== undefined
+            ? { normalized_value: decision.normalized_value }
+            : {}),
+          ...(decision.normalized_unit ? { normalized_unit: decision.normalized_unit } : {}),
+          ...(decision.rationale ? { rationale: decision.rationale } : {}),
+          ...(decision.schema_gap ? { schema_gap: decision.schema_gap } : {}),
+          selected_fact_ids: (decision.selected_fact_refs ?? decision.fact_refs).map(
+            (reference) => reference.reference,
+          ),
+        })),
+      }
+    : undefined;
   // Counts describe persisted stage outputs, not a browser inference that a captured
   // source is a fact or that a semantic proposal is eligible for promotion.
   const pipeline_summary = p
@@ -478,6 +524,7 @@ export const jobDetail = (job: IngestionJob) => {
           semantic_snapshot: pkg.semantic_snapshot,
         }
       : undefined,
+    semantic_review: semanticReview,
     diagnostics: [
       ...(job.error
         ? [

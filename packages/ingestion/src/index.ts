@@ -28,6 +28,7 @@ export * from './production-contracts.js';
 export * from './source-acquisition.js';
 export * from './production-semantic-bridge.js';
 export * from './reviewed-semantic.js';
+export * from './semantic-review-completion.js';
 export * from './production-candidate-bridge.js';
 export * from './production-review-package.js';
 export * from './production-ingest-workflow.js';

@@ -12,8 +12,10 @@ import {
   productionApprovalToPromotionReview,
   PRODUCTION_SCHEMA_VERSION,
   reviewPackageSnapshot,
+  evaluateSemanticReviewCompletion,
   reviewedSemanticInputSnapshot,
   REVIEWED_SEMANTIC_POLICY_VERSION,
+  validateReviewedSemanticDecision,
   validateProductIntake,
   validateProductionArtifactSchema,
   validateProductionApproval,
@@ -120,6 +122,15 @@ export class SemanticDecisionError extends Error {
     message: string,
   ) {
     super(message);
+  }
+}
+
+export class SemanticReviewIncompleteError extends Error {
+  readonly status = 409;
+  constructor(readonly proposal_ids: readonly string[]) {
+    super(
+      `Semantic review is incomplete; disposition is required for proposal(s): ${proposal_ids.join(', ')}.`,
+    );
   }
 }
 
@@ -372,6 +383,18 @@ export class IngestionJobService {
           job.preparation.review_package,
           job.preparation.bridge,
         );
+      if (approval.decision === 'approved') {
+        // Evaluate the review artifacts loaded with this CAS version; the caller cannot assert
+        // completion, and no transition is saved unless these current bindings pass.
+        const completion = evaluateSemanticReviewCompletion(
+          job.preparation.proposals,
+          job.preparation.bridge.reviewed_semantic_interpretation,
+        );
+        if (!completion.complete)
+          throw new SemanticReviewIncompleteError(
+            completion.required_dispositions.map((requirement) => requirement.proposal_id),
+          );
+      }
       const updated: IngestionJob = {
         ...job,
         state:
@@ -529,8 +552,10 @@ export class IngestionJobService {
             : {}
           : {}),
       };
+      const decisionIssues = validateReviewedSemanticDecision(decision);
+      if (decisionIssues.length) throw new SemanticDecisionError(400, decisionIssues.join('; '));
       const nextDecisions = [...decisions, decision];
-      const bridge = buildProductionProductCandidate({
+      const bridgeInput = {
         intake: preparation.intake,
         captures: preparation.captures,
         source_acquisitions: preparation.source_acquisitions,
@@ -538,7 +563,21 @@ export class IngestionJobService {
         reconciliation: preparation.reconciliation,
         proposals: preparation.proposals,
         reviewed_semantic_decisions: nextDecisions,
-      });
+      };
+      let bridge: ReturnType<typeof buildProductionProductCandidate>;
+      if (request.outcome === 'map') {
+        try {
+          bridge = buildProductionProductCandidate(bridgeInput);
+        } catch (error) {
+          // Map input is accepted only when deterministic replay can normalize retained evidence.
+          throw new SemanticDecisionError(
+            400,
+            error instanceof Error ? error.message : 'Semantic decision is invalid.',
+          );
+        }
+      } else {
+        bridge = buildProductionProductCandidate(bridgeInput);
+      }
       const review_package = buildProductionReviewPackage({
         intake: preparation.intake,
         ...(preparation.source_resolution
