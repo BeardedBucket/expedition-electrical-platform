@@ -130,7 +130,10 @@ export const parseContextualMeasurement = (
   sourceUnit?: string,
 ): ContextualMeasurement | undefined => {
   const numeric = '(\\d+(?:\\.\\d+)?|\\.\\d+)';
-  if (target === 'electrical.input_voltage_range_v') {
+  if (
+    target === 'electrical.input_voltage_range_v' ||
+    target === 'electrical.output_voltage_range_v'
+  ) {
     const match = raw.match(
       new RegExp(
         `^\\s*${numeric}\\s*(?:-|–|to)\\s*${numeric}\\s*((?:mV|kV|V)\\s*(?:AC|DC)?|AC|DC)?\\s*$`,

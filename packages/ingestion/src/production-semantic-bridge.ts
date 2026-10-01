@@ -1,4 +1,9 @@
-import { resolveProductionCanonicalField, isSupportedCanonicalField } from './field-mapping.js';
+import {
+  resolveProductionCanonicalField,
+  isSupportedCanonicalField,
+  normalizeProductionSemanticTarget,
+  validateProductionSemanticTargetContracts,
+} from './field-mapping.js';
 import {
   artifactDigest,
   artifactReference,
@@ -13,7 +18,6 @@ import {
   type QualifiedFactGroupReconciliationOutcome,
   type QualifiedFactWholeIntakeReconciliationResult,
 } from './reconciliation.js';
-import { parseExactUnitValue } from './units.js';
 import { reviewedSemanticContext } from './semantic-context.js';
 import { deriveProductSemanticProposals } from './product-derivations.js';
 import type { CanonicalQualifiedValue, JsonValue } from './contracts.js';
@@ -35,6 +39,7 @@ export interface ProductionSemanticBridgeInput {
 export const buildProductionSemanticProposals = (
   input: ProductionSemanticBridgeInput,
 ): readonly SemanticProposal[] => {
+  validateProductionSemanticTargetContracts();
   const expected = reconcileQualifiedFactsForWholeIntake({
     facts: input.facts,
     source_acquisitions: input.source_acquisitions,
@@ -143,17 +148,13 @@ export const buildProductionSemanticProposals = (
         } else {
           const values = facts.map((fact) => {
             if (selectedObservation) return selectedObservation.value;
-            if (mapping.value_kind === 'structured') {
-              const raw = fact.metadata.raw_value;
-              return mapping.normalize_value?.(
-                typeof raw === 'string' ? raw : String(raw),
-                fact.metadata.source_unit,
-              );
-            }
-            const parsed = parseExactUnitValue(fact.metadata.raw_value, fact.metadata.source_unit);
-            if (!parsed || parsed.unit.dimension !== mapping.dimension) return undefined;
-            const value = parsed.unit.toCanonical(parsed.value);
-            return Number.isFinite(value) ? value : undefined;
+            return normalizeProductionSemanticTarget(
+              mapping.canonical_field,
+              fact.metadata.raw_value,
+              fact.metadata.source_unit,
+              reviewedSemanticContext(fact, input.facts, input.source_acquisitions),
+              fact.metadata.source_label ?? fact.metadata.source_wording,
+            )?.value;
           });
           if (
             values.every((value) => value !== undefined) &&

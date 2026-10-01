@@ -167,6 +167,7 @@ export interface ProductFact {
   readonly raw_unit?: string;
   readonly normalized_value?: JsonValue;
   readonly normalized_unit?: string;
+  readonly normalization?: ProductFactNormalization;
   readonly qualified_value?: CanonicalQualifiedValue;
   readonly source_locator?: SourceLocator;
   readonly extraction_method: ExtractionMethod;
@@ -178,6 +179,14 @@ export interface ProductFact {
   readonly fact_state: FactState;
   readonly topology_target?: TopologyTarget;
   readonly target?: ConstraintTarget;
+}
+
+/** Typed transform metadata; source and result values remain on their owning fact. */
+export interface ProductFactNormalization {
+  readonly method: 'unit_conversion' | 'semantic_normalization';
+  readonly source_unit?: string;
+  readonly normalized_unit?: string;
+  readonly method_version: string;
 }
 
 export type IdentityStatus = 'verified' | 'provisional' | 'unresolved' | 'conflicting';

@@ -1,13 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
   artifactReference,
+  buildReviewedSemanticInterpretation,
   buildQualifiedFactArtifact,
   buildProductionProductCandidate,
   buildProductionSemanticProposals,
   reconcileQualifiedFactsForWholeIntake,
   promoteCandidate,
   promotionCandidateSnapshot,
+  reviewedSemanticInputSnapshot,
   type QualifiedFactArtifact,
+  type ReviewedSemanticDecision,
   type SourceAcquisitionArtifact,
   type SourceCaptureArtifact,
   type ProductIntake,
@@ -120,6 +123,7 @@ describe('reviewed battery semantic context', () => {
       min: 14.2,
       max: 14.6,
     });
+
     expect(mapped.get('battery.float_voltage_range_v')?.proposed_value).toEqual({
       min: 13.4,
       max: 13.8,
@@ -199,6 +203,78 @@ describe('reviewed battery semantic context', () => {
         expect.objectContaining({ fact_ids: expect.arrayContaining(promotedFactIds) }),
       ]),
     );
+  });
+
+  it.each([
+    'map',
+    'evidence_only',
+    'schema_gap',
+    'reject',
+    'not_applicable',
+    'unresolved',
+  ] as const)('rejects %s decisions for calculated proposals', (outcome) => {
+    const facts = factsFor();
+    const reconciliation = reconcileQualifiedFactsForWholeIntake({
+      facts,
+      source_acquisitions: [acquisition],
+    });
+    const proposals = proposalsFor(facts);
+    const proposal = proposals.find(
+      (item) => item.target === 'battery.usable_capacity_ah' && item.derivation,
+    );
+    if (!proposal) throw new Error('Expected a derived usable-capacity proposal.');
+    const decision: ReviewedSemanticDecision = {
+      schema_version: '1.0',
+      artifact_kind: 'reviewed_semantic_decision',
+      id: `decision.derived.${outcome}`,
+      revision: 1,
+      proposal_ref: artifactReference(
+        'semantic_proposal',
+        proposal,
+        proposal.id,
+        proposal.schema_version,
+      ),
+      fact_refs: proposal.fact_refs as ReviewedSemanticDecision['fact_refs'],
+      input_snapshot: reviewedSemanticInputSnapshot({
+        intake,
+        source_acquisitions: [acquisition],
+        facts,
+        reconciliation,
+        proposals,
+      }),
+      outcome,
+      ...(outcome === 'map'
+        ? {
+            target: proposal.target,
+            normalized_value: proposal.proposed_value,
+            normalized_unit: 'Ah',
+            rationale: 'The value is a direct product fact.',
+          }
+        : outcome === 'schema_gap'
+          ? {
+              rationale: 'A target is missing.',
+              schema_gap: {
+                concept_key: 'battery.usable_capacity_ah',
+                explanation: 'The calculated field has existing derivation lineage.',
+              },
+            }
+          : outcome === 'reject' || outcome === 'not_applicable'
+            ? { rationale: 'This calculated proposal is not source semantic evidence.' }
+            : {}),
+      actor: { kind: 'operator_label', identifier: 'maintainer' },
+      recorded_at: '2026-01-02T00:00:00Z',
+      validation_policy_version: 'reviewed-semantic.v1',
+    };
+    expect(() =>
+      buildReviewedSemanticInterpretation({
+        intake,
+        source_acquisitions: [acquisition],
+        facts,
+        reconciliation,
+        proposals,
+        decisions: [decision],
+      }),
+    ).toThrow(/apply only to source semantic proposals/i);
   });
 
   it('fails closed outside the attested role, region, and voltage class', () => {

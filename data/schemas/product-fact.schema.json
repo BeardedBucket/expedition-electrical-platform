@@ -45,6 +45,28 @@
       "type": "string",
       "minLength": 1
     },
+    "normalization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "method_version"],
+      "properties": {
+        "method": {
+          "enum": ["unit_conversion", "semantic_normalization"]
+        },
+        "source_unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "normalized_unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "method_version": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
     "source_locator": {
       "type": "object",
       "additionalProperties": false,

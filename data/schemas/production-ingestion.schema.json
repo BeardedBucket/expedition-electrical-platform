@@ -10,6 +10,7 @@
     { "$ref": "#/$defs/documentExtraction" },
     { "$ref": "#/$defs/qualifiedFact" },
     { "$ref": "#/$defs/semanticProposal" },
+    { "$ref": "#/$defs/reviewedSemanticDecision" },
     { "$ref": "#/$defs/reviewPackage" },
     { "$ref": "#/$defs/approval" },
     { "$ref": "#/$defs/productRun" },
@@ -74,6 +75,7 @@
             "product_candidate",
             "product_source",
             "product_fact",
+            "reviewed_semantic_decision",
             "review_package",
             "approval",
             "ingestion_job",
@@ -133,6 +135,12 @@
       "allOf": [
         { "$ref": "#/$defs/artifactRef" },
         { "properties": { "kind": { "const": "semantic_proposal" } } }
+      ]
+    },
+    "reviewedSemanticDecisionRef": {
+      "allOf": [
+        { "$ref": "#/$defs/artifactRef" },
+        { "properties": { "kind": { "const": "reviewed_semantic_decision" } } }
       ]
     },
     "reviewPackageRef": {
@@ -914,6 +922,78 @@
       },
       "additionalProperties": false
     },
+    "reviewedSemanticDecision": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "artifact_kind",
+        "id",
+        "revision",
+        "proposal_ref",
+        "fact_refs",
+        "input_snapshot",
+        "outcome",
+        "actor",
+        "recorded_at",
+        "validation_policy_version"
+      ],
+      "properties": {
+        "schema_version": { "$ref": "#/$defs/version" },
+        "artifact_kind": { "const": "reviewed_semantic_decision" },
+        "id": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "revision": { "type": "integer", "minimum": 1 },
+        "previous_decision": { "$ref": "#/$defs/reviewedSemanticDecisionRef" },
+        "proposal_ref": { "$ref": "#/$defs/proposalRef" },
+        "fact_refs": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              { "$ref": "#/$defs/factRef" },
+              { "properties": { "kind": { "const": "qualified_fact" } } }
+            ]
+          }
+        },
+        "selected_fact_refs": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              { "$ref": "#/$defs/factRef" },
+              { "properties": { "kind": { "const": "qualified_fact" } } }
+            ]
+          }
+        },
+        "input_snapshot": { "$ref": "#/$defs/digest" },
+        "outcome": {
+          "enum": ["map", "evidence_only", "schema_gap", "reject", "not_applicable", "unresolved"]
+        },
+        "target": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "normalized_value": {},
+        "normalized_unit": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "source_unit": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "rationale": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "schema_gap": {
+          "type": "object",
+          "required": ["concept_key", "explanation"],
+          "properties": {
+            "concept_key": { "type": "string", "minLength": 1, "pattern": "\\S" },
+            "explanation": { "type": "string", "minLength": 1, "pattern": "\\S" }
+          },
+          "additionalProperties": false
+        },
+        "actor": {
+          "type": "object",
+          "required": ["kind", "identifier"],
+          "properties": {
+            "kind": { "enum": ["operator_label", "authenticated_actor"] },
+            "identifier": { "type": "string", "minLength": 1, "pattern": "\\S" }
+          },
+          "additionalProperties": false
+        },
+        "recorded_at": { "type": "string", "format": "date-time" },
+        "validation_policy_version": { "type": "string", "minLength": 1, "pattern": "\\S" }
+      },
+      "additionalProperties": false
+    },
     "reviewPackage": {
       "type": "object",
       "required": [
@@ -937,6 +1017,10 @@
         "fact_refs": { "type": "array", "items": { "$ref": "#/$defs/factRef" } },
         "applicability": { "type": "array", "items": { "$ref": "#/$defs/applicability" } },
         "proposal_refs": { "type": "array", "items": { "$ref": "#/$defs/proposalRef" } },
+        "reviewed_semantic_decision_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/reviewedSemanticDecisionRef" }
+        },
         "topology_proposal_refs": { "type": "array", "items": { "$ref": "#/$defs/proposalRef" } },
         "unresolved_items": { "type": "array", "items": { "type": "string" } },
         "conflicts": { "type": "array", "items": { "type": "string" } },

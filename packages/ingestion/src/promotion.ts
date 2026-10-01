@@ -207,6 +207,7 @@ export const promotionCandidateSnapshot = (
           : {}),
         normalized_value: fact.normalized_value ?? null,
         normalized_unit: fact.normalized_unit ?? null,
+        ...(fact.normalization ? { normalization: fact.normalization } : {}),
         fact_state: fact.fact_state,
         review_required: fact.review_required ?? false,
         ...(fact.derivation ? { derivation: fact.derivation } : {}),

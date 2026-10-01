@@ -50,6 +50,7 @@ export type ArtifactKind =
   | 'product_candidate'
   | 'product_source'
   | 'product_fact'
+  | 'reviewed_semantic_decision'
   | 'review_package'
   | 'approval'
   | 'ingestion_job'
@@ -72,6 +73,7 @@ export type SourceReference = ArtifactReference<
 >;
 export type FactReference = ArtifactReference<'qualified_fact' | 'product_fact'>;
 export type ProposalReference = ArtifactReference<'semantic_proposal'>;
+export type ReviewedSemanticDecisionReference = ArtifactReference<'reviewed_semantic_decision'>;
 export type SourceRevisionReference = ArtifactReference<
   'source_capture' | 'source_revision' | 'product_source'
 >;
@@ -711,6 +713,69 @@ export interface SemanticProposal {
   readonly input_artifact_digests: readonly string[];
 }
 
+export type ReviewedSemanticOutcome =
+  'map' | 'evidence_only' | 'schema_gap' | 'reject' | 'not_applicable' | 'unresolved';
+
+export interface ReviewedSemanticActor {
+  readonly kind: 'operator_label' | 'authenticated_actor';
+  readonly identifier: string;
+}
+
+/** Immutable event; timestamps and IDs are supplied by the owning runtime, never generated here. */
+export interface ReviewedSemanticDecision {
+  readonly schema_version: typeof PRODUCTION_SCHEMA_VERSION;
+  readonly artifact_kind: 'reviewed_semantic_decision';
+  readonly id: string;
+  readonly revision: number;
+  readonly previous_decision?: ReviewedSemanticDecisionReference;
+  readonly proposal_ref: ProposalReference;
+  readonly fact_refs: readonly ArtifactReference<'qualified_fact'>[];
+  readonly selected_fact_refs?: readonly ArtifactReference<'qualified_fact'>[];
+  readonly input_snapshot: string;
+  readonly outcome: ReviewedSemanticOutcome;
+  readonly target?: string;
+  readonly normalized_value?: JsonValue;
+  readonly normalized_unit?: string;
+  /** May fill an absent parsed unit only when the retained raw assertion explicitly contains it. */
+  readonly source_unit?: string;
+  readonly rationale?: string;
+  readonly schema_gap?: { readonly concept_key: string; readonly explanation: string };
+  readonly actor: ReviewedSemanticActor;
+  readonly recorded_at: string;
+  readonly validation_policy_version: string;
+}
+
+export type ReviewedSemanticInterpretationState =
+  | 'automatic'
+  | 'human_mapped'
+  | 'evidence_only'
+  | 'schema_gap'
+  | 'reject'
+  | 'not_applicable'
+  | 'unresolved'
+  | 'stale';
+
+export interface ReviewedSemanticInterpretationEntry {
+  readonly proposal_id: string;
+  readonly automatic_target: string;
+  readonly automatic_disposition: ProposalDisposition;
+  readonly automatic_value?: JsonValue;
+  readonly state: ReviewedSemanticInterpretationState;
+  readonly decision_ref?: ReviewedSemanticDecisionReference;
+  readonly target?: string;
+  readonly value?: JsonValue;
+  readonly normalized_unit?: string;
+  readonly source_unit?: string;
+  readonly selected_fact_refs?: readonly ArtifactReference<'qualified_fact'>[];
+  readonly stale_decision_refs?: readonly ReviewedSemanticDecisionReference[];
+}
+
+export interface ReviewedSemanticInterpretation {
+  readonly input_snapshot: string;
+  readonly entries: readonly ReviewedSemanticInterpretationEntry[];
+  readonly stale_decision_refs: readonly ReviewedSemanticDecisionReference[];
+}
+
 export interface ReviewPackage {
   readonly schema_version: typeof PRODUCTION_SCHEMA_VERSION;
   readonly artifact_kind: 'review_package';
@@ -722,6 +787,7 @@ export interface ReviewPackage {
   readonly fact_refs: readonly FactReference[];
   readonly applicability?: readonly ApplicabilityBinding[];
   readonly proposal_refs: readonly ProposalReference[];
+  readonly reviewed_semantic_decision_refs?: readonly ReviewedSemanticDecisionReference[];
   readonly topology_proposal_refs?: readonly ProposalReference[];
   readonly unresolved_items?: readonly string[];
   readonly conflicts?: readonly string[];

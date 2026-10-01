@@ -3,6 +3,7 @@ import type {
   ProductIntake,
   ReviewPackage,
   SemanticProposal,
+  ReviewedSemanticDecisionReference,
   SourceReference,
 } from './production-contracts.js';
 import {
@@ -62,6 +63,21 @@ export const buildProductionReviewPackage = (
   const facts = ordered(bridge.qualified_facts, (fact) => fact.id);
   const factByDigest = new Map(facts.map((fact) => [artifactDigest(fact), fact]));
   const proposalIds = new Set(proposals.map((proposal) => proposal.id));
+  const reviewedDecisions = ordered(bridge.reviewed_semantic_decisions, (item) => item.id);
+  const reviewedDecisionRefs: ReviewedSemanticDecisionReference[] = reviewedDecisions.map(
+    (decision) =>
+      artifactReference(
+        'reviewed_semantic_decision',
+        decision,
+        decision.id,
+        decision.schema_version,
+      ),
+  );
+  const interpretationByProposal = new Map(
+    bridge.reviewed_semantic_interpretation.entries.map(
+      (entry) => [entry.proposal_id, entry] as const,
+    ),
+  );
   const projectedIds = new Set(bridge.projected_proposal_ids);
   const diagnosticIds = new Set(bridge.non_projected.map((item) => item.proposal_id));
   const fail = (): never => {
@@ -125,8 +141,12 @@ export const buildProductionReviewPackage = (
     if (projectedIds.has(proposal.id)) {
       const legacyIds = bridge.proposal_fact_ids[proposal.id];
       if (
-        proposal.disposition !== 'mapped' ||
-        proposal.proposed_value === undefined ||
+        (proposal.disposition !== 'mapped' &&
+          interpretationByProposal.get(proposal.id)?.state !== 'human_mapped') ||
+        (proposal.disposition !== 'mapped' &&
+          interpretationByProposal.get(proposal.id)?.state === 'human_mapped' &&
+          interpretationByProposal.get(proposal.id)?.value === undefined) ||
+        (proposal.disposition === 'mapped' && proposal.proposed_value === undefined) ||
         !legacyIds?.length ||
         !same(
           ordered(legacyIds, (id) => id),
@@ -171,7 +191,10 @@ export const buildProductionReviewPackage = (
     for (const proposal of proposals) {
       if (!projectedIds.has(proposal.id)) continue;
       const support = proposal.qualified_value ? qualifiedSupport : fieldSupport;
-      const key = proposal.qualified_value?.id ?? proposal.target;
+      const interpretation = interpretationByProposal.get(proposal.id);
+      const target =
+        interpretation?.state === 'human_mapped' ? interpretation.target! : proposal.target;
+      const key = proposal.qualified_value?.id ?? target;
       if (
         proposal.qualified_value &&
         !same(
@@ -245,6 +268,8 @@ export const buildProductionReviewPackage = (
     sources: ordered(bridge.sources, (source) => source.id),
     facts: ordered(bridge.facts, (fact) => fact.id),
     normalized_facts: ordered(bridge.normalized_facts, (fact) => fact.fact.id),
+    reviewed_semantic_interpretation: bridge.reviewed_semantic_interpretation,
+    reviewed_semantic_decisions: reviewedDecisions,
   });
   const content = {
     ...resolutionBinding,
@@ -273,6 +298,9 @@ export const buildProductionReviewPackage = (
     proposal_refs: proposals.map((proposal: SemanticProposal) =>
       artifactReference('semantic_proposal', proposal, proposal.id, proposal.schema_version),
     ),
+    ...(reviewedDecisionRefs.length
+      ? { reviewed_semantic_decision_refs: reviewedDecisionRefs }
+      : {}),
     unresolved_items: nonProjected.map((item) => `${item.proposal_id}: ${item.reason}`),
     conflicts: proposals
       .filter((proposal) => proposal.disposition === 'conflicting')

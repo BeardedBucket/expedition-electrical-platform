@@ -54,6 +54,11 @@ export const productionApprovalToPromotionReview = (
 
   const proposals = bridge.proposals;
   const qualifiedFacts = bridge.qualified_facts;
+  const interpretationByProposal = new Map(
+    bridge.reviewed_semantic_interpretation.entries.map(
+      (entry) => [entry.proposal_id, entry] as const,
+    ),
+  );
   const expectedFacts = [
     ...qualifiedFacts.map((fact) =>
       artifactReference('qualified_fact', fact, fact.id, fact.schema_version),
@@ -75,6 +80,17 @@ export const productionApprovalToPromotionReview = (
         artifactReference('semantic_proposal', proposal, proposal.id, proposal.schema_version),
       ),
     ) ||
+    !sameReferences(
+      reviewPackage.reviewed_semantic_decision_refs ?? [],
+      bridge.reviewed_semantic_decisions.map((decision) =>
+        artifactReference(
+          'reviewed_semantic_decision',
+          decision,
+          decision.id,
+          decision.schema_version,
+        ),
+      ),
+    ) ||
     !same(sorted(candidate.fact_ids), sorted(bridge.facts.map((fact) => fact.id))) ||
     !same(sorted(candidate.source_ids), sorted(bridge.sources.map((source) => source.id)))
   )
@@ -90,7 +106,8 @@ export const productionApprovalToPromotionReview = (
       continue;
     }
     if (
-      proposal.disposition !== 'mapped' ||
+      (proposal.disposition !== 'mapped' &&
+        interpretationByProposal.get(proposal.id)?.state !== 'human_mapped') ||
       !ids?.length ||
       !proposal.fact_refs?.length ||
       proposal.fact_refs.some(
@@ -99,13 +116,22 @@ export const productionApprovalToPromotionReview = (
             same(ref, artifactReference('qualified_fact', fact, fact.id, fact.schema_version)),
           ),
       ) ||
-      ids.some(
-        (id) => !bridge.facts.some((fact) => fact.id === id && fact.field === proposal.target),
-      )
+      ids.some((id) => {
+        const target =
+          interpretationByProposal.get(proposal.id)?.state === 'human_mapped'
+            ? interpretationByProposal.get(proposal.id)?.target
+            : proposal.target;
+        return !bridge.facts.some((fact) => fact.id === id && fact.field === target);
+      })
     )
       throw new Error('Projected proposal has invalid reviewed field evidence.');
     const collection = proposal.qualified_value ? qualifiedSupport : support;
-    const key = proposal.qualified_value?.id ?? proposal.target;
+    const interpretation = interpretationByProposal.get(proposal.id);
+    const interpretedTarget =
+      interpretation?.state === 'human_mapped'
+        ? (interpretation.target ?? proposal.target)
+        : proposal.target;
+    const key = proposal.qualified_value?.id ?? interpretedTarget;
     if (
       proposal.qualified_value &&
       !same(

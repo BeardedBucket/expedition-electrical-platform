@@ -35,6 +35,65 @@ legacy direct normalizer retains its historical flat aliases for persisted pilot
 replay; that compatibility boundary is intentionally not used by production
 semantic proposals.
 
+Automatic proposals are immutable inputs to human semantic adjudication. A
+`ReviewedSemanticDecision` is a separate, replayable event bound to an exact
+proposal, its qualified facts, and a deterministic upstream input snapshot.
+`buildReviewedSemanticInterpretation()` revalidates that binding and target
+compatibility each time it is applied; stale events remain observable but do not
+change the current interpretation. A one-product decision never changes the
+automatic alias tables or contextual vocabulary. Candidate construction consumes
+the automatic proposals plus that interpretation while retaining each proposal's
+original target, disposition, and value for comparison.
+
+`productionSemanticTargetContract()` is the explicit owner of canonical target
+semantics and does not derive its registry from source-label aliases. Each
+contract combines the component-schema value shape with a reviewed field path,
+dimension, canonical unit, deterministic normalizer version, and any role or
+context restriction. Schema storage capability alone does not grant semantic
+mapping permission. Production automatic mappings route labels to these
+contracts; a runtime invariant rejects any mapping whose declared dimension or
+unit disagrees with its target. Production proposals and human decisions use
+the same target normalizer, while automatic alias tables remain a separate
+source-vocabulary layer.
+Target normalization checks the same role and region eligibility as target
+selection. Reviewed validation and candidate reconstruction share one effective
+source-unit rule: an explicitly reviewed unit must be supported by retained
+metadata or explicit raw evidence; otherwise a resolvable retained unit takes
+precedence over a resolvable unit in the raw assertion. Unresolvable metadata
+does not mask an explicit raw unit or change the immutable QualifiedFact.
+
+Several existing manufacturer-fact fields have target contracts but no
+automatic source-label alias yet: `electrical.continuous_input_current_a`,
+`electrical.peak_input_current_a`, `electrical.peak_output_current_a`,
+`electrical.output_voltage_range_v`,
+`battery.charge_current.maximum_continuous_a`, and
+`battery.charge_current.protection_limit_a`. A one-product human decision may
+map supported retained evidence to these targets; it does not add or broaden
+an automatic alias. The output voltage-range normalizer rejects AC/DC-qualified
+values because the decision contract cannot yet retain those qualifiers.
+
+Other schema paths intentionally remain unavailable as direct human targets.
+`electrical.power_consumption_w` represents condition-qualified observations,
+not an unqualified product scalar. `electrical.max_pv_voltage_v` is currently
+classified as evidence-only. `efficiency_fraction` lacks a defined operating
+basis; `service_clearances_mm` lacks a complete source-scope/local-face
+contract; and generic `mounting`, port, capability, terminal, and topology
+objects lack target-specific source normalizers. These are semantic-contract
+gaps, not missing JSON Schema storage.
+
+A `map` decision selects meaning, not a replacement measurement. For every
+selected QualifiedFact the target contract must deterministically normalize
+its retained raw assertion, and every resulting value must agree with the
+decision value and with the other selected facts. Numeric comparison allows
+only a four-ULP-scale binary floating-point representation difference; it is
+not a source-measurement tolerance. A target without a deterministic normalizer
+cannot be human-mapped.
+
+Rationale is required for `map`, `reject`, `schema_gap`, and
+`not_applicable`. The last outcome asserts why otherwise retained evidence does
+not apply to this exact product or context, so its reason is audit evidence.
+`evidence_only` and explicit `unresolved` remain valid without boilerplate.
+
 To add a reviewed vocabulary, review the source profile, exact applicability,
 table/region locators, neighboring terms, value units, and competing meanings.
 Version the binding and pin its profile digest; add exact contextual aliases

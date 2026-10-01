@@ -18,8 +18,18 @@ import {
   type SourceAcquisitionArtifact,
   type SourceAcquisitionCandidate,
   type SourceCaptureArtifact,
+  type ReviewedSemanticDecision,
 } from './production-contracts.js';
-import { buildProductionSemanticProposals } from './production-semantic-bridge.js';
+import {
+  productionSemanticFieldDescriptor,
+  normalizeProductionSemanticTarget,
+} from './field-mapping.js';
+import {
+  buildReviewedSemanticInterpretation,
+  deterministicNormalizedValuesEqual,
+  effectiveReviewedSemanticSourceUnit,
+} from './reviewed-semantic.js';
+import { parseExactUnitValue, resolveUnit } from './units.js';
 import { reviewedSemanticContext } from './semantic-context.js';
 import type { QualifiedFactWholeIntakeReconciliationResult } from './reconciliation.js';
 
@@ -30,6 +40,7 @@ export interface ProductionCandidateBridgeInput {
   readonly facts: readonly QualifiedFactArtifact[];
   readonly reconciliation: QualifiedFactWholeIntakeReconciliationResult;
   readonly proposals: readonly SemanticProposal[];
+  readonly reviewed_semantic_decisions?: readonly ReviewedSemanticDecision[];
 }
 
 export interface ProductionProjectionDiagnostic {
@@ -47,6 +58,8 @@ export interface ProductionCandidateBridgeResult {
   readonly sources: readonly ProductSource[];
   readonly facts: readonly ProductFact[];
   readonly normalized_facts: readonly NormalizedProductFact[];
+  readonly reviewed_semantic_interpretation: ReturnType<typeof buildReviewedSemanticInterpretation>;
+  readonly reviewed_semantic_decisions: readonly ReviewedSemanticDecision[];
 }
 
 const platformDerivedSourceId = 'platform.derived';
@@ -165,14 +178,15 @@ const projectSource = (
 export const buildProductionProductCandidate = (
   input: ProductionCandidateBridgeInput,
 ): ProductionCandidateBridgeResult => {
-  const expected = buildProductionSemanticProposals({
-    facts: input.facts,
+  const interpretation = buildReviewedSemanticInterpretation({
+    intake: input.intake,
     source_acquisitions: input.source_acquisitions,
+    facts: input.facts,
     reconciliation: input.reconciliation,
+    proposals: input.proposals,
+    decisions: input.reviewed_semantic_decisions,
   });
   const orderedProposals = [...input.proposals].sort((a, b) => a.id.localeCompare(b.id));
-  if (deterministicSerialize(expected) !== deterministicSerialize(orderedProposals))
-    throw new Error('Candidate bridge received a stale or foreign semantic proposal set.');
   const qualifiedFacts = [...input.facts].sort((a, b) => a.id.localeCompare(b.id));
   const factsByDigest = new Map(qualifiedFacts.map((fact) => [artifactDigest(fact), fact]));
   const sources = new Map<string, ProductSource>();
@@ -181,17 +195,41 @@ export const buildProductionProductCandidate = (
   const projected: string[] = [];
   const nonProjected: ProductionProjectionDiagnostic[] = [];
   const proposalFactIds: Record<string, readonly string[]> = {};
+  const interpretationByProposal = new Map(
+    interpretation.entries.map((entry) => [entry.proposal_id, entry] as const),
+  );
+  const effectiveTargets = new Map<string, string>();
 
   for (const proposal of orderedProposals) {
     if (proposal.derivation) continue;
+    const reviewed = interpretationByProposal.get(proposal.id);
+    const useHumanMapping = reviewed?.state === 'human_mapped';
+    const effectiveTarget = useHumanMapping ? reviewed.target! : proposal.target;
+    const effectiveValue = useHumanMapping ? reviewed.value : proposal.proposed_value;
+    const effectiveDisposition = useHumanMapping ? 'mapped' : proposal.disposition;
+    const disposition =
+      reviewed?.state && reviewed.state !== 'automatic' ? reviewed.state : proposal.disposition;
     if (proposal.disposition !== 'mapped' || proposal.proposed_value === undefined) {
+      if (!useHumanMapping) {
+        nonProjected.push({
+          proposal_id: proposal.id,
+          reason: `disposition: ${disposition}`,
+        });
+        continue;
+      }
+    }
+    if (effectiveDisposition !== 'mapped' || effectiveValue === undefined) {
       nonProjected.push({
         proposal_id: proposal.id,
-        reason: `disposition: ${proposal.disposition}`,
+        reason: `disposition: ${disposition}`,
       });
       continue;
     }
-    const proposalFacts = (proposal.fact_refs ?? []).map((ref) => factsByDigest.get(ref.digest));
+    const refs =
+      useHumanMapping && reviewed.selected_fact_refs
+        ? reviewed.selected_fact_refs
+        : (proposal.fact_refs ?? []);
+    const proposalFacts = refs.map((ref) => factsByDigest.get(ref.digest));
     if (!proposalFacts.length || proposalFacts.some((fact) => !fact)) {
       nonProjected.push({
         proposal_id: proposal.id,
@@ -207,13 +245,16 @@ export const buildProductionProductCandidate = (
     let reason: string | undefined;
     for (const fact of proposalFacts as QualifiedFactArtifact[]) {
       const reviewedContext = reviewedSemanticContext(fact, input.facts, input.source_acquisitions);
-      const mapping = fact.metadata.source_label
-        ? resolveProductionCanonicalField(fact.metadata.source_label, reviewedContext)
-        : undefined;
+      const mapping = useHumanMapping
+        ? undefined
+        : fact.metadata.source_label
+          ? resolveProductionCanonicalField(fact.metadata.source_label, reviewedContext)
+          : undefined;
       if (
-        !mapping ||
-        mapping.target_kind === 'evidence' ||
-        mapping.canonical_field !== proposal.target
+        !useHumanMapping &&
+        (!mapping ||
+          mapping.target_kind === 'evidence' ||
+          mapping.canonical_field !== proposal.target)
       ) {
         reason = 'source label has no matching canonical mapping';
         break;
@@ -225,16 +266,80 @@ export const buildProductionProductCandidate = (
       }
       const legacyFact: ProductFact = {
         schema_version: '1.0',
-        id: `production-fact.${artifactDigest(mapping.normalize_observations ? { qualified_fact: artifactDigest(fact), assertion: proposal.qualified_value } : fact).slice(7, 31)}`,
+        id: `production-fact.${artifactDigest(useHumanMapping ? { qualified_fact: artifactDigest(fact), decision: reviewed?.decision_ref?.digest, target: effectiveTarget, value: effectiveValue } : mapping!.normalize_observations ? { qualified_fact: artifactDigest(fact), assertion: proposal.qualified_value } : fact).slice(7, 31)}`,
         source_id: sourceResult.source.id,
-        field: mapping.canonical_field,
-        raw_label: fact.metadata.source_label!,
+        field: effectiveTarget,
+        raw_label: fact.metadata.source_label ?? fact.metadata.source_wording,
         raw_value: fact.metadata.raw_value,
         ...(fact.metadata.source_unit ? { raw_unit: fact.metadata.source_unit } : {}),
         extraction_method: 'other',
         fact_state: 'provisional',
         review_required: true,
       };
+      if (useHumanMapping) {
+        const descriptor = productionSemanticFieldDescriptor(
+          effectiveTarget,
+          reviewedContext?.role,
+          reviewedContext?.region,
+        );
+        if (!descriptor) {
+          reason = `canonical target '${effectiveTarget}' is incompatible with source context`;
+          break;
+        }
+        const sourceUnit = effectiveReviewedSemanticSourceUnit(fact, reviewed?.source_unit);
+        const recalculated = normalizeProductionSemanticTarget(
+          effectiveTarget,
+          fact.metadata.raw_value,
+          sourceUnit,
+          reviewedContext,
+          fact.metadata.source_label ?? fact.metadata.source_wording,
+        );
+        if (
+          !recalculated ||
+          !deterministicNormalizedValuesEqual(recalculated.value, effectiveValue)
+        ) {
+          reason = `reviewed value is not supported by retained source fact '${fact.id}'`;
+          break;
+        }
+        const targetUnit = resolveUnit(descriptor.unit);
+        const parsed = targetUnit
+          ? parseExactUnitValue(fact.metadata.raw_value, sourceUnit)
+          : undefined;
+        const effectiveSourceUnit = recalculated.sourceUnit ?? sourceUnit;
+        const sourceDefinition =
+          effectiveSourceUnit === undefined ? undefined : resolveUnit(effectiveSourceUnit);
+        const normalizationSourceUnit = parsed?.unit.symbol ?? sourceDefinition?.symbol;
+        const normalization = {
+          method:
+            sourceDefinition && targetUnit && sourceDefinition.id !== targetUnit.id
+              ? ('unit_conversion' as const)
+              : ('semantic_normalization' as const),
+          ...(normalizationSourceUnit ? { source_unit: normalizationSourceUnit } : {}),
+          ...(descriptor.unit !== 'structured' && descriptor.unit !== 'string'
+            ? { normalized_unit: descriptor.unit }
+            : {}),
+          method_version: descriptor.normalizer_version,
+        };
+        const humanFact = {
+          ...legacyFact,
+          normalized_value: effectiveValue,
+          normalized_unit: descriptor.unit,
+          normalization,
+          transformation_notes: `Human semantic decision ${reviewed?.decision_ref?.reference ?? ''} mapped retained evidence to '${effectiveTarget}'.`,
+        };
+        const normalizedFact: NormalizedProductFact = {
+          fact: humanFact,
+          source: sourceResult.source,
+          canonical_field: effectiveTarget,
+          normalized_value: effectiveValue,
+          normalized_unit: descriptor.unit,
+          dimension: descriptor.dimension,
+          source_authority: sourceResult.source.authority,
+          target_kind: 'canonical',
+        };
+        staged.push({ source: sourceResult.source, fact: humanFact, normalized: normalizedFact });
+        continue;
+      }
       const normalized = normalizeProductFact(
         legacyFact,
         sourceResult.source,
@@ -250,11 +355,35 @@ export const buildProductionProductCandidate = (
         reason = `legacy normalization: ${normalized.issues.map((issue) => issue.code).join(', ')}`;
         break;
       }
+      const sourceUnitText =
+        fact.metadata.source_unit ??
+        (typeof fact.metadata.raw_value === 'string'
+          ? fact.metadata.raw_value.match(/\b(mm|cm|in|ft|m|vdc|vac|mv|kv|v|ma|ka|a)\b/i)?.[1]
+          : undefined);
+      const sourceUnit =
+        (sourceUnitText ? resolveUnit(sourceUnitText) : undefined) ??
+        parseExactUnitValue(fact.metadata.raw_value)?.unit;
+      const normalizedUnit = resolveUnit(normalized.fact.normalized_unit);
+      const productionFact = {
+        ...normalized.fact.fact,
+        normalization: {
+          method:
+            sourceUnit && normalizedUnit && sourceUnit.id !== normalizedUnit.id
+              ? ('unit_conversion' as const)
+              : ('semantic_normalization' as const),
+          ...(sourceUnit ? { source_unit: sourceUnit.symbol } : {}),
+          ...(normalized.fact.normalized_unit !== 'structured' &&
+          normalized.fact.normalized_unit !== 'string'
+            ? { normalized_unit: normalized.fact.normalized_unit }
+            : {}),
+          method_version: 'product-fact-normalization.v1',
+        },
+      };
       if (proposal.qualified_value) {
         if (
-          !normalized.fact.fact.qualified_value ||
+          !productionFact.qualified_value ||
           deterministicSerialize({
-            ...normalized.fact.fact.qualified_value,
+            ...productionFact.qualified_value,
             id: proposal.qualified_value.id,
           }) !== deterministicSerialize(proposal.qualified_value)
         ) {
@@ -262,7 +391,7 @@ export const buildProductionProductCandidate = (
           break;
         }
         const projectedFact = {
-          ...normalized.fact.fact,
+          ...productionFact,
           qualified_value: proposal.qualified_value,
         };
         staged.push({
@@ -271,7 +400,11 @@ export const buildProductionProductCandidate = (
           normalized: { ...normalized.fact, fact: projectedFact },
         });
       } else
-        staged.push({ source: sourceResult.source, fact: legacyFact, normalized: normalized.fact });
+        staged.push({
+          source: sourceResult.source,
+          fact: productionFact,
+          normalized: { ...normalized.fact, fact: productionFact },
+        });
     }
     if (reason) {
       nonProjected.push({ proposal_id: proposal.id, reason });
@@ -284,6 +417,7 @@ export const buildProductionProductCandidate = (
     });
     projected.push(proposal.id);
     proposalFactIds[proposal.id] = staged.map((item) => item.fact.id).sort();
+    effectiveTargets.set(proposal.id, effectiveTarget);
   }
   const derivedFields: Record<string, ProductDerivation> = {};
   let platformDerivedSource: ProductSource | undefined;
@@ -302,9 +436,10 @@ export const buildProductionProductCandidate = (
     const supporting = proposal.derivation.input_targets.map((target) =>
       orderedProposals.find(
         (item) =>
-          item.target === target &&
+          effectiveTargets.get(item.id) === target &&
           !item.derivation &&
-          item.disposition === 'mapped' &&
+          (item.disposition === 'mapped' ||
+            interpretationByProposal.get(item.id)?.state === 'human_mapped') &&
           projected.includes(item.id),
       ),
     );
@@ -441,5 +576,7 @@ export const buildProductionProductCandidate = (
     sources: candidateSources,
     facts: projectedFacts,
     normalized_facts: normalizedFacts,
+    reviewed_semantic_interpretation: interpretation,
+    reviewed_semantic_decisions: input.reviewed_semantic_decisions ?? [],
   };
 };
