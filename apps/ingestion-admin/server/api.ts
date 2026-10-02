@@ -8,6 +8,8 @@ import {
   JobStoreConflictError,
   type IngestionBatchService,
   type IngestionJobService,
+  type SemanticMapPreviewRequest,
+  type SemanticTargetDiscoveryRequest,
   type SemanticDecisionRequest,
 } from '@expedition/ingestion-runtime';
 import type { JsonValue } from '@expedition/ingestion';
@@ -28,6 +30,8 @@ export type OperatorService = Pick<
       | 'decideSourceResolution'
       | 'submitApproval'
       | 'recordSemanticDecision'
+      | 'discoverSemanticTargets'
+      | 'previewSemanticMapping'
       | 'finalizeJob'
     >
   > &
@@ -176,6 +180,7 @@ async function semanticDecisionBody(req: IncomingMessage): Promise<SemanticDecis
       rationale,
     };
   }
+
   if (outcome === 'schema_gap') {
     const value = body.schema_gap;
     if (!value || typeof value !== 'object' || Array.isArray(value))
@@ -200,6 +205,57 @@ async function semanticDecisionBody(req: IncomingMessage): Promise<SemanticDecis
     return { ...base, outcome, rationale };
   }
   return { ...base, outcome, ...(rationale ? { rationale } : {}) };
+}
+
+const selectedFactIds = (body: Record<string, unknown>) => {
+  if (body.selected_fact_ids === undefined) return undefined;
+  if (
+    !Array.isArray(body.selected_fact_ids) ||
+    !body.selected_fact_ids.every((factId) => typeof factId === 'string')
+  )
+    throw new RequestError(400, 'selected_fact_ids must be an array of strings.');
+  return body.selected_fact_ids;
+};
+
+async function semanticTargetDiscoveryBody(
+  req: IncomingMessage,
+): Promise<SemanticTargetDiscoveryRequest> {
+  const body = await jsonBody(req);
+  if (
+    Object.keys(body).some(
+      (key) => !['expected_review_snapshot', 'selected_fact_ids'].includes(key),
+    )
+  )
+    throw new RequestError(400, 'Send only the current snapshot and supporting fact selection.');
+  if (typeof body.expected_review_snapshot !== 'string')
+    throw new RequestError(400, 'expected_review_snapshot must be a string.');
+  const selected_fact_ids = selectedFactIds(body);
+  return {
+    expected_review_snapshot: body.expected_review_snapshot,
+    ...(selected_fact_ids === undefined ? {} : { selected_fact_ids }),
+  };
+}
+
+async function semanticMapPreviewBody(req: IncomingMessage): Promise<SemanticMapPreviewRequest> {
+  const body = await jsonBody(req);
+  if (
+    Object.keys(body).some(
+      (key) =>
+        !['expected_review_snapshot', 'selected_fact_ids', 'target', 'source_unit'].includes(key),
+    )
+  )
+    throw new RequestError(400, 'Send only semantic mapping intent fields.');
+  if (typeof body.expected_review_snapshot !== 'string' || typeof body.target !== 'string')
+    throw new RequestError(400, 'Map preview requires a review snapshot and canonical target.');
+  if (body.source_unit !== undefined && typeof body.source_unit !== 'string')
+    throw new RequestError(400, 'source_unit must be a string.');
+  const selected_fact_ids = selectedFactIds(body);
+  return {
+    expected_review_snapshot: body.expected_review_snapshot,
+    target: body.target,
+    ...(selected_fact_ids === undefined ? {} : { selected_fact_ids }),
+    ...(typeof body.source_unit === 'string' ? { source_unit: body.source_unit } : {}),
+  };
 }
 
 function send(res: ServerResponse, status: number, value: unknown) {
@@ -305,7 +361,7 @@ export function createOperatorApi(
         throw new RequestError(405, 'Method not allowed.');
       }
       const jobMatch =
-        /^\/api\/ingestion\/jobs\/([^/]+)(\/prepare|\/review\/(?:approve|reject|defer|semantic-decisions)|\/finalize|\/source-resolution\/(?:candidates|accept|reject))?$/.exec(
+        /^\/api\/ingestion\/jobs\/([^/]+)(\/prepare|\/review\/(?:approve|reject|defer|semantic-decisions)|\/review\/semantic-proposals\/([^/]+)\/(?:targets|preview)|\/finalize|\/source-resolution\/(?:candidates|accept|reject))?$/.exec(
           pathname,
         );
       const batchMatch = /^\/api\/ingestion\/batches\/([^/]+)(\/prepare)?$/.exec(pathname);
@@ -323,6 +379,32 @@ export function createOperatorApi(
       }
       if (!jobMatch) throw new RequestError(404, 'Route not found.');
       if (!validId.test(jobMatch[1])) throw new RequestError(400, 'Malformed ingestion job ID.');
+      if (jobMatch[2]?.endsWith('/targets') && req.method === 'POST') {
+        if (!service.discoverSemanticTargets)
+          throw new Error('Semantic target discovery is not configured.');
+        return send(
+          res,
+          200,
+          await service.discoverSemanticTargets(
+            jobMatch[1],
+            jobMatch[3],
+            await semanticTargetDiscoveryBody(req),
+          ),
+        );
+      }
+      if (jobMatch[2]?.endsWith('/preview') && req.method === 'POST') {
+        if (!service.previewSemanticMapping)
+          throw new Error('Semantic mapping preview is not configured.');
+        return send(
+          res,
+          200,
+          await service.previewSemanticMapping(
+            jobMatch[1],
+            jobMatch[3],
+            await semanticMapPreviewBody(req),
+          ),
+        );
+      }
       if (jobMatch[2] === '/review/semantic-decisions' && req.method === 'POST') {
         if (!service.recordSemanticDecision)
           throw new Error('Semantic adjudication service is not configured.');

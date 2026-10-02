@@ -10,8 +10,10 @@ import {
   productionSemanticFieldDescriptor,
   productionSemanticTargetContractIssues,
   productionSemanticValueMatchesTarget,
+  previewReviewedSemanticMapping,
   reconcileQualifiedFactsForWholeIntake,
   reviewedSemanticInputSnapshot,
+  reviewedSemanticTargetsForFacts,
   type ProductIntake,
   type QualifiedFactArtifact,
   type ReviewedSemanticDecision,
@@ -165,7 +167,82 @@ describe('reviewed semantic interpretation', () => {
     expect(rebuild(facts, [reviewed]).bridge.candidate?.component_data).toEqual({
       electrical: { continuous_input_current_a: 150 },
     });
+  });
 
+  it('discovers a contract target for an unsupported label and previews the persisted normalization', () => {
+    const facts = [fact('Mystery electrical rating', '150 A')];
+    const { proposals } = prepare(facts);
+    expect(proposals[0].target).toBe('source_label:mystery electrical rating');
+    const targets = reviewedSemanticTargetsForFacts(facts, facts, [acquisition]);
+    expect(targets.map((target) => target.canonical_field)).toContain(
+      'electrical.continuous_output_current_a',
+    );
+    expect(targets.every((target) => !('normalize' in target) && !('aliases' in target))).toBe(
+      true,
+    );
+
+    const preview = previewReviewedSemanticMapping(
+      'electrical.continuous_output_current_a',
+      facts,
+      facts,
+      [acquisition],
+    );
+    expect(preview).toMatchObject({
+      target: 'electrical.continuous_output_current_a',
+      selected_fact_ids: [facts[0].id],
+      source_assertions: [{ raw_value: '150 A' }],
+      normalized_value: 150,
+      normalized_unit: 'A',
+    });
+    expect(facts[0].metadata.raw_value).toBe('150 A');
+    const reviewed = decision(facts, proposals, proposals[0], {
+      outcome: 'map',
+      target: preview.target,
+      normalized_value: preview.normalized_value,
+      normalized_unit: preview.normalized_unit,
+      rationale: 'The retained assertion identifies continuous output current.',
+    });
+    const result = rebuild(facts, [reviewed]).bridge.reviewed_semantic_interpretation.entries[0];
+    expect(result).toMatchObject({
+      state: 'human_mapped',
+      target: preview.target,
+      value: preview.normalized_value,
+      normalized_unit: preview.normalized_unit,
+      selected_fact_refs: proposals[0].fact_refs,
+    });
+  });
+
+  it('converts a retained inch assertion to the canonical millimetre preview', () => {
+    const facts = [fact('Unlisted body width', '11.5 in')];
+    const preview = previewReviewedSemanticMapping('dimensions_mm.x', facts, facts, [acquisition]);
+    expect(preview.source_assertions[0]).toMatchObject({ raw_value: '11.5 in' });
+    expect(preview).toMatchObject({
+      target: 'dimensions_mm.x',
+      normalized_value: 292.1,
+      normalized_unit: 'mm',
+    });
+    expect(facts[0].metadata.raw_value).toBe('11.5 in');
+  });
+
+  it('filters role-restricted fields and fails closed for unsupported units and dimensions', () => {
+    const facts = [fact('Unknown rating', '150 bananas')];
+    const targets = reviewedSemanticTargetsForFacts(facts, facts, [acquisition]);
+    expect(targets.map((target) => target.canonical_field)).not.toContain(
+      'battery.nominal_capacity_ah',
+    );
+    expect(() =>
+      previewReviewedSemanticMapping('electrical.continuous_output_current_a', facts, facts, [
+        acquisition,
+      ]),
+    ).toThrow();
+    expect(() =>
+      previewReviewedSemanticMapping('dimensions_mm.x', [fact('Unknown length', '10 A')], facts, [
+        acquisition,
+      ]),
+    ).toThrow();
+  });
+
+  it('maps explicit range targets using the same contract as automatic proposals', () => {
     const rangeFacts = [fact('unlisted output voltage range', '230-240 V')];
     const rangeProposals = prepare(rangeFacts).proposals;
     expect(rangeProposals[0].disposition).toBe('unsupported');

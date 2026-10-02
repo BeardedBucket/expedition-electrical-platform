@@ -1,44 +1,10 @@
 import { useState } from 'react';
 import type { ProductionPromotionDecisions } from '@expedition/ingestion';
 import type { HumanReviewInput, OperatorApi, OperatorJobDetail } from './api.js';
-
-export function ReviewValue({ value }: { value: unknown }) {
-  if (value === undefined) return <span>Unknown / not available</span>;
-  if (value === null) return <span>Explicit null</span>;
-  if (Array.isArray(value))
-    return (
-      <ul>
-        {value.map((item, index) => (
-          <li key={index}>
-            <ReviewValue value={item} />
-          </li>
-        ))}
-      </ul>
-    );
-  if (typeof value === 'object')
-    return (
-      <dl>
-        {Object.entries(value).map(([key, item]) => (
-          <div key={key}>
-            <dt>{key}</dt>
-            <dd>
-              <ReviewValue value={item} />
-            </dd>
-          </div>
-        ))}
-      </dl>
-    );
-  return <span>{String(value)}</span>;
-}
-export function SourceLink({ uri }: { uri?: string }) {
-  return uri && /^https?:\/\//i.test(uri) ? (
-    <a href={uri} target="_blank" rel="noopener noreferrer">
-      {uri}
-    </a>
-  ) : (
-    <span>Source URI unavailable</span>
-  );
-}
+import { OperatorApiError } from './api.js';
+import { SemanticAdjudication } from './SemanticAdjudication.js';
+import { ReviewValue, SourceLink } from './ReviewValue.js';
+export { ReviewValue, SourceLink } from './ReviewValue.js';
 
 export function ProductReview({
   job,
@@ -75,6 +41,7 @@ export function ProductReview({
   );
   const canApprove =
     !!job.candidate?.present &&
+    job.semantic_review?.complete !== false &&
     !review?.truncated &&
     !!reviewer.trim() &&
     !!category.trim() &&
@@ -121,8 +88,21 @@ export function ProductReview({
           : await client.review(job.summary.id, pending.action, pending.input!),
       );
       setPending(undefined);
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Request failed.');
+    } catch (caught) {
+      if (caught instanceof OperatorApiError && caught.status === 409) {
+        try {
+          onUpdate(await client.get(job.summary.id));
+          setError(
+            caught.proposal_ids.length
+              ? `Semantic review changed and is incomplete for: ${caught.proposal_ids.join(', ')}. Current job state was reloaded; review the listed proposals before approving.`
+              : 'The review changed. Current job state was reloaded; inspect it before confirming another action.',
+          );
+        } catch {
+          setError('The review changed. Reload the job before confirming another action.');
+        }
+      } else {
+        setError(caught instanceof Error ? caught.message : 'Request failed.');
+      }
     } finally {
       setBusy(false);
     }
@@ -147,6 +127,20 @@ export function ProductReview({
         </p>
       )}
       <fieldset disabled={!editable || busy || !!pending}>
+        {editable && (
+          <>
+            <label>
+              Reviewer label
+              <input
+                value={reviewer}
+                maxLength={200}
+                onChange={(e) => setReviewer(e.target.value)}
+              />
+            </label>
+            <p>This is an operator-entered label, not a verified or authenticated identity.</p>
+          </>
+        )}
+        <SemanticAdjudication job={job} client={client} reviewer={reviewer} onUpdate={onUpdate} />
         {review?.qualified_values?.map((assertion) => (
           <article key={assertion.id}>
             <h3>Qualified assertion: {assertion.target}</h3>
@@ -374,15 +368,6 @@ export function ProductReview({
         )}
         {editable && (
           <>
-            <label>
-              Reviewer label
-              <input
-                value={reviewer}
-                maxLength={200}
-                onChange={(e) => setReviewer(e.target.value)}
-              />
-            </label>
-            <p>This is an operator-entered label, not a verified or authenticated identity.</p>
             {job.candidate?.present && (
               <>
                 <label>

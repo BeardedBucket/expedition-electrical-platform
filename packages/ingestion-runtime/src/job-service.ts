@@ -13,6 +13,8 @@ import {
   PRODUCTION_SCHEMA_VERSION,
   reviewPackageSnapshot,
   evaluateSemanticReviewCompletion,
+  previewReviewedSemanticMapping,
+  reviewedSemanticTargetsForFacts,
   reviewedSemanticInputSnapshot,
   REVIEWED_SEMANTIC_POLICY_VERSION,
   validateReviewedSemanticDecision,
@@ -32,6 +34,8 @@ import {
   type SourceResolutionArtifact,
   type SourceCaptureArtifact,
   type ArtifactReference,
+  type ReviewedSemanticMappingPreview,
+  type ReviewedSemanticTargetDescriptor,
 } from '@expedition/ingestion';
 import { assertJsonInput, deserializeJob, serializeJob } from './codec.js';
 import { JobStoreConflictError, type IngestionJobStore } from './job-store.js';
@@ -116,6 +120,23 @@ export type SemanticDecisionRequest =
       readonly rationale?: string;
     });
 
+export interface SemanticTargetDiscoveryRequest {
+  readonly expected_review_snapshot: string;
+  readonly selected_fact_ids?: readonly string[];
+}
+
+export interface SemanticMapPreviewRequest {
+  readonly expected_review_snapshot: string;
+  readonly selected_fact_ids?: readonly string[];
+  readonly target: string;
+  readonly source_unit?: string;
+}
+
+export interface SemanticTargetDiscovery {
+  readonly proposal_id: string;
+  readonly targets: readonly ReviewedSemanticTargetDescriptor[];
+}
+
 export class SemanticDecisionError extends Error {
   constructor(
     readonly status: 400 | 409,
@@ -166,6 +187,138 @@ export class IngestionJobService {
 
   private readVersionedJob(id: string) {
     return this.dependencies.store.loadVersioned(id);
+  }
+
+  private semanticProposalFacts(
+    preparation: ReviewReadyProductionIngest,
+    proposalId: string,
+    selectedFactIds?: readonly string[],
+  ) {
+    const proposal = preparation.proposals.find((item) => item.id === proposalId);
+    if (!proposal)
+      throw new SemanticDecisionError(400, 'The requested semantic proposal is not current.');
+    if (proposal.derivation)
+      throw new SemanticDecisionError(
+        400,
+        'Calculated or derived semantic proposals cannot receive human decisions.',
+      );
+    const factsById = new Map(preparation.qualified_facts.map((fact) => [fact.id, fact]));
+    const factsByDigest = new Map(
+      preparation.qualified_facts.map((fact) => [artifactDigest(fact), fact]),
+    );
+    const boundFacts = (proposal.fact_refs ?? []).map((reference) => {
+      const fact = factsByDigest.get(reference.digest);
+      if (
+        reference.kind !== 'qualified_fact' ||
+        !reference.reference ||
+        !fact ||
+        fact.id !== reference.reference ||
+        factsById.get(fact.id) !== fact
+      )
+        throw new Error(
+          'The current semantic proposal contains a foreign or stale fact reference.',
+        );
+      return fact;
+    });
+    if (!boundFacts.length)
+      throw new SemanticDecisionError(
+        400,
+        'The current semantic proposal has no supporting facts.',
+      );
+    const selectedIds = selectedFactIds ?? boundFacts.map((fact) => fact.id);
+    if (
+      !Array.isArray(selectedIds) ||
+      selectedIds.length === 0 ||
+      new Set(selectedIds).size !== selectedIds.length
+    )
+      throw new SemanticDecisionError(400, 'Select one or more distinct supporting facts.');
+    const boundFactIds = new Set(boundFacts.map((fact) => fact.id));
+    const selectedFacts = selectedIds.map((factId) => {
+      const fact = factsById.get(factId);
+      if (!fact || !boundFactIds.has(factId))
+        throw new SemanticDecisionError(
+          400,
+          `Selected qualified fact '${factId}' does not support this proposal.`,
+        );
+      return fact;
+    });
+    return { proposal, boundFacts, selectedFacts };
+  }
+
+  private assertSemanticReviewEditable(
+    job: IngestionJob,
+    expectedReviewSnapshot: string,
+  ): ReviewReadyProductionIngest {
+    if (
+      job.state !== 'review_ready' ||
+      job.preparation?.status !== 'review_ready' ||
+      job.approval ||
+      job.finalization_request ||
+      job.final_result
+    )
+      throw new SemanticDecisionError(
+        409,
+        `Semantic decisions are only editable before approval while the job is review_ready (current state: ${job.state}).`,
+      );
+    const preparation = job.preparation;
+    if (expectedReviewSnapshot !== reviewPackageSnapshot(preparation.review_package))
+      throw new SemanticDecisionError(409, 'The reviewed package changed; reload before editing.');
+    return preparation;
+  }
+
+  async discoverSemanticTargets(
+    id: string,
+    proposalId: string,
+    request: SemanticTargetDiscoveryRequest,
+  ): Promise<SemanticTargetDiscovery> {
+    const job = await this.getJob(id);
+    const preparation = this.assertSemanticReviewEditable(job, request.expected_review_snapshot);
+    const proposal = preparation.proposals.find((item) => item.id === proposalId);
+    if (!proposal)
+      throw new SemanticDecisionError(400, 'The requested semantic proposal is not current.');
+    if (proposal.derivation) return { proposal_id: proposalId, targets: [] };
+    const { selectedFacts } = this.semanticProposalFacts(
+      preparation,
+      proposalId,
+      request.selected_fact_ids,
+    );
+    return {
+      proposal_id: proposalId,
+      targets: reviewedSemanticTargetsForFacts(
+        selectedFacts,
+        preparation.qualified_facts,
+        preparation.source_acquisitions,
+      ),
+    };
+  }
+
+  async previewSemanticMapping(
+    id: string,
+    proposalId: string,
+    request: SemanticMapPreviewRequest,
+  ): Promise<ReviewedSemanticMappingPreview> {
+    const job = await this.getJob(id);
+    const preparation = this.assertSemanticReviewEditable(job, request.expected_review_snapshot);
+    const { selectedFacts } = this.semanticProposalFacts(
+      preparation,
+      proposalId,
+      request.selected_fact_ids,
+    );
+    try {
+      const preview = previewReviewedSemanticMapping(
+        request.target,
+        selectedFacts,
+        preparation.qualified_facts,
+        preparation.source_acquisitions,
+        request.source_unit,
+      );
+      return preview;
+    } catch (error) {
+      throw new SemanticDecisionError(
+        400,
+        error instanceof Error ? error.message : 'Semantic mapping preview is invalid.',
+      );
+    }
   }
 
   private async exclusiveSemanticDecision<T>(id: string, work: () => Promise<T>): Promise<T> {
@@ -417,74 +570,15 @@ export class IngestionJobService {
   ): Promise<IngestionJob> {
     return this.exclusiveSemanticDecision(id, async () => {
       const { job, version } = await this.readVersionedJob(id);
-      if (
-        job.state !== 'review_ready' ||
-        job.preparation?.status !== 'review_ready' ||
-        job.approval ||
-        job.finalization_request ||
-        job.final_result
-      )
-        throw new SemanticDecisionError(
-          409,
-          `Semantic decisions are only editable before approval while the job is review_ready (current state: ${job.state}).`,
-        );
-
-      const preparation = job.preparation as ReviewReadyProductionIngest;
-      if (request.expected_review_snapshot !== reviewPackageSnapshot(preparation.review_package))
-        throw new SemanticDecisionError(
-          409,
-          'The reviewed package changed; reload before editing.',
-        );
+      const preparation = this.assertSemanticReviewEditable(job, request.expected_review_snapshot);
       if (typeof request.actor_label !== 'string' || !request.actor_label.trim())
         throw new SemanticDecisionError(400, 'An operator label is required.');
 
-      const proposal = preparation.proposals.find((item) => item.id === request.proposal_id);
-      if (!proposal)
-        throw new SemanticDecisionError(400, 'The requested semantic proposal is not current.');
-      if (proposal.derivation)
-        throw new SemanticDecisionError(
-          400,
-          'Calculated or derived semantic proposals cannot receive human decisions.',
-        );
-
-      const proposalFactRefs = proposal.fact_refs ?? [];
-      if (!proposalFactRefs.length)
-        throw new Error('The current semantic proposal has no qualified-fact references.');
-      const factsById = new Map(preparation.qualified_facts.map((fact) => [fact.id, fact]));
-      const factsByDigest = new Map(
-        preparation.qualified_facts.map((fact) => [artifactDigest(fact), fact]),
+      const { proposal, boundFacts, selectedFacts } = this.semanticProposalFacts(
+        preparation,
+        request.proposal_id,
+        request.selected_fact_ids,
       );
-      const boundFacts = proposalFactRefs.map((reference) => {
-        const fact = factsByDigest.get(reference.digest);
-        if (
-          reference.kind !== 'qualified_fact' ||
-          !reference.reference ||
-          !fact ||
-          fact.id !== reference.reference ||
-          factsById.get(fact.id) !== fact
-        )
-          throw new Error(
-            'The current semantic proposal contains a foreign or stale fact reference.',
-          );
-        return fact;
-      });
-      const selectedIds = request.selected_fact_ids ?? boundFacts.map((fact) => fact.id);
-      if (
-        !Array.isArray(selectedIds) ||
-        selectedIds.length === 0 ||
-        new Set(selectedIds).size !== selectedIds.length
-      )
-        throw new SemanticDecisionError(400, 'Select one or more distinct supporting facts.');
-      const boundFactIds = new Set(boundFacts.map((fact) => fact.id));
-      const selectedFacts = selectedIds.map((factId) => {
-        const fact = factsById.get(factId);
-        if (!fact || !boundFactIds.has(factId))
-          throw new SemanticDecisionError(
-            400,
-            `Selected qualified fact '${factId}' does not support this proposal.`,
-          );
-        return fact;
-      });
 
       const decisions: readonly ReviewedSemanticDecision[] =
         preparation.bridge.reviewed_semantic_decisions ?? [];

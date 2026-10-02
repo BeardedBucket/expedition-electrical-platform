@@ -195,9 +195,34 @@ export const jobDetail = (job: IngestionJob) => {
   const r = p?.status === 'review_ready' ? p : undefined;
   const candidate = r?.bridge.candidate;
   const pkg = r?.review_package;
+  const productReview = productReviewView(job);
   const semanticCompletion = r
     ? evaluateSemanticReviewCompletion(r.proposals, r.bridge.reviewed_semantic_interpretation)
     : undefined;
+  const semanticDecisionViews =
+    r?.bridge.reviewed_semantic_decisions?.map((decision) => ({
+      id: decision.id,
+      proposal_id: decision.proposal_ref.reference,
+      revision: decision.revision,
+      active: r.bridge.reviewed_semantic_interpretation.entries.some(
+        (entry) =>
+          entry.proposal_id === decision.proposal_ref.reference &&
+          entry.decision_ref?.reference === decision.id,
+      ),
+      outcome: decision.outcome,
+      actor_label: decision.actor.identifier,
+      recorded_at: decision.recorded_at,
+      ...(decision.target ? { target: decision.target } : {}),
+      ...(decision.normalized_value !== undefined
+        ? { normalized_value: decision.normalized_value }
+        : {}),
+      ...(decision.normalized_unit ? { normalized_unit: decision.normalized_unit } : {}),
+      ...(decision.rationale ? { rationale: decision.rationale } : {}),
+      ...(decision.schema_gap ? { schema_gap: decision.schema_gap } : {}),
+      selected_fact_ids: (decision.selected_fact_refs ?? decision.fact_refs).map(
+        (reference) => reference.reference,
+      ),
+    })) ?? [];
   const semanticReview = r
     ? {
         complete: semanticCompletion?.complete,
@@ -206,34 +231,68 @@ export const jobDetail = (job: IngestionJob) => {
         interpretation: r.bridge.reviewed_semantic_interpretation.entries.map((entry) => ({
           proposal_id: entry.proposal_id,
           state: entry.state,
+          automatic_target: entry.automatic_target,
           automatic_disposition: entry.automatic_disposition,
+          ...(entry.automatic_value !== undefined
+            ? { automatic_value: entry.automatic_value }
+            : {}),
           ...(entry.target ? { target: entry.target } : {}),
           ...(entry.value !== undefined ? { value: entry.value } : {}),
           ...(entry.normalized_unit ? { normalized_unit: entry.normalized_unit } : {}),
         })),
-        decisions: (r.bridge.reviewed_semantic_decisions ?? []).map((decision) => ({
-          id: decision.id,
-          proposal_id: decision.proposal_ref.reference,
-          revision: decision.revision,
-          active: r.bridge.reviewed_semantic_interpretation.entries.some(
-            (entry) =>
-              entry.proposal_id === decision.proposal_ref.reference &&
-              entry.decision_ref?.reference === decision.id,
-          ),
-          outcome: decision.outcome,
-          actor_label: decision.actor.identifier,
-          recorded_at: decision.recorded_at,
-          ...(decision.target ? { target: decision.target } : {}),
-          ...(decision.normalized_value !== undefined
-            ? { normalized_value: decision.normalized_value }
-            : {}),
-          ...(decision.normalized_unit ? { normalized_unit: decision.normalized_unit } : {}),
-          ...(decision.rationale ? { rationale: decision.rationale } : {}),
-          ...(decision.schema_gap ? { schema_gap: decision.schema_gap } : {}),
-          selected_fact_ids: (decision.selected_fact_refs ?? decision.fact_refs).map(
-            (reference) => reference.reference,
-          ),
-        })),
+        decisions: semanticDecisionViews,
+        work: (() => {
+          const requiredIds = new Set(
+            (semanticCompletion?.required_dispositions ?? []).map(
+              (requirement) => requirement.proposal_id,
+            ),
+          );
+          const interpretationById = new Map(
+            r.bridge.reviewed_semantic_interpretation.entries.map((entry) => [
+              entry.proposal_id,
+              entry,
+            ]),
+          );
+          const proposalViews = [
+            ...(productReview?.fields.flatMap((field) => field.proposals) ?? []),
+            ...(productReview?.qualified_values?.flatMap((assertion) => assertion.proposals) ?? []),
+          ];
+          const items = r.proposals.map((proposal) => {
+            const interpretation = interpretationById.get(proposal.id);
+            const history = semanticDecisionViews.filter(
+              (decision) => decision.proposal_id === proposal.id,
+            );
+            return {
+              id: proposal.id,
+              automatic_target: proposal.target,
+              automatic_disposition: proposal.disposition,
+              ...(proposal.proposed_value !== undefined
+                ? { automatic_value: proposal.proposed_value }
+                : {}),
+              derived: proposal.derivation !== undefined,
+              state: interpretation?.state ?? 'automatic',
+              ...(interpretation?.target ? { target: interpretation.target } : {}),
+              ...(interpretation?.value !== undefined ? { value: interpretation.value } : {}),
+              ...(interpretation?.normalized_unit
+                ? { normalized_unit: interpretation.normalized_unit }
+                : {}),
+              required: requiredIds.has(proposal.id),
+              active_decision: history?.find((decision) => decision.active),
+              decision_history: history,
+              evidence: proposalViews.find((view) => view.id === proposal.id)?.evidence ?? [],
+            };
+          });
+          return {
+            required: items.filter((item) => item.required && !item.derived),
+            reviewed: items.filter(
+              (item) => !item.required && !item.derived && item.active_decision !== undefined,
+            ),
+            automatic: items.filter(
+              (item) => !item.required && !item.derived && item.active_decision === undefined,
+            ),
+            derived: items.filter((item) => item.derived),
+          };
+        })(),
       }
     : undefined;
   // Counts describe persisted stage outputs, not a browser inference that a captured
@@ -297,7 +356,7 @@ export const jobDetail = (job: IngestionJob) => {
   return {
     summary: jobSummary(job),
     pipeline_summary,
-    product_review: productReviewView(job),
+    product_review: productReview,
     approval: job.approval
       ? {
           decision: job.approval.decision,

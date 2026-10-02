@@ -51,6 +51,15 @@ const detail: OperatorJobDetail = {
 };
 const client = (): OperatorApi => ({
   review: vi.fn().mockResolvedValue(detail),
+  semanticTargets: vi.fn().mockResolvedValue({ proposal_id: '', targets: [] }),
+  semanticPreview: vi.fn().mockResolvedValue({
+    target: '',
+    selected_fact_ids: [],
+    source_assertions: [],
+    normalized_value: null,
+    normalized_unit: '',
+  }),
+  semanticDecision: vi.fn().mockResolvedValue(detail),
   finalize: vi.fn().mockResolvedValue(detail),
   submitSourceCandidate: vi.fn().mockResolvedValue(detail),
   acceptSource: vi.fn().mockResolvedValue(detail),

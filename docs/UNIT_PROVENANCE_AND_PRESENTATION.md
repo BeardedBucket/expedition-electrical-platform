@@ -115,6 +115,15 @@ For example, `7.09 in` remains the source value while the normalized fact stores
 conversion. This conversion does not create a new calculated engineering fact
 and must not be attributed to the manufacturer as a published millimetre value.
 
+Human-reviewed semantic normalization removes a floating-point conversion artifact
+only when a 15-significant-digit decimal representation is already within the
+existing 4-ULP equality allowance. This preserves values such as `11.5 in` as
+`292.1 mm` rather than exposing a binary artifact such as
+`292.09999999999997 mm`. The allowance controls representation noise only; it is
+not a measurement tolerance, source precision rule, or engineering margin. Preview
+and persisted decision replay use the same normalization path, while retained raw
+source values and units remain unchanged.
+
 ## Unit extraction, contradiction checks, and alias equivalence
 
 `parseExactUnitValue` enforces strict validation when parsing raw values and units:

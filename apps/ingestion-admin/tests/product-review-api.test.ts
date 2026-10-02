@@ -108,6 +108,201 @@ const semanticRequest = (
 };
 
 describe('human review and guarded finalization API', () => {
+  it('discovers explicit targets, previews without persistence, and persists the exact preview', async () => {
+    const f = await fixture('semantic');
+    const request = semanticRequest(await f.service.getJob(f.id));
+    const targetPath = `${f.url}/review/semantic-proposals/${encodeURIComponent(request.proposal_id)}`;
+    const path = join(f.root, 'jobs', `${f.id}.json`);
+    const before = await readFile(path, 'utf8');
+    const targetResponse = await post(`${targetPath}/targets`, {
+      expected_review_snapshot: request.expected_review_snapshot,
+      selected_fact_ids: request.selected_fact_ids,
+    });
+    expect(targetResponse.status).toBe(200);
+    const discovered = await targetResponse.json();
+    expect(discovered.proposal_id).toBe(request.proposal_id);
+    expect(discovered.targets).toContainEqual(
+      expect.objectContaining({
+        canonical_field: 'electrical.continuous_output_current_a',
+        dimension: 'current',
+        unit: 'A',
+        human_adjudication: 'source_fact',
+      }),
+    );
+    expect(
+      discovered.targets.every(
+        (target: Record<string, unknown>) => !('normalize' in target) && !('aliases' in target),
+      ),
+    ).toBe(true);
+    expect(JSON.stringify(discovered)).not.toMatch(/checksum|lock_version/i);
+
+    const previewResponse = await post(`${targetPath}/preview`, {
+      expected_review_snapshot: request.expected_review_snapshot,
+      selected_fact_ids: request.selected_fact_ids,
+      target: request.target,
+    });
+    expect(previewResponse.status).toBe(200);
+    const preview = await previewResponse.json();
+    expect(preview).toMatchObject({
+      target: request.target,
+      selected_fact_ids: request.selected_fact_ids,
+      source_assertions: [
+        { raw_value: '150', source_unit: 'A', effective_source_unit: 'A' },
+        { raw_value: '150', source_unit: 'A', effective_source_unit: 'A' },
+      ],
+      normalized_value: 150,
+      normalized_unit: 'A',
+    });
+    expect(await readFile(path, 'utf8')).toBe(before);
+    expect((await f.service.getJob(f.id)).preparation?.status).toBe('review_ready');
+    if ((await f.service.getJob(f.id)).preparation?.status === 'review_ready')
+      expect(
+        (await f.service.getJob(f.id)).preparation?.bridge.reviewed_semantic_decisions,
+      ).toEqual([]);
+    expect(
+      (
+        await post(`${targetPath}/targets`, {
+          expected_review_snapshot: 'sha256:stale',
+          selected_fact_ids: request.selected_fact_ids,
+        })
+      ).status,
+    ).toBe(409);
+    expect(
+      (
+        await post(`${targetPath}/preview`, {
+          expected_review_snapshot: 'sha256:stale',
+          selected_fact_ids: request.selected_fact_ids,
+          target: request.target,
+        })
+      ).status,
+    ).toBe(409);
+
+    expect(
+      (
+        await post(`${targetPath}/preview`, {
+          expected_review_snapshot: request.expected_review_snapshot,
+          selected_fact_ids: request.selected_fact_ids,
+          target: request.target,
+          normalized_value: 150,
+        })
+      ).status,
+    ).toBe(400);
+    expect(
+      (
+        await post(`${targetPath}/targets`, {
+          expected_review_snapshot: request.expected_review_snapshot,
+          selected_fact_ids: request.selected_fact_ids,
+          revision: 50,
+        })
+      ).status,
+    ).toBe(400);
+
+    const persisted = await post(`${f.url}/review/semantic-decisions`, {
+      ...request,
+      normalized_value: preview.normalized_value,
+      normalized_unit: preview.normalized_unit,
+    });
+    expect(persisted.status).toBe(200);
+    const saved = await persisted.json();
+    expect(saved.semantic_review.decisions[0]).toMatchObject({
+      proposal_id: request.proposal_id,
+      target: preview.target,
+      selected_fact_ids: preview.selected_fact_ids,
+      normalized_value: preview.normalized_value,
+      normalized_unit: preview.normalized_unit,
+    });
+  });
+
+  it('returns no targets and rejects mapping preview for a derived proposal', async () => {
+    const f = await fixture('semantic');
+    const store = new FileIngestionJobStore(join(f.root, 'jobs'));
+    const { job, version } = await store.loadVersioned(f.id);
+    if (job.preparation?.status !== 'review_ready') throw new Error('Fixture not review-ready');
+    const proposal = job.preparation.proposals.find(
+      (item) => item.target === 'source_label:mystery electrical rating',
+    );
+    if (!proposal) throw new Error('Fixture proposal missing');
+    const derived = {
+      ...proposal,
+      derivation: {
+        status: 'derived' as const,
+        rule_version: 'test',
+        formula: 'test',
+        input_targets: [],
+        input_units: [],
+        output_unit: 'A',
+        assumptions: [],
+      },
+    };
+    const replace = (proposals: typeof job.preparation.proposals) =>
+      proposals.map((item) => (item.id === proposal.id ? derived : item));
+    await store.save(
+      {
+        ...job,
+        preparation: {
+          ...job.preparation,
+          proposals: replace(job.preparation.proposals),
+          bridge: {
+            ...job.preparation.bridge,
+            proposals: replace(job.preparation.bridge.proposals),
+          },
+        },
+      },
+      version,
+    );
+    const snapshot = reviewPackageSnapshot(job.preparation.review_package);
+    const base = `${f.url}/review/semantic-proposals/${encodeURIComponent(proposal.id)}`;
+    const targetsResponse = await post(`${base}/targets`, {
+      expected_review_snapshot: snapshot,
+    });
+    expect(targetsResponse.status, JSON.stringify(await targetsResponse.clone().json())).toBe(200);
+    const targets = await targetsResponse.json();
+    expect(targets.targets).toEqual([]);
+    expect(
+      (
+        await post(`${base}/preview`, {
+          expected_review_snapshot: snapshot,
+          target: 'electrical.continuous_output_current_a',
+        })
+      ).status,
+    ).toBe(400);
+  });
+
+  it('projects separate required, reviewed, automatic and derived semantic groups with safe evidence', async () => {
+    const f = await fixture('semantic');
+    const semantic = f.detail.semantic_review;
+    const proposal =
+      f.job.preparation?.status === 'review_ready'
+        ? f.job.preparation.proposals.find(
+            (item) => item.target === 'source_label:mystery electrical rating',
+          )
+        : undefined;
+    expect(proposal).toBeDefined();
+    const required = semantic.work.required.find(
+      (item: { id: string }) => item.id === proposal?.id,
+    );
+    expect(required).toMatchObject({
+      automatic_disposition: 'unsupported',
+      required: true,
+      evidence: expect.arrayContaining([
+        expect.objectContaining({
+          raw_value: '150',
+          unit: 'A',
+          label: 'Mystery electrical rating',
+        }),
+      ]),
+    });
+    expect(
+      semantic.work.automatic.some(
+        (item: { automatic_disposition: string }) => item.automatic_disposition === 'mapped',
+      ),
+    ).toBe(true);
+    expect(semantic.work.derived.every((item: { derived: boolean }) => item.derived)).toBe(true);
+    expect(JSON.stringify(semantic)).not.toMatch(
+      /store_checksum|lock_version|persistence_envelope/i,
+    );
+  });
+
   it('records a map decision through the API and returns rebuilt safe review state', async () => {
     const f = await fixture('semantic');
     const request = semanticRequest(await f.service.getJob(f.id));

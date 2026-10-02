@@ -1,6 +1,10 @@
 import type { OperatorJobDetail, OperatorJobSummary } from '../server/operator-views.js';
 import type { IntakeSuggestions } from '../server/suggestions.js';
-import type { ProductionPromotionDecisions } from '@expedition/ingestion';
+import type { JsonValue, ProductionPromotionDecisions } from '@expedition/ingestion';
+import type {
+  ReviewedSemanticMappingPreview,
+  ReviewedSemanticTargetDescriptor,
+} from '@expedition/ingestion';
 export interface HumanReviewInput {
   reviewer_id: string;
   reviewed_decisions?: string[];
@@ -12,6 +16,55 @@ export interface IntakeInput {
   product_model: string;
   manufacturer_part_number: string;
   official_product_uri: string;
+}
+export interface SemanticIntentBase {
+  proposal_id: string;
+  expected_review_snapshot: string;
+  selected_fact_ids: readonly string[];
+  actor_label: string;
+}
+export type SemanticDecisionInput =
+  | (SemanticIntentBase & {
+      outcome: 'map';
+      target: string;
+      normalized_value: JsonValue;
+      normalized_unit: string;
+      source_unit?: string;
+      rationale: string;
+    })
+  | (SemanticIntentBase & {
+      outcome: 'schema_gap';
+      schema_gap: { concept_key: string; explanation: string };
+      rationale: string;
+    })
+  | (SemanticIntentBase & {
+      outcome: 'reject' | 'not_applicable';
+      rationale: string;
+    })
+  | (SemanticIntentBase & {
+      outcome: 'evidence_only' | 'unresolved';
+      rationale?: string;
+    });
+export interface SemanticTargetRequest {
+  expected_review_snapshot: string;
+  selected_fact_ids: readonly string[];
+}
+export interface SemanticPreviewRequest extends SemanticTargetRequest {
+  target: string;
+  source_unit?: string;
+}
+export interface SemanticTargetResponse {
+  proposal_id: string;
+  targets: readonly ReviewedSemanticTargetDescriptor[];
+}
+export class OperatorApiError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+    readonly proposal_ids: readonly string[] = [],
+  ) {
+    super(message);
+  }
 }
 // Mirrors the ingestion-runtime batch contract; the form blocks overflow rather than truncating.
 export const MAX_BATCH_SIZE = 50;
@@ -41,7 +94,13 @@ async function request<T>(path: string, method = 'GET', body?: object): Promise<
   });
   const result = await response.json();
   if (!response.ok)
-    throw new Error(result.error?.message ?? `Request failed (${response.status}).`);
+    throw new OperatorApiError(
+      response.status,
+      result.error?.message ?? `Request failed (${response.status}).`,
+      Array.isArray(result.error?.proposal_ids)
+        ? result.error.proposal_ids.filter((id: unknown): id is string => typeof id === 'string')
+        : [],
+    );
   return result as T;
 }
 async function batchRequest<T>(path: string, method = 'GET', body?: object): Promise<T> {
@@ -81,6 +140,24 @@ export const api = {
   prepare: (id: string) => request<OperatorJobDetail>(`/${encodeURIComponent(id)}/prepare`, 'POST'),
   review: (id: string, action: 'approve' | 'reject' | 'defer', input: HumanReviewInput) =>
     request<OperatorJobDetail>(`/${encodeURIComponent(id)}/review/${action}`, 'POST', input),
+  semanticTargets: (id: string, proposalId: string, input: SemanticTargetRequest) =>
+    request<SemanticTargetResponse>(
+      `/${encodeURIComponent(id)}/review/semantic-proposals/${encodeURIComponent(proposalId)}/targets`,
+      'POST',
+      input,
+    ),
+  semanticPreview: (id: string, proposalId: string, input: SemanticPreviewRequest) =>
+    request<ReviewedSemanticMappingPreview>(
+      `/${encodeURIComponent(id)}/review/semantic-proposals/${encodeURIComponent(proposalId)}/preview`,
+      'POST',
+      input,
+    ),
+  semanticDecision: (id: string, input: SemanticDecisionInput) =>
+    request<OperatorJobDetail>(
+      `/${encodeURIComponent(id)}/review/semantic-decisions`,
+      'POST',
+      input,
+    ),
   finalize: (id: string) =>
     request<OperatorJobDetail>(`/${encodeURIComponent(id)}/finalize`, 'POST', { write: true }),
   submitSourceCandidate: (id: string, uri: string) =>

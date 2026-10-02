@@ -978,7 +978,7 @@ describe('durable human semantic adjudication', () => {
 
     await expect(
       runtime.recordSemanticDecision(ready.id, { ...request, normalized_value: 999 }),
-    ).rejects.toThrow(/not supported by retained source fact/i);
+    ).rejects.toThrow(/not supported by (?:retained source fact|the selected source facts)/i);
     expect(await readFile(recordPath, 'utf8')).toBe(originalBytes);
     expect(serializeJob(await new FileIngestionJobStore(storageRoot).load(ready.id))).toBe(
       serializeJob(ready),

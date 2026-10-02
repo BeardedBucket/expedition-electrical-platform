@@ -13,12 +13,15 @@ import {
   type SemanticProposal,
   type SourceAcquisitionArtifact,
 } from './production-contracts.js';
+import type { JsonValue } from './contracts.js';
 import { buildProductionSemanticProposals } from './production-semantic-bridge.js';
 import {
   productionSemanticFieldDescriptor,
+  productionSemanticFieldDescriptors,
   productionSemanticValueMatchesTarget,
   normalizeProductionSemanticTarget,
   validateProductionSemanticTargetContracts,
+  type ProductionSemanticFieldDescriptor,
 } from './field-mapping.js';
 import { reviewedSemanticContext } from './semantic-context.js';
 import type { QualifiedFactWholeIntakeReconciliationResult } from './reconciliation.js';
@@ -60,6 +63,19 @@ export const deterministicNormalizedValuesEqual = (left: unknown, right: unknown
     );
   }
   return same(left, right);
+};
+const canonicalizeConversionNoise = (value: JsonValue): JsonValue => {
+  if (typeof value === 'number') {
+    // Fifteen significant decimal digits remove conversion noise only inside the existing 4-ULP allowance.
+    const concise = Number(value.toPrecision(15));
+    return deterministicNormalizedValuesEqual(value, concise) ? concise : value;
+  }
+  if (Array.isArray(value)) return value.map(canonicalizeConversionNoise);
+  if (value !== null && typeof value === 'object')
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, canonicalizeConversionNoise(item)]),
+    );
+  return value;
 };
 const refKey = (reference: ArtifactReference): string =>
   `${reference.kind}:${reference.reference ?? ''}:${reference.digest}`;
@@ -156,6 +172,165 @@ export const effectiveReviewedSemanticSourceUnit = (
   return retained?.symbol ?? explicitUnit;
 };
 
+export type ReviewedSemanticTargetDescriptor = ProductionSemanticFieldDescriptor;
+
+export interface ReviewedSemanticMappingPreview {
+  readonly target: string;
+  readonly selected_fact_ids: readonly string[];
+  readonly source_assertions: readonly {
+    readonly fact_id: string;
+    readonly source_label?: string;
+    readonly raw_value: JsonValue;
+    readonly source_unit?: string;
+    readonly effective_source_unit?: string;
+  }[];
+  readonly normalized_value: JsonValue;
+  readonly normalized_unit: string;
+  readonly source_unit?: string;
+}
+
+/** Selectable fields come only from explicit canonical contracts, never label aliases. */
+export const reviewedSemanticTargetsForFacts = (
+  selectedFacts: readonly QualifiedFactArtifact[],
+  allFacts: readonly QualifiedFactArtifact[],
+  acquisitions: readonly SourceAcquisitionArtifact[],
+): readonly ReviewedSemanticTargetDescriptor[] => {
+  const contexts = selectedFacts.map((fact) =>
+    reviewedSemanticContext(fact, allFacts, acquisitions),
+  );
+  return productionSemanticFieldDescriptors()
+    .filter((descriptor) =>
+      contexts.every((context) =>
+        productionSemanticFieldDescriptor(
+          descriptor.canonical_field,
+          context?.role,
+          context?.region,
+        ),
+      ),
+    )
+    .sort((left, right) => left.canonical_field.localeCompare(right.canonical_field))
+    .map(
+      ({
+        canonical_field,
+        value_shapes,
+        dimension,
+        unit,
+        allows_unit_conversion,
+        allowed_roles,
+        allowed_regions,
+        human_adjudication,
+        normalizer_version,
+      }) => ({
+        canonical_field,
+        value_shapes,
+        dimension,
+        unit,
+        allows_unit_conversion,
+        ...(allowed_roles ? { allowed_roles } : {}),
+        ...(allowed_regions ? { allowed_regions } : {}),
+        human_adjudication,
+        normalizer_version,
+      }),
+    );
+};
+
+/** Pure, non-persisting normalization shared with persisted decision replay. */
+export const previewReviewedSemanticMapping = (
+  target: string,
+  selectedFacts: readonly QualifiedFactArtifact[],
+  allFacts: readonly QualifiedFactArtifact[],
+  acquisitions: readonly SourceAcquisitionArtifact[],
+  reviewedSourceUnit?: string,
+): ReviewedSemanticMappingPreview => {
+  if (!selectedFacts.length) throw new Error('A map decision must select supporting evidence.');
+  const contexts = selectedFacts.map((fact) =>
+    reviewedSemanticContext(fact, allFacts, acquisitions),
+  );
+  if (
+    contexts.some(
+      (context) => !productionSemanticFieldDescriptor(target, context?.role, context?.region),
+    )
+  )
+    throw new Error(`Canonical target '${target}' is unsupported for this fact context.`);
+  const descriptor = productionSemanticFieldDescriptor(
+    target,
+    contexts[0]?.role,
+    contexts[0]?.region,
+  );
+  if (!descriptor) throw new Error(`Canonical target '${target}' is not supported.`);
+  if (reviewedSourceUnit && !descriptor.allows_unit_conversion)
+    throw new Error(`Canonical target '${target}' does not allow source-unit recovery.`);
+  const targetUnit =
+    descriptor.unit !== 'structured' && descriptor.unit !== 'string'
+      ? resolveUnit(descriptor.unit)
+      : undefined;
+  const normalized = selectedFacts.map((fact, index) => {
+    const sourceUnit = effectiveReviewedSemanticSourceUnit(fact, reviewedSourceUnit);
+    const parsed = targetUnit
+      ? parseExactUnitValue(fact.metadata.raw_value, sourceUnit)
+      : undefined;
+    if (targetUnit && parsed && parsed.unit.dimension !== targetUnit.dimension)
+      throw new Error(
+        `Source unit '${parsed.unit.symbol}' is incompatible with target '${target}'.`,
+      );
+    const mapped = normalizeProductionSemanticTarget(
+      target,
+      fact.metadata.raw_value,
+      sourceUnit,
+      contexts[index],
+      fact.metadata.source_label ?? fact.metadata.source_wording,
+    );
+    if (!mapped)
+      throw new Error(
+        `Retained source value for '${fact.id}' cannot be normalized to '${target}'.`,
+      );
+    if (mapped.qualifiers)
+      throw new Error(
+        `Retained source value for '${fact.id}' requires qualifiers not represented by the reviewed decision.`,
+      );
+    if (
+      targetUnit &&
+      mapped.sourceUnit &&
+      resolveUnit(mapped.sourceUnit)?.dimension !== targetUnit.dimension
+    )
+      throw new Error(`Source unit '${mapped.sourceUnit}' is incompatible with '${target}'.`);
+    return {
+      fact,
+      sourceUnit: mapped.sourceUnit ?? sourceUnit,
+      value: canonicalizeConversionNoise(mapped.value),
+    };
+  });
+  if (
+    !productionSemanticValueMatchesTarget(
+      target,
+      normalized[0].value,
+      contexts[0]?.role,
+      contexts[0]?.region,
+    )
+  )
+    throw new Error(`Value does not satisfy canonical target '${target}'.`);
+  if (
+    !normalized.every((item) => deterministicNormalizedValuesEqual(item.value, normalized[0].value))
+  )
+    throw new Error(
+      `Selected source facts do not have one consistent normalized value for '${target}'.`,
+    );
+  return {
+    target,
+    selected_fact_ids: selectedFacts.map((fact) => fact.id),
+    source_assertions: normalized.map(({ fact, sourceUnit }) => ({
+      fact_id: fact.id,
+      ...(fact.metadata.source_label ? { source_label: fact.metadata.source_label } : {}),
+      raw_value: fact.metadata.raw_value,
+      ...(fact.metadata.source_unit ? { source_unit: fact.metadata.source_unit } : {}),
+      ...(sourceUnit ? { effective_source_unit: sourceUnit } : {}),
+    })),
+    normalized_value: normalized[0].value,
+    normalized_unit: descriptor.unit,
+    ...(reviewedSourceUnit ? { source_unit: resolveUnit(reviewedSourceUnit)?.symbol } : {}),
+  };
+};
+
 const validateMappedDecision = (
   decision: ReviewedSemanticDecision,
   selectedFacts: readonly QualifiedFactArtifact[],
@@ -165,13 +340,6 @@ const validateMappedDecision = (
   const contexts = selectedFacts.map((fact) =>
     reviewedSemanticContext(fact, allFacts, acquisitions),
   );
-  if (
-    contexts.some(
-      (context) =>
-        !productionSemanticFieldDescriptor(decision.target!, context?.role, context?.region),
-    )
-  )
-    throw new Error(`Canonical target '${decision.target}' is unsupported for this fact context.`);
   const descriptor = productionSemanticFieldDescriptor(
     decision.target!,
     contexts[0]?.role,
@@ -187,7 +355,6 @@ const validateMappedDecision = (
     )
   )
     throw new Error(`Value does not satisfy canonical target '${decision.target}'.`);
-
   const targetUnit =
     descriptor.unit !== 'structured' && descriptor.unit !== 'string'
       ? resolveUnit(descriptor.unit)
@@ -208,50 +375,16 @@ const validateMappedDecision = (
   if (decision.source_unit && !descriptor.allows_unit_conversion)
     throw new Error(`Canonical target '${decision.target}' does not allow unit conversion.`);
 
-  const normalized = selectedFacts.map((fact, index) => {
-    const sourceUnit = effectiveReviewedSemanticSourceUnit(fact, decision.source_unit);
-    const parsed = targetUnit
-      ? parseExactUnitValue(fact.metadata.raw_value, sourceUnit)
-      : undefined;
-    if (targetUnit && parsed && parsed.unit.dimension !== targetUnit.dimension)
-      throw new Error(
-        `Source unit '${parsed.unit.symbol}' is incompatible with target '${decision.target}'.`,
-      );
-    const mapped = normalizeProductionSemanticTarget(
-      decision.target!,
-      fact.metadata.raw_value,
-      sourceUnit,
-      contexts[index],
-      fact.metadata.source_label ?? fact.metadata.source_wording,
-    );
-    if (!mapped)
-      throw new Error(
-        `Retained source value for '${fact.id}' cannot be normalized to '${decision.target}'.`,
-      );
-    if (mapped.qualifiers)
-      throw new Error(
-        `Retained source value for '${fact.id}' requires qualifiers not represented by the reviewed decision.`,
-      );
-    if (
-      targetUnit &&
-      mapped.sourceUnit &&
-      resolveUnit(mapped.sourceUnit)?.dimension !== targetUnit.dimension
-    )
-      throw new Error(
-        `Source unit '${mapped.sourceUnit}' is incompatible with '${decision.target}'.`,
-      );
-    if (!deterministicNormalizedValuesEqual(mapped.value, decision.normalized_value))
-      throw new Error(
-        `Reviewed value for '${decision.target}' is not supported by retained source fact '${fact.id}'.`,
-      );
-    return { fact, sourceUnit: mapped.sourceUnit ?? sourceUnit, value: mapped.value };
-  });
-  if (!normalized.length) throw new Error('A map decision must select supporting evidence.');
-  if (
-    !normalized.every((item) => deterministicNormalizedValuesEqual(item.value, normalized[0].value))
-  )
+  const preview = previewReviewedSemanticMapping(
+    decision.target!,
+    selectedFacts,
+    allFacts,
+    acquisitions,
+    decision.source_unit,
+  );
+  if (!deterministicNormalizedValuesEqual(preview.normalized_value, decision.normalized_value))
     throw new Error(
-      `Selected source facts do not have one consistent normalized value for '${decision.target}'.`,
+      `Reviewed value for '${decision.target}' is not supported by retained source fact '${preview.selected_fact_ids[0]}'.`,
     );
 };
 

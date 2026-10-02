@@ -48,13 +48,13 @@ a second finalization, retry, reset or editing approval in place.
 
 ## State transitions
 
-| Operation | Required state | Persisted outcome |
-| --- | --- | --- |
-| Prepare | created | preparing → review_ready or preparation_failed |
-| Approve | review_ready with candidate and valid selections | approved |
-| Reject | review_ready, including no candidate | review_rejected |
-| Defer | review_ready, including no candidate | review_deferred |
-| Confirm write | approved | finalizing → finalized or finalization_failed |
+| Operation     | Required state                                   | Persisted outcome                              |
+| ------------- | ------------------------------------------------ | ---------------------------------------------- |
+| Prepare       | created                                          | preparing → review_ready or preparation_failed |
+| Approve       | review_ready with candidate and valid selections | approved                                       |
+| Reject        | review_ready, including no candidate             | review_rejected                                |
+| Defer         | review_ready, including no candidate             | review_deferred                                |
+| Confirm write | approved                                         | finalizing → finalized or finalization_failed  |
 
 Source-resolution states and operations remain unchanged. Reject/defer do not invoke
 promotion conversion. Approval does not invoke finalization. Terminal review and
@@ -106,6 +106,50 @@ review_ready state. Browser-supplied bindings, references, promotion results and
 destinations are rejected. The runtime rechecks state/binding under its exclusive job
 operation. Input/selection errors return 400, stale or invalid states return 409,
 unknown jobs return 404 and unexpected failures retain sanitized/logged 500 behavior.
+
+## Human semantic adjudication
+
+The Product Review surface keeps semantic proposals in separate server-projected groups:
+proposals requiring disposition, active human dispositions, automatic mappings that need
+no re-entry, and calculated/derived results. Each source proposal retains its own raw
+assertion, bound qualified facts, source/document links and locators. Derived proposals are
+not offered as human semantic evidence.
+An automatic mapping remains complete without human re-entry, but a non-derived mapped
+proposal offers optional correction controls; opening them does not change completion.
+The original automatic target and value remain visible while a human disposition is
+recorded through the same append-only decision flow.
+
+Canonical mapping targets are discovered from the ingestion domain's explicit canonical
+target contracts and filtered against the current proposal's retained fact context. They
+are not derived from source-label aliases and are not authored in React. The reviewer
+chooses meaning and supporting facts; the server/domain runs the same deterministic
+normalization contract used during persisted decision replay. A non-persisting preview
+shows exact source assertions beside the normalized canonical value/unit. The browser
+renders the preview and submits those exact server-produced normalized fields; it does
+not calculate or edit them. Retained source units take precedence when resolvable, then
+an explicit raw-value unit may be recovered. A reviewer-selected unit is accepted only
+when the existing contract can verify that unit against explicit retained source text.
+Ambiguous, unsupported or dimension-incompatible units fail closed.
+
+The reviewer may instead record `evidence_only`, `schema_gap`, `reject`,
+`not_applicable`, or explicit `unresolved`. Schema gaps require a concept key, explanation
+and rationale; map, reject and not-applicable require rationale. Evidence-only and
+unresolved may omit rationale. Explicit unresolved means the proposal was reviewed, but
+its semantic meaning remains unresolved and no canonical fact is projected.
+
+Decisions are append-only. A correction records another revision linked to the previous
+decision; it never edits an earlier event in place. Each successful disposition rebuilds
+the candidate and review package, returns the new snapshot and updates completion from
+the authoritative server result. A stale snapshot or a state change returns a conflict:
+the UI reloads current state and requires the operator to inspect and reconfirm rather
+than replaying old intent. Product approval remains behind the existing server completion
+gate, and the ordinary product approval/finalization flow is unchanged.
+
+The complete sequence is:
+
+evidence → semantic proposal → human disposition when required → deterministic
+map preview when mapping → persisted append-only decision → rebuilt candidate/review
+package → semantic review completion → ordinary product approval → finalization/promotion.
 
 Each review action has a distinct confirmation describing its effect. Approval persists
 the decisions and displays a durable summary: reviewer label, timestamp, selected fields,
