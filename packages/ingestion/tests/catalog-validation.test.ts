@@ -39,6 +39,34 @@ const makeRoot = async (...entries: Array<{ file: string; record: Record<string,
 };
 
 describe('canonical catalog validation', () => {
+  it.each([true, false])(
+    'validates qualified IDs through the normal data command boundary (duplicate=%s)',
+    async (duplicate) => {
+      const assertion = {
+        id: 'qualified.voltage',
+        target: 'electrical.input_voltage_range_v',
+        value: { min: 8, max: 70 },
+        qualifiers: { electrical_domain: 'dc' },
+      };
+      const root = await makeRoot({
+        file: 'acme.example-01.yaml',
+        record: component({
+          qualified_values: [
+            assertion,
+            {
+              ...assertion,
+              id: duplicate ? assertion.id : 'qualified.other',
+              value: { min: 9, max: 72 },
+            },
+          ],
+        }),
+      });
+      if (duplicate)
+        await expect(validateDataRoot(root)).rejects.toThrow('duplicate qualified-value ID');
+      else await expect(validateDataRoot(root)).resolves.toMatchObject({ validated: 1 });
+    },
+  );
+
   it('accepts a valid canonical component', async () => {
     const root = await makeRoot({ file: 'acme.example-01.yaml', record: component() });
     await expect(validateDataRoot(root)).resolves.toMatchObject({ validated: 1 });

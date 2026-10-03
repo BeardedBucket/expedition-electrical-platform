@@ -19,6 +19,7 @@
     "promote:pilot": "npm run build && node scripts/promote-victron-pilot.mjs"
   },
   "dependencies": {
-    "parse5": "8.0.1"
+    "parse5": "8.0.1",
+    "pdfjs-dist": "^5.4.149"
   }
 }

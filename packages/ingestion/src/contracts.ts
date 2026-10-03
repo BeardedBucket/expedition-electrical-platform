@@ -4,6 +4,61 @@ export interface JsonObject {
   readonly [key: string]: JsonValue;
 }
 
+type RequireAtLeastOne<T> = {
+  [K in keyof T]-?: Required<Pick<T, K>> & Omit<T, K>;
+}[keyof T];
+
+type PowerConsumptionContext = {
+  readonly supply_voltage_v?: number;
+  readonly measurement_basis?: 'typical' | 'nominal' | 'maximum' | 'minimum' | 'quiescent';
+  readonly electrical_domain?: 'ac' | 'dc';
+};
+
+/** Nonempty source conditions; whole-device off cannot have its display on. */
+export type PowerConsumptionQualifiers =
+  | RequireAtLeastOne<
+      PowerConsumptionContext & {
+        readonly operating_state?: 'idle' | 'standby' | 'sleep' | 'active';
+        readonly display?:
+          | { readonly state: 'off' }
+          | { readonly state: 'on'; readonly brightness_percent?: number };
+      }
+    >
+  | RequireAtLeastOne<
+      PowerConsumptionContext & {
+        readonly operating_state: 'off';
+        readonly display?: { readonly state: 'off' };
+      }
+    >;
+
+/** Mirrors the target-discriminated canonical component schema. */
+export type CanonicalQualifiedValue = JsonObject &
+  (
+    | {
+        readonly id: string;
+        readonly target: 'electrical.input_voltage_range_v';
+        readonly value: { readonly min: number; readonly max: number };
+        readonly qualifiers: { readonly electrical_domain: 'ac' | 'dc' };
+      }
+    | {
+        readonly id: string;
+        readonly target: 'electrical.power_consumption_w';
+        readonly value: number;
+        readonly qualifiers: PowerConsumptionQualifiers;
+      }
+    | {
+        readonly id: string;
+        readonly target: 'dimensions_mm';
+        readonly value: { readonly x: number; readonly y: number; readonly z: number };
+        readonly qualifiers: {
+          readonly physical_scope: {
+            readonly kind: 'physical_body';
+            readonly exclusions: readonly ('connectors' | 'mounting_accessories')[];
+          };
+        };
+      }
+  );
+
 export type ProductSourceType =
   | 'manufacturer_product_page'
   | 'manufacturer_datasheet'
@@ -112,14 +167,26 @@ export interface ProductFact {
   readonly raw_unit?: string;
   readonly normalized_value?: JsonValue;
   readonly normalized_unit?: string;
+  readonly normalization?: ProductFactNormalization;
+  readonly qualified_value?: CanonicalQualifiedValue;
   readonly source_locator?: SourceLocator;
   readonly extraction_method: ExtractionMethod;
   readonly transformation_notes?: string;
+  /** Present only for a calculated value; raw_value then records the calculation output. */
+  readonly derivation?: ProductDerivation;
   readonly review_required?: boolean;
   readonly notes?: string;
   readonly fact_state: FactState;
   readonly topology_target?: TopologyTarget;
   readonly target?: ConstraintTarget;
+}
+
+/** Typed transform metadata; source and result values remain on their owning fact. */
+export interface ProductFactNormalization {
+  readonly method: 'unit_conversion' | 'semantic_normalization';
+  readonly source_unit?: string;
+  readonly normalized_unit?: string;
+  readonly method_version: string;
 }
 
 export type IdentityStatus = 'verified' | 'provisional' | 'unresolved' | 'conflicting';
@@ -140,9 +207,29 @@ export interface ProductCandidate {
   readonly fact_ids: readonly string[];
   readonly component_data: JsonObject;
   readonly field_evidence: Readonly<Record<string, readonly string[]>>;
+  /** Calculated product values remain distinguishable from published assertions. */
+  readonly derived_fields?: Readonly<Record<string, ProductDerivation>>;
+  readonly qualified_value_evidence?: Readonly<Record<string, readonly string[]>>;
   readonly topology_evidence?: Readonly<Record<string, readonly string[]>>;
   readonly review_reasons?: readonly string[];
   readonly notes?: string;
+}
+
+export interface SemanticProductDerivation {
+  readonly status: 'derived';
+  readonly rule_version: string;
+  readonly formula: string;
+  readonly input_targets: readonly string[];
+  /** QualifiedFact IDs retained for source-level lineage. */
+  readonly input_qualified_fact_ids?: readonly string[];
+  readonly input_units: readonly string[];
+  readonly output_unit: string;
+  readonly assumptions: readonly string[];
+}
+
+export interface ProductDerivation extends SemanticProductDerivation {
+  /** ProductFact IDs at the candidate/promotion boundary. */
+  readonly input_fact_ids: readonly string[];
 }
 
 export const isSourceApplicable = (

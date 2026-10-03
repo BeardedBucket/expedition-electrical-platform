@@ -8,9 +8,10 @@ import type {
 export interface CapturedSource {
   readonly requested_uri: string;
   readonly final_uri: string;
-  readonly media_type: string;
+  readonly media_type?: string;
   readonly retrieved_at: string;
   readonly response_status?: number;
+  readonly redirect_chain?: readonly RedirectHop[];
   readonly title?: string;
   readonly body: {
     readonly bytes: Uint8Array;
@@ -20,10 +21,21 @@ export interface CapturedSource {
   readonly metadata?: Readonly<Record<string, string>>;
 }
 
+export interface RedirectHop {
+  readonly requested_uri: string;
+  readonly response_status: number;
+  readonly location: string;
+  readonly destination_uri: string;
+  readonly metadata?: Readonly<Record<string, string>>;
+}
+
 export interface CaptureRequest {
   readonly uri: string;
   readonly retrieved_at?: string;
+  /** DNS, redirects, and final response headers; excludes body transfer. */
   readonly timeout_ms?: number;
+  readonly body_idle_timeout_ms?: number;
+  readonly body_timeout_ms?: number;
   readonly max_bytes?: number;
   readonly max_redirects?: number;
   readonly signal?: AbortSignal;
@@ -37,6 +49,7 @@ export interface CaptureIssue {
 export interface CaptureResult {
   readonly status: 'success' | 'invalid' | 'failed';
   readonly source?: CapturedSource;
+  readonly bytes_observed?: number;
   readonly issues: readonly CaptureIssue[];
 }
 
@@ -53,27 +66,158 @@ export interface SourceClassification {
   readonly schema_version?: string;
 }
 
+export type ExtractionStatus =
+  | 'extracted'
+  | 'partially_extracted'
+  | 'no_extractable_content'
+  | 'unsupported'
+  | 'source_unavailable'
+  | 'source_non_authoritative'
+  | 'source_empty'
+  | 'corrupt_source'
+  | 'failed';
+
+export type ExtractionCapabilityState =
+  | 'automatic_extraction_available'
+  | 'capability_not_implemented'
+  | 'capability_not_enabled'
+  | 'no_known_automatic_path'
+  | 'unknown';
+
+export type ExtractionRemediationState =
+  | 'none_required'
+  | 'implementation_required'
+  | 'enable_capability'
+  | 'source_reacquisition_required'
+  | 'source_repair_required'
+  | 'human_review_required';
+
+export type DocumentItemKind =
+  | 'structured'
+  | 'document_title'
+  | 'heading'
+  | 'paragraph'
+  | 'list_item'
+  | 'definition_term'
+  | 'definition_value'
+  | 'table'
+  | 'table_caption'
+  | 'table_header'
+  | 'table_row'
+  | 'table_cell'
+  | 'figure_caption'
+  | 'note'
+  | 'text_block'
+  | 'link_reference'
+  | 'unknown_text'
+  | 'definition'
+  | 'list';
+
+export type DiagnosticCode =
+  | 'unsupported_media_type'
+  | 'missing_text_body'
+  | 'snapshot_missing'
+  | 'snapshot_digest_mismatch'
+  | 'parser_failure'
+  | 'no_extractable_text'
+  | 'likely_image_only'
+  | 'malformed_html_structure'
+  | 'table_extraction_unsupported'
+  | 'partial_table_extraction'
+  | 'unsupported_embedded_content'
+  | 'pdf_unsupported'
+  | 'source_unavailable'
+  | 'source_non_authoritative'
+  | 'source_empty'
+  | 'corrupt_source'
+  | 'failed'
+  | 'input_limit_reached'
+  | 'item_limit_reached'
+  | 'table_cell_limit_reached'
+  | 'page_limit_reached'
+  | 'text_limit_reached'
+  | 'total_text_limit_reached'
+  | 'snapshot_read_failure';
+
+export interface ExtractionSourceLocation {
+  readonly kind: 'html' | 'pdf' | 'generic';
+  readonly path?: string;
+  readonly fragment?: string;
+  readonly section?: string;
+  readonly page?: number;
+  readonly ordinal?: number;
+  readonly row?: number;
+  readonly column?: number;
+  readonly table?: string;
+}
+
+/** Source-declared HTML span metadata. Positioned PDF grouping omits these
+ * properties rather than inventing tagged spans; they do not interpret identity.
+ */
+export interface TableCellStructure {
+  readonly colspan?: number;
+  readonly rowspan?: number;
+  readonly scope?: 'row' | 'col' | 'rowgroup' | 'colgroup';
+  /** Ordered text runs; kind records the nearest enclosing sup/sub element.
+   * Runs share their parent cell's locator and do not assert finer precision.
+   */
+  readonly inline_segments?: readonly {
+    readonly kind: 'text' | 'superscript' | 'subscript';
+    readonly text: string;
+  }[];
+}
+
+export interface ExtractionDiagnostic {
+  readonly code: DiagnosticCode;
+  readonly message: string;
+  readonly recoverable?: boolean;
+}
+
 export interface ExtractedBlock {
-  readonly kind: 'heading' | 'paragraph' | 'table' | 'definition' | 'list';
+  readonly id?: string;
+  readonly kind: DocumentItemKind;
   readonly text: string;
+  readonly heading_level?: number;
   readonly section?: string;
   readonly locator: {
     readonly fragment: string;
     readonly section?: string;
     readonly table?: string;
     readonly row?: string;
+    readonly paragraph?: string;
+    readonly path?: string;
+    readonly page?: number;
+    readonly column?: number;
   };
   readonly rows?: readonly {
     readonly label: string;
     readonly value: string;
+    readonly row?: number;
+    readonly column?: number;
   }[];
+  readonly cells?: readonly (TableCellStructure & {
+    readonly label: string;
+    readonly value: string;
+    readonly kind: 'header' | 'data';
+    readonly row: number;
+    readonly column: number;
+    readonly source_location: ExtractionSourceLocation;
+  })[];
+  readonly source_location?: ExtractionSourceLocation;
 }
 
 export interface ExtractedDocument {
   readonly source: CapturedSource;
   readonly title?: string;
+  readonly status?: ExtractionStatus;
+  readonly capability_state?: ExtractionCapabilityState;
+  readonly remediation_state?: ExtractionRemediationState;
   readonly blocks: readonly ExtractedBlock[];
   readonly warnings: readonly CaptureIssue[];
+  readonly diagnostics?: readonly ExtractionDiagnostic[];
+  readonly page_count?: number;
+  readonly extractor?: string;
+  readonly extractor_version?: string;
 }
 
 export interface FactExtractionResult {

@@ -1,0 +1,1028 @@
+import '@testing-library/jest-dom/vitest';
+import { StrictMode } from 'react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import App, { Review, SourceResolution } from './App.js';
+import type { OperatorApi, OperatorJobDetail } from './api.js';
+
+const id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+const detail: OperatorJobDetail = {
+  source_resolution: undefined,
+  summary: {
+    id,
+    state: 'review_ready',
+    created_at: '2026-09-08T00:00:00Z',
+    updated_at: '2026-09-08T00:00:01Z',
+    manufacturer: 'Example',
+    product_model: 'Model',
+    manufacturer_part_number: 'EX-1',
+    official_product_uri: 'https://example.test/product',
+    preparation_status: 'review_ready',
+    candidate_present: false,
+    fact_count: 0,
+    proposal_count: 0,
+    unresolved_count: 0,
+    conflict_count: 0,
+    final_result_status: undefined,
+    write_status: undefined,
+  },
+  intake: {
+    manufacturer: 'Example',
+    product_model: 'Model',
+    manufacturer_part_number: 'EX-1',
+    official_product_uri: 'https://example.test/product',
+  },
+  acquisition: undefined,
+  sources: undefined,
+  extractions: [],
+  facts: [],
+  reconciliation: undefined,
+  proposals: [],
+  candidate: {
+    present: false,
+    id: undefined,
+    projected_fields: undefined,
+    field_evidence: undefined,
+    non_projected: [],
+  },
+  review_package: undefined,
+  semantic_review: undefined,
+  diagnostics: [],
+};
+const client = (): OperatorApi => ({
+  resumeDeferredReview: vi.fn().mockResolvedValue(detail),
+  review: vi.fn().mockResolvedValue(detail),
+  semanticTargets: vi.fn().mockResolvedValue({ proposal_id: '', targets: [] }),
+  semanticPreview: vi.fn().mockResolvedValue({
+    target: '',
+    selected_fact_ids: [],
+    source_assertions: [],
+    normalized_value: null,
+    normalized_unit: '',
+  }),
+  semanticDecision: vi.fn().mockResolvedValue(detail),
+  finalize: vi.fn().mockResolvedValue(detail),
+  submitSourceCandidate: vi.fn().mockResolvedValue(detail),
+  acceptSource: vi.fn().mockResolvedValue(detail),
+  rejectSource: vi.fn().mockResolvedValue(detail),
+  reopenSourceSelection: vi.fn().mockResolvedValue(detail),
+  reopenPreparation: vi.fn().mockResolvedValue(detail),
+  suggestions: vi.fn().mockResolvedValue({ manufacturers: [], products: [] }),
+  create: vi
+    .fn()
+    .mockResolvedValue({ ...detail, summary: { ...detail.summary, state: 'created' } }),
+  prepare: vi.fn().mockResolvedValue(detail),
+  get: vi.fn().mockResolvedValue(detail),
+  list: vi.fn().mockResolvedValue({ jobs: [] }),
+  createBatch: vi.fn().mockResolvedValue({
+    summary: {
+      id,
+      created_at: '',
+      updated_at: '',
+      state: 'pending',
+      requested_count: 1,
+      job_count: 1,
+      counts: { pending: 1 },
+      jobs: [{ id, state: 'created' }],
+    },
+    job_ids: [id],
+  }),
+  listBatches: vi.fn().mockResolvedValue({ batches: [] }),
+  getBatch: vi.fn().mockResolvedValue({
+    summary: {
+      id,
+      created_at: '',
+      updated_at: '',
+      state: 'pending',
+      requested_count: 1,
+      job_count: 1,
+      counts: { pending: 1 },
+      jobs: [{ id, state: 'created' }],
+    },
+    job_ids: [id],
+  }),
+  prepareBatch: vi.fn().mockResolvedValue({
+    summary: {
+      id,
+      created_at: '',
+      updated_at: '',
+      state: 'review_ready',
+      requested_count: 1,
+      job_count: 1,
+      counts: { review_ready: 1 },
+      jobs: [{ id, state: 'review_ready' }],
+    },
+    job_ids: [id],
+  }),
+});
+it('requires a human action to reopen an empty preparation without starting capture', async () => {
+  const c = client();
+  const snapshot = `sha256:${'a'.repeat(64)}`;
+  vi.mocked(c.get).mockResolvedValue({
+    ...detail,
+    preparation_recovery: { expected_review_snapshot: snapshot },
+  });
+  vi.mocked(c.reopenPreparation).mockResolvedValue({
+    ...detail,
+    summary: { ...detail.summary, state: 'created' },
+  });
+  window.location.hash = `#/jobs/${id}`;
+  render(<App client={c} />);
+  const button = await screen.findByRole('button', { name: 'Reopen empty preparation' });
+  expect(c.reopenPreparation).not.toHaveBeenCalled();
+  fireEvent.click(button);
+  await waitFor(() => expect(c.reopenPreparation).toHaveBeenCalledWith(id, snapshot));
+  expect(await screen.findByRole('button', { name: 'Start preparation' })).toBeEnabled();
+  expect(c.prepare).not.toHaveBeenCalled();
+  expect(c.acceptSource).not.toHaveBeenCalled();
+  expect(c.review).not.toHaveBeenCalled();
+  expect(c.finalize).not.toHaveBeenCalled();
+});
+it('archives a resumed reviewed preparation only through explicit snapshot-bound action, without starting capture', async () => {
+  const c = client();
+  const snapshot = `sha256:${'a'.repeat(64)}`;
+  const lifecycle = `sha256:${'b'.repeat(64)}`;
+  vi.mocked(c.get).mockResolvedValue({
+    ...detail,
+    preparation_recovery: {
+      expected_review_snapshot: snapshot,
+      expected_lifecycle_snapshot: lifecycle,
+    },
+  });
+  vi.mocked(c.reopenPreparation).mockResolvedValue({
+    ...detail,
+    summary: { ...detail.summary, state: 'created' },
+  });
+  window.location.hash = `#/jobs/${id}`;
+  render(<App client={c} />);
+  const button = await screen.findByRole('button', {
+    name: 'Archive reviewed preparation for explicit re-preparation',
+  });
+  expect(screen.getByText(/does not reinterpret them/)).toBeInTheDocument();
+  expect(c.reopenPreparation).not.toHaveBeenCalled();
+  fireEvent.click(button);
+  await waitFor(() => expect(c.reopenPreparation).toHaveBeenCalledWith(id, snapshot, lifecycle));
+  expect(await screen.findByRole('button', { name: 'Start preparation' })).toBeEnabled();
+  expect(c.prepare).not.toHaveBeenCalled();
+  expect(c.review).not.toHaveBeenCalled();
+  expect(c.finalize).not.toHaveBeenCalled();
+});
+afterEach(async () => {
+  cleanup();
+  // Drain jsdom's deferred anchor navigation and its subsequent hashchange
+  // before another App subscribes, then reset the URL without queuing an event.
+  await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  window.history.replaceState(null, '', window.location.pathname);
+  vi.restoreAllMocks();
+});
+function fill() {
+  for (const [label, value] of [
+    ['Manufacturer', 'Example'],
+    ['Product model', 'Model'],
+    ['Manufacturer part number', 'EX-1'],
+    ['Official product URL', 'https://example.test/product'],
+  ])
+    fireEvent.change(screen.getByLabelText(label), { target: { value } });
+}
+const intakeLabels = [
+  'Manufacturer',
+  'Product model',
+  'Manufacturer part number',
+  'Official product URL',
+];
+function expectBlankIntake() {
+  for (const label of intakeLabels) expect(screen.getByLabelText(label)).toHaveValue('');
+}
+function expectEnteredIntake() {
+  for (const [index, value] of [
+    'Example',
+    'Model',
+    'EX-1',
+    'https://example.test/product',
+  ].entries())
+    expect(screen.getByLabelText(intakeLabels[index])).toHaveValue(value);
+}
+describe('ingestion admin operator interface', () => {
+  it('summarizes populated preparation, partial acquisition and reviewable fields before details', () => {
+    const job = {
+      ...detail,
+      acquisition: {
+        status: 'partially_acquired',
+        issues: ['HTTP 503'],
+        candidate_count: 4,
+        selected_count: 2,
+        captured_count: 2,
+        duplicate_count: 1,
+        excluded_by_policy_count: 0,
+      },
+      pipeline_summary: {
+        capture_dispositions: { authoritative: 1, non_authoritative: 0, failed: 1, empty: 0 },
+        extraction_results: 2,
+        extracted_observations: 14,
+        qualified_facts: 3,
+        reconciliation_groups: 3,
+        reconciliation_dispositions: { single_observation: 3 },
+        semantic_proposals: 3,
+        proposal_dispositions: { mapped: 1, unsupported: 2 },
+        projected_fields: 1,
+        qualified_values: 0,
+      },
+      product_review: {
+        roles: ['battery'],
+        truncated: false,
+        fields: [
+          {
+            path: 'weight_kg',
+            value: 12,
+            selectable: true,
+            candidate_fact_ids: ['fact.1'],
+            proposals: [],
+          },
+        ],
+        qualified_values: [],
+        candidate_facts: [],
+      },
+    } as unknown as OperatorJobDetail;
+    render(<Review job={job} />);
+    expect(
+      screen.getByText(/1 authoritative · 0 non-authoritative · 1 failed/),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/3 ordinary fields|1 ordinary fields/)).toBeInTheDocument();
+    expect(screen.getByText('weight_kg: 12')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Some sources failed');
+    expect(screen.queryByText('No promotable fields are currently available.')).toBeNull();
+  });
+  it('identifies candidate projection values as canonical and separate from source assertions', () => {
+    render(
+      <Review
+        job={
+          {
+            ...detail,
+            candidate: {
+              present: true,
+              projected_fields: { dimensions_mm: { z: 334.01 }, weight_kg: 36.650263496 },
+              field_evidence: { 'dimensions_mm.z': ['fact.height'], weight_kg: ['fact.weight'] },
+              non_projected: [],
+            },
+            proposals: [
+              {
+                id: 'proposal.height',
+                target: 'dimensions_mm.z',
+                disposition: 'mapped',
+                proposed_value: 334.01,
+                value_origin: 'normalized / converted',
+                canonical_unit: 'mm',
+                evidence_refs: [],
+                fact_refs: [],
+              },
+            ],
+          } as unknown as OperatorJobDetail
+        }
+        section="evidence"
+      />,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Projected canonical fields' })).toBeInTheDocument();
+    expect(screen.getByText(/not verbatim source assertions/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Simple unit conversions are not calculated \/ derived facts/),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Value treatment' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Canonical unit' })).toBeInTheDocument();
+  });
+  it('explains facts that stop at unresolved proposals without offering approval', async () => {
+    const job = {
+      ...detail,
+      pipeline_summary: {
+        capture_dispositions: { authoritative: 1, non_authoritative: 0, failed: 0, empty: 0 },
+        extraction_results: 1,
+        extracted_observations: 5,
+        qualified_facts: 3,
+        reconciliation_groups: 3,
+        reconciliation_dispositions: { single_observation: 3 },
+        semantic_proposals: 3,
+        proposal_dispositions: { unsupported: 3 },
+        projected_fields: 0,
+        qualified_values: 0,
+      },
+      proposals: [
+        {
+          id: 'proposal.1',
+          target: 'source_label:capacity',
+          disposition: 'unsupported',
+          proposed_value: undefined,
+          evidence_refs: [],
+          fact_refs: [],
+        },
+      ],
+    } as unknown as OperatorJobDetail;
+    const c = client();
+    vi.mocked(c.get).mockResolvedValue(job);
+    window.location.hash = `#/jobs/${id}`;
+    render(<App client={c} />);
+    expect(
+      await screen.findByText(/Facts were recovered, but no fields reached candidate projection/),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Unresolved' }));
+    expect(screen.getByText('source_label:capacity')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Reviewable fields' }));
+    expect(screen.queryByRole('button', { name: 'Approve selected assertions' })).toBeNull();
+    expect(c.review).not.toHaveBeenCalled();
+  });
+  it('keeps review selections while navigating and leaves approval and write guarded', async () => {
+    const job = {
+      ...detail,
+      candidate: { ...detail.candidate, present: true },
+      product_review: {
+        roles: ['battery'],
+        truncated: false,
+        canonical_id: 'example.model',
+        fields: [
+          {
+            path: 'weight_kg',
+            value: 12,
+            selectable: true,
+            candidate_fact_ids: ['fact.1'],
+            proposals: [],
+          },
+        ],
+        qualified_values: [],
+        candidate_facts: [],
+      },
+    } as unknown as OperatorJobDetail;
+    const c = client();
+    vi.mocked(c.get).mockResolvedValue(job);
+    window.location.hash = `#/jobs/${id}`;
+    render(<App client={c} />);
+    await screen.findByText('weight_kg: 12');
+    expect(screen.queryByRole('button', { name: 'Approve selected assertions' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Reviewable fields' }));
+    expect(screen.getByRole('button', { name: 'Approve selected assertions' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Write canonical component' })).toBeNull();
+    fireEvent.change(screen.getByLabelText('Product field decision for weight_kg'), {
+      target: { value: 'approve' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Sources' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Reviewable fields' }));
+    expect(screen.getByLabelText('Product field decision for weight_kg')).toHaveValue('approve');
+    expect(screen.getByRole('button', { name: 'Approve selected assertions' })).toBeDisabled();
+    expect(c.review).not.toHaveBeenCalled();
+    expect(c.finalize).not.toHaveBeenCalled();
+  });
+  it('keeps preparation failure distinct from a successful empty result', () => {
+    render(
+      <Review
+        job={{
+          ...detail,
+          summary: { ...detail.summary, state: 'preparation_failed' },
+          candidate: undefined,
+          diagnostics: [{ code: 'capture_failed', message: 'Capture failed' }],
+        }}
+      />,
+    );
+    expect(
+      screen.getByText('Preparation failed. Inspect the diagnostics below.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/This failed preparation is not eligible for approval/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/No promotable fields are currently available/)).toBeNull();
+  });
+  it('navigates to persisted batches and the batch creation surface', async () => {
+    const api = client();
+    render(<App client={api} />);
+    fireEvent.click(screen.getByRole('link', { name: 'Batches' }));
+    await screen.findByRole('heading', { name: 'Ingestion batches' });
+    expect(api.listBatches).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('link', { name: 'Create batch' }));
+    await screen.findByRole('heading', { name: 'Create batch' });
+    expect(screen.getByLabelText('Product 1 Manufacturer')).toBeInTheDocument();
+  });
+  it('warns non-blockingly when suggestions fail and still creates a free-entry product', async () => {
+    const api = client();
+    vi.mocked(api.suggestions).mockRejectedValue(new Error('Unavailable'));
+    render(<App client={api} />);
+    await screen.findByText('Canonical suggestions unavailable. Free entry remains available.');
+    fill();
+    fireEvent.change(screen.getByLabelText('Manufacturer'), {
+      target: { value: 'New Free Entry Maker' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Create & Prepare' }));
+    await screen.findByText('review_ready');
+    expect(api.create).toHaveBeenCalledWith(
+      expect.objectContaining({ manufacturer: 'New Free Entry Maker' }),
+    );
+    expect(api.prepare).toHaveBeenCalledWith(id);
+  });
+  it('offers canonical spellings with exact manufacturer/model scoping while preserving free text', async () => {
+    const api = client();
+    vi.mocked(api.suggestions).mockResolvedValue({
+      manufacturers: ['Victron Energy', 'Other'],
+      products: [
+        {
+          manufacturer: 'Victron Energy',
+          model: 'Model A',
+          mpn: 'SKU-A',
+          provenance: 'verified component: a',
+        },
+        {
+          manufacturer: 'Victron Energy',
+          model: 'Model B',
+          mpn: 'SKU-B',
+          provenance: 'verified component: b',
+        },
+        {
+          manufacturer: 'Other',
+          model: 'Foreign',
+          mpn: 'FOREIGN',
+          provenance: 'verified component: c',
+        },
+      ],
+    });
+    const { container } = render(<App client={api} />);
+    const manufacturer = screen.getByLabelText('Manufacturer');
+    fireEvent.change(manufacturer, { target: { value: ' vic ' } });
+    await waitFor(() =>
+      expect(container.querySelector('#suggest-manufacturer option')).toHaveAttribute(
+        'value',
+        'Victron Energy',
+      ),
+    );
+    expect(manufacturer).toHaveValue(' vic ');
+    expect(container.querySelector('#suggest-product_model option')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Use Victron Energy' }));
+    expect(manufacturer).toHaveValue('Victron Energy');
+    expect(
+      [...container.querySelectorAll('#suggest-product_model option')].map((o) =>
+        o.getAttribute('value'),
+      ),
+    ).toEqual(['Model A', 'Model B']);
+    fireEvent.change(screen.getByLabelText('Product model'), { target: { value: ' model a ' } });
+    expect(
+      [...container.querySelectorAll('#suggest-manufacturer_part_number option')].map((o) =>
+        o.getAttribute('value'),
+      ),
+    ).toEqual(['SKU-A']);
+    fireEvent.change(manufacturer, { target: { value: 'New Maker' } });
+    expect(manufacturer).toHaveValue('New Maker');
+    expect(container.querySelector('#suggest-product_model option')).toBeNull();
+    fireEvent.change(screen.getByLabelText('Official product URL'), {
+      target: { value: 'https://example.test/new' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Create & Prepare' }));
+    await waitFor(() =>
+      expect(api.create).toHaveBeenCalledWith(
+        expect.objectContaining({ manufacturer: 'New Maker', manufacturer_part_number: '' }),
+      ),
+    );
+  });
+  it('saves MPN-only intake without automatically preparing it', async () => {
+    const api = client();
+    vi.mocked(api.create).mockResolvedValue({
+      ...detail,
+      summary: {
+        ...detail.summary,
+        state: 'source_resolution_required',
+        official_product_uri: undefined,
+      },
+    });
+    vi.mocked(api.get).mockResolvedValue({
+      ...detail,
+      summary: {
+        ...detail.summary,
+        state: 'source_resolution_required',
+        official_product_uri: undefined,
+      },
+    });
+    render(<App client={api} />);
+    fill();
+    fireEvent.change(screen.getByLabelText('Official product URL'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create & Prepare' }));
+    await screen.findByText('source_resolution_required');
+    expect(screen.getByText(/This job preserves your original request/)).toHaveTextContent(
+      'Propose an official manufacturer URL for source identity review.',
+    );
+    expect(api.prepare).not.toHaveBeenCalled();
+  });
+  it('returns to a blank Add Product form after successful creation', async () => {
+    const api = client();
+    render(<App client={api} />);
+    fill();
+    fireEvent.click(screen.getByRole('button', { name: 'Create & Prepare' }));
+    await screen.findByText('review_ready');
+    fireEvent.click(screen.getByRole('link', { name: 'Add product' }));
+    await screen.findByRole('heading', { name: 'Add product' });
+    expectBlankIntake();
+    expect(api.prepare).toHaveBeenCalledTimes(1);
+  });
+  it('discards an earlier draft when navigating from a job page to Add Product', async () => {
+    render(<App client={client()} />);
+    fill();
+    act(() => {
+      window.location.hash = `/jobs/${id}`;
+    });
+    await screen.findByText('review_ready');
+    fireEvent.click(screen.getByRole('link', { name: 'Add product' }));
+    await screen.findByRole('heading', { name: 'Add product' });
+    expectBlankIntake();
+  });
+  it('discards an earlier draft when navigating from Recent Jobs to Add Product', async () => {
+    render(<App client={client()} />);
+    fill();
+    fireEvent.click(screen.getByRole('link', { name: 'Recent jobs' }));
+    await screen.findByText('No jobs yet. Add a product to begin.');
+    fireEvent.click(screen.getByRole('link', { name: 'Add product' }));
+    await screen.findByRole('heading', { name: 'Add product' });
+    expectBlankIntake();
+  });
+  it('preserves an active draft during ordinary rerenders', () => {
+    const api = client();
+    const view = render(<App client={api} />);
+    fill();
+    view.rerender(<App client={api} />);
+    expectEnteredIntake();
+    expect(api.create).not.toHaveBeenCalled();
+    expect(api.prepare).not.toHaveBeenCalled();
+    expect(api.get).not.toHaveBeenCalled();
+  });
+  it('resets on a deliberate Add Product click even when already on that route', async () => {
+    window.location.hash = '/';
+    render(<App client={client()} />);
+    fill();
+    fireEvent.click(screen.getByRole('link', { name: 'Add product' }));
+    expectBlankIntake();
+  });
+  it('discourages product identity autofill on the form and all inputs', () => {
+    render(<App client={client()} />);
+    for (const label of intakeLabels) {
+      const field = screen.getByLabelText(label);
+      expect(field).toHaveAttribute('autocomplete', 'off');
+      expect(field.closest('form')).toHaveAttribute('autocomplete', 'off');
+    }
+  });
+  it('issues one automatic prepare per submit under StrictMode, route transition and refresh', async () => {
+    const api = client();
+    render(
+      <StrictMode>
+        <App client={api} />
+      </StrictMode>,
+    );
+    fill();
+    fireEvent.click(screen.getByRole('button', { name: 'Create & Prepare' }));
+    await screen.findByText('review_ready');
+    expect(api.create).toHaveBeenCalledTimes(1);
+    expect(api.prepare).toHaveBeenCalledTimes(1);
+    const getCalls = vi.mocked(api.get).mock.calls.length;
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh job' }));
+    await waitFor(() => expect(vi.mocked(api.get).mock.calls.length).toBeGreaterThan(getCalls));
+    expect(api.prepare).toHaveBeenCalledTimes(1);
+  });
+  it('submits all four fields, invokes prepare and navigates to persisted review', async () => {
+    const api = client();
+    render(<App client={api} />);
+    fill();
+    fireEvent.click(screen.getByRole('button', { name: 'Create & Prepare' }));
+    await screen.findByText('review_ready');
+    expect(api.create).toHaveBeenCalledWith(detail.intake);
+    expect(api.prepare).toHaveBeenCalledWith(id);
+    expect(window.location.hash).toBe(`#/jobs/${id}`);
+    expect(screen.getByText(/No promotable fields are currently available/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Evidence / facts' }));
+    expect(screen.getByText('0 semantic proposals')).toBeInTheDocument();
+    expect(screen.getByText(/^0 facts\./)).toBeInTheDocument();
+  });
+  it('renders preparing prominently without fabricated progress', () => {
+    render(
+      <Review
+        job={{
+          ...detail,
+          summary: {
+            ...detail.summary,
+            state: 'preparing',
+            fact_count: undefined,
+            proposal_count: undefined,
+            candidate_present: undefined,
+          },
+          candidate: undefined,
+        }}
+      />,
+    );
+    expect(screen.getByText('preparing')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Preparation is running');
+    expect(
+      screen.getByText('Preparation has not produced pipeline artifacts.'),
+    ).toBeInTheDocument();
+  });
+  it('distinguishes capture, extraction capability, and qualification outcomes', () => {
+    render(
+      <Review
+        job={{
+          ...detail,
+          sources: [
+            {
+              id: 'not-captured',
+              label: 'Manual',
+              uri: 'https://example.test/manual',
+              role: 'manual',
+              officiality: 'official',
+              selection: 'duplicate_uri',
+              capture_outcome: 'not_attempted',
+              capture_disposition: undefined,
+              media_type: undefined,
+              parent_uri: 'https://example.test/product',
+              duplicate_of: 'seed',
+              equivalent_content_of: undefined,
+              reason_codes: undefined,
+            },
+          ],
+          extractions: [
+            {
+              id: 'extract',
+              source_capture: {
+                kind: 'source_capture',
+                reference: 'capture',
+                reference_schema_version: '1.0',
+                digest: 'sha256:a',
+                digest_algorithm: 'sha256',
+              },
+              acquisition_candidate_id: undefined,
+              status: 'unsupported',
+              capability: 'capability_not_implemented',
+              remediation: 'implementation_required',
+              page_count: undefined,
+              block_count: 0,
+              table_count: 0,
+              diagnostics: [],
+              qualification: {
+                status: 'no_qualifiable_facts',
+                completeness: 'incomplete',
+                fact_count: 0,
+                diagnostics: [],
+              },
+            },
+          ],
+        }}
+        section="sources"
+      />,
+    );
+    for (const text of ['not_attempted', 'duplicate_uri'])
+      expect(screen.getByText(text)).toBeInTheDocument();
+    cleanup();
+    render(
+      <Review
+        job={{
+          ...detail,
+          extractions: [
+            {
+              id: 'extract',
+              source_capture: {
+                kind: 'source_capture',
+                reference: 'capture',
+                reference_schema_version: '1.0',
+                digest: 'sha256:a',
+                digest_algorithm: 'sha256',
+              },
+              acquisition_candidate_id: undefined,
+              status: 'unsupported',
+              capability: 'capability_not_implemented',
+              remediation: 'implementation_required',
+              page_count: undefined,
+              block_count: 0,
+              table_count: 0,
+              diagnostics: [],
+              qualification: {
+                status: 'no_qualifiable_facts',
+                completeness: 'incomplete',
+                fact_count: 0,
+                diagnostics: [],
+              },
+            },
+          ],
+        }}
+        section="evidence"
+      />,
+    );
+    for (const text of ['unsupported', 'no_qualifiable_facts'])
+      expect(screen.getByText(text)).toBeInTheDocument();
+    expect(screen.getByText(/Capability: capability_not_implemented/)).toBeInTheDocument();
+  });
+  it('shows create and preparation request errors to the operator', async () => {
+    const api = client();
+    vi.mocked(api.create).mockRejectedValueOnce(new Error('Invalid intake URI'));
+    render(<App client={api} />);
+    fill();
+    fireEvent.click(screen.getByRole('button', { name: 'Create & Prepare' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Invalid intake URI');
+    expectEnteredIntake();
+    vi.mocked(api.prepare).mockRejectedValueOnce(new Error('Connection interrupted'));
+    fireEvent.click(screen.getByRole('button', { name: 'Create & Prepare' }));
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent('Connection interrupted'),
+    );
+  });
+  it('reopens an existing job from its URL and reports retrieval errors', async () => {
+    window.location.hash = `/jobs/${id}`;
+    const api = client();
+    vi.mocked(api.get).mockRejectedValue(new Error('Unknown ingestion job ID'));
+    render(<App client={api} />);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Unknown ingestion job ID');
+    expect(api.get).toHaveBeenCalledWith(id);
+  });
+  it('shows recent jobs with unknown counts preserved', async () => {
+    window.location.hash = '/jobs';
+    const api = client();
+    vi.mocked(api.list).mockResolvedValue({ jobs: [{ ...detail.summary, fact_count: undefined }] });
+    render(<App client={api} />);
+    expect(await screen.findByRole('link', { name: 'Model / EX-1' })).toHaveAttribute(
+      'href',
+      `#/jobs/${id}`,
+    );
+    expect(screen.getByText('Unknown / not available')).toBeInTheDocument();
+  });
+});
+
+function sourceJob(
+  state: 'source_resolution_required' | 'source_resolution_review' | 'created',
+  captureFailed = false,
+): OperatorJobDetail {
+  const pending = state === 'source_resolution_review';
+  return {
+    ...detail,
+    summary: { ...detail.summary, state, official_product_uri: undefined },
+    intake: { ...detail.intake, official_product_uri: undefined },
+    source_resolution: {
+      state,
+      requested_identity: {
+        manufacturer: 'Example',
+        product_model: 'Model',
+        manufacturer_part_number: 'EX-1',
+      },
+      accepted_reference: undefined,
+      active_reference: undefined,
+      accepted_uri: state === 'created' ? 'https://example.test/product' : undefined,
+      recovery: {
+        can_reopen: false,
+        acquisition_status: undefined,
+        acquisition_issues: undefined,
+        acquisition_response_status: undefined,
+        preparation_reason: undefined,
+      },
+      recovery_history: [],
+      attempt_count: state === 'source_resolution_required' ? 0 : 1,
+      history_truncated: false,
+      attempts:
+        state === 'source_resolution_required'
+          ? []
+          : [
+              {
+                attempt_id: 'attempt.test',
+                candidate_uri: 'https://example.test/product',
+                normalized_uri: 'https://example.test/product',
+                final_uri: 'https://example.test/product',
+                discovery_method: 'operator_supplied_url',
+                domain_evidence: { state: 'no_reviewed_profile' },
+                title: 'Example product',
+                observations: [
+                  { kind: 'exact_mpn', value: 'EX-1', locator: { kind: 'html', path: '/p[1]' } },
+                ],
+                diagnostics: [],
+                disposition: pending ? 'pending' : 'accepted',
+                review: pending
+                  ? undefined
+                  : { method: 'local_operator', reviewed_at: '2026-09-08T00:00:01.000Z' },
+                captured_at: '2026-09-08T00:00:00.000Z',
+                capture: {
+                  reference: {
+                    kind: 'source_capture',
+                    reference: 'capture.test',
+                    reference_schema_version: '1.0',
+                    digest: `sha256:${'a'.repeat(64)}`,
+                    digest_algorithm: 'sha256',
+                  },
+                  disposition: captureFailed ? 'failed' : 'authoritative',
+                  content_digest: undefined,
+                  media_type: 'text/html',
+                  response_status: captureFailed ? 403 : 200,
+                  reason_codes: captureFailed ? ['http_status'] : undefined,
+                  redirects: undefined,
+                },
+                can_accept: pending,
+              },
+            ],
+    },
+  };
+}
+it('renders required source review and submits the candidate URL for the existing job', async () => {
+  const c = client();
+  const update = vi.fn();
+  render(
+    <SourceResolution job={sourceJob('source_resolution_required')} client={c} onUpdate={update} />,
+  );
+  expect(screen.getByText('Official source required')).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText('Candidate official manufacturer URL'), {
+    target: { value: 'https://example.test/product' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Submit source candidate' }));
+  await waitFor(() =>
+    expect(c.submitSourceCandidate).toHaveBeenCalledWith(id, 'https://example.test/product'),
+  );
+  expect(c.prepare).not.toHaveBeenCalled();
+});
+it('shows the ordinary original official URL without a resolved-source row', () => {
+  render(<Review job={detail} />);
+  expect(screen.getByText('Official product URL').nextElementSibling).toHaveTextContent(
+    'https://example.test/product',
+  );
+  expect(screen.queryByText('Original product URL')).not.toBeInTheDocument();
+  expect(screen.queryByText('Resolved official source')).not.toBeInTheDocument();
+});
+it('shows an unresolved MPN-only original URL as not supplied without a resolved-source row', () => {
+  render(<Review job={sourceJob('source_resolution_required')} />);
+  expect(screen.getByText('Original product URL').nextElementSibling).toHaveTextContent(
+    'Not supplied',
+  );
+  expect(screen.queryByText('Resolved official source')).not.toBeInTheDocument();
+});
+it.each(['created', 'review_ready'] as const)(
+  'shows the accepted source separately in the %s Overview with a safe link',
+  (state) => {
+    const job = sourceJob('created');
+    job.summary.state = state;
+    job.source_resolution!.state = state;
+    render(<Review job={job} />);
+    expect(screen.getByText('Original product URL').nextElementSibling).toHaveTextContent(
+      'Not supplied',
+    );
+    const row = screen.getByText('Resolved official source').nextElementSibling;
+    const link = row?.querySelector('a');
+    expect(link).toHaveTextContent('https://example.test/product');
+    expect(link).toHaveAttribute('href', job.source_resolution!.accepted_uri);
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    expect(job.intake.official_product_uri).toBeUndefined();
+  },
+);
+it('loads the resolved-source Overview when reopening a persisted review-ready job', async () => {
+  const c = client();
+  const job = sourceJob('created');
+  job.summary.state = 'review_ready';
+  job.source_resolution!.state = 'review_ready';
+  vi.mocked(c.get).mockResolvedValue(job);
+  window.location.hash = `#/jobs/${id}`;
+  render(<App client={c} />);
+  expect(await screen.findByText('Resolved official source')).toBeInTheDocument();
+  expect(screen.getByText('Original product URL').nextElementSibling).toHaveTextContent(
+    'Not supplied',
+  );
+  expect(c.get).toHaveBeenCalledWith(id);
+  expect(c.prepare).not.toHaveBeenCalled();
+});
+it('renders pending identity evidence and invokes explicit source acceptance', async () => {
+  const c = client();
+  render(
+    <SourceResolution job={sourceJob('source_resolution_review')} client={c} onUpdate={vi.fn()} />,
+  );
+  expect(
+    screen.getByText('Operator-proposed source without reviewed-domain corroboration.'),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText(/product specifications require a separate later review/),
+  ).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Accept official source' }));
+  await waitFor(() => expect(c.acceptSource).toHaveBeenCalledWith(id, 'attempt.test'));
+  expect(c.prepare).not.toHaveBeenCalled();
+});
+it('allows a source-identity decision after failed capture while warning acquisition must succeed', async () => {
+  const c = client();
+  render(
+    <SourceResolution
+      job={sourceJob('source_resolution_review', true)}
+      client={c}
+      onUpdate={vi.fn()}
+    />,
+  );
+  expect(
+    screen.getByText(/Capture has not produced authoritative evidence \(HTTP 403\)/),
+  ).toHaveTextContent(
+    'Accepting confirms source identity only; acquisition must still succeed before extraction.',
+  );
+  expect(screen.getByRole('button', { name: 'Accept official source' })).toBeEnabled();
+  fireEvent.click(screen.getByRole('button', { name: 'Accept official source' }));
+  await waitFor(() => expect(c.acceptSource).toHaveBeenCalledWith(id, 'attempt.test'));
+});
+it('shows acquisition failure separately and invokes source-selection recovery on the same job', async () => {
+  const c = client();
+  const job = sourceJob('created');
+  job.summary.state = 'preparation_failed';
+  job.source_resolution!.state = 'preparation_failed';
+  job.source_resolution!.recovery = {
+    can_reopen: true,
+    acquisition_status: 'seed_failed',
+    acquisition_issues: ['The source returned HTTP status 403.'],
+    acquisition_response_status: 403,
+    preparation_reason: 'acquisition_failed',
+  };
+  vi.mocked(c.reopenSourceSelection).mockResolvedValue(sourceJob('source_resolution_required'));
+  const update = vi.fn();
+  render(<SourceResolution job={job} client={c} onUpdate={update} />);
+  expect(screen.getByText('Acquisition failed for the accepted source')).toBeInTheDocument();
+  expect(screen.getByText('Accepted source').nextElementSibling).toHaveTextContent('Accepted');
+  expect(screen.getByText('Selected URI').nextElementSibling).toHaveTextContent(
+    'https://example.test/product',
+  );
+  expect(screen.getByText('Acquisition').nextElementSibling).toHaveTextContent('Failed — HTTP 403');
+  expect(screen.getByText(/does not reject that decision/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Choose another official source' }));
+  await waitFor(() => expect(c.reopenSourceSelection).toHaveBeenCalledWith(id));
+  expect(update).toHaveBeenCalledWith(sourceJob('source_resolution_required'));
+  expect(c.submitSourceCandidate).not.toHaveBeenCalled();
+  expect(c.acceptSource).not.toHaveBeenCalled();
+});
+it('shows recorded acquisition history alongside the new unresolved source-selection cycle', () => {
+  const job = sourceJob('source_resolution_required');
+  job.source_resolution!.recovery_history = [
+    {
+      requested_at: '2026-10-03T00:00:00.000Z',
+      method: 'local_operator',
+      previous_source_reference: {
+        kind: 'source_resolution',
+        reference: 'resolution.previous',
+        reference_schema_version: '1.0',
+        digest: `sha256:${'a'.repeat(64)}`,
+        digest_algorithm: 'sha256',
+      },
+      previous_source_uri: 'https://example.test/products/old',
+      preparation_status: 'preparation_failed',
+      preparation_reason: 'acquisition_failed',
+      acquisition_status: 'seed_failed',
+      acquisition_issues: ['The source returned HTTP status 403.'],
+      seed_capture_disposition: 'failed',
+      seed_response_status: 403,
+    },
+  ];
+  render(<SourceResolution job={job} client={client()} onUpdate={vi.fn()} />);
+  expect(screen.getByText('Previous acquisition failures retained in history')).toBeInTheDocument();
+  expect(
+    screen.getByText('Previous accepted source: https://example.test/products/old'),
+  ).toBeInTheDocument();
+  expect(screen.getByText(/seed capture failed \(HTTP 403\)/)).toBeInTheDocument();
+  expect(screen.getByLabelText('Candidate official manufacturer URL')).toBeInTheDocument();
+});
+it('opens literal candidate and final source URLs in safe external tabs', () => {
+  const job = sourceJob('source_resolution_review');
+  job.source_resolution!.attempts[0].final_uri = 'https://example.test/final-product';
+  render(<SourceResolution job={job} client={client()} onUpdate={vi.fn()} />);
+  for (const uri of ['https://example.test/product', 'https://example.test/final-product']) {
+    const link = screen.getByRole('link', { name: uri });
+    expect(link).toHaveAttribute('href', uri);
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+  }
+});
+it('keeps an unavailable final URL as unknown without manufacturing a link', () => {
+  const job = sourceJob('source_resolution_review');
+  job.source_resolution!.attempts[0].final_uri = undefined;
+  job.source_resolution!.attempts[0].can_accept = false;
+  render(<SourceResolution job={job} client={client()} onUpdate={vi.fn()} />);
+  expect(screen.getAllByRole('link')).toHaveLength(1);
+  expect(screen.getByText('Unknown / not available')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Accept official source' })).toBeDisabled();
+});
+it('warns after off-domain acceptance that preparation may still fail officiality checks', () => {
+  const job = sourceJob('created');
+  job.source_resolution!.attempts[0].domain_evidence = { state: 'outside_reviewed_domains' };
+  render(<SourceResolution job={job} client={client()} onUpdate={vi.fn()} />);
+  expect(
+    screen.getByText(/Human acceptance does not override acquisition domain policy/),
+  ).toBeInTheDocument();
+  expect(screen.getByText(/Preparation may still fail officiality checks/)).toBeInTheDocument();
+});
+it('rejects a source and renders the returned state for another attempt', async () => {
+  const c = client();
+  const update = vi.fn();
+  vi.mocked(c.rejectSource).mockResolvedValue(sourceJob('source_resolution_required'));
+  render(
+    <SourceResolution job={sourceJob('source_resolution_review')} client={c} onUpdate={update} />,
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Reject source' }));
+  await waitFor(() => expect(c.rejectSource).toHaveBeenCalledWith(id, 'attempt.test'));
+  expect(update).toHaveBeenCalledWith(sourceJob('source_resolution_required'));
+});
+it('shows accepted source separately, enables explicit preparation, and skips resolution for URL-present jobs', async () => {
+  const c = client();
+  vi.mocked(c.get).mockResolvedValue(sourceJob('created'));
+  window.location.hash = `#/jobs/${id}`;
+  render(<App client={c} />);
+  await screen.findByText('Resolved official source');
+  fireEvent.click(screen.getByRole('button', { name: 'Sources' }));
+  expect(screen.getByText('Accepted resolved source')).toBeInTheDocument();
+  expect(
+    screen.getByText('The original intake remains unchanged and has no official product URL.'),
+  ).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Start preparation' })).toBeEnabled();
+  expect(c.prepare).not.toHaveBeenCalled();
+  cleanup();
+  render(<SourceResolution job={detail} client={c} onUpdate={vi.fn()} />);
+  expect(screen.queryByText('Official source required')).not.toBeInTheDocument();
+});

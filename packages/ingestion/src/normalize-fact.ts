@@ -1,6 +1,10 @@
-import type { ProductFact, ProductSource } from './contracts.js';
+import type { CanonicalQualifiedValue, ProductFact, ProductSource } from './contracts.js';
 import { resolveCanonicalField, isSupportedCanonicalField } from './field-mapping.js';
+import type { ReviewedSemanticContext } from './semantic-context.js';
 import { parseExactUnitValue, resolveUnit } from './units.js';
+import { artifactDigest } from './production-contracts.js';
+import { parseContextualMeasurement, type SourceObservation } from './qualified-values.js';
+import { deterministicSerialize } from './production-contracts.js';
 import type { NormalizationIssue, ProductFactNormalizationResult } from './normalization-types.js';
 
 const issue = (code: NormalizationIssue['code'], message: string): NormalizationIssue => ({
@@ -11,8 +15,14 @@ const issue = (code: NormalizationIssue['code'], message: string): Normalization
 export const normalizeProductFact = (
   fact: ProductFact,
   source: ProductSource,
+  selectedObservation?: SourceObservation,
+  reviewedContext?: ReviewedSemanticContext,
 ): ProductFactNormalizationResult => {
-  const mapping = resolveCanonicalField(fact.raw_label);
+  // The production bridge attests reviewedContext from source artifacts. We
+  // still resolve the target from the raw label here, not a prior target claim.
+  fact = { ...fact };
+  delete (fact as { qualified_value?: CanonicalQualifiedValue }).qualified_value;
+  const mapping = resolveCanonicalField(fact.raw_label, reviewedContext);
   if (!mapping) {
     return {
       status: 'unresolved',
@@ -35,24 +45,55 @@ export const normalizeProductFact = (
       ],
     };
   }
-  if (mapping.value_kind === 'structured') {
-    const normalizedValue = mapping.normalize_value?.(
-      typeof fact.raw_value === 'string' ? fact.raw_value : String(fact.raw_value),
+  if (mapping.value_kind === 'structured' || mapping.value_kind === 'observations') {
+    const observations = mapping.normalize_observations?.(
+      fact.raw_label,
+      String(fact.raw_value),
+      fact.raw_unit,
     );
-    if (!normalizedValue) {
+    const selected = observations?.find((observation) =>
+      selectedObservation
+        ? deterministicSerialize(observation) === deterministicSerialize(selectedObservation)
+        : observations.length === 1,
+    );
+    const normalizedValue =
+      mapping.value_kind === 'observations'
+        ? selected?.value
+        : mapping.normalize_value?.(
+            typeof fact.raw_value === 'string' ? fact.raw_value : String(fact.raw_value),
+            fact.raw_unit,
+          );
+    if (
+      normalizedValue === undefined ||
+      (mapping.value_kind === 'observations' && !selected?.qualifiers)
+    ) {
       return {
         status: 'unresolved',
         issues: [
           issue(
-            'normalization_ambiguous_mounting',
-            `Mounting statement '${String(fact.raw_value)}' is not deterministic.`,
+            mapping.dimension === 'mounting'
+              ? 'normalization_ambiguous_mounting'
+              : 'normalization_ambiguous_value',
+            `Structured value '${String(fact.raw_value)}' is not deterministic.`,
           ),
         ],
       };
     }
+    const contextual =
+      selected ??
+      parseContextualMeasurement(mapping.canonical_field, String(fact.raw_value), fact.raw_unit);
+    const qualifiedValue = contextual?.qualifiers
+      ? ({
+          id: `qualified-value.${artifactDigest({ source_id: fact.source_id, fact_id: fact.id, target: mapping.canonical_field, value: contextual.value, qualifiers: contextual.qualifiers }).slice(7, 31)}`,
+          target: mapping.canonical_field,
+          value: contextual.value,
+          qualifiers: contextual.qualifiers,
+        } as CanonicalQualifiedValue)
+      : undefined;
     const normalizedFact: ProductFact = {
       ...fact,
       field: mapping.canonical_field,
+      ...(qualifiedValue ? { qualified_value: qualifiedValue } : {}),
       normalized_value: normalizedValue,
       normalized_unit: mapping.unit,
       transformation_notes: [

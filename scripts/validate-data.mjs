@@ -13,6 +13,7 @@ const schemaByCollection = {
   engineering: 'engineering.schema.json',
   'manufacturer-acquisition-profiles': 'manufacturer-acquisition-profile.schema.json',
   'interaction-relationships': 'interaction-relationship.schema.json',
+  'production-ingestion': 'production-ingestion.schema.json',
 };
 const componentSupportedExtensions = new Set(['.yaml']);
 
@@ -52,7 +53,7 @@ const normalizeComponentKey = (value) => {
 
 export const validateDataRoot = async (dataRoot = join(process.cwd(), 'data')) => {
   const schemaRoot = join(dataRoot, 'schemas');
-  const ajv = new Ajv({ allErrors: true, strict: false });
+  const ajv = new Ajv({ allErrors: true, strict: false, strictNumbers: true });
   addFormats(ajv);
   const schemaFiles = (await recursiveFiles(schemaRoot)).filter(
     (file) => extname(file) === '.json',
@@ -79,7 +80,11 @@ export const validateDataRoot = async (dataRoot = join(process.cwd(), 'data')) =
     const pathParts = relative(dataRoot, dataFile).split(sep);
     const collection = pathParts[0];
     if (collection === 'templates') continue;
-    if (collection === 'ingestion' && pathParts[1] !== 'manufacturer-acquisition-profiles') {
+    if (
+      collection === 'ingestion' &&
+      pathParts[1] !== 'manufacturer-acquisition-profiles' &&
+      pathParts[1] !== 'production'
+    ) {
       continue;
     }
 
@@ -103,6 +108,14 @@ export const validateDataRoot = async (dataRoot = join(process.cwd(), 'data')) =
       const validate = ajv.compile(validators.get(schemaFile));
       if (!validate(document)) {
         throw new Error(`${relativePath} failed validation:\n${ajv.errorsText(validate.errors)}`);
+      }
+
+      const qualifiedIds = new Set();
+      for (const assertion of document.qualified_values ?? []) {
+        if (qualifiedIds.has(assertion.id)) {
+          throw new Error(`${relativePath} has duplicate qualified-value ID '${assertion.id}'.`);
+        }
+        qualifiedIds.add(assertion.id);
       }
 
       const componentId = typeof document.id === 'string' ? document.id.trim() : '';
@@ -147,7 +160,9 @@ export const validateDataRoot = async (dataRoot = join(process.cwd(), 'data')) =
 
     const schemaName =
       collection === 'ingestion'
-        ? schemaByCollection[pathParts[1]]
+        ? pathParts[1] === 'production'
+          ? schemaByCollection['production-ingestion']
+          : schemaByCollection[pathParts[1]]
         : schemaByCollection[collection];
     if (!schemaName) {
       throw new Error(`No schema mapping for data file: ${relativePath}`);

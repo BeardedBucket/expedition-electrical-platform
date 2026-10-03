@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   HttpSourceCaptureAdapter,
   createProductSource,
@@ -35,12 +35,14 @@ const response = (body: string, init: ResponseInit = {}) =>
 
 const redirect = (location?: string, status = 302) =>
   new Response(null, { status, headers: location ? { location } : {} });
+const resolvePublicHost = async (): Promise<readonly string[]> => ['93.184.216.34'];
 
 describe('HTTP source capture', () => {
   it('captures bounded HTTPS content with explicit metadata and a deterministic hash', async () => {
     const adapter = new HttpSourceCaptureAdapter(
       async () => response('hello'),
       () => '2026-09-05T12:00:00Z',
+      resolvePublicHost,
     );
     const result = await adapter.capture({ uri: 'https://example.invalid/page' });
     expect(result.status).toBe('success');
@@ -65,6 +67,8 @@ describe('HTTP source capture', () => {
           status: 404,
           headers: { 'content-type': 'application/pdf' },
         }),
+      undefined,
+      resolvePublicHost,
     );
     const result = await adapter.capture({
       uri: 'http://example.invalid/old',
@@ -85,6 +89,8 @@ describe('HTTP source capture', () => {
           status: 200,
           headers: { 'content-type': 'application/octet-stream' },
         }),
+      undefined,
+      resolvePublicHost,
     );
     const result = await adapter.capture({ uri: 'https://example.invalid/binary' });
     expect(result.status).toBe('success');
@@ -103,7 +109,11 @@ describe('HTTP source capture', () => {
   it('returns structured abort and response-size failures', async () => {
     const abortController = new AbortController();
     abortController.abort();
-    const abortAdapter = new HttpSourceCaptureAdapter(async () => response('never used'));
+    const abortAdapter = new HttpSourceCaptureAdapter(
+      async () => response('never used'),
+      undefined,
+      resolvePublicHost,
+    );
     await expect(
       abortAdapter.capture({
         uri: 'https://example.invalid/slow',
@@ -114,7 +124,11 @@ describe('HTTP source capture', () => {
       issues: [{ code: 'aborted' }],
     });
 
-    const largeAdapter = new HttpSourceCaptureAdapter(async () => response('0123456789'));
+    const largeAdapter = new HttpSourceCaptureAdapter(
+      async () => response('0123456789'),
+      undefined,
+      resolvePublicHost,
+    );
     await expect(
       largeAdapter.capture({ uri: 'https://example.invalid/large', max_bytes: 5 }),
     ).resolves.toMatchObject({
@@ -123,14 +137,259 @@ describe('HTTP source capture', () => {
     });
   });
 
+  it('contains fetch and body-read timeouts as structured failures', async () => {
+    const fetchTimeout = new HttpSourceCaptureAdapter(
+      async (_input, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener(
+            'abort',
+            () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })),
+            { once: true },
+          );
+        }),
+      undefined,
+      resolvePublicHost,
+    );
+    await expect(
+      fetchTimeout.capture({ uri: 'https://example.invalid/fetch-timeout', timeout_ms: 1 }),
+    ).resolves.toMatchObject({
+      status: 'failed',
+      issues: [{ code: 'aborted' }],
+    });
+
+    const bodyTimeout = new HttpSourceCaptureAdapter(
+      async (_input, init) =>
+        ({
+          status: 200,
+          ok: true,
+          url: 'https://example.invalid/body-timeout',
+          headers: new Headers({ 'content-type': 'application/pdf' }),
+          body: {
+            getReader: () => ({
+              read: async () =>
+                new Promise<never>((_resolve, reject) => {
+                  init?.signal?.addEventListener(
+                    'abort',
+                    () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })),
+                    { once: true },
+                  );
+                }),
+              cancel: async () => undefined,
+              releaseLock: () => undefined,
+            }),
+          },
+        }) as unknown as Response,
+      undefined,
+      resolvePublicHost,
+    );
+    await expect(
+      bodyTimeout.capture({ uri: 'https://example.invalid/body-timeout', body_idle_timeout_ms: 1 }),
+    ).resolves.toMatchObject({
+      status: 'failed',
+      bytes_observed: 0,
+      issues: [{ code: 'aborted' }],
+    });
+  });
+
+  it('preserves partial bytes and distinguishes non-timeout reader errors', async () => {
+    let cancelCalls = 0;
+    let releaseCalls = 0;
+    const adapter = new HttpSourceCaptureAdapter(
+      async (_input, init) =>
+        ({
+          status: 200,
+          ok: true,
+          url: 'https://example.invalid/partial-timeout',
+          headers: new Headers({ 'content-type': 'application/pdf' }),
+          body: {
+            getReader: () => ({
+              read: async () => {
+                if (cancelCalls === 0) {
+                  cancelCalls = -1;
+                  return { done: false, value: new Uint8Array([1, 2, 3]) };
+                }
+                return new Promise<never>((_resolve, reject) => {
+                  init?.signal?.addEventListener(
+                    'abort',
+                    () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })),
+                    { once: true },
+                  );
+                });
+              },
+              cancel: async () => {
+                cancelCalls = Math.max(cancelCalls, 0) + 1;
+              },
+              releaseLock: () => {
+                releaseCalls += 1;
+              },
+            }),
+          },
+        }) as unknown as Response,
+      undefined,
+      resolvePublicHost,
+    );
+    const timedOut = await adapter.capture({
+      uri: 'https://example.invalid/partial-timeout',
+      body_idle_timeout_ms: 1,
+    });
+    expect(timedOut).toMatchObject({
+      status: 'failed',
+      bytes_observed: 3,
+      issues: [{ code: 'aborted' }],
+    });
+    expect(timedOut.source).toBeUndefined();
+    expect(timedOut.source?.content_hash).toBeUndefined();
+    expect(cancelCalls).toBe(1);
+    expect(releaseCalls).toBe(1);
+
+    const errorAdapter = new HttpSourceCaptureAdapter(
+      async () =>
+        ({
+          status: 200,
+          ok: true,
+          url: 'https://example.invalid/reader-error',
+          headers: new Headers({ 'content-type': 'application/pdf' }),
+          body: {
+            getReader: () => ({
+              read: async () => {
+                throw new Error('reader failed');
+              },
+              cancel: async () => undefined,
+              releaseLock: () => undefined,
+            }),
+          },
+        }) as unknown as Response,
+      undefined,
+      resolvePublicHost,
+    );
+    await expect(
+      errorAdapter.capture({ uri: 'https://example.invalid/reader-error' }),
+    ).resolves.toMatchObject({
+      status: 'failed',
+      issues: [{ code: 'network_error', message: 'Error: reader failed' }],
+    });
+  });
+
+  it('cleans up the timeout timer after a body-read failure', async () => {
+    vi.useFakeTimers();
+    try {
+      const adapter = new HttpSourceCaptureAdapter(
+        async (_input, init) =>
+          ({
+            status: 200,
+            ok: true,
+            url: 'https://example.invalid/timer-cleanup',
+            headers: new Headers({ 'content-type': 'text/plain' }),
+            body: {
+              getReader: () => ({
+                read: async () =>
+                  new Promise<never>((_resolve, reject) => {
+                    init?.signal?.addEventListener(
+                      'abort',
+                      () => reject(new DOMException('aborted', 'AbortError')),
+                      { once: true },
+                    );
+                  }),
+                cancel: async () => undefined,
+                releaseLock: () => undefined,
+              }),
+            },
+          }) as unknown as Response,
+        undefined,
+        resolvePublicHost,
+      );
+      const pending = adapter.capture({
+        uri: 'https://example.invalid/timer-cleanup',
+        body_idle_timeout_ms: 10,
+      });
+      await vi.advanceTimersByTimeAsync(10);
+      await expect(pending).resolves.toMatchObject({
+        status: 'failed',
+        issues: [{ code: 'aborted' }],
+      });
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('uses the strictest of media class, absolute cap, and explicit max_bytes', async () => {
+    const htmlAdapter = new HttpSourceCaptureAdapter(
+      async () =>
+        response('x'.repeat(2_100_000), {
+          headers: { 'content-type': 'text/html; charset=utf-8' },
+        }),
+      undefined,
+      resolvePublicHost,
+    );
+    await expect(
+      htmlAdapter.capture({ uri: 'https://example.invalid/html', max_bytes: 10_000_000 }),
+    ).resolves.toMatchObject({
+      status: 'failed',
+      bytes_observed: 2_100_000,
+      issues: [{ code: 'response_too_large' }],
+    });
+
+    const pdfAdapter = new HttpSourceCaptureAdapter(
+      async () =>
+        new Response('x'.repeat(8_500_000), {
+          status: 200,
+          headers: { 'content-type': 'application/pdf' },
+        }),
+      undefined,
+      resolvePublicHost,
+    );
+    await expect(
+      pdfAdapter.capture({ uri: 'https://example.invalid/pdf', max_bytes: 20_000_000 }),
+    ).resolves.toMatchObject({
+      status: 'success',
+      bytes_observed: 8_500_000,
+    });
+
+    const binaryAdapter = new HttpSourceCaptureAdapter(
+      async () =>
+        new Response(new Uint8Array(4_000_001), {
+          headers: { 'content-type': 'application/octet-stream' },
+        }),
+      undefined,
+      resolvePublicHost,
+    );
+    await expect(
+      binaryAdapter.capture({ uri: 'https://example.invalid/other-binary' }),
+    ).resolves.toMatchObject({
+      status: 'failed',
+      issues: [{ code: 'response_too_large' }],
+    });
+  });
+
+  it('ignores a smaller content-length and counts the actual streamed bytes', async () => {
+    const adapter = new HttpSourceCaptureAdapter(
+      async () =>
+        new Response(new Uint8Array(25).fill(65), {
+          status: 200,
+          headers: { 'content-type': 'text/plain', 'content-length': '10' },
+        }),
+      undefined,
+      resolvePublicHost,
+    );
+    const result = await adapter.capture({ uri: 'https://example.invalid/length-mismatch' });
+    expect(result.status).toBe('success');
+    expect(result.bytes_observed).toBe(25);
+    expect(result.source?.body.bytes).toHaveLength(25);
+  });
+
   it('validates every redirect hop and preserves the final URI', async () => {
     const calls: string[] = [];
-    const adapter = new HttpSourceCaptureAdapter(async (input) => {
-      calls.push(String(input));
-      return calls.length === 1
-        ? redirect('/relative')
-        : response('redirected', { headers: { 'content-type': 'text/plain' } });
-    });
+    const adapter = new HttpSourceCaptureAdapter(
+      async (input) => {
+        calls.push(String(input));
+        return calls.length === 1
+          ? redirect('/relative')
+          : response('redirected', { headers: { 'content-type': 'text/plain' } });
+      },
+      undefined,
+      resolvePublicHost,
+    );
     const result = await adapter.capture({ uri: 'https://example.invalid/start' });
     expect(result.status).toBe('success');
     expect(calls).toEqual(['https://example.invalid/start', 'https://example.invalid/relative']);
@@ -143,29 +402,59 @@ describe('HTTP source capture', () => {
     ['http://169.254.1.10/private', 'blocked_host'],
   ])('rejects redirect to %s before fetching it', async (location, code) => {
     const calls: string[] = [];
-    const adapter = new HttpSourceCaptureAdapter(async (input) => {
-      calls.push(String(input));
-      return redirect(location);
-    });
+    const adapter = new HttpSourceCaptureAdapter(
+      async (input) => {
+        calls.push(String(input));
+        return redirect(location);
+      },
+      undefined,
+      resolvePublicHost,
+    );
     const result = await adapter.capture({ uri: 'https://example.invalid/start' });
     expect(result).toMatchObject({ status: 'invalid', issues: [{ code }] });
     expect(calls).toEqual(['https://example.invalid/start']);
   });
 
+  it('blocks publicly-named hosts that resolve to private or loopback addresses', async () => {
+    const adapter = new HttpSourceCaptureAdapter(
+      async () => response('unreachable'),
+      undefined,
+      async () => ['127.0.0.1'],
+    );
+    await expect(
+      adapter.capture({ uri: 'https://example.invalid/private-dns' }),
+    ).resolves.toMatchObject({
+      status: 'invalid',
+      issues: [{ code: 'blocked_host' }],
+    });
+  });
+
   it('reports redirect limits, missing locations, and malformed locations explicitly', async () => {
-    const loop = new HttpSourceCaptureAdapter(async () => redirect('/loop'));
+    const loop = new HttpSourceCaptureAdapter(
+      async () => redirect('/loop'),
+      undefined,
+      resolvePublicHost,
+    );
     await expect(
       loop.capture({ uri: 'https://example.invalid/start', max_redirects: 1 }),
     ).resolves.toMatchObject({
       status: 'failed',
       issues: [{ code: 'redirect_limit_exceeded' }],
     });
-    const missing = new HttpSourceCaptureAdapter(async () => redirect());
+    const missing = new HttpSourceCaptureAdapter(
+      async () => redirect(),
+      undefined,
+      resolvePublicHost,
+    );
     await expect(missing.capture({ uri: 'https://example.invalid/start' })).resolves.toMatchObject({
       status: 'failed',
       issues: [{ code: 'invalid_redirect' }],
     });
-    const malformed = new HttpSourceCaptureAdapter(async () => redirect('http://[invalid'));
+    const malformed = new HttpSourceCaptureAdapter(
+      async () => redirect('http://[invalid'),
+      undefined,
+      resolvePublicHost,
+    );
     await expect(
       malformed.capture({ uri: 'https://example.invalid/start' }),
     ).resolves.toMatchObject({

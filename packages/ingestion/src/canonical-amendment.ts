@@ -5,10 +5,16 @@ import { access, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises
 import { dirname, isAbsolute, join, relative, resolve, win32 } from 'node:path';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import componentSchema from '../../../data/schemas/component.schema.json' with { type: 'json' };
-import type { JsonObject, JsonValue, ProductFact } from './contracts.js';
+import type { CanonicalQualifiedValue, JsonObject, JsonValue, ProductFact } from './contracts.js';
 import type { NormalizedProductFact } from './normalization-types.js';
 import type { PromotionReview } from './promotion.js';
 import { isSupportedCanonicalField } from './field-mapping.js';
+import {
+  isCanonicalQualifiedValue,
+  sourceSupportsQualifiedValue,
+  qualifiedValueCollectionValid,
+} from './qualified-values.js';
+import { deterministicSerialize } from './production-contracts.js';
 
 export type CanonicalAmendmentStatus = 'proposed' | 'blocked' | 'invalid' | 'dry_run' | 'written';
 
@@ -49,7 +55,9 @@ export type CanonicalAmendmentIssueCode =
   | 'amendment_constraint_missing_evidence'
   | 'amendment_constraint_evidence_mismatch'
   | 'amendment_constraint_already_exists'
-  | 'amendment_constraint_missing';
+  | 'amendment_constraint_missing'
+  | 'amendment_qualified_value_invalid'
+  | 'amendment_qualified_value_evidence_mismatch';
 
 export interface CanonicalAmendmentIssue {
   readonly code: CanonicalAmendmentIssueCode;
@@ -57,7 +65,26 @@ export interface CanonicalAmendmentIssue {
   readonly message: string;
 }
 
+export type CanonicalQualifiedValueOperation = (
+  { readonly operation: 'add' } | { readonly operation: 'replace' }
+) & {
+  readonly id: string;
+  readonly value: CanonicalQualifiedValue;
+  readonly evidence?: readonly string[];
+};
+
+export interface CanonicalQualifiedValueChange {
+  readonly operation: 'add' | 'replace';
+  readonly id: string;
+  readonly previous_value?: CanonicalQualifiedValue;
+  readonly value: CanonicalQualifiedValue;
+  readonly fact_ids: readonly string[];
+  readonly review_id: string;
+}
+
 export interface CanonicalAmendmentReview extends PromotionReview {
+  readonly qualified_value_operations?: readonly CanonicalQualifiedValueOperation[];
+  readonly qualified_value_evidence?: Readonly<Record<string, readonly string[]>>;
   readonly component_id?: string;
   readonly canonical_id?: string;
   readonly expected_snapshot?: string;
@@ -89,6 +116,7 @@ export type CanonicalConstraintOperation =
     };
 
 export interface CanonicalAmendmentCandidate {
+  readonly qualified_value_evidence?: Readonly<Record<string, readonly string[]>>;
   readonly component_data?: JsonObject;
   readonly field_evidence?: Readonly<Record<string, readonly string[]>>;
   readonly topology_evidence?: Readonly<Record<string, readonly string[]>>;
@@ -174,6 +202,7 @@ export interface CanonicalAmendmentResult {
   readonly changes?: readonly CanonicalAmendmentChange[];
   readonly topology_changes?: readonly CanonicalTopologyChange[];
   readonly constraint_changes?: readonly CanonicalConstraintChange[];
+  readonly qualified_value_changes?: readonly CanonicalQualifiedValueChange[];
   readonly schema_valid: boolean;
 }
 
@@ -351,12 +380,20 @@ const amendmentHistoryEntry = (
   candidate: CanonicalAmendmentCandidate | undefined,
   topologyChanges: readonly CanonicalTopologyChange[] = [],
   constraintChanges: readonly CanonicalConstraintChange[] = [],
+  qualifiedChanges: readonly CanonicalQualifiedValueChange[] = [],
 ): JsonObject => ({
   review_id: review.id,
   candidate_id: review.candidate_id,
   expected_snapshot: expectedSnapshot,
   fields: changes.map((change) => ({ ...change, fact_ids: [...change.fact_ids] })),
   source_ids: [...(candidate?.source_ids ?? [])],
+  ...(qualifiedChanges.length
+    ? {
+        qualified_value_operations: qualifiedChanges.map((change) =>
+          clone(change as unknown as JsonObject),
+        ),
+      }
+    : {}),
   ...(topologyChanges.length > 0
     ? {
         topology_operations: topologyChanges.map((change) => ({
@@ -827,6 +864,7 @@ export const proposeCanonicalAmendment = ({
   const evidenceFacts = factIndex(candidate, facts);
   const changes: CanonicalAmendmentChange[] = [];
   const topologyChanges: CanonicalTopologyChange[] = [];
+  const qualifiedChanges: CanonicalQualifiedValueChange[] = [];
   const actualSnapshot = canonicalSerializedSnapshot(current);
   for (const field of Object.keys(review.field_actions ?? {})) {
     const primary = review.field_actions?.[field];
@@ -931,7 +969,11 @@ export const proposeCanonicalAmendment = ({
       );
       continue;
     }
-    if (unsafeFieldPath(field) || !isSupportedCanonicalField(field)) {
+    if (
+      /^qualified_values(?:$|[.[])/.test(field) ||
+      unsafeFieldPath(field) ||
+      !isSupportedCanonicalField(field)
+    ) {
       issues.push(
         issue(
           'amendment_unsafe_field_path',
@@ -1365,11 +1407,152 @@ export const proposeCanonicalAmendment = ({
     });
   }
 
+  const qualifiedOperations = review.qualified_value_operations ?? [];
+  const operationIds = new Set<string>();
+  const currentQualified = Array.isArray(current.qualified_values)
+    ? current.qualified_values.filter(isCanonicalQualifiedValue)
+    : [];
+  const nextQualified = [...currentQualified];
+  if (!qualifiedValueCollectionValid(current.qualified_values))
+    issues.push(
+      issue(
+        'amendment_qualified_value_invalid',
+        'qualified_values',
+        'Current qualified assertions are invalid.',
+      ),
+    );
+  for (const operation of qualifiedOperations) {
+    const path = `qualified_value_operations.${operation.id}`;
+    if (
+      !['add', 'replace'].includes(operation.operation) ||
+      !isCanonicalQualifiedValue(operation.value) ||
+      operation.id !== operation.value.id ||
+      operationIds.has(operation.id)
+    ) {
+      issues.push(
+        issue(
+          'amendment_qualified_value_invalid',
+          path,
+          'Operation requires a distinct ID and complete target/value/qualifiers assertion.',
+        ),
+      );
+      continue;
+    }
+    operationIds.add(operation.id);
+    const existing = currentQualified.find((entry) => entry.id === operation.id);
+    if (
+      (operation.operation === 'add' && existing) ||
+      (operation.operation === 'replace' &&
+        (!existing || existing.target !== operation.value.target))
+    ) {
+      issues.push(
+        issue(
+          'amendment_qualified_value_invalid',
+          path,
+          'Add requires an absent ID; replace requires the same existing ID and target.',
+        ),
+      );
+      continue;
+    }
+    const qualifiedCandidateEvidence = candidate?.qualified_value_evidence?.[operation.id];
+    const factIds = [...new Set(qualifiedCandidateEvidence ?? [])].sort();
+    const representations = [
+      operation.evidence,
+      review.qualified_value_evidence?.[operation.id],
+      candidate?.qualified_value_evidence?.[operation.id],
+    ]
+      .filter((ids): ids is readonly string[] => ids !== undefined)
+      .map((ids) => [...new Set(ids)].sort());
+    if (
+      !factIds.length ||
+      representations.some((ids) => deterministicSerialize(ids) !== deterministicSerialize(factIds))
+    ) {
+      issues.push(
+        issue(
+          'amendment_qualified_value_evidence_mismatch',
+          path,
+          'ID-bound evidence must be present and all representations must agree.',
+        ),
+      );
+      continue;
+    }
+    const candidateEntries = Array.isArray(data.qualified_values) ? data.qualified_values : [];
+    const assertion = candidateEntries.find(
+      (entry) =>
+        entry && typeof entry === 'object' && !Array.isArray(entry) && entry.id === operation.id,
+    );
+    const sameMeaning = (left: CanonicalQualifiedValue, right: CanonicalQualifiedValue) =>
+      deterministicSerialize({
+        target: left.target,
+        value: left.value,
+        qualifiers: left.qualifiers,
+      }) ===
+      deterministicSerialize({
+        target: right.target,
+        value: right.value,
+        qualifiers: right.qualifiers,
+      });
+    if (
+      !candidate ||
+      !isCanonicalQualifiedValue(assertion) ||
+      deterministicSerialize(assertion) !== deterministicSerialize(operation.value) ||
+      factIds.some((id) => {
+        const fact = evidenceFacts.get(id);
+        return (
+          !fact ||
+          !candidate.fact_ids?.includes(id) ||
+          !candidate.source_ids?.includes(fact.source_id) ||
+          !isCanonicalQualifiedValue(fact.qualified_value) ||
+          fact.field !== operation.value.target ||
+          !sourceSupportsQualifiedValue(fact, operation.value) ||
+          !sameMeaning(fact.qualified_value, operation.value) ||
+          ['unresolved', 'conflicting'].includes(fact.fact_state) ||
+          Object.entries(actions).some(([field]) =>
+            candidateEvidence(candidate, review, field).includes(id),
+          )
+        );
+      })
+    ) {
+      issues.push(
+        issue(
+          'amendment_qualified_value_evidence_mismatch',
+          path,
+          'Each selected fact must support the complete reviewed assertion within candidate evidence.',
+        ),
+      );
+      continue;
+    }
+    if (existing)
+      nextQualified[nextQualified.findIndex((entry) => entry.id === operation.id)] = clone(
+        operation.value,
+      ) as CanonicalQualifiedValue;
+    else nextQualified.push(clone(operation.value) as CanonicalQualifiedValue);
+    qualifiedChanges.push({
+      operation: operation.operation,
+      id: operation.id,
+      ...(existing ? { previous_value: clone(existing) as CanonicalQualifiedValue } : {}),
+      value: clone(operation.value) as CanonicalQualifiedValue,
+      fact_ids: factIds,
+      review_id: review.id,
+    });
+  }
+  if (qualifiedChanges.length) proposal.qualified_values = nextQualified;
+  if (!qualifiedValueCollectionValid(proposal.qualified_values))
+    issues.push(
+      issue(
+        'amendment_qualified_value_invalid',
+        'qualified_values',
+        'Proposed qualified assertions are invalid.',
+      ),
+    );
   issues.push(...validateProposedTopology(proposal));
 
   changes.sort((left, right) => left.field.localeCompare(right.field));
   if (
-    (changes.length > 0 || topologyChanges.length > 0 || constraintChanges.length > 0) &&
+    (changes.length > 0 ||
+      topologyChanges.length > 0 ||
+      constraintChanges.length > 0 ||
+      qualifiedChanges.length > 0) &&
     candidate
   ) {
     const history = Array.isArray(current.amendment_history) ? current.amendment_history : [];
@@ -1382,6 +1565,7 @@ export const proposeCanonicalAmendment = ({
         candidate,
         topologyChanges,
         constraintChanges,
+        qualifiedChanges,
       ),
     ];
   }
@@ -1399,6 +1583,7 @@ export const proposeCanonicalAmendment = ({
       changes,
       topology_changes: topologyChanges,
       constraint_changes: constraintChanges,
+      qualified_value_changes: qualifiedChanges,
       schema_valid: false,
     };
   }
@@ -1413,6 +1598,7 @@ export const proposeCanonicalAmendment = ({
     changes,
     topology_changes: topologyChanges,
     constraint_changes: constraintChanges,
+    qualified_value_changes: qualifiedChanges,
     schema_valid: true,
   };
 };

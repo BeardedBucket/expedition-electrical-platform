@@ -1,0 +1,783 @@
+import type { IngestionJob } from '@expedition/ingestion-runtime';
+import {
+  isSourceSelectionRecoveryEligible,
+  isPreparationRecoveryEligible,
+  isResumedPreparationRecoveryEligible,
+  productReviewLifecycleSnapshot,
+} from '@expedition/ingestion-runtime';
+import type { ArtifactReference, CanonicalQualifiedValue } from '@expedition/ingestion';
+import {
+  artifactDigest,
+  canonicalIdFor,
+  canonicalizeConversionNoise,
+  evaluateSemanticReviewCompletion,
+  productionSemanticTargetContract,
+  reviewPackageSnapshot,
+} from '@expedition/ingestion';
+import { productRoles } from './product-review.js';
+
+const valueAt = (data: unknown, path: string): unknown =>
+  path
+    .split('.')
+    .reduce<unknown>(
+      (value, key) =>
+        value && typeof value === 'object' ? (value as Record<string, unknown>)[key] : undefined,
+      data,
+    );
+const safeUri = (uri: string | undefined) => (uri && /^https?:\/\//i.test(uri) ? uri : undefined);
+const canonicalUnitForTarget = (target: string) => {
+  const unit = productionSemanticTargetContract(target)?.unit;
+  return unit && unit !== 'string' && unit !== 'structured' ? unit : undefined;
+};
+// Keep noisy display representations separate from the unmodified candidate and proposal values.
+const displayValue = (value: unknown): unknown => {
+  if (typeof value === 'number') return canonicalizeConversionNoise(value);
+  if (Array.isArray(value)) return value.map(displayValue);
+  if (value && typeof value === 'object')
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nested]) => [key, displayValue(nested)]),
+    );
+  return value;
+};
+const valuePresentation = (target: string, derived: boolean, hasValue: boolean) => {
+  const canonicalUnit = canonicalUnitForTarget(target);
+  return {
+    value_origin: derived
+      ? ('calculated / derived' as const)
+      : hasValue && canonicalUnit
+        ? ('normalized / converted' as const)
+        : ('automatic canonical' as const),
+    ...(canonicalUnit ? { canonical_unit: canonicalUnit } : {}),
+  };
+};
+const operatorIssues = (issues: readonly { code: string; path: string; message: string }[]) =>
+  issues.slice(0, 100).map(({ code, path, message }) => ({
+    code,
+    path,
+    message: ['write_failed', 'promotion_already_exists'].includes(code)
+      ? code === 'write_failed'
+        ? 'Unable to create canonical component; inspect local service diagnostics.'
+        : 'Canonical component already exists. No overwrite was performed.'
+      : message,
+  }));
+
+export function productReviewView(job: IngestionJob) {
+  const p = job.preparation;
+  if (p?.status !== 'review_ready') return undefined;
+  const proposalViews = (field: string, qualifiedId?: string) =>
+    p.proposals
+      .filter(
+        (proposal) =>
+          proposal.target === field &&
+          (qualifiedId ? proposal.qualified_value?.id === qualifiedId : !proposal.qualified_value),
+      )
+      .slice(0, 500)
+      .map((proposal) => ({
+        id: proposal.id,
+        disposition: proposal.disposition,
+        value: proposal.proposed_value,
+        ...(proposal.proposed_value !== undefined
+          ? { display_value: displayValue(proposal.proposed_value) }
+          : {}),
+        ...valuePresentation(
+          proposal.target,
+          proposal.derivation !== undefined,
+          proposal.disposition === 'mapped' && proposal.proposed_value !== undefined,
+        ),
+        projected: p.bridge.projected_proposal_ids.includes(proposal.id),
+        references: [...proposal.evidence_refs, ...(proposal.fact_refs ?? [])].map(reference),
+        evidence: p.qualified_facts
+          .filter((fact) => proposal.fact_refs?.some((ref) => ref.digest === artifactDigest(fact)))
+          .slice(0, 1000)
+          .map((fact) => {
+            const capture = p.captures.find(
+              (capture) => artifactDigest(capture) === fact.source_capture.digest,
+            );
+            const document = p.document_extractions.find(
+              (document) => fact.document_extraction?.digest === artifactDigest(document),
+            );
+            return {
+              id: fact.id,
+              label: fact.metadata.source_label,
+              raw_value: fact.metadata.raw_value,
+              unit: fact.metadata.source_unit,
+              applicability: fact.metadata.applicability,
+              qualification: fact.qualification_state,
+              source_uri: safeUri(capture?.final_uri ?? capture?.requested_uri),
+              document: document?.title,
+              locators: fact.evidence?.map(({ role, locator, block_id }) => ({
+                role,
+                locator,
+                block_id,
+              })),
+              conflicts: p.reconciliation.group_reconciliations
+                .filter(
+                  (group) =>
+                    group.qualified_fact_ids.includes(fact.id) &&
+                    (group.outcome === 'conflict' || group.outcome === 'unresolved'),
+                )
+                .map((group) => ({ id: group.id, outcome: group.outcome })),
+            };
+          }),
+      }));
+  const assertions = p.bridge.candidate?.component_data.qualified_values as
+    CanonicalQualifiedValue[] | undefined;
+  const fields = [
+    ...new Set(
+      p.proposals
+        .filter((proposal) => !proposal.qualified_value)
+        .map((proposal) => proposal.target),
+    ),
+  ];
+  return {
+    roles: productRoles,
+    canonical_id: p.bridge.candidate ? canonicalIdFor(p.bridge.candidate) : undefined,
+    truncated:
+      (assertions?.length ?? 0) > 200 ||
+      fields.length > 200 ||
+      p.proposals.length > 500 ||
+      p.qualified_facts.length > 1000,
+    fields: fields.slice(0, 200).map((field) => {
+      const value = valueAt(p.bridge.candidate?.component_data, field);
+      return {
+        path: field,
+        value,
+        ...(value !== undefined ? { display_value: displayValue(value) } : {}),
+        ...(canonicalUnitForTarget(field) ? { canonical_unit: canonicalUnitForTarget(field) } : {}),
+        selectable: !!p.bridge.candidate?.field_evidence[field],
+        candidate_fact_ids: p.bridge.candidate?.field_evidence[field] ?? [],
+        proposals: proposalViews(field),
+      };
+    }),
+    qualified_values: (assertions ?? []).slice(0, 200).map((assertion) => ({
+      id: assertion.id,
+      target: assertion.target,
+      value: assertion.value,
+      ...(assertion.value !== undefined ? { display_value: displayValue(assertion.value) } : {}),
+      qualifiers: assertion.qualifiers,
+      candidate_fact_ids: p.bridge.candidate?.qualified_value_evidence?.[assertion.id] ?? [],
+      proposals: proposalViews(assertion.target, assertion.id),
+    })),
+    candidate_facts: p.bridge.facts
+      .slice(0, 1000)
+      .map(({ id, field, raw_label, raw_value, fact_state }) => ({
+        id,
+        field,
+        raw_label,
+        raw_value,
+        fact_state,
+      })),
+    topology_evidence: p.bridge.candidate?.topology_evidence,
+  };
+}
+
+// Allowlisted reference metadata only; no internal provenance or captured bodies.
+const reference = (ref: ArtifactReference) => ({
+  kind: ref.kind,
+  reference: ref.reference,
+  reference_schema_version: ref.reference_schema_version,
+  digest: ref.digest,
+  digest_algorithm: ref.digest_algorithm,
+});
+
+export const jobSummary = (job: IngestionJob) => {
+  const prepared = job.preparation;
+  const review = prepared?.status === 'review_ready' ? prepared : undefined;
+  return {
+    id: job.id,
+    created_at: job.created_at,
+    updated_at: job.updated_at,
+    state: job.state,
+    manufacturer: job.intake.manufacturer,
+    product_model: job.intake.product_model,
+    manufacturer_part_number: job.intake.manufacturer_part_number,
+    official_product_uri: job.intake.official_product_uri,
+    preparation_status: prepared?.status,
+    candidate_present: review ? review.bridge.candidate !== undefined : undefined,
+    fact_count: prepared?.qualified_facts.length,
+    proposal_count: review?.proposals.length,
+    unresolved_count: review?.reconciliation.unresolved_count,
+    conflict_count: review?.reconciliation.conflict_count,
+    final_result_status: job.final_result?.promotion.result.status,
+    write_status: job.final_result?.write_result.status,
+  };
+};
+
+export const batchSummary = (batch: {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  state: string;
+  requested_count: number;
+  job_count: number;
+  counts: Record<string, number>;
+  jobs: readonly { id: string; state: string }[];
+}) => ({
+  id: batch.id,
+  created_at: batch.created_at,
+  updated_at: batch.updated_at,
+  state: batch.state,
+  requested_count: batch.requested_count,
+  job_count: batch.job_count,
+  counts: batch.counts,
+  jobs: batch.jobs,
+});
+
+export const batchDetail = (batch: {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  state: string;
+  requested_count: number;
+  job_count: number;
+  counts: Record<string, number>;
+  jobs: readonly { id: string; state: string }[];
+}) => ({
+  summary: batchSummary(batch),
+  job_ids: batch.jobs.map((job) => job.id),
+});
+
+export const jobDetail = (job: IngestionJob) => {
+  const p = job.preparation;
+  const r = p?.status === 'review_ready' ? p : undefined;
+  const candidate = r?.bridge.candidate;
+  const pkg = r?.review_package;
+  const productReview = productReviewView(job);
+  const semanticCompletion = r
+    ? evaluateSemanticReviewCompletion(r.proposals, r.bridge.reviewed_semantic_interpretation)
+    : undefined;
+  const semanticDecisionViews =
+    r?.bridge.reviewed_semantic_decisions?.map((decision) => ({
+      id: decision.id,
+      proposal_id: decision.proposal_ref.reference,
+      revision: decision.revision,
+      active: r.bridge.reviewed_semantic_interpretation.entries.some(
+        (entry) =>
+          entry.proposal_id === decision.proposal_ref.reference &&
+          entry.decision_ref?.reference === decision.id,
+      ),
+      outcome: decision.outcome,
+      actor_label: decision.actor.identifier,
+      recorded_at: decision.recorded_at,
+      ...(decision.target ? { target: decision.target } : {}),
+      ...(decision.normalized_value !== undefined
+        ? { normalized_value: decision.normalized_value }
+        : {}),
+      ...(decision.normalized_unit ? { normalized_unit: decision.normalized_unit } : {}),
+      ...(decision.rationale ? { rationale: decision.rationale } : {}),
+      ...(decision.schema_gap ? { schema_gap: decision.schema_gap } : {}),
+      selected_fact_ids: (decision.selected_fact_refs ?? decision.fact_refs).map(
+        (reference) => reference.reference,
+      ),
+    })) ?? [];
+  const semanticReview = r
+    ? {
+        complete: semanticCompletion?.complete,
+        required_dispositions: semanticCompletion?.required_dispositions,
+        expected_review_snapshot: reviewPackageSnapshot(r.review_package),
+        interpretation: r.bridge.reviewed_semantic_interpretation.entries.map((entry) => ({
+          proposal_id: entry.proposal_id,
+          state: entry.state,
+          automatic_target: entry.automatic_target,
+          automatic_disposition: entry.automatic_disposition,
+          ...(entry.automatic_value !== undefined
+            ? { automatic_value: entry.automatic_value }
+            : {}),
+          ...(entry.target ? { target: entry.target } : {}),
+          ...(entry.value !== undefined ? { value: entry.value } : {}),
+          ...(entry.normalized_unit ? { normalized_unit: entry.normalized_unit } : {}),
+        })),
+        decisions: semanticDecisionViews,
+        work: (() => {
+          const requiredIds = new Set(
+            (semanticCompletion?.required_dispositions ?? []).map(
+              (requirement) => requirement.proposal_id,
+            ),
+          );
+          const interpretationById = new Map(
+            r.bridge.reviewed_semantic_interpretation.entries.map((entry) => [
+              entry.proposal_id,
+              entry,
+            ]),
+          );
+          const proposalViews = [
+            ...(productReview?.fields.flatMap((field) => field.proposals) ?? []),
+            ...(productReview?.qualified_values?.flatMap((assertion) => assertion.proposals) ?? []),
+          ];
+          const items = r.proposals.map((proposal) => {
+            const interpretation = interpretationById.get(proposal.id);
+            const projectedField = productReview?.fields.find((field) =>
+              field.proposals.some(
+                (candidate) => candidate.id === proposal.id && candidate.projected,
+              ),
+            );
+            const projectedQualifiedValue = productReview?.qualified_values?.find((assertion) =>
+              assertion.proposals.some(
+                (candidate) => candidate.id === proposal.id && candidate.projected,
+              ),
+            );
+            const history = semanticDecisionViews.filter(
+              (decision) => decision.proposal_id === proposal.id,
+            );
+            return {
+              id: proposal.id,
+              ...(projectedField ? { projected_field: projectedField.path } : {}),
+              ...(projectedQualifiedValue
+                ? { projected_qualified_value_id: projectedQualifiedValue.id }
+                : {}),
+              automatic_target: proposal.target,
+              automatic_disposition: proposal.disposition,
+              ...(proposal.proposed_value !== undefined
+                ? { automatic_value: proposal.proposed_value }
+                : {}),
+              ...(proposal.proposed_value !== undefined
+                ? { display_value: displayValue(proposal.proposed_value) }
+                : {}),
+              derived: proposal.derivation !== undefined,
+              ...valuePresentation(
+                proposal.target,
+                proposal.derivation !== undefined,
+                proposal.disposition === 'mapped' && proposal.proposed_value !== undefined,
+              ),
+              state: interpretation?.state ?? 'automatic',
+              ...(interpretation?.target ? { target: interpretation.target } : {}),
+              ...(interpretation?.value !== undefined ? { value: interpretation.value } : {}),
+              ...(interpretation?.value !== undefined
+                ? { display_value: displayValue(interpretation.value) }
+                : {}),
+              ...(interpretation?.normalized_unit
+                ? { normalized_unit: interpretation.normalized_unit }
+                : {}),
+              required: requiredIds.has(proposal.id),
+              active_decision: history?.find((decision) => decision.active),
+              decision_history: history,
+              evidence: proposalViews.find((view) => view.id === proposal.id)?.evidence ?? [],
+            };
+          });
+          return {
+            required: items.filter((item) => item.required && !item.derived),
+            reviewed: items.filter(
+              (item) => !item.required && !item.derived && item.active_decision !== undefined,
+            ),
+            automatic: items.filter(
+              (item) => !item.required && !item.derived && item.active_decision === undefined,
+            ),
+            derived: items.filter((item) => item.derived),
+          };
+        })(),
+      }
+    : undefined;
+  // Counts describe persisted stage outputs, not a browser inference that a captured
+  // source is a fact or that a semantic proposal is eligible for promotion.
+  const pipeline_summary = p
+    ? {
+        capture_dispositions: {
+          authoritative: p.captures.filter((capture) => capture.disposition === 'authoritative')
+            .length,
+          non_authoritative: p.captures.filter(
+            (capture) => capture.disposition === 'non_authoritative',
+          ).length,
+          failed: p.captures.filter((capture) => capture.disposition === 'failed').length,
+          empty: p.captures.filter((capture) => capture.disposition === 'empty').length,
+        },
+        extraction_results: p.document_extractions.length,
+        extracted_observations: p.document_extractions.reduce(
+          (count, extraction) => count + extraction.blocks.length,
+          0,
+        ),
+        qualified_facts: p.qualified_facts.length,
+        reconciliation_groups: r?.reconciliation.group_reconciliations.length,
+        reconciliation_dispositions: r
+          ? Object.fromEntries(
+              [
+                ...new Set(r.reconciliation.group_reconciliations.map((group) => group.outcome)),
+              ].map((outcome) => [
+                outcome,
+                r.reconciliation.group_reconciliations.filter((group) => group.outcome === outcome)
+                  .length,
+              ]),
+            )
+          : undefined,
+        semantic_proposals: r?.proposals.length,
+        proposal_dispositions: r
+          ? Object.fromEntries(
+              [...new Set(r.proposals.map((proposal) => proposal.disposition))].map(
+                (disposition) => [
+                  disposition,
+                  r.proposals.filter((proposal) => proposal.disposition === disposition).length,
+                ],
+              ),
+            )
+          : undefined,
+        projected_fields: r ? Object.keys(candidate?.field_evidence ?? {}).length : undefined,
+        qualified_values: r
+          ? Array.isArray(candidate?.component_data.qualified_values)
+            ? candidate.component_data.qualified_values.length
+            : 0
+          : undefined,
+      }
+    : undefined;
+  const activeSourceReference =
+    job.active_source_resolution ??
+    (job.source_resolution_recovery_history?.length ? undefined : job.accepted_source_resolution);
+  const acceptedResolution =
+    activeSourceReference?.kind === 'source_resolution'
+      ? job.source_resolution_attempts?.find(
+          ({ resolution }) =>
+            resolution.disposition === 'accepted' &&
+            artifactDigest(resolution) === activeSourceReference.digest,
+        )?.resolution
+      : undefined;
+  return {
+    summary: jobSummary(job),
+    ...(r
+      ? {
+          product_review_lifecycle: {
+            expected_lifecycle_snapshot: productReviewLifecycleSnapshot(job),
+            resumable: job.state === 'review_deferred',
+            history: (job.product_review_history ?? []).map((event) =>
+              event.action === 'deferred'
+                ? {
+                    action: event.action,
+                    revision: event.revision,
+                    recorded_at: event.approval.reviewed_at,
+                    actor_label: event.approval.reviewer_id,
+                    reason: event.reason,
+                    rationale: event.approval.reviewed_decisions,
+                    review_snapshot: event.approval.review_package_snapshot,
+                  }
+                : {
+                    action: event.action,
+                    revision: event.revision,
+                    recorded_at: event.recorded_at,
+                    actor_label: event.actor_label,
+                    review_snapshot: event.review_snapshot,
+                  },
+            ),
+          },
+        }
+      : {}),
+    ...((isPreparationRecoveryEligible(job) || isResumedPreparationRecoveryEligible(job)) && r
+      ? {
+          preparation_recovery: {
+            expected_review_snapshot: reviewPackageSnapshot(r.review_package),
+            ...(isResumedPreparationRecoveryEligible(job)
+              ? { expected_lifecycle_snapshot: productReviewLifecycleSnapshot(job) }
+              : {}),
+          },
+        }
+      : {}),
+    ...(job.preparation_recovery_history?.length
+      ? {
+          preparation_recovery_history: job.preparation_recovery_history.map((entry) => ({
+            requested_at: entry.requested_at,
+            previous_review_snapshot: entry.previous_review_snapshot,
+            source_uri: safeUri(entry.preparation.source_resolution?.final_uri),
+            fact_count: entry.preparation.qualified_facts.length,
+            extraction_count: entry.preparation.document_extractions.length,
+          })),
+        }
+      : {}),
+    pipeline_summary,
+    product_review: productReview,
+    approval: job.approval
+      ? {
+          decision: job.approval.decision,
+          reviewer_label: job.approval.reviewer_id,
+          reviewed_at: job.approval.reviewed_at,
+          reviewed_decisions: job.approval.reviewed_decisions,
+          promotion_decisions: job.approval.promotion_decisions,
+          review_package: reference(job.approval.review_package),
+          review_package_snapshot: job.approval.review_package_snapshot,
+          semantic_snapshot: job.approval.semantic_snapshot,
+        }
+      : undefined,
+    finalization: job.finalization_request
+      ? {
+          requested_at: job.finalization_request.requested_at,
+          write_authorized: job.finalization_request.write_request.write === true,
+          promotion_status: job.final_result?.promotion.result.status,
+          write_status: job.final_result?.write_result.status,
+          collision: job.final_result?.write_result.collision,
+          schema_valid: job.final_result?.write_result.schema_valid,
+          promotion_issues: operatorIssues(job.final_result?.promotion.result.issues ?? []),
+          write_issues: operatorIssues(job.final_result?.write_result.issues ?? []),
+        }
+      : undefined,
+    source_resolution: !job.intake.official_product_uri
+      ? {
+          state: job.state,
+          requested_identity: {
+            manufacturer: job.intake.manufacturer,
+            product_model: job.intake.product_model,
+            manufacturer_part_number: job.intake.manufacturer_part_number,
+          },
+          accepted_reference: job.accepted_source_resolution
+            ? reference(job.accepted_source_resolution)
+            : undefined,
+          active_reference: activeSourceReference ? reference(activeSourceReference) : undefined,
+          accepted_uri: acceptedResolution?.final_uri,
+          recovery: {
+            can_reopen: isSourceSelectionRecoveryEligible(job),
+            acquisition_status:
+              job.preparation?.status === 'preparation_failed'
+                ? job.preparation.acquisition.status
+                : undefined,
+            acquisition_issues:
+              job.preparation?.status === 'preparation_failed'
+                ? job.preparation.acquisition.issues
+                : undefined,
+            acquisition_response_status:
+              job.preparation?.status === 'preparation_failed'
+                ? job.preparation.acquisition.seed_capture.artifact.response_status
+                : undefined,
+            preparation_reason:
+              job.preparation?.status === 'preparation_failed' ? job.preparation.reason : undefined,
+          },
+          recovery_history: (job.source_resolution_recovery_history ?? []).map((item) => ({
+            requested_at: item.requested_at,
+            method: item.method,
+            previous_source_reference: reference(item.previous_source_resolution),
+            previous_source_uri: item.preparation.source_resolution?.final_uri,
+            preparation_status: item.preparation.status,
+            preparation_reason:
+              item.preparation.status === 'preparation_failed'
+                ? item.preparation.reason
+                : undefined,
+            acquisition_status: item.preparation.acquisition.status,
+            acquisition_issues: item.preparation.acquisition.issues,
+            seed_capture_disposition: item.preparation.acquisition.seed_capture.disposition,
+            seed_response_status:
+              item.preparation.acquisition.seed_capture.artifact.response_status,
+          })),
+          attempt_count: job.source_resolution_attempts?.length ?? 0,
+          history_truncated: (job.source_resolution_attempts?.length ?? 0) > 50,
+          attempts: (job.source_resolution_attempts ?? [])
+            .slice(-50)
+            .map(({ resolution: r, capture: c }) => ({
+              attempt_id: r.attempt_id,
+              candidate_uri: r.candidate_uri,
+              normalized_uri: r.normalized_uri,
+              final_uri: r.final_uri,
+              discovery_method: r.discovery_method,
+              domain_evidence: r.domain_evidence,
+              title: r.title,
+              observations: r.observations.slice(0, 30),
+              diagnostics: r.diagnostics.slice(0, 30).map(({ code, message }) => ({
+                code,
+                message: code.startsWith('snapshot_')
+                  ? 'Snapshot operation failed; inspect local service diagnostics.'
+                  : message,
+              })),
+              disposition: r.disposition,
+              review: r.review,
+              captured_at: r.captured_at,
+              capture: {
+                reference: reference(r.capture),
+                disposition: c.disposition,
+                content_digest: c.content_digest,
+                media_type: c.media_type,
+                response_status: c.response_status,
+                reason_codes: c.reason_codes,
+                redirects: c.redirect_chain
+                  ?.slice(0, 5)
+                  .map(({ requested_uri, destination_uri, response_status }) => ({
+                    requested_uri,
+                    destination_uri,
+                    response_status,
+                  })),
+              },
+              can_accept: r.disposition === 'pending' && !!r.final_uri,
+            })),
+        }
+      : undefined,
+    intake: {
+      manufacturer: job.intake.manufacturer,
+      product_model: job.intake.product_model,
+      manufacturer_part_number: job.intake.manufacturer_part_number,
+      official_product_uri: job.intake.official_product_uri,
+    },
+    acquisition: p
+      ? {
+          status: p.acquisition.status,
+          issues: p.acquisition.issues,
+          candidate_count: p.acquisition.candidates.length,
+          selected_count: p.acquisition.candidates.filter(
+            (c) => c.candidate.selection_status === 'selected',
+          ).length,
+          captured_count: p.captures.length,
+          duplicate_count: p.acquisition.candidates.filter(
+            (c) => c.candidate.selection_status === 'duplicate_uri',
+          ).length,
+          excluded_by_policy_count: p.acquisition.candidates.filter(
+            (c) => c.candidate.selection_status === 'excluded_by_policy',
+          ).length,
+        }
+      : undefined,
+    sources: p
+      ? [
+          {
+            id: p.acquisition.seed_capture.artifact.id,
+            label: 'Intake product page',
+            uri:
+              p.acquisition.seed_capture.artifact.final_uri ??
+              p.acquisition.seed_capture.artifact.requested_uri,
+            role: 'product_page',
+            officiality: p.acquisition.artifact?.officiality,
+            selection: 'seed',
+            capture_outcome: p.acquisition.seed_capture.disposition,
+            capture_disposition: p.acquisition.seed_capture.disposition,
+            media_type: p.acquisition.seed_capture.artifact.media_type,
+            parent_uri: undefined as string | undefined,
+            duplicate_of: undefined as string | undefined,
+            equivalent_content_of: undefined as string | undefined,
+            reason_codes: p.acquisition.seed_capture.artifact.reason_codes,
+          },
+          ...p.acquisition.candidates.map(({ candidate: c, capture }) => ({
+            id: c.id,
+            label: c.discovery.source_label,
+            uri: capture?.artifact.final_uri ?? c.normalized_uri,
+            role: c.role,
+            officiality: c.officiality,
+            selection: c.selection_status,
+            capture_outcome: c.capture_outcome,
+            capture_disposition: c.capture_disposition,
+            media_type: capture?.artifact.media_type,
+            parent_uri: c.discovery.parent_uri,
+            duplicate_of: c.duplicate_of_candidate_id,
+            equivalent_content_of: c.equivalent_content_of_candidate_id,
+            reason_codes: c.capture_reason_codes,
+          })),
+        ]
+      : undefined,
+    extractions: p?.document_extractions.map((e, index) => ({
+      id: e.id,
+      source_capture: reference(e.source_capture),
+      acquisition_candidate_id: e.acquisition_candidate_id,
+      status: e.status,
+      capability: e.capability_state,
+      remediation: e.remediation_state,
+      page_count: e.page_count,
+      block_count: e.blocks.length,
+      table_count: e.blocks.filter((b) => b.kind === 'table').length,
+      diagnostics: e.diagnostics?.map((d) => ({ code: d.code, message: d.message })),
+      // The pipeline appends exactly one qualification per extraction, in order.
+      qualification: p.qualifications[index]
+        ? {
+            status: p.qualifications[index].outcome,
+            completeness: p.qualifications[index].completeness,
+            fact_count: p.qualifications[index].facts.length,
+            diagnostics: p.qualifications[index].diagnostics.map((d) => ({
+              code: d.code,
+              message: d.message,
+            })),
+          }
+        : undefined,
+    })),
+    facts: p?.qualified_facts.map((f) => ({
+      id: f.id,
+      source_label: f.metadata.source_label,
+      raw_value: f.metadata.raw_value,
+      source_unit: f.metadata.source_unit,
+      applicability: {
+        kind: f.metadata.applicability.kind,
+        value: f.metadata.applicability.value,
+        reason: f.metadata.applicability.reason,
+      },
+      qualification_state: f.qualification_state,
+      source_reference: reference(f.source_capture),
+    })),
+    reconciliation: r
+      ? {
+          id: r.reconciliation.id,
+          agreement_count: r.reconciliation.agreement_count,
+          conflict_count: r.reconciliation.conflict_count,
+          unresolved_count: r.reconciliation.unresolved_count,
+          unscoped_fact_ids: r.reconciliation.unscoped_qualified_fact_ids,
+          scope_inconsistent_fact_ids: r.reconciliation.scope_inconsistent_qualified_fact_ids,
+          label_unavailable_fact_ids: r.reconciliation.label_unavailable_qualified_fact_ids,
+          groups: r.reconciliation.group_reconciliations.map((g) => ({
+            id: g.id,
+            comparison_group_id: g.comparison_group_id,
+            outcome: g.outcome,
+            fact_ids: g.qualified_fact_ids,
+            unresolved_fact_ids: g.unresolved_qualified_fact_ids,
+          })),
+        }
+      : undefined,
+    proposals: r?.proposals.map((s) => ({
+      id: s.id,
+      target: s.target,
+      disposition: s.disposition,
+      proposed_value: s.proposed_value,
+      ...valuePresentation(
+        s.target,
+        s.derivation !== undefined,
+        s.disposition === 'mapped' && s.proposed_value !== undefined,
+      ),
+      evidence_refs: s.evidence_refs.map(reference),
+      fact_refs: s.fact_refs?.map(reference),
+    })),
+    candidate: r
+      ? {
+          present: candidate !== undefined,
+          id: candidate?.id,
+          projected_fields: candidate?.component_data,
+          field_evidence: candidate?.field_evidence,
+          non_projected: r.bridge.non_projected.map((d) => ({
+            proposal_id: d.proposal_id,
+            reason: d.reason,
+          })),
+        }
+      : undefined,
+    review_package: pkg
+      ? {
+          id: pkg.id,
+          candidate_present: pkg.candidate !== undefined,
+          source_reference_count: pkg.source_refs.length,
+          fact_reference_count: pkg.fact_refs.length,
+          proposal_reference_count: pkg.proposal_refs.length,
+          unresolved_count: pkg.unresolved_items?.length,
+          conflict_count: pkg.conflicts?.length,
+          unresolved_items: pkg.unresolved_items,
+          conflicts: pkg.conflicts,
+          semantic_snapshot: pkg.semantic_snapshot,
+        }
+      : undefined,
+    semantic_review: semanticReview,
+    diagnostics: [
+      ...(job.error
+        ? [
+            {
+              code: `${job.error.operation}_failed`,
+              message:
+                job.error.operation === 'finalize'
+                  ? 'Finalization failed. Inspect local service diagnostics; this job cannot be retried.'
+                  : job.error.message,
+            },
+          ]
+        : []),
+      ...(p?.status === 'preparation_failed'
+        ? [
+            {
+              code: p.reason,
+              message: `Preparation failed: ${p.reason}. Inspect source and extraction diagnostics.`,
+            },
+          ]
+        : []),
+    ],
+  };
+};
+
+// These types are imported with `import type` by the browser. The projection is Node-only.
+export type OperatorJobSummary = ReturnType<typeof jobSummary>;
+export type OperatorJobDetail = Omit<
+  ReturnType<typeof jobDetail>,
+  'product_review' | 'approval' | 'finalization' | 'pipeline_summary'
+> &
+  Partial<
+    Pick<
+      ReturnType<typeof jobDetail>,
+      'product_review' | 'approval' | 'finalization' | 'pipeline_summary'
+    >
+  >;

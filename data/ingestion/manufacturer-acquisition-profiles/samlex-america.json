@@ -1,0 +1,47 @@
+{
+  "schema_version": "1.3",
+  "id": "samlex-america.web.acquisition-profile",
+  "profile_status": "reviewed",
+  "manufacturer": "Samlex America",
+  "publisher": "Samlex America",
+  "official_domains": ["samlexamerica.com"],
+  "strategies": [],
+  "provenance": {
+    "source_artifact": "docs/CORPUS_CAMPAIGN_WAVE_1.md",
+    "observed_source_content_hash": "sha256:02088962bd95a964684145dada0a7e6606b5a100b48dc45b11309866081f5d35"
+  },
+  "html_fact_rules": [
+    {
+      "id": "exact-product-specification-lines",
+      "status": "reviewed",
+      "path_prefix": "/products/",
+      "identity_kind": "mpn",
+      "identity_selector": [
+        {
+          "tag": "h2",
+          "class_name": "o-product--sku"
+        }
+      ],
+      "regions": [
+        {
+          "kind": "label_value_lines",
+          "selector": [
+            {
+              "tag": "div",
+              "class_name": "o-product-accordion--single"
+            }
+          ],
+          "heading": {
+            "selector": [
+              {
+                "tag": "div",
+                "class_name": "o-product-accordion--header"
+              }
+            ],
+            "text": "Specifications"
+          }
+        }
+      ]
+    }
+  ]
+}

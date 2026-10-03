@@ -1,0 +1,35 @@
+{
+  "schema_version": "1.0",
+  "bindings": [
+    {
+      "profile_id": "battle-born-batteries.web.acquisition-profile",
+      "profile_digest": "sha256:5548d13a19b56772fe02a62a6951d6111189bb174363fa3ab6adc9c435a07b79",
+      "version": "battery-spec-tables.v1",
+      "role": "battery",
+      "regions": [
+        {
+          "ordinal": 1,
+          "region": "battery_specs",
+          "labels": [
+            "Voltage",
+            "Capacity",
+            "Battery Type",
+            "Ah PbEq",
+            "Usable Depth of Discharge",
+            "Maximum Series Voltage"
+          ]
+        },
+        {
+          "ordinal": 2,
+          "region": "battery_charge",
+          "labels": ["Charging Voltage", "Float Voltage"]
+        },
+        {
+          "ordinal": 3,
+          "region": "body_dimensions",
+          "labels": ["Width", "Length", "Height", "Weight"]
+        }
+      ]
+    }
+  ]
+}

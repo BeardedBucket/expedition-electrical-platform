@@ -7,6 +7,16 @@ The ingestion model deliberately separates three meanings of a measurement:
 - **Normalized** is the deterministic engineering representation used by
   canonical fields and calculations. Existing fields such as `weight_kg` and
   `dimensions_mm` retain their names and semantics.
+- Production candidate `ProductFact` records also carry typed `normalization`
+  metadata. Their `raw_value`/`raw_unit` remain the source assertion; their
+  `normalized_value`/`normalized_unit` remain the canonical representation.
+  The metadata identifies semantic normalization or exact unit conversion and
+  records the method version and effective units. Human involvement is recorded
+  by the separate reviewed semantic decision, not as a transformation method.
+  It is not a `ProductDerivation`. Direct legacy
+  `ProductFact` normalization intentionally keeps its existing shape so
+  persisted pilot artifacts continue to replay deterministically. The metadata
+  is part of the extracted-fact schema, not the promoted component schema.
 - **Derived display** is a presentation-only conversion for human convenience.
   It is marked `basis: "derived_display"` and is never evidence.
 
@@ -99,6 +109,20 @@ Internal canonical identifiers avoid collisions between different physical dimen
 Engineering values retain full deterministic double-precision calculation accuracy.
 Derived display values are rounded to significant digits (`roundSignificant`, defaulting to 3 significant figures) on presentation copies only.
 Source values and normalized canonical facts are never mutated or rounded.
+
+For example, `7.09 in` remains the source value while the normalized fact stores
+`180.086 mm`; typed normalization metadata identifies the inch-to-millimetre
+conversion. This conversion does not create a new calculated engineering fact
+and must not be attributed to the manufacturer as a published millimetre value.
+
+Human-reviewed semantic normalization removes a floating-point conversion artifact
+only when a 15-significant-digit decimal representation is already within the
+existing 4-ULP equality allowance. This preserves values such as `11.5 in` as
+`292.1 mm` rather than exposing a binary artifact such as
+`292.09999999999997 mm`. The allowance controls representation noise only; it is
+not a measurement tolerance, source precision rule, or engineering margin. Preview
+and persisted decision replay use the same normalization path, while retained raw
+source values and units remain unchanged.
 
 ## Unit extraction, contradiction checks, and alias equivalence
 

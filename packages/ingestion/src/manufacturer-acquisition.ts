@@ -6,6 +6,7 @@ import profileSchema from '../../../data/schemas/manufacturer-acquisition-profil
 import type { CapturedSource } from './capture-types.js';
 import { createProductSource } from './capture-types.js';
 import type { JsonObject, JsonValue, ProductIdentityClaim, ProductSource } from './contracts.js';
+import { artifactDigest } from './production-contracts.js';
 
 type ChildNode = DefaultTreeAdapterTypes.ChildNode;
 type Document = DefaultTreeAdapterTypes.Document;
@@ -22,12 +23,30 @@ export interface ManufacturerAcquisitionProfile {
   readonly manufacturer: string;
   readonly publisher: string;
   readonly official_domains: readonly string[];
+  readonly approved_subdomains?: readonly string[];
+  readonly allowed_document_domains?: readonly string[];
+  readonly allowed_document_subdomains?: readonly string[];
   readonly strategies: readonly ManufacturerAcquisitionStrategy[];
+  /** Reviewed source selectors establish page identity and restrict specification
+   * regions. They never map canonical fields or authorize sibling page evidence.
+   */
+  readonly html_fact_rules?: readonly HtmlFactRule[];
   readonly provenance: {
     readonly source_artifact: string;
     readonly observed_source_content_hash: string;
   };
 }
+
+/**
+ * Identifies the reviewed executable configuration without binding source-file
+ * location or other provenance metadata to the acquisition run.
+ */
+export const manufacturerAcquisitionProfileDigest = (
+  profile: ManufacturerAcquisitionProfile,
+): string => {
+  const { provenance: _provenance, ...configuration } = profile;
+  return artifactDigest(configuration);
+};
 
 export interface ManufacturerAcquisitionStrategy {
   readonly id: string;
@@ -49,6 +68,31 @@ export interface ManufacturerAcquisitionStrategy {
     readonly link_attribute: 'href';
     readonly allowed_extensions: readonly string[];
     readonly path_prefix: string;
+    readonly document_urls?: readonly string[];
+    readonly role_hints?: readonly {
+      readonly pattern: string;
+      readonly role:
+        | 'product_page'
+        | 'datasheet'
+        | 'manual'
+        | 'installation_manual'
+        | 'technical_manual'
+        | 'specification_sheet'
+        | 'technical_drawing'
+        | 'dimensional_drawing'
+        | 'support_article'
+        | 'certificate'
+        | 'firmware_document'
+        | 'unknown';
+    }[];
+    readonly expected_content?: readonly (
+      | {
+          readonly kind: 'text_includes';
+          readonly value: string;
+          readonly case_sensitive?: boolean;
+        }
+      | { readonly kind: 'json_path_exists'; readonly path: string }
+    )[];
   };
 }
 
@@ -56,6 +100,58 @@ export interface StructuredFactMapping {
   readonly source_path: string;
   readonly raw_label: string;
   readonly source_unit?: string;
+}
+
+export interface HtmlNodeSelector {
+  readonly tag?: string;
+  readonly id?: string;
+  readonly class_name?: string;
+  readonly attribute?: { readonly name: string; readonly value: string };
+}
+
+export interface HtmlFactRule {
+  readonly id: string;
+  readonly status: ManufacturerAcquisitionProfileStatus;
+  readonly path_prefix: string;
+  readonly identity_selector: readonly HtmlNodeSelector[];
+  readonly identity_kind: 'mpn' | 'model';
+  /** Narrow identity lookup to one source container with an exact reviewed heading.
+   * This distinguishes technical sections from accessory/sibling headers without
+   * inserting a requested model into the profile's selectors.
+   */
+  readonly identity_region?: {
+    readonly selector: readonly HtmlNodeSelector[];
+    readonly heading: { readonly selector: readonly HtmlNodeSelector[]; readonly text: string };
+  };
+  readonly regions: readonly {
+    readonly selector: readonly HtmlNodeSelector[];
+    readonly kind:
+      | 'table'
+      | 'definition'
+      | 'label_value_lines'
+      | 'label_value_list'
+      | 'model_label_value_rows'
+      | 'explicit_label_value_blocks';
+    /** Explicit direct row/cell structure; not visual CSS table inference. */
+    readonly model_rows?: {
+      readonly row_selector: readonly HtmlNodeSelector[];
+      readonly cell_selector: readonly HtmlNodeSelector[];
+      readonly header_selector: readonly HtmlNodeSelector[];
+      readonly value_identity_attribute: string;
+      readonly context_container_selector: readonly HtmlNodeSelector[];
+      readonly context_heading_selector: readonly HtmlNodeSelector[];
+    };
+    /** One exact model block followed by directly owned label/value blocks. */
+    readonly explicit_blocks?: {
+      readonly row_selector: readonly HtmlNodeSelector[];
+      readonly label_selector: readonly HtmlNodeSelector[];
+      readonly value_selector: readonly HtmlNodeSelector[];
+      readonly value_line_selector: readonly HtmlNodeSelector[];
+      readonly identity_label: string;
+      readonly context_heading_selector: readonly HtmlNodeSelector[];
+    };
+    readonly heading?: { readonly selector: readonly HtmlNodeSelector[]; readonly text: string };
+  }[];
 }
 
 export type ManufacturerAcquisitionStrategyResolution =
@@ -263,7 +359,28 @@ const isSafeJsonPath = (path: unknown): path is string =>
 const isOfficialUriForDomains = (domains: readonly string[], uri: string): boolean => {
   try {
     const parsed = new URL(uri);
-    return parsed.protocol === 'https:' && domains.includes(parsed.hostname);
+    return parsed.protocol === 'https:' && domains.some((domain) => domain === parsed.hostname);
+  } catch {
+    return false;
+  }
+};
+
+const isUriForProfileDomains = (
+  domains: readonly string[],
+  subdomains: readonly string[],
+  uri: string,
+): boolean => {
+  try {
+    const parsed = new URL(uri);
+    if (parsed.protocol !== 'https:') return false;
+    const host = parsed.hostname.toLowerCase().replace(/\.$/, '');
+    return (
+      domains.some((domain) => domain.toLowerCase().replace(/\.$/, '') === host) ||
+      subdomains.some((domain) => {
+        const root = domain.toLowerCase().replace(/^\./, '').replace(/\.$/, '');
+        return host === root || host.endsWith(`.${root}`);
+      })
+    );
   } catch {
     return false;
   }
@@ -425,6 +542,39 @@ export const validateManufacturerAcquisitionProfile = (
         ),
       );
     }
+    for (const field of [
+      'approved_subdomains',
+      'allowed_document_domains',
+      'allowed_document_subdomains',
+    ] as const) {
+      if (isJsonObject(profile) && Array.isArray(profile[field])) {
+        const values = profile[field].filter((value): value is string => typeof value === 'string');
+        if (values.join('\u0000') !== [...values].sort().join('\u0000')) {
+          issues.push(
+            issue(`unordered_${field}`, field, `${field} must be in deterministic lexical order.`),
+          );
+        }
+      }
+    }
+  }
+  if (isJsonObject(profile) && Array.isArray(profile.html_fact_rules)) {
+    profile.html_fact_rules.forEach((rule, index) => {
+      if (!isJsonObject(rule) || !Array.isArray(rule.regions)) return;
+      const kinds = rule.regions.filter(isJsonObject).map((region) => region.kind);
+      if (
+        kinds.includes('explicit_label_value_blocks') &&
+        (rule.identity_kind !== 'model' ||
+          kinds.some((kind) => kind !== 'explicit_label_value_blocks'))
+      ) {
+        issues.push(
+          issue(
+            'mixed_explicit_block_identity',
+            `html_fact_rules[${index}].regions`,
+            'Explicit blocks require model identity and cannot share a rule with another identity contract.',
+          ),
+        );
+      }
+    });
   }
   const sortedIssues = [...issues].sort(issueCompare);
   return {
@@ -499,7 +649,8 @@ export const resolveManufacturerAcquisitionProfile = (
 export const isOfficialManufacturerUri = (
   profile: ManufacturerAcquisitionProfile,
   uri: string,
-): boolean => isOfficialUriForDomains(profile.official_domains, uri);
+): boolean =>
+  isUriForProfileDomains(profile.official_domains, profile.approved_subdomains ?? [], uri);
 
 export const resolveManufacturerAcquisitionStrategy = (
   profile: ManufacturerAcquisitionProfile,
@@ -592,15 +743,29 @@ const embeddedPayload = (
   }
   const document = parse(captured.body.text) as Document;
   let rawJson: string | undefined;
+  let scriptMatches = 0;
   walk(document, (element) => {
-    if (rawJson !== undefined || element.tagName !== 'script') return;
+    if (element.tagName !== 'script') return;
     if (
       attribute(element, 'id') === strategy.embedded_json.script.id &&
       matchesScriptMediaType(strategy.embedded_json.script.media_type, attribute(element, 'type'))
     ) {
+      scriptMatches += 1;
       rawJson = textOf(element);
     }
   });
+  // Duplicate scripts cannot silently select the first/last source-owned record
+  // collection, even when one of them appears to contain the requested SKU.
+  if (scriptMatches > 1)
+    return {
+      issues: [
+        issue(
+          'embedded_json_ambiguous',
+          'embedded_json.script',
+          'The configured JSON script is not unique.',
+        ),
+      ],
+    };
   if (rawJson === undefined) {
     return {
       issues: [
@@ -678,7 +843,7 @@ export const acquireManufacturerRecord = (
       ],
     };
   }
-  if (!request.captured_source.media_type.toLowerCase().includes('html')) {
+  if (!request.captured_source.media_type?.toLowerCase().includes('html')) {
     return {
       status: 'invalid',
       ...base,

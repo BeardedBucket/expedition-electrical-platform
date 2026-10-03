@@ -109,6 +109,16 @@ live websites.
 
 ## Manufacturer acquisition profiles
 
+The PDF extractor also supports the narrow, manufacturer-neutral
+`pdf-positioned-label-value.v1` shape: one source-declared shared-identifier title,
+one exact Specifications heading, and repeated unambiguous two-column rows.
+Original page/item text and separate cell locators are preserved. Unsupported
+prose, drawings, wraps, competing identities and ambiguous layouts do not become
+facts. Qualification requires exact MPN/SKU membership and retains contextual
+qualifier evidence, so successful extraction does not automatically project or
+approve product facts. See [Architecture](../../docs/ARCHITECTURE.md#empty-preparation-recovery-and-positioned-pdf-evidence)
+for the closed grammar, output budget ownership, and conservative tail handling.
+
 `ManufacturerAcquisitionProfile` is a versioned, human-editable contract for
 retrieval mechanics only. A reviewed profile declares exact official HTTPS
 domains and one or more reviewed source strategies. Each strategy owns its path

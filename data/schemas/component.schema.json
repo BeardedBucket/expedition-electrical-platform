@@ -18,6 +18,35 @@
     "part_number": {
       "type": ["string", "null"]
     },
+    "derived_fields": {
+      "type": "object",
+      "description": "Provenance for calculated product values keyed by canonical field path. A field absent here is not thereby asserted to be published; source refs establish published facts.",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "status",
+          "rule_version",
+          "formula",
+          "input_targets",
+          "input_fact_ids",
+          "input_units",
+          "output_unit",
+          "assumptions"
+        ],
+        "properties": {
+          "status": { "const": "derived" },
+          "rule_version": { "type": "string", "minLength": 1 },
+          "formula": { "type": "string", "minLength": 1 },
+          "input_targets": { "type": "array", "items": { "type": "string" } },
+          "input_qualified_fact_ids": { "type": "array", "items": { "type": "string" } },
+          "input_fact_ids": { "type": "array", "items": { "type": "string" } },
+          "input_units": { "type": "array", "items": { "type": "string" } },
+          "output_unit": { "type": "string", "minLength": 1 },
+          "assumptions": { "type": "array", "items": { "type": "string" } }
+        },
+        "additionalProperties": false
+      }
+    },
     "product_role": {
       "type": ["string", "null"],
       "enum": [
@@ -455,6 +484,11 @@
               "type": "null"
             }
           ]
+        },
+        "power_consumption_w": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "description": "Unconditional published electrical power consumption only. Material voltage, state, or measurement conditions belong in qualified_values. Missing is unknown."
         }
       },
       "additionalProperties": true
@@ -465,9 +499,38 @@
         "nominal_capacity_ah": {
           "type": ["number", "null"]
         },
+        "usable_depth_of_discharge_fraction": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Published usable depth of discharge expressed as a fraction, distinct from a calculated usable capacity."
+        },
+        "maximum_series_voltage_v": {
+          "type": ["number", "null"],
+          "exclusiveMinimum": 0,
+          "description": "Published maximum series string voltage; it does not by itself assert a permitted unit count."
+        },
+        "charging_voltage_range_v": {
+          "type": ["object", "null"],
+          "properties": {
+            "min": { "type": "number", "exclusiveMinimum": 0 },
+            "max": { "type": "number", "exclusiveMinimum": 0 }
+          },
+          "required": ["min", "max"],
+          "additionalProperties": false
+        },
+        "float_voltage_range_v": {
+          "type": ["object", "null"],
+          "properties": {
+            "min": { "type": "number", "exclusiveMinimum": 0 },
+            "max": { "type": "number", "exclusiveMinimum": 0 }
+          },
+          "required": ["min", "max"],
+          "additionalProperties": false
+        },
         "usable_capacity_ah": {
           "type": ["number", "null"],
-          "description": "Legacy product-supplied usable Ah; not calculated design-usable energy."
+          "description": "Product usable Ah, either directly published or calculated from published nominal Ah and usable DoD. Calculated entries require root derived_fields provenance. Not design-usable system energy."
         },
         "nominal_energy_wh": {
           "type": ["number", "null"]
@@ -495,7 +558,7 @@
           "additionalProperties": false
         },
         "allowed_series_count": {
-          "description": "Manufacturer-permitted count of identical battery units in series per series string; this is not a total battery count, arbitrary bank size, or parallel-string count.",
+          "description": "Permitted count of identical battery units in series per string, directly published or derived from a clean voltage-class relationship with root derived_fields provenance. This is not a recommendation, total battery count, arbitrary bank size, or parallel-string count.",
           "type": ["object", "null"],
           "properties": {
             "min": {
@@ -1187,6 +1250,13 @@
         }
       },
       "additionalProperties": false
+    },
+    "qualified_values": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/canonicalQualifiedValue"
+      },
+      "uniqueItems": true
     }
   },
   "additionalProperties": true,
@@ -1368,6 +1438,184 @@
         }
       ],
       "additionalProperties": false
+    },
+    "canonicalQualifiedValue": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["id", "target", "value", "qualifiers"],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._-]+$"
+            },
+            "target": {
+              "const": "electrical.input_voltage_range_v"
+            },
+            "value": {
+              "type": "object",
+              "required": ["min", "max"],
+              "properties": {
+                "min": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "max": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "additionalProperties": false
+            },
+            "qualifiers": {
+              "type": "object",
+              "required": ["electrical_domain"],
+              "properties": {
+                "electrical_domain": {
+                  "enum": ["ac", "dc"]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["id", "target", "value", "qualifiers"],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._-]+$"
+            },
+            "target": {
+              "const": "dimensions_mm"
+            },
+            "value": {
+              "type": "object",
+              "required": ["x", "y", "z"],
+              "properties": {
+                "x": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "y": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "z": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                }
+              },
+              "additionalProperties": false
+            },
+            "qualifiers": {
+              "type": "object",
+              "required": ["physical_scope"],
+              "properties": {
+                "physical_scope": {
+                  "type": "object",
+                  "required": ["kind", "exclusions"],
+                  "properties": {
+                    "kind": {
+                      "const": "physical_body"
+                    },
+                    "exclusions": {
+                      "type": "array",
+                      "minItems": 1,
+                      "uniqueItems": true,
+                      "items": {
+                        "enum": ["connectors", "mounting_accessories"]
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["id", "target", "value", "qualifiers"],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._-]+$"
+            },
+            "target": {
+              "const": "electrical.power_consumption_w"
+            },
+            "value": {
+              "type": "number",
+              "minimum": 0
+            },
+            "qualifiers": {
+              "type": "object",
+              "minProperties": 1,
+              "not": {
+                "required": ["operating_state", "display"],
+                "properties": {
+                  "operating_state": { "const": "off" },
+                  "display": {
+                    "required": ["state"],
+                    "properties": { "state": { "const": "on" } }
+                  }
+                }
+              },
+              "properties": {
+                "supply_voltage_v": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "display": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "required": ["state"],
+                      "properties": {
+                        "state": {
+                          "const": "off"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "required": ["state"],
+                      "properties": {
+                        "state": {
+                          "const": "on"
+                        },
+                        "brightness_percent": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 100
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  ]
+                },
+                "operating_state": {
+                  "enum": ["idle", "standby", "sleep", "active", "off"]
+                },
+                "measurement_basis": {
+                  "enum": ["typical", "nominal", "maximum", "minimum", "quiescent"]
+                },
+                "electrical_domain": {
+                  "enum": ["ac", "dc"]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
     }
   }
 }
