@@ -6,6 +6,7 @@ import {
   SemanticDecisionError,
   SemanticReviewIncompleteError,
   JobStoreConflictError,
+  PreparationRecoveryError,
   type IngestionBatchService,
   type IngestionJobService,
   type SemanticMapPreviewRequest,
@@ -14,6 +15,7 @@ import {
 } from '@expedition/ingestion-runtime';
 import type { JsonValue } from '@expedition/ingestion';
 import { SourceResolutionError } from '@expedition/ingestion-runtime';
+import { ProductReviewLifecycleError, DEFER_REASONS } from '@expedition/ingestion-runtime';
 import type { IntakeSuggestions } from './suggestions.js';
 import { batchDetail, batchSummary, jobDetail, jobSummary } from './operator-views.js';
 import { errorDiagnostic, logRequest, requestContext } from './request-logging.js';
@@ -28,6 +30,9 @@ export type OperatorService = Pick<
       IngestionJobService,
       | 'submitSourceResolutionCandidate'
       | 'decideSourceResolution'
+      | 'reopenSourceSelection'
+      | 'reopenPreparation'
+      | 'resumeDeferredReview'
       | 'submitApproval'
       | 'recordSemanticDecision'
       | 'discoverSemanticTargets'
@@ -361,7 +366,7 @@ export function createOperatorApi(
         throw new RequestError(405, 'Method not allowed.');
       }
       const jobMatch =
-        /^\/api\/ingestion\/jobs\/([^/]+)(\/prepare|\/review\/(?:approve|reject|defer|semantic-decisions)|\/review\/semantic-proposals\/([^/]+)\/(?:targets|preview)|\/finalize|\/source-resolution\/(?:candidates|accept|reject))?$/.exec(
+        /^\/api\/ingestion\/jobs\/([^/]+)(\/prepare|\/preparation\/reopen|\/review\/(?:approve|reject|defer|resume|semantic-decisions)|\/review\/semantic-proposals\/([^/]+)\/(?:targets|preview)|\/finalize|\/source-resolution\/(?:candidates|accept|reject|reopen))?$/.exec(
           pathname,
         );
       const batchMatch = /^\/api\/ingestion\/batches\/([^/]+)(\/prepare)?$/.exec(pathname);
@@ -416,6 +421,29 @@ export function createOperatorApi(
           ),
         );
       }
+      if (jobMatch[2] === '/review/resume' && req.method === 'POST') {
+        const body = await jsonBody(req);
+        if (
+          Object.keys(body).some(
+            (key) => !['expected_lifecycle_snapshot', 'actor_label'].includes(key),
+          ) ||
+          typeof body.expected_lifecycle_snapshot !== 'string' ||
+          typeof body.actor_label !== 'string'
+        )
+          throw new RequestError(400, 'Provide the lifecycle snapshot and operator label only.');
+        if (!service.resumeDeferredReview)
+          throw new Error('Deferred review resume is not configured.');
+        return send(
+          res,
+          200,
+          jobDetail(
+            await service.resumeDeferredReview(jobMatch[1], {
+              expected_lifecycle_snapshot: body.expected_lifecycle_snapshot,
+              actor_label: body.actor_label,
+            }),
+          ),
+        );
+      }
       if (jobMatch[2]?.startsWith('/review/') && req.method === 'POST') {
         const input = await jsonBody(req);
         const action = jobMatch[2].split('/').at(-1);
@@ -423,7 +451,22 @@ export function createOperatorApi(
           action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : 'deferred';
         const approval = constructApproval(await service.getJob(jobMatch[1]), decision, input);
         if (!service.submitApproval) throw new Error('Approval service is not configured.');
-        return send(res, 200, jobDetail(await service.submitApproval(jobMatch[1], approval)));
+        return send(
+          res,
+          200,
+          jobDetail(
+            await service.submitApproval(
+              jobMatch[1],
+              approval,
+              decision === 'deferred' && typeof input.expected_lifecycle_snapshot === 'string'
+                ? {
+                    expected_lifecycle_snapshot: input.expected_lifecycle_snapshot,
+                    reason: DEFER_REASONS.find((reason) => reason === input.defer_reason),
+                  }
+                : undefined,
+            ),
+          ),
+        );
       }
       if (jobMatch[2] === '/finalize' && req.method === 'POST') {
         const input = await jsonBody(req);
@@ -449,6 +492,13 @@ export function createOperatorApi(
       if (jobMatch[2]?.startsWith('/source-resolution/') && req.method === 'POST') {
         const body = await jsonBody(req);
         const action = jobMatch[2].split('/').at(-1);
+        if (action === 'reopen') {
+          if (Object.keys(body).length)
+            throw new RequestError(400, 'Source-selection recovery accepts no request fields.');
+          if (!service.reopenSourceSelection)
+            throw new Error('Source-selection recovery is not configured.');
+          return send(res, 200, jobDetail(await service.reopenSourceSelection(jobMatch[1])));
+        }
         const field = action === 'candidates' ? 'official_product_uri' : 'attempt_id';
         if (
           Object.keys(body).length !== 1 ||
@@ -467,6 +517,33 @@ export function createOperatorApi(
                 action === 'accept' ? 'accepted' : 'rejected',
               );
         return send(res, 200, jobDetail(job));
+      }
+      if (jobMatch[2] === '/preparation/reopen' && req.method === 'POST') {
+        const body = await jsonBody(req);
+        if (
+          Object.keys(body).some(
+            (key) => !['expected_review_snapshot', 'expected_lifecycle_snapshot'].includes(key),
+          ) ||
+          typeof body.expected_review_snapshot !== 'string' ||
+          !/^sha256:[a-f0-9]{64}$/.test(body.expected_review_snapshot) ||
+          (body.expected_lifecycle_snapshot !== undefined &&
+            typeof body.expected_lifecycle_snapshot !== 'string')
+        )
+          throw new RequestError(400, 'Provide only the expected_review_snapshot SHA-256.');
+        if (!service.reopenPreparation) throw new Error('Preparation recovery is not configured.');
+        return send(
+          res,
+          200,
+          jobDetail(
+            await service.reopenPreparation(
+              jobMatch[1],
+              body.expected_review_snapshot,
+              typeof body.expected_lifecycle_snapshot === 'string'
+                ? body.expected_lifecycle_snapshot
+                : undefined,
+            ),
+          ),
+        );
       }
       if (jobMatch[2] === '/prepare' && req.method === 'POST') {
         prepareStarted = performance.now();
@@ -488,6 +565,8 @@ export function createOperatorApi(
         error instanceof RequestError
           ? error.status
           : error instanceof SourceResolutionError ||
+              error instanceof PreparationRecoveryError ||
+              error instanceof ProductReviewLifecycleError ||
               error instanceof ProductReviewError ||
               error instanceof SemanticDecisionError ||
               error instanceof SemanticReviewIncompleteError ||

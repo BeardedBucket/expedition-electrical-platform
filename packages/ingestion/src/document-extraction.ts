@@ -2,6 +2,10 @@ import { createHash } from 'node:crypto';
 import { parse } from 'parse5';
 import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type { DefaultTreeAdapterTypes } from 'parse5';
+import {
+  positionedPdfSpecifications,
+  type PositionedPdfItem,
+} from './pdf-positioned-specifications.js';
 import type {
   CapturedSource,
   DiagnosticCode,
@@ -121,6 +125,7 @@ export const extractPdfDocument = async (
         ),
       ];
       const blocks: ExtractedBlock[] = [];
+      const positionedPages: PositionedPdfItem[][] = [];
       const pageLimit = Math.min(pdf.numPages, limits.max_pages);
       if (pdf.numPages > limits.max_pages) {
         diagnostics.push(
@@ -135,6 +140,9 @@ export const extractPdfDocument = async (
       let totalTextLimitReached = false;
       let retainedTextCodeUnits = 0;
       for (let pageNumber = 1; pageNumber <= pageLimit; pageNumber += 1) {
+        const positionedItems: PositionedPdfItem[] = [];
+        let geometryComplete = true;
+        positionedPages.push(positionedItems);
         const page = await pdf.getPage(pageNumber);
         try {
           const reader = page.streamTextContent().getReader();
@@ -180,6 +188,36 @@ export const extractPdfDocument = async (
                   locator,
                   source_location: locator,
                 });
+                // Text extraction does not depend on usable geometry. Missing
+                // placement disables only this page's supplementary structure.
+                if (
+                  !Array.isArray(item.transform) ||
+                  item.transform.length !== 6 ||
+                  !item.transform.every(Number.isFinite) ||
+                  !Number.isFinite(item.width) ||
+                  !Number.isFinite(item.height)
+                ) {
+                  geometryComplete = false;
+                  continue;
+                }
+                positionedItems.push({
+                  text: boundedText,
+                  x: item.transform[4],
+                  y: item.transform[5],
+                  width: item.width,
+                  height: item.height,
+                  upright:
+                    item.transform.every(Number.isFinite) &&
+                    item.transform[0] > 0 &&
+                    item.transform[1] === 0 &&
+                    item.transform[2] === 0 &&
+                    item.transform[3] > 0 &&
+                    Number.isFinite(item.width) &&
+                    item.width >= 0 &&
+                    Number.isFinite(item.height) &&
+                    item.height > 0,
+                  location: locator,
+                });
               }
             }
           } finally {
@@ -194,6 +232,7 @@ export const extractPdfDocument = async (
         } finally {
           page.cleanup();
         }
+        if (!geometryComplete) positionedItems.length = 0;
         if (itemLimitReached || totalTextLimitReached) break;
       }
       if (itemLimitReached)
@@ -217,12 +256,53 @@ export const extractPdfDocument = async (
             `PDF extraction exceeded the ${limits.max_total_text_code_units}-UTF-16-code-unit total retained-text limit.`,
           ),
         );
+      // Supplemental structure shares the existing output budgets. Never scope
+      // a truncated page; charge duplicated cell text and cell metadata as output.
+      if (
+        pdf.numPages <= limits.max_pages &&
+        !itemLimitReached &&
+        !textLimitReached &&
+        !totalTextLimitReached
+      ) {
+        const tables = positionedPages
+          .map(positionedPdfSpecifications)
+          .filter((table): table is ExtractedBlock => table !== undefined);
+        const cellCount = tables.reduce((sum, table) => sum + (table.cells?.length ?? 0), 0);
+        const extraText = tables.reduce(
+          (sum, table) =>
+            sum +
+            (table.cells ?? []).reduce(
+              (total, cell) => total + cell.label.length + cell.value.length,
+              0,
+            ),
+          0,
+        );
+        if (
+          cellCount <= limits.max_table_cells &&
+          blocks.length + tables.length + cellCount <= limits.max_items &&
+          retainedTextCodeUnits + extraText <= limits.max_total_text_code_units
+        ) {
+          blocks.push(...tables);
+          if (tables.length)
+            diagnostics[0] = toDiagnostic(
+              'table_extraction_unsupported',
+              'General PDF tables remain unsupported; only separately scoped positioned specification rows were recovered. Unpaired text and drawings remain unqualified.',
+            );
+        } else if (tables.length)
+          diagnostics.push(
+            toDiagnostic(
+              'partial_table_extraction',
+              'Positioned PDF specification structure exceeded shared output budgets; no supplemental tables retained.',
+            ),
+          );
+      }
       const status = diagnostics.some((diagnostic) =>
         [
           'page_limit_reached',
           'item_limit_reached',
           'text_limit_reached',
           'total_text_limit_reached',
+          'partial_table_extraction',
         ].includes(diagnostic.code),
       )
         ? 'partially_extracted'

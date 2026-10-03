@@ -1,10 +1,17 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ProductionPromotionDecisions } from '@expedition/ingestion';
 import type { HumanReviewInput, OperatorApi, OperatorJobDetail } from './api.js';
 import { OperatorApiError } from './api.js';
 import { SemanticAdjudication } from './SemanticAdjudication.js';
 import { ReviewValue, SourceLink } from './ReviewValue.js';
 export { ReviewValue, SourceLink } from './ReviewValue.js';
+
+const proposalValueLabel = (origin: string) =>
+  origin === 'calculated / derived'
+    ? 'Calculated / derived value'
+    : origin === 'normalized / converted'
+      ? 'Normalized / converted value'
+      : 'Canonical semantic value';
 
 export function ProductReview({
   job,
@@ -27,13 +34,50 @@ export function ProductReview({
   >({});
   const [topology, setTopology] = useState<Record<string, string[]>>({});
   const [notes, setNotes] = useState('');
+  const [deferReason, setDeferReason] = useState('');
   const [pending, setPending] = useState<{
-    action: 'approve' | 'reject' | 'defer' | 'write';
+    action: 'approve' | 'reject' | 'defer' | 'resume' | 'write';
     input?: HumanReviewInput;
+    resume?: { snapshot: string; actor: string };
   }>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const review = job.product_review;
+  const reviewSnapshot = job.semantic_review?.expected_review_snapshot;
+  const previousReviewSnapshot = useRef(reviewSnapshot);
+  useEffect(() => {
+    if (previousReviewSnapshot.current === reviewSnapshot) return;
+    // A semantic correction rebuilds the candidate, so earlier product selections no longer bind to it.
+    previousReviewSnapshot.current = reviewSnapshot;
+    setDecisions({});
+    setResolutions({});
+    setQualifiedSelections({});
+    setFactDecisions({});
+    setTopology({});
+    setAcknowledged(false);
+  }, [reviewSnapshot]);
+  const semanticItems = [
+    ...(job.semantic_review?.work.required ?? []),
+    ...(job.semantic_review?.work.reviewed ?? []),
+    ...(job.semantic_review?.work.automatic ?? []),
+    ...(job.semantic_review?.work.derived ?? []),
+  ];
+  const semanticItemIds = new Set(semanticItems.map((item) => item.id));
+  const unrepresentedFields =
+    review?.fields.filter(
+      (field) =>
+        field.selectable &&
+        !field.proposals.some((proposal) => proposal.projected && semanticItemIds.has(proposal.id)),
+    ) ?? [];
+  const unrepresentedQualifiedValues =
+    review?.qualified_values?.filter(
+      (assertion) => !assertion.proposals.some((proposal) => semanticItemIds.has(proposal.id)),
+    ) ?? [];
+  const unrepresentedFacts =
+    review?.candidate_facts.filter(
+      (fact) =>
+        !semanticItems.some((item) => item.evidence.some((evidence) => evidence.id === fact.id)),
+    ) ?? [];
   const editable = job.summary.state === 'review_ready';
   const approved = Object.keys(decisions).filter((field) => decisions[field] === 'approve');
   const approvedQualifiedIds = Object.keys(qualifiedSelections).filter(
@@ -74,6 +118,13 @@ export function ProductReview({
         reviewer_id: reviewer.trim(),
         ...(notes.trim() ? { reviewed_decisions: [notes.trim()] } : {}),
         ...(action === 'approve' ? { promotion_decisions: selections } : {}),
+        ...(action === 'defer'
+          ? {
+              expected_lifecycle_snapshot:
+                job.product_review_lifecycle?.expected_lifecycle_snapshot,
+              ...(deferReason ? { defer_reason: deferReason } : {}),
+            }
+          : {}),
       },
     });
   }
@@ -85,7 +136,13 @@ export function ProductReview({
       onUpdate(
         pending.action === 'write'
           ? await client.finalize(job.summary.id)
-          : await client.review(job.summary.id, pending.action, pending.input!),
+          : pending.action === 'resume'
+            ? await client.resumeDeferredReview(
+                job.summary.id,
+                pending.resume!.snapshot,
+                pending.resume!.actor,
+              )
+            : await client.review(job.summary.id, pending.action, pending.input!),
       );
       setPending(undefined);
     } catch (caught) {
@@ -116,8 +173,9 @@ export function ProductReview({
       </p>
       {job.candidate && !job.candidate.present && (
         <p>
-          No promotable candidate was produced. Zero facts do not represent a successful empty
-          product. Inspect preparation and source diagnostics below; reject or defer this job.
+          No promotable candidate was produced. Retained evidence may be valid but not yet
+          representable. Defer pauses review for later continuation; Reject is a terminal
+          non-promotion decision.
         </p>
       )}
       {review?.truncated && (
@@ -140,8 +198,28 @@ export function ProductReview({
             <p>This is an operator-entered label, not a verified or authenticated identity.</p>
           </>
         )}
-        <SemanticAdjudication job={job} client={client} reviewer={reviewer} onUpdate={onUpdate} />
-        {review?.qualified_values?.map((assertion) => (
+        <SemanticAdjudication
+          job={job}
+          client={client}
+          reviewer={reviewer}
+          onUpdate={onUpdate}
+          productReview={{
+            review,
+            fieldDecisions: decisions,
+            resolutions,
+            qualifiedSelections,
+            factDecisions,
+            onFieldDecision: (field, decision) =>
+              setDecisions((current) => ({ ...current, [field]: decision })),
+            onResolutionChange: (field, resolution) =>
+              setResolutions((current) => ({ ...current, [field]: resolution })),
+            onQualifiedSelection: (id, selected) =>
+              setQualifiedSelections((current) => ({ ...current, [id]: selected })),
+            onFactDecision: (id, decision) =>
+              setFactDecisions((current) => ({ ...current, [id]: decision })),
+          }}
+        />
+        {unrepresentedQualifiedValues.map((assertion) => (
           <article key={assertion.id}>
             <h3>Qualified assertion: {assertion.target}</h3>
             <p>ID: {assertion.id}</p>
@@ -188,16 +266,42 @@ export function ProductReview({
                   })
                 }
               />
-              Approve qualified assertion {assertion.id}
+              Include qualified candidate assertion {assertion.id} in product approval
             </label>
           </article>
         ))}
-        {review?.fields.map((field) => (
+        {unrepresentedFields.map((field) => (
           <article key={field.path}>
             <h3>Proposed field: {field.path}</h3>
             <p>
-              Proposed canonical value: <ReviewValue value={field.value} />
+              Candidate canonical value: <ReviewValue value={field.display_value ?? field.value} />{' '}
+              {field.canonical_unit ?? ''}
             </p>
+            {field.proposals
+              .filter(
+                (proposal) => proposal.disposition === 'mapped' && proposal.value !== undefined,
+              )
+              .map((proposal) => (
+                <p key={`value:${proposal.id}`}>
+                  {proposalValueLabel(proposal.value_origin)}:{' '}
+                  <ReviewValue value={proposal.display_value ?? proposal.value} />{' '}
+                  {proposal.canonical_unit ?? ''}
+                </p>
+              ))}
+            {field.proposals.some((proposal) => proposal.evidence.length > 0) && (
+              <section aria-label={`Source-stated assertions for ${field.path}`}>
+                <h4>SOURCE-STATED</h4>
+                {field.proposals.flatMap((proposal) =>
+                  proposal.evidence.map((fact) => (
+                    <p key={`${proposal.id}:${fact.id}`}>
+                      {fact.label ?? 'Source label unavailable'}:{' '}
+                      <ReviewValue value={fact.raw_value} />
+                      {fact.unit ? ` · Retained source unit: ${fact.unit}` : ''}
+                    </p>
+                  )),
+                )}
+              </section>
+            )}
             {field.proposals.map((proposal) => (
               <details className="source-evidence" key={proposal.id}>
                 <summary>
@@ -208,7 +312,9 @@ export function ProductReview({
                   {!proposal.projected && ' · Excluded from candidate projection'}
                 </p>
                 <p>
-                  Proposed value: <ReviewValue value={proposal.value} />
+                  {proposalValueLabel(proposal.value_origin)}:{' '}
+                  <ReviewValue value={proposal.display_value ?? proposal.value} />{' '}
+                  {proposal.canonical_unit ?? ''}
                 </p>
                 <h4>Source evidence</h4>
                 {proposal.evidence.length === 0 && (
@@ -224,12 +330,12 @@ export function ProductReview({
                       </dd>
                       <dt>Source label</dt>
                       <dd>{fact.label ?? 'Unknown'}</dd>
-                      <dt>Raw source value</dt>
+                      <dt>SOURCE-STATED exact assertion</dt>
                       <dd>
                         <ReviewValue value={fact.raw_value} />
                       </dd>
-                      <dt>Unit</dt>
-                      <dd>{fact.unit ?? 'Unknown'}</dd>
+                      <dt>Retained source-unit metadata</dt>
+                      <dd>{fact.unit ?? 'Not separately specified'}</dd>
                       <dt>Applicability</dt>
                       <dd>
                         <ReviewValue value={fact.applicability} />
@@ -261,71 +367,75 @@ export function ProductReview({
             {field.selectable ? (
               <>
                 <label>
-                  Human decision for {field.path}
+                  Product field decision for {field.path}
                   <select
                     value={decisions[field.path] ?? ''}
                     onChange={(e) => setDecisions({ ...decisions, [field.path]: e.target.value })}
                   >
                     <option value="">Not reviewed</option>
-                    <option value="approve">Approve placement</option>
+                    <option value="approve">Approve / include field</option>
                     <option value="exclude">Exclude from promotion</option>
                   </select>
                 </label>
-                <details>
-                  <summary>Optional field resolution for {field.path}</summary>
-                  <label>
-                    Selected supporting fact for {field.path}
-                    <select
-                      value={resolutions[field.path]?.selected_fact_id ?? ''}
-                      onChange={(e) =>
-                        setResolutions({
-                          ...resolutions,
-                          [field.path]: {
-                            rationale: resolutions[field.path]?.rationale ?? '',
-                            selected_fact_id: e.target.value,
-                          },
-                        })
-                      }
-                    >
-                      <option value="">Use all supporting evidence</option>
-                      {field.candidate_fact_ids.map((id) => (
-                        <option key={id} value={id}>
-                          {id}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    Resolution rationale for {field.path}
-                    <textarea
-                      value={resolutions[field.path]?.rationale ?? ''}
-                      onChange={(e) =>
-                        setResolutions({
-                          ...resolutions,
-                          [field.path]: {
-                            selected_fact_id: resolutions[field.path]?.selected_fact_id ?? '',
-                            rationale: e.target.value,
-                          },
-                        })
-                      }
-                    />
-                  </label>
-                </details>
+                {(field.candidate_fact_ids.length > 1 ||
+                  field.proposals.some((proposal) =>
+                    proposal.evidence.some((evidence) => evidence.conflicts.length > 0),
+                  )) && (
+                  <details>
+                    <summary>Resolve multiple supporting facts for {field.path}</summary>
+                    <label>
+                      Selected supporting fact for {field.path}
+                      <select
+                        value={resolutions[field.path]?.selected_fact_id ?? ''}
+                        onChange={(e) =>
+                          setResolutions({
+                            ...resolutions,
+                            [field.path]: {
+                              rationale: resolutions[field.path]?.rationale ?? '',
+                              selected_fact_id: e.target.value,
+                            },
+                          })
+                        }
+                      >
+                        <option value="">Use all supporting evidence</option>
+                        {field.candidate_fact_ids.map((id) => (
+                          <option key={id} value={id}>
+                            {id}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      Resolution rationale for {field.path}
+                      <textarea
+                        value={resolutions[field.path]?.rationale ?? ''}
+                        onChange={(e) =>
+                          setResolutions({
+                            ...resolutions,
+                            [field.path]: {
+                              selected_fact_id: resolutions[field.path]?.selected_fact_id ?? '',
+                              rationale: e.target.value,
+                            },
+                          })
+                        }
+                      />
+                    </label>
+                  </details>
+                )}
               </>
             ) : (
               <p>Unresolved or non-projected proposal: placement approval is unavailable.</p>
             )}
           </article>
         ))}
-        {!!review?.candidate_facts.length && (
+        {!!unrepresentedFacts.length && (
           <details>
-            <summary>Optional evidence-only and excluded fact selections</summary>
-            {review.candidate_facts.map((fact) => (
+            <summary>Additional product evidence handling</summary>
+            {unrepresentedFacts.map((fact) => (
               <label key={fact.id}>
                 {fact.raw_label} · {fact.field} · {fact.id} ({fact.fact_state})
-                <ReviewValue value={fact.raw_value} />
                 <select
-                  aria-label={`Evidence decision for ${fact.id}`}
+                  aria-label={`Product evidence handling for ${fact.id}`}
                   value={factDecisions[fact.id] ?? ''}
                   onChange={(e) =>
                     setFactDecisions({ ...factDecisions, [fact.id]: e.target.value })
@@ -402,7 +512,7 @@ export function ProductReview({
               </>
             )}
             <label>
-              Human review rationale (optional)
+              Human review rationale (required for Defer)
               <textarea value={notes} maxLength={4000} onChange={(e) => setNotes(e.target.value)} />
             </label>
             {job.candidate?.present && (
@@ -413,9 +523,27 @@ export function ProductReview({
             <button disabled={!reviewer.trim()} onClick={() => confirm('reject')}>
               Reject product review
             </button>
-            <button disabled={!reviewer.trim()} onClick={() => confirm('defer')}>
+            <label>
+              Defer reason (optional; operator selected)
+              <select value={deferReason} onChange={(event) => setDeferReason(event.target.value)}>
+                <option value="">No classification selected</option>
+                <option value="schema_gap">Schema gap</option>
+                <option value="source_follow_up">Source follow-up</option>
+                <option value="evidence_follow_up">Evidence follow-up</option>
+                <option value="operator_pause">Operator pause</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+            <button
+              disabled={!reviewer.trim() || !notes.trim() || !job.product_review_lifecycle}
+              onClick={() => confirm('defer')}
+            >
               Defer product review
             </button>
+            <p>
+              Defer pauses this job without promotion and permits explicit resume. Reject is a
+              terminal non-promotion decision.
+            </p>
           </>
         )}
       </fieldset>
@@ -447,7 +575,43 @@ export function ProductReview({
             <p>Semantic snapshot: {job.approval.semantic_snapshot}</p>
             <ReviewValue value={job.source_resolution?.accepted_reference} />
           </details>
-          <p>The persisted decision is immutable for this job.</p>
+          <p>The recorded decision remains historical; resuming a deferral does not erase it.</p>
+        </article>
+      )}
+      {!!job.product_review_lifecycle?.history.length && (
+        <details>
+          <summary>Product pause / resume history</summary>
+          <ReviewValue value={job.product_review_lifecycle.history} />
+        </details>
+      )}
+      {job.summary.state === 'review_deferred' && job.product_review_lifecycle?.resumable && (
+        <article>
+          <h3>Product review paused</h3>
+          <p>
+            Evidence and review history are preserved. No automatic resume or re-preparation occurs.
+          </p>
+          <label>
+            Resume operator label
+            <input
+              value={reviewer}
+              maxLength={200}
+              onChange={(event) => setReviewer(event.target.value)}
+            />
+          </label>
+          <button
+            disabled={!reviewer.trim() || busy || !!pending}
+            onClick={() =>
+              setPending({
+                action: 'resume',
+                resume: {
+                  snapshot: job.product_review_lifecycle!.expected_lifecycle_snapshot,
+                  actor: reviewer.trim(),
+                },
+              })
+            }
+          >
+            Resume deferred review
+          </button>
         </article>
       )}
       {job.summary.state === 'approved' && (
@@ -485,7 +649,11 @@ export function ProductReview({
               <p>
                 {pending.action === 'approve'
                   ? 'Persist approval of the selected fields? No canonical write occurs with approval.'
-                  : `${pending.action === 'reject' ? 'Reject' : 'Defer'} ends the current job. No canonical write occurs; this job cannot be reopened.`}
+                  : pending.action === 'defer'
+                    ? 'Pause this job without promotion. Evidence and review history are preserved and the job may be explicitly resumed later.'
+                    : pending.action === 'resume'
+                      ? 'Resume this same deferred review without changing evidence or semantic decisions? Re-preparation remains a separate explicit action.'
+                      : 'End this job without promotion. Reject is a terminal review decision; this job cannot be reopened.'}
               </p>
               <ReviewValue value={pending.input} />
             </>

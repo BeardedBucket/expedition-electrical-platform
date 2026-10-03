@@ -64,7 +64,7 @@ export const deterministicNormalizedValuesEqual = (left: unknown, right: unknown
   }
   return same(left, right);
 };
-const canonicalizeConversionNoise = (value: JsonValue): JsonValue => {
+export const canonicalizeConversionNoise = (value: JsonValue): JsonValue => {
   if (typeof value === 'number') {
     // Fifteen significant decimal digits remove conversion noise only inside the existing 4-ULP allowance.
     const concise = Number(value.toPrecision(15));

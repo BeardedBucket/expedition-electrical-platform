@@ -11,6 +11,33 @@ afterEach(() => {
 });
 
 describe('batch API client', () => {
+  it('binds preparation recovery to the displayed review snapshot on one child', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(response({ summary: { id: 'job' } }));
+    vi.stubGlobal('fetch', fetchMock);
+    const snapshot = `sha256:${'a'.repeat(64)}`;
+    await api.reopenPreparation('job/id', snapshot);
+    expect(fetchMock).toHaveBeenCalledWith('/api/ingestion/jobs/job%2Fid/preparation/reopen', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ expected_review_snapshot: snapshot }),
+    });
+  });
+  it('posts an empty JSON request to reopen source selection for one job', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(response({ summary: { id: 'job' } }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await api.reopenSourceSelection('job/id');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/ingestion/jobs/job%2Fid/source-resolution/reopen',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      },
+    );
+  });
+
   it('posts the ordinary intake fields to the existing batch endpoint', async () => {
     const fetchMock = vi.fn().mockResolvedValue(response({ summary: {}, job_ids: [] }));
     vi.stubGlobal('fetch', fetchMock);

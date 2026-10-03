@@ -4,11 +4,16 @@ import { join, resolve } from 'node:path';
 import { deserializeJob, serializeJob } from './codec.js';
 import type { IngestionJob } from './job-service.js';
 import { replaceJobRecord } from './file-replacement.js';
+import { isPreparationRecoveryEligible } from './preparation-recovery.js';
+import { DEFER_REASONS, isResumedPreparationRecoveryEligible } from './product-review-lifecycle.js';
 import {
   artifactDigest,
   assertAcceptedSourceResolution,
   validateProductIntake,
   validateProductionArtifactSchema,
+  reviewPackageSnapshot,
+  validateProductionApproval,
+  approvalMatchesReviewPackage,
   type ReviewedSemanticDecision,
 } from '@expedition/ingestion';
 
@@ -77,6 +82,64 @@ const validJob = (value: unknown, id: string): value is IngestionJob => {
   const attempts = job.source_resolution_attempts ?? [];
   if (!Array.isArray(attempts)) return false;
   try {
+    if (
+      job.preparation_recovery_history !== undefined &&
+      !Array.isArray(job.preparation_recovery_history)
+    )
+      return false;
+    for (const [index, recovery] of (job.preparation_recovery_history ?? []).entries()) {
+      if (
+        !recovery ||
+        typeof recovery.requested_at !== 'string' ||
+        !Number.isFinite(Date.parse(recovery.requested_at)) ||
+        recovery.method !== 'local_operator' ||
+        recovery.preparation?.status !== 'review_ready' ||
+        artifactDigest(recovery.preparation.intake) !== artifactDigest(job.intake) ||
+        (!isPreparationRecoveryEligible({
+          ...job,
+          state: 'review_ready',
+          preparation: recovery.preparation,
+          approval: undefined,
+          finalization_request: undefined,
+          final_result: undefined,
+        }) &&
+          !(job.product_review_history ?? []).some(
+            (event) =>
+              event.action === 'resumed' &&
+              event.preparation_history_count === index &&
+              event.review_snapshot === recovery.previous_review_snapshot,
+          )) ||
+        recovery.previous_review_snapshot !==
+          reviewPackageSnapshot(recovery.preparation.review_package)
+      )
+        return false;
+    }
+    if (job.product_review_history !== undefined && !Array.isArray(job.product_review_history))
+      return false;
+    for (const [index, event] of (job.product_review_history ?? []).entries()) {
+      if (event.revision !== index + 1) return false;
+      if (event.action === 'deferred') {
+        if (
+          event.approval?.decision !== 'deferred' ||
+          validateProductionApproval(event.approval).length ||
+          (event.reason !== undefined && !DEFER_REASONS.includes(event.reason)) ||
+          (index > 0 && job.product_review_history![index - 1].action !== 'resumed')
+        )
+          return false;
+      } else if (event.action === 'resumed') {
+        const prior = job.product_review_history![index - 1];
+        if (
+          prior?.action !== 'deferred' ||
+          !event.actor_label?.trim() ||
+          !Number.isFinite(Date.parse(event.recorded_at)) ||
+          event.review_snapshot !== prior.approval.review_package_snapshot ||
+          !Number.isSafeInteger(event.preparation_history_count) ||
+          event.preparation_history_count < 0 ||
+          event.preparation_history_count > (job.preparation_recovery_history?.length ?? 0)
+        )
+          return false;
+      } else return false;
+    }
     if (new Set(attempts.map((item) => item.resolution.attempt_id)).size !== attempts.length)
       return false;
     for (const { resolution, capture } of attempts) {
@@ -96,22 +159,46 @@ const validJob = (value: unknown, id: string): value is IngestionJob => {
     }
     const pending = attempts.filter((item) => item.resolution.disposition === 'pending');
     const accepted = attempts.filter((item) => item.resolution.disposition === 'accepted');
+    const recoveries = job.source_resolution_recovery_history ?? [];
+    if (!Array.isArray(recoveries)) return false;
+    for (const recovery of recoveries) {
+      const previousResolution = accepted.find(
+        ({ resolution }) =>
+          artifactDigest(resolution) === recovery.previous_source_resolution?.digest,
+      )?.resolution;
+      if (
+        typeof recovery.requested_at !== 'string' ||
+        recovery.method !== 'local_operator' ||
+        recovery.previous_source_resolution.kind !== 'source_resolution' ||
+        !previousResolution ||
+        recovery.preparation.status !== 'preparation_failed' ||
+        recovery.preparation.reason !== 'acquisition_failed' ||
+        recovery.preparation.acquisition.status !== 'seed_failed' ||
+        artifactDigest(recovery.preparation.intake) !== artifactDigest(job.intake) ||
+        recovery.preparation.source_resolution?.id !== previousResolution.id ||
+        artifactDigest(recovery.preparation.source_resolution) !==
+          recovery.previous_source_resolution.digest
+      )
+        return false;
+    }
     if (job.intake.official_product_uri && (attempts.length || job.accepted_source_resolution))
       return false;
     if (
       job.state === 'source_resolution_required' &&
       (job.intake.official_product_uri ||
         pending.length ||
-        accepted.length ||
-        job.accepted_source_resolution)
+        (accepted.length > 0 && !recoveries.length) ||
+        (!accepted.length && job.accepted_source_resolution) ||
+        job.active_source_resolution)
     )
       return false;
     if (
       job.state === 'source_resolution_review' &&
       (job.intake.official_product_uri ||
         pending.length !== 1 ||
-        accepted.length ||
-        job.accepted_source_resolution)
+        (accepted.length > 0 && !recoveries.length) ||
+        (!accepted.length && job.accepted_source_resolution) ||
+        job.active_source_resolution)
     )
       return false;
     if (
@@ -119,19 +206,35 @@ const validJob = (value: unknown, id: string): value is IngestionJob => {
       !job.intake.official_product_uri
     ) {
       if (
-        accepted.length !== 1 ||
+        !accepted.length ||
         pending.length ||
         job.accepted_source_resolution?.kind !== 'source_resolution' ||
-        job.accepted_source_resolution.digest !== artifactDigest(accepted[0].resolution) ||
-        accepted[0].capture.disposition !== 'authoritative'
+        !accepted.some(
+          ({ resolution }) => artifactDigest(resolution) === job.accepted_source_resolution?.digest,
+        )
       )
         return false;
-      assertAcceptedSourceResolution(job.intake, accepted[0].resolution);
+      const activeReference =
+        job.active_source_resolution ??
+        (recoveries.length ? undefined : job.accepted_source_resolution);
+      const activeResolution = accepted.find(
+        ({ resolution }) => artifactDigest(resolution) === activeReference?.digest,
+      )?.resolution;
+      if (!activeResolution) return false;
+      assertAcceptedSourceResolution(job.intake, activeResolution);
+    }
+    for (const { resolution } of accepted) assertAcceptedSourceResolution(job.intake, resolution);
+    if (job.active_source_resolution) {
+      const active = accepted.find(
+        ({ resolution }) => artifactDigest(resolution) === job.active_source_resolution?.digest,
+      )?.resolution;
+      if (job.active_source_resolution.kind !== 'source_resolution' || !active) return false;
+      assertAcceptedSourceResolution(job.intake, active);
     }
     if (job.preparation) {
       if (artifactDigest(job.preparation.intake) !== artifactDigest(job.intake)) return false;
       if (
-        job.accepted_source_resolution?.digest !==
+        (job.active_source_resolution ?? job.accepted_source_resolution)?.digest !==
         (job.preparation.source_resolution
           ? artifactDigest(job.preparation.source_resolution)
           : undefined)
@@ -140,7 +243,7 @@ const validJob = (value: unknown, id: string): value is IngestionJob => {
       if (
         job.preparation.status === 'review_ready' &&
         job.preparation.review_package.source_resolution?.digest !==
-          job.accepted_source_resolution?.digest
+          (job.active_source_resolution ?? job.accepted_source_resolution)?.digest
       )
         return false;
     }
@@ -180,6 +283,11 @@ const validJob = (value: unknown, id: string): value is IngestionJob => {
     return false;
   if (job.state === 'review_rejected' && job.approval?.decision !== 'rejected') return false;
   if (job.state === 'review_deferred' && job.approval?.decision !== 'deferred') return false;
+  if (job.state === 'review_deferred' && job.product_review_history?.length) {
+    const last = job.product_review_history.at(-1);
+    if (last?.action !== 'deferred' || serializeJob(last.approval) !== serializeJob(job.approval))
+      return false;
+  }
   if (
     ['approved', 'finalizing', 'finalized', 'finalization_failed'].includes(job.state) &&
     job.approval?.decision !== 'approved'
@@ -197,10 +305,16 @@ const validJob = (value: unknown, id: string): value is IngestionJob => {
   return true;
 };
 
-const reviewedSemanticDecisionHistory = (job: IngestionJob): readonly ReviewedSemanticDecision[] =>
-  job.preparation?.status === 'review_ready'
+const reviewedSemanticDecisionHistory = (
+  job: IngestionJob,
+): readonly ReviewedSemanticDecision[] => [
+  ...(job.preparation_recovery_history ?? []).flatMap(
+    (entry) => entry.preparation.bridge.reviewed_semantic_decisions ?? [],
+  ),
+  ...(job.preparation?.status === 'review_ready'
     ? (job.preparation.bridge.reviewed_semantic_decisions ?? [])
-    : [];
+    : []),
+];
 
 export class FileIngestionJobStore implements IngestionJobStore {
   readonly root: string;
@@ -287,6 +401,68 @@ export class FileIngestionJobStore implements IngestionJobStore {
         throw new JobStoreConflictError(
           `Ingestion job ${job.id} changed since it was loaded; reload before updating.`,
         );
+      const oldEvents = previous.job.product_review_history ?? [];
+      const events = job.product_review_history ?? [];
+      if (
+        oldEvents.length > events.length ||
+        oldEvents.some((event, index) => serializeJob(event) !== serializeJob(events[index]))
+      )
+        throw new Error('Product review history is immutable and append-only.');
+      const addedEvents = events.slice(oldEvents.length);
+      const lifecyclePayload = (value: IngestionJob) =>
+        serializeJob({
+          ...value,
+          state: undefined,
+          updated_at: undefined,
+          approval: undefined,
+          product_review_history: undefined,
+        });
+      if (addedEvents.length) {
+        const last = events.at(-1)!;
+        if (last.action === 'deferred') {
+          if (
+            addedEvents.length !== 1 ||
+            previous.job.state !== 'review_ready' ||
+            job.state !== 'review_deferred' ||
+            previous.job.approval ||
+            job.finalization_request ||
+            job.final_result ||
+            previous.job.preparation?.status !== 'review_ready' ||
+            !approvalMatchesReviewPackage(last.approval, previous.job.preparation.review_package) ||
+            !last.approval.reviewed_decisions?.some((rationale) => rationale.trim()) ||
+            lifecyclePayload(previous.job) !== lifecyclePayload(job)
+          )
+            throw new Error('Deferral must preserve the exact current review.');
+        } else {
+          const legacy = !oldEvents.length;
+          if (
+            addedEvents.length !== (legacy ? 2 : 1) ||
+            (legacy &&
+              (addedEvents[0].action !== 'deferred' ||
+                serializeJob(addedEvents[0].approval) !== serializeJob(previous.job.approval))) ||
+            previous.job.state !== 'review_deferred' ||
+            job.state !== 'review_ready' ||
+            previous.job.preparation?.status !== 'review_ready' ||
+            previous.job.approval?.decision !== 'deferred' ||
+            job.approval ||
+            previous.job.finalization_request ||
+            previous.job.final_result ||
+            last.review_snapshot !==
+              reviewPackageSnapshot(previous.job.preparation.review_package) ||
+            last.preparation_history_count !==
+              (previous.job.preparation_recovery_history?.length ?? 0) ||
+            lifecyclePayload(previous.job) !== lifecyclePayload(job)
+          )
+            throw new Error('Resume must preserve the exact deferred review.');
+        }
+      } else if (
+        (previous.job.state === 'review_deferred' &&
+          serializeJob(previous.job) !== serializeJob(job)) ||
+        (previous.job.state !== 'review_deferred' && job.state === 'review_deferred')
+      )
+        throw new Error('Deferral and resume require append-only product review events.');
+      if (previous.job.state === 'review_rejected' && job.state !== 'review_rejected')
+        throw new Error('Rejected product reviews are terminal.');
       const previousDecisions = reviewedSemanticDecisionHistory(previous.job);
       const nextDecisions = reviewedSemanticDecisionHistory(job);
       if (
@@ -298,6 +474,68 @@ export class FileIngestionJobStore implements IngestionJobStore {
         throw new Error('Reviewed semantic decision history is immutable and append-only.');
       if (artifactDigest(previous.job.intake) !== artifactDigest(job.intake))
         throw new Error('Original product intake is immutable.');
+      const previousPreparations = previous.job.preparation_recovery_history ?? [];
+      const nextPreparations = job.preparation_recovery_history ?? [];
+      if (
+        previousPreparations.length > nextPreparations.length ||
+        previousPreparations.some(
+          (entry, index) => serializeJob(entry) !== serializeJob(nextPreparations[index]),
+        )
+      )
+        throw new Error('Preparation recovery history is immutable and append-only.');
+      if (nextPreparations.length > previousPreparations.length) {
+        const entry = nextPreparations[previousPreparations.length];
+        if (
+          nextPreparations.length !== previousPreparations.length + 1 ||
+          (!isPreparationRecoveryEligible(previous.job) &&
+            !isResumedPreparationRecoveryEligible(previous.job)) ||
+          serializeJob(entry.preparation) !== serializeJob(previous.job.preparation) ||
+          entry.previous_review_snapshot !==
+            reviewPackageSnapshot(entry.preparation.review_package) ||
+          job.state !== 'created' ||
+          job.preparation !== undefined ||
+          job.approval ||
+          job.finalization_request ||
+          job.final_result
+        )
+          throw new Error('Preparation recovery is not valid for the current job state.');
+      } else if (
+        previous.job.preparation &&
+        !job.preparation &&
+        (job.source_resolution_recovery_history?.length ?? 0) ===
+          (previous.job.source_resolution_recovery_history?.length ?? 0)
+      )
+        throw new Error('Clearing preparation requires an append-only recovery record.');
+      const previousRecoveries = previous.job.source_resolution_recovery_history ?? [];
+      const nextRecoveries = job.source_resolution_recovery_history ?? [];
+      if (
+        previousRecoveries.length > nextRecoveries.length ||
+        previousRecoveries.some(
+          (recovery, index) => serializeJob(recovery) !== serializeJob(nextRecoveries[index]),
+        )
+      )
+        throw new Error('Source-resolution recovery history is immutable and append-only.');
+      if (nextRecoveries.length > previousRecoveries.length) {
+        const previousSource =
+          previous.job.active_source_resolution ??
+          (previousRecoveries.length ? undefined : previous.job.accepted_source_resolution);
+        const recovery = nextRecoveries[previousRecoveries.length];
+        if (
+          nextRecoveries.length !== previousRecoveries.length + 1 ||
+          previous.job.state !== 'preparation_failed' ||
+          previous.job.preparation?.status !== 'preparation_failed' ||
+          previous.job.preparation.reason !== 'acquisition_failed' ||
+          previous.job.preparation.acquisition.status !== 'seed_failed' ||
+          !previousSource ||
+          previousSource.kind !== 'source_resolution' ||
+          recovery.previous_source_resolution.digest !== previousSource.digest ||
+          serializeJob(recovery.preparation) !== serializeJob(previous.job.preparation) ||
+          job.state !== 'source_resolution_required' ||
+          job.preparation !== undefined ||
+          job.active_source_resolution !== undefined
+        )
+          throw new Error('Source-selection recovery is not valid for the current job state.');
+      }
       const attempts = job.source_resolution_attempts ?? [];
       for (const old of previous.job.source_resolution_attempts ?? []) {
         const next = attempts.find(
@@ -319,6 +557,32 @@ export class FileIngestionJobStore implements IngestionJobStore {
           artifactDigest(job.accepted_source_resolution)
       )
         throw new Error('Accepted source resolution is immutable.');
+      if (nextRecoveries.length === previousRecoveries.length) {
+        const previousActive =
+          previous.job.active_source_resolution ??
+          (previousRecoveries.length ? undefined : previous.job.accepted_source_resolution);
+        const nextActive =
+          job.active_source_resolution ??
+          (nextRecoveries.length ? undefined : job.accepted_source_resolution);
+        if (
+          previousActive?.digest !== nextActive?.digest &&
+          (!nextActive ||
+            previous.job.state !== 'source_resolution_review' ||
+            !(job.source_resolution_attempts ?? []).some(
+              ({ resolution }) =>
+                resolution.disposition === 'accepted' &&
+                artifactDigest(resolution) === nextActive.digest &&
+                (previous.job.source_resolution_attempts ?? []).some(
+                  (old) =>
+                    old.resolution.attempt_id === resolution.attempt_id &&
+                    old.resolution.disposition === 'pending',
+                ),
+            ))
+        )
+          throw new Error(
+            'The active source can change only through source acceptance or recovery.',
+          );
+      }
       return await this.writeReplacement(job);
     } finally {
       try {

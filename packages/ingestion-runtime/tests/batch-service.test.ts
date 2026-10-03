@@ -637,4 +637,25 @@ describe('batch runtime service', () => {
     expect(submitApproval).not.toHaveBeenCalled();
     expect(finalizeJob).not.toHaveBeenCalled();
   });
+
+  it('delegates source-selection recovery to the child job service', async () => {
+    const storageRoot = await root();
+    const childJob = { id: randomUUID() } as IngestionJob;
+    const reopenSourceSelection = vi.fn(async () => childJob);
+    const batchService = makeSimpleBatchService(storageRoot, { reopenSourceSelection });
+
+    expect(await batchService.reopenSourceSelection(childJob.id)).toBe(childJob);
+    expect(reopenSourceSelection).toHaveBeenCalledTimes(1);
+    expect(reopenSourceSelection).toHaveBeenCalledWith(childJob.id);
+  });
+  it('delegates empty-preparation recovery without making a batch decision', async () => {
+    const storageRoot = await root();
+    const childJob = { id: randomUUID() } as IngestionJob;
+    const reopenPreparation = vi.fn(async () => childJob);
+    const batchService = makeSimpleBatchService(storageRoot, { reopenPreparation });
+    const snapshot = `sha256:${'a'.repeat(64)}`;
+    expect(await batchService.reopenPreparation(childJob.id, snapshot)).toBe(childJob);
+    expect(reopenPreparation).toHaveBeenCalledTimes(1);
+    expect(reopenPreparation).toHaveBeenCalledWith(childJob.id, snapshot, undefined);
+  });
 });

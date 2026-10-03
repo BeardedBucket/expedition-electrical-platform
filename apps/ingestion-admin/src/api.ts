@@ -9,6 +9,8 @@ export interface HumanReviewInput {
   reviewer_id: string;
   reviewed_decisions?: string[];
   promotion_decisions?: ProductionPromotionDecisions;
+  expected_lifecycle_snapshot?: string;
+  defer_reason?: string;
 }
 export type { OperatorJobDetail, OperatorJobSummary };
 export interface IntakeInput {
@@ -140,6 +142,11 @@ export const api = {
   prepare: (id: string) => request<OperatorJobDetail>(`/${encodeURIComponent(id)}/prepare`, 'POST'),
   review: (id: string, action: 'approve' | 'reject' | 'defer', input: HumanReviewInput) =>
     request<OperatorJobDetail>(`/${encodeURIComponent(id)}/review/${action}`, 'POST', input),
+  resumeDeferredReview: (id: string, expectedLifecycleSnapshot: string, actorLabel: string) =>
+    request<OperatorJobDetail>(`/${encodeURIComponent(id)}/review/resume`, 'POST', {
+      expected_lifecycle_snapshot: expectedLifecycleSnapshot,
+      actor_label: actorLabel,
+    }),
   semanticTargets: (id: string, proposalId: string, input: SemanticTargetRequest) =>
     request<SemanticTargetResponse>(
       `/${encodeURIComponent(id)}/review/semantic-proposals/${encodeURIComponent(proposalId)}/targets`,
@@ -171,6 +178,19 @@ export const api = {
   rejectSource: (id: string, attemptId: string) =>
     request<OperatorJobDetail>(`/${encodeURIComponent(id)}/source-resolution/reject`, 'POST', {
       attempt_id: attemptId,
+    }),
+  reopenSourceSelection: (id: string) =>
+    request<OperatorJobDetail>(`/${encodeURIComponent(id)}/source-resolution/reopen`, 'POST', {}),
+  reopenPreparation: (
+    id: string,
+    expectedReviewSnapshot: string,
+    expectedLifecycleSnapshot?: string,
+  ) =>
+    request<OperatorJobDetail>(`/${encodeURIComponent(id)}/preparation/reopen`, 'POST', {
+      expected_review_snapshot: expectedReviewSnapshot,
+      ...(expectedLifecycleSnapshot
+        ? { expected_lifecycle_snapshot: expectedLifecycleSnapshot }
+        : {}),
     }),
   get: (id: string) => request<OperatorJobDetail>(`/${encodeURIComponent(id)}`),
   list: () => request<{ jobs: OperatorJobSummary[] }>(''),

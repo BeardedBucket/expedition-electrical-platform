@@ -151,7 +151,9 @@ export interface ExtractionSourceLocation {
   readonly table?: string;
 }
 
-/** Source-declared HTML structure, never an identity or footnote interpretation. */
+/** Source-declared HTML span metadata. Positioned PDF grouping omits these
+ * properties rather than inventing tagged spans; they do not interpret identity.
+ */
 export interface TableCellStructure {
   readonly colspan?: number;
   readonly rowspan?: number;

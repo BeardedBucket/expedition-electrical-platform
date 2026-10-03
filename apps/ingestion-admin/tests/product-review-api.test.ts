@@ -13,7 +13,12 @@ import { createOperatorApi } from '../server/api.js';
 import { constructApproval } from '../server/product-review.js';
 import { jobDetail } from '../server/operator-views.js';
 import { fixtureService, input } from './fixtures.js';
-import { IngestionJobService, FileIngestionJobStore } from '@expedition/ingestion-runtime';
+import {
+  FileIngestionBatchStore,
+  FileIngestionJobStore,
+  IngestionBatchService,
+  IngestionJobService,
+} from '@expedition/ingestion-runtime';
 import type { SemanticDecisionRequest } from '@expedition/ingestion-runtime';
 
 const roots: string[] = [];
@@ -37,7 +42,7 @@ const post = (url: string, body: unknown) =>
     body: JSON.stringify(body),
   });
 async function fixture(
-  candidate: boolean | 'qualified' | 'mixed' | 'semantic' = true,
+  candidate: boolean | 'qualified' | 'mixed' | 'semantic' | 'provenance' = true,
   resolved = false,
 ) {
   const root = await mkdtemp(join(tmpdir(), 'human-review-'));
@@ -46,7 +51,11 @@ async function fixture(
   const canonical = join(root, 'canonical');
   const { mkdir } = await import('node:fs/promises');
   await mkdir(canonical);
-  const server = createOperatorApi(service, undefined, undefined, canonical);
+  const operatorService = new IngestionBatchService({
+    store: new FileIngestionBatchStore(join(root, 'batches')),
+    jobService: service,
+  });
+  const server = createOperatorApi(operatorService, undefined, undefined, canonical);
   servers.push(server);
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const address = server.address();
@@ -213,6 +222,61 @@ describe('human review and guarded finalization API', () => {
     });
   });
 
+  it('records a selected-fact rejection through the batch-backed operator API exactly once', async () => {
+    const f = await fixture('semantic');
+    const current = await f.service.getJob(f.id);
+    if (current.preparation?.status !== 'review_ready')
+      throw new Error('Fixture did not reach review_ready.');
+    const proposal = current.preparation.proposals.find(
+      (item) => item.target === 'source_label:mystery electrical rating',
+    );
+    if (!proposal) throw new Error('Fixture has no unsupported semantic proposal.');
+    const selectedFactIds = (proposal.fact_refs ?? [])
+      .map((reference) => reference.reference)
+      .filter((value): value is string => !!value);
+    const request = {
+      proposal_id: proposal.id,
+      expected_review_snapshot: reviewPackageSnapshot(current.preparation.review_package),
+      selected_fact_ids: selectedFactIds,
+      actor_label: 'Human acceptance reviewer',
+      outcome: 'reject',
+      rationale:
+        '“Model / SKU” is a table/field label, not a product value or semantic product assertion. The actual product MPN B24100A-C is represented in identity/applicability context, not in this retained fact. This qualified assertion should not project into canonical component data.',
+    };
+
+    const response = await post(`${f.url}/review/semantic-decisions`, request);
+    expect(response.status).toBe(200);
+    const rebuilt = await response.json();
+    expect(rebuilt.semantic_review).toMatchObject({
+      complete: true,
+      required_dispositions: [],
+      decisions: [
+        expect.objectContaining({
+          proposal_id: proposal.id,
+          revision: 1,
+          outcome: 'reject',
+          selected_fact_ids: selectedFactIds,
+        }),
+      ],
+    });
+
+    const persisted = await new FileIngestionJobStore(join(f.root, 'jobs')).load(f.id);
+    if (persisted.preparation?.status !== 'review_ready')
+      throw new Error('Persisted job left review_ready unexpectedly.');
+    const history = persisted.preparation.bridge.reviewed_semantic_decisions;
+    expect(history).toHaveLength(1);
+    expect(history[0]).toMatchObject({ outcome: 'reject', revision: 1 });
+    expect(history[0].selected_fact_refs?.map((reference) => reference.reference)).toEqual(
+      selectedFactIds,
+    );
+    expect(persisted.preparation.bridge.projected_proposal_ids).not.toContain(proposal.id);
+    expect(
+      rebuilt.semantic_review.interpretation.find(
+        (entry: { proposal_id: string }) => entry.proposal_id === proposal.id,
+      )?.state,
+    ).toBe('reject');
+  });
+
   it('returns no targets and rejects mapping preview for a derived proposal', async () => {
     const f = await fixture('semantic');
     const store = new FileIngestionJobStore(join(f.root, 'jobs'));
@@ -301,6 +365,110 @@ describe('human review and guarded finalization API', () => {
     expect(JSON.stringify(semantic)).not.toMatch(
       /store_checksum|lock_version|persistence_envelope/i,
     );
+  });
+
+  it('exposes canonical units and value origin beside exact retained measurement evidence', async () => {
+    const f = await fixture('provenance');
+    const fields = f.detail.product_review.fields;
+    const cases = [
+      {
+        target: 'dimensions_mm',
+        unit: 'mm',
+        canonicalValue: { x: 180, y: 30, z: 120 },
+        sourceLabel: 'Outer dimensions (h x w x d)',
+        rawValue: '12 x 18 x 3 cm',
+      },
+      {
+        target: 'weight_kg',
+        unit: 'kg',
+        canonicalValue: 36.650263496,
+        sourceLabel: 'Weight',
+        rawValue: '80.8',
+        sourceUnit: 'lb',
+      },
+      {
+        target: 'electrical.nominal_voltage_v',
+        unit: 'V',
+        canonicalValue: 12,
+        sourceLabel: 'Nominal voltage',
+        rawValue: '12',
+        sourceUnit: 'V',
+      },
+      {
+        target: 'electrical.continuous_current_a',
+        unit: 'A',
+        canonicalValue: 150,
+        sourceLabel: 'Continuous current',
+        rawValue: '150',
+        sourceUnit: 'A',
+      },
+    ];
+
+    for (const example of cases) {
+      const field = fields.find((candidate) => candidate.path === example.target);
+      expect(field).toMatchObject({
+        value: example.canonicalValue,
+        display_value: example.canonicalValue,
+        canonical_unit: example.unit,
+      });
+      expect(field?.proposals).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            value: example.canonicalValue,
+            display_value: example.canonicalValue,
+            canonical_unit: example.unit,
+            value_origin: 'normalized / converted',
+            evidence: expect.arrayContaining([
+              expect.objectContaining({
+                label: example.sourceLabel,
+                raw_value: example.rawValue,
+                ...(example.sourceUnit ? { unit: example.sourceUnit } : {}),
+              }),
+            ]),
+          }),
+        ]),
+      );
+    }
+
+    const nominalVoltage = f.detail.semantic_review.work.automatic.find(
+      (item: { automatic_target: string }) =>
+        item.automatic_target === 'electrical.nominal_voltage_v',
+    );
+    expect(nominalVoltage).toMatchObject({
+      automatic_value: 12,
+      display_value: 12,
+      canonical_unit: 'V',
+      value_origin: 'normalized / converted',
+      derived: false,
+    });
+    expect(
+      fields
+        .flatMap((field: { proposals: { id: string; projected: boolean }[] }) => field.proposals)
+        .find((proposal: { id: string }) => proposal.id === nominalVoltage.id),
+    ).toMatchObject({ projected: true });
+    expect(nominalVoltage.projected_field).toBe('electrical.nominal_voltage_v');
+  });
+
+  it('provides a clean display projection without changing a noisy candidate value', async () => {
+    const f = await fixture('provenance');
+    const noisyJob = structuredClone(f.job);
+    const preparation = noisyJob.preparation;
+    const candidate =
+      preparation?.status === 'review_ready' ? preparation.bridge.candidate : undefined;
+    if (!candidate) throw new Error('Fixture did not produce a candidate.');
+    const dimensions = candidate.component_data.dimensions_mm;
+    if (!dimensions || typeof dimensions !== 'object' || Array.isArray(dimensions))
+      throw new Error('Fixture did not produce object-shaped dimensions.');
+    candidate.component_data.dimensions_mm = {
+      ...dimensions,
+      x: 180.08599999999998,
+    };
+
+    const width = jobDetail(noisyJob).product_review?.fields.find(
+      (field) => field.path === 'dimensions_mm',
+    );
+    expect(width?.value).toMatchObject({ x: 180.08599999999998 });
+    expect(width?.display_value).toMatchObject({ x: 180.086 });
   });
 
   it('records a map decision through the API and returns rebuilt safe review state', async () => {
@@ -594,7 +762,20 @@ describe('human review and guarded finalization API', () => {
     'qualified-only %s needs no promotion selections',
     async (action) => {
       const f = await fixture('qualified');
-      expect((await post(`${f.url}/review/${action}`, { reviewer_id: 'Human' })).status).toBe(200);
+      expect(
+        (
+          await post(`${f.url}/review/${action}`, {
+            reviewer_id: 'Human',
+            ...(action === 'defer'
+              ? {
+                  reviewed_decisions: ['Await capability'],
+                  expected_lifecycle_snapshot:
+                    f.detail.product_review_lifecycle!.expected_lifecycle_snapshot,
+                }
+              : {}),
+          })
+        ).status,
+      ).toBe(200);
       expect((await f.service.getJob(f.id)).approval?.promotion_decisions).toBeUndefined();
       expect(await readdir(f.canonical)).toEqual([]);
     },
@@ -653,7 +834,16 @@ describe('human review and guarded finalization API', () => {
     'allows no-candidate %s with no promotion conversion and survives restart',
     async (action) => {
       const f = await fixture(false);
-      const result = await post(`${f.url}/review/${action}`, { reviewer_id: 'Human' });
+      const result = await post(`${f.url}/review/${action}`, {
+        reviewer_id: 'Human',
+        ...(action === 'defer'
+          ? {
+              reviewed_decisions: ['Await capability'],
+              expected_lifecycle_snapshot:
+                f.detail.product_review_lifecycle!.expected_lifecycle_snapshot,
+            }
+          : {}),
+      });
       expect(result.status).toBe(200);
       const durable = await fixtureService(join(f.root, 'jobs'), false).getJob(f.id);
       expect(durable.state).toBe(action === 'reject' ? 'review_rejected' : 'review_deferred');
@@ -666,6 +856,112 @@ describe('human review and guarded finalization API', () => {
   it('rejects no-candidate approval', async () => {
     const f = await fixture(false);
     expect((await post(`${f.url}/review/approve`, f.human)).status).toBe(409);
+  });
+  it('explicitly defers and resumes the same review, preserving history and rejecting stale/replayed actions', async () => {
+    const f = await fixture(false);
+    const body = {
+      reviewer_id: 'Human',
+      reviewed_decisions: ['Await schema capability'],
+      defer_reason: 'schema_gap',
+      expected_lifecycle_snapshot: f.detail.product_review_lifecycle!.expected_lifecycle_snapshot,
+    };
+    expect((await post(`${f.url}/review/defer`, { reviewer_id: 'Human' })).status).toBe(400);
+    expect((await post(`${f.url}/review/defer`, { ...body, reviewed_decisions: [] })).status).toBe(
+      400,
+    );
+    expect(
+      (await post(`${f.url}/review/defer`, { ...body, defer_reason: 'inferred' })).status,
+    ).toBe(400);
+    const pausedResponse = await post(`${f.url}/review/defer`, body);
+    expect(pausedResponse.status).toBe(200);
+    const paused = await pausedResponse.json();
+    expect(paused.summary.state).toBe('review_deferred');
+    expect(paused.product_review_lifecycle.resumable).toBe(true);
+    const resume = {
+      expected_lifecycle_snapshot: paused.product_review_lifecycle.expected_lifecycle_snapshot,
+      actor_label: 'Resume human',
+    };
+    expect(
+      (await post(`${f.url}/review/resume`, { ...resume, state: 'review_ready' })).status,
+    ).toBe(400);
+    expect(
+      (
+        await post(`${f.url}/review/resume`, {
+          ...resume,
+          expected_lifecycle_snapshot: body.expected_lifecycle_snapshot,
+        })
+      ).status,
+    ).toBe(409);
+    const response = await post(`${f.url}/review/resume`, resume);
+    expect(response.status).toBe(200);
+    const resumed = await response.json();
+    expect(resumed.summary.id).toBe(f.id);
+    expect(resumed.summary.state).toBe('review_ready');
+    expect(resumed.product_review_lifecycle.history).toHaveLength(2);
+    expect(resumed.product_review_lifecycle.history[0].rationale).toEqual(body.reviewed_decisions);
+    expect(resumed.preparation_recovery.expected_lifecycle_snapshot).toBeDefined();
+    expect((await post(`${f.url}/review/resume`, resume)).status).toBe(409);
+    expect((await post(`${f.url}/review/defer`, body)).status).toBe(409);
+    expect(await readdir(f.canonical)).toEqual([]);
+  });
+  it.each(['approved', 'finalized', 'review_rejected'] as const)(
+    'does not defer or resume a %s job',
+    async (state) => {
+      const f = await fixture();
+      if (state === 'review_rejected')
+        await post(`${f.url}/review/reject`, { reviewer_id: 'Human' });
+      else {
+        expect((await post(`${f.url}/review/approve`, f.human)).status).toBe(200);
+        if (state === 'finalized') await post(`${f.url}/finalize`, { write: true });
+      }
+      expect((await f.service.getJob(f.id)).state).toBe(state);
+      expect(
+        (
+          await post(`${f.url}/review/defer`, {
+            reviewer_id: 'Human',
+            reviewed_decisions: ['Pause'],
+            expected_lifecycle_snapshot:
+              f.detail.product_review_lifecycle!.expected_lifecycle_snapshot,
+          })
+        ).status,
+      ).toBe(409);
+      expect(
+        (
+          await post(`${f.url}/review/resume`, {
+            actor_label: 'Human',
+            expected_lifecycle_snapshot:
+              f.detail.product_review_lifecycle!.expected_lifecycle_snapshot,
+          })
+        ).status,
+      ).toBe(409);
+      expect((await f.service.getJob(f.id)).state).toBe(state);
+    },
+  );
+  it('preserves an existing candidate and review bindings across explicit pause/resume', async () => {
+    const f = await fixture();
+    const before = await f.service.getJob(f.id);
+    const paused = await (
+      await post(`${f.url}/review/defer`, {
+        reviewer_id: 'Human',
+        reviewed_decisions: ['Operator pause before approval'],
+        defer_reason: 'operator_pause',
+        expected_lifecycle_snapshot: f.detail.product_review_lifecycle!.expected_lifecycle_snapshot,
+      })
+    ).json();
+    expect(paused.summary.state).toBe('review_deferred');
+    const response = await post(`${f.url}/review/resume`, {
+      actor_label: 'Human',
+      expected_lifecycle_snapshot: paused.product_review_lifecycle.expected_lifecycle_snapshot,
+    });
+    expect(response.status).toBe(200);
+    const after = await f.service.getJob(f.id);
+    expect(artifactDigest(after.preparation)).toBe(artifactDigest(before.preparation));
+    expect(
+      after.preparation?.status === 'review_ready' && after.preparation.bridge.candidate,
+    ).toBeTruthy();
+    expect(after.approval).toBeUndefined();
+    expect(after.finalization_request).toBeUndefined();
+    expect(await readdir(f.canonical)).toEqual([]);
   });
   it('rejects forged browser authority, references, destinations and promotions', async () => {
     const f = await fixture();

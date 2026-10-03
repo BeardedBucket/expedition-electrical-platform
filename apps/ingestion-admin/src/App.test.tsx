@@ -50,6 +50,7 @@ const detail: OperatorJobDetail = {
   diagnostics: [],
 };
 const client = (): OperatorApi => ({
+  resumeDeferredReview: vi.fn().mockResolvedValue(detail),
   review: vi.fn().mockResolvedValue(detail),
   semanticTargets: vi.fn().mockResolvedValue({ proposal_id: '', targets: [] }),
   semanticPreview: vi.fn().mockResolvedValue({
@@ -64,6 +65,8 @@ const client = (): OperatorApi => ({
   submitSourceCandidate: vi.fn().mockResolvedValue(detail),
   acceptSource: vi.fn().mockResolvedValue(detail),
   rejectSource: vi.fn().mockResolvedValue(detail),
+  reopenSourceSelection: vi.fn().mockResolvedValue(detail),
+  reopenPreparation: vi.fn().mockResolvedValue(detail),
   suggestions: vi.fn().mockResolvedValue({ manufacturers: [], products: [] }),
   create: vi
     .fn()
@@ -111,6 +114,58 @@ const client = (): OperatorApi => ({
     },
     job_ids: [id],
   }),
+});
+it('requires a human action to reopen an empty preparation without starting capture', async () => {
+  const c = client();
+  const snapshot = `sha256:${'a'.repeat(64)}`;
+  vi.mocked(c.get).mockResolvedValue({
+    ...detail,
+    preparation_recovery: { expected_review_snapshot: snapshot },
+  });
+  vi.mocked(c.reopenPreparation).mockResolvedValue({
+    ...detail,
+    summary: { ...detail.summary, state: 'created' },
+  });
+  window.location.hash = `#/jobs/${id}`;
+  render(<App client={c} />);
+  const button = await screen.findByRole('button', { name: 'Reopen empty preparation' });
+  expect(c.reopenPreparation).not.toHaveBeenCalled();
+  fireEvent.click(button);
+  await waitFor(() => expect(c.reopenPreparation).toHaveBeenCalledWith(id, snapshot));
+  expect(await screen.findByRole('button', { name: 'Start preparation' })).toBeEnabled();
+  expect(c.prepare).not.toHaveBeenCalled();
+  expect(c.acceptSource).not.toHaveBeenCalled();
+  expect(c.review).not.toHaveBeenCalled();
+  expect(c.finalize).not.toHaveBeenCalled();
+});
+it('archives a resumed reviewed preparation only through explicit snapshot-bound action, without starting capture', async () => {
+  const c = client();
+  const snapshot = `sha256:${'a'.repeat(64)}`;
+  const lifecycle = `sha256:${'b'.repeat(64)}`;
+  vi.mocked(c.get).mockResolvedValue({
+    ...detail,
+    preparation_recovery: {
+      expected_review_snapshot: snapshot,
+      expected_lifecycle_snapshot: lifecycle,
+    },
+  });
+  vi.mocked(c.reopenPreparation).mockResolvedValue({
+    ...detail,
+    summary: { ...detail.summary, state: 'created' },
+  });
+  window.location.hash = `#/jobs/${id}`;
+  render(<App client={c} />);
+  const button = await screen.findByRole('button', {
+    name: 'Archive reviewed preparation for explicit re-preparation',
+  });
+  expect(screen.getByText(/does not reinterpret them/)).toBeInTheDocument();
+  expect(c.reopenPreparation).not.toHaveBeenCalled();
+  fireEvent.click(button);
+  await waitFor(() => expect(c.reopenPreparation).toHaveBeenCalledWith(id, snapshot, lifecycle));
+  expect(await screen.findByRole('button', { name: 'Start preparation' })).toBeEnabled();
+  expect(c.prepare).not.toHaveBeenCalled();
+  expect(c.review).not.toHaveBeenCalled();
+  expect(c.finalize).not.toHaveBeenCalled();
 });
 afterEach(async () => {
   cleanup();
@@ -198,6 +253,44 @@ describe('ingestion admin operator interface', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Some sources failed');
     expect(screen.queryByText('No promotable fields are currently available.')).toBeNull();
   });
+  it('identifies candidate projection values as canonical and separate from source assertions', () => {
+    render(
+      <Review
+        job={
+          {
+            ...detail,
+            candidate: {
+              present: true,
+              projected_fields: { dimensions_mm: { z: 334.01 }, weight_kg: 36.650263496 },
+              field_evidence: { 'dimensions_mm.z': ['fact.height'], weight_kg: ['fact.weight'] },
+              non_projected: [],
+            },
+            proposals: [
+              {
+                id: 'proposal.height',
+                target: 'dimensions_mm.z',
+                disposition: 'mapped',
+                proposed_value: 334.01,
+                value_origin: 'normalized / converted',
+                canonical_unit: 'mm',
+                evidence_refs: [],
+                fact_refs: [],
+              },
+            ],
+          } as unknown as OperatorJobDetail
+        }
+        section="evidence"
+      />,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Projected canonical fields' })).toBeInTheDocument();
+    expect(screen.getByText(/not verbatim source assertions/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Simple unit conversions are not calculated \/ derived facts/),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Value treatment' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Canonical unit' })).toBeInTheDocument();
+  });
   it('explains facts that stop at unresolved proposals without offering approval', async () => {
     const job = {
       ...detail,
@@ -267,12 +360,12 @@ describe('ingestion admin operator interface', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Reviewable fields' }));
     expect(screen.getByRole('button', { name: 'Approve selected assertions' })).toBeDisabled();
     expect(screen.queryByRole('button', { name: 'Write canonical component' })).toBeNull();
-    fireEvent.change(screen.getByLabelText('Human decision for weight_kg'), {
+    fireEvent.change(screen.getByLabelText('Product field decision for weight_kg'), {
       target: { value: 'approve' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Sources' }));
     fireEvent.click(screen.getByRole('button', { name: 'Reviewable fields' }));
-    expect(screen.getByLabelText('Human decision for weight_kg')).toHaveValue('approve');
+    expect(screen.getByLabelText('Product field decision for weight_kg')).toHaveValue('approve');
     expect(screen.getByRole('button', { name: 'Approve selected assertions' })).toBeDisabled();
     expect(c.review).not.toHaveBeenCalled();
     expect(c.finalize).not.toHaveBeenCalled();
@@ -651,6 +744,7 @@ describe('ingestion admin operator interface', () => {
 
 function sourceJob(
   state: 'source_resolution_required' | 'source_resolution_review' | 'created',
+  captureFailed = false,
 ): OperatorJobDetail {
   const pending = state === 'source_resolution_review';
   return {
@@ -665,7 +759,16 @@ function sourceJob(
         manufacturer_part_number: 'EX-1',
       },
       accepted_reference: undefined,
+      active_reference: undefined,
       accepted_uri: state === 'created' ? 'https://example.test/product' : undefined,
+      recovery: {
+        can_reopen: false,
+        acquisition_status: undefined,
+        acquisition_issues: undefined,
+        acquisition_response_status: undefined,
+        preparation_reason: undefined,
+      },
+      recovery_history: [],
       attempt_count: state === 'source_resolution_required' ? 0 : 1,
       history_truncated: false,
       attempts:
@@ -697,11 +800,11 @@ function sourceJob(
                     digest: `sha256:${'a'.repeat(64)}`,
                     digest_algorithm: 'sha256',
                   },
-                  disposition: 'authoritative',
+                  disposition: captureFailed ? 'failed' : 'authoritative',
                   content_digest: undefined,
                   media_type: 'text/html',
-                  response_status: 200,
-                  reason_codes: undefined,
+                  response_status: captureFailed ? 403 : 200,
+                  reason_codes: captureFailed ? ['http_status'] : undefined,
                   redirects: undefined,
                 },
                 can_accept: pending,
@@ -790,6 +893,82 @@ it('renders pending identity evidence and invokes explicit source acceptance', a
   await waitFor(() => expect(c.acceptSource).toHaveBeenCalledWith(id, 'attempt.test'));
   expect(c.prepare).not.toHaveBeenCalled();
 });
+it('allows a source-identity decision after failed capture while warning acquisition must succeed', async () => {
+  const c = client();
+  render(
+    <SourceResolution
+      job={sourceJob('source_resolution_review', true)}
+      client={c}
+      onUpdate={vi.fn()}
+    />,
+  );
+  expect(
+    screen.getByText(/Capture has not produced authoritative evidence \(HTTP 403\)/),
+  ).toHaveTextContent(
+    'Accepting confirms source identity only; acquisition must still succeed before extraction.',
+  );
+  expect(screen.getByRole('button', { name: 'Accept official source' })).toBeEnabled();
+  fireEvent.click(screen.getByRole('button', { name: 'Accept official source' }));
+  await waitFor(() => expect(c.acceptSource).toHaveBeenCalledWith(id, 'attempt.test'));
+});
+it('shows acquisition failure separately and invokes source-selection recovery on the same job', async () => {
+  const c = client();
+  const job = sourceJob('created');
+  job.summary.state = 'preparation_failed';
+  job.source_resolution!.state = 'preparation_failed';
+  job.source_resolution!.recovery = {
+    can_reopen: true,
+    acquisition_status: 'seed_failed',
+    acquisition_issues: ['The source returned HTTP status 403.'],
+    acquisition_response_status: 403,
+    preparation_reason: 'acquisition_failed',
+  };
+  vi.mocked(c.reopenSourceSelection).mockResolvedValue(sourceJob('source_resolution_required'));
+  const update = vi.fn();
+  render(<SourceResolution job={job} client={c} onUpdate={update} />);
+  expect(screen.getByText('Acquisition failed for the accepted source')).toBeInTheDocument();
+  expect(screen.getByText('Accepted source').nextElementSibling).toHaveTextContent('Accepted');
+  expect(screen.getByText('Selected URI').nextElementSibling).toHaveTextContent(
+    'https://example.test/product',
+  );
+  expect(screen.getByText('Acquisition').nextElementSibling).toHaveTextContent('Failed — HTTP 403');
+  expect(screen.getByText(/does not reject that decision/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Choose another official source' }));
+  await waitFor(() => expect(c.reopenSourceSelection).toHaveBeenCalledWith(id));
+  expect(update).toHaveBeenCalledWith(sourceJob('source_resolution_required'));
+  expect(c.submitSourceCandidate).not.toHaveBeenCalled();
+  expect(c.acceptSource).not.toHaveBeenCalled();
+});
+it('shows recorded acquisition history alongside the new unresolved source-selection cycle', () => {
+  const job = sourceJob('source_resolution_required');
+  job.source_resolution!.recovery_history = [
+    {
+      requested_at: '2026-10-03T00:00:00.000Z',
+      method: 'local_operator',
+      previous_source_reference: {
+        kind: 'source_resolution',
+        reference: 'resolution.previous',
+        reference_schema_version: '1.0',
+        digest: `sha256:${'a'.repeat(64)}`,
+        digest_algorithm: 'sha256',
+      },
+      previous_source_uri: 'https://example.test/products/old',
+      preparation_status: 'preparation_failed',
+      preparation_reason: 'acquisition_failed',
+      acquisition_status: 'seed_failed',
+      acquisition_issues: ['The source returned HTTP status 403.'],
+      seed_capture_disposition: 'failed',
+      seed_response_status: 403,
+    },
+  ];
+  render(<SourceResolution job={job} client={client()} onUpdate={vi.fn()} />);
+  expect(screen.getByText('Previous acquisition failures retained in history')).toBeInTheDocument();
+  expect(
+    screen.getByText('Previous accepted source: https://example.test/products/old'),
+  ).toBeInTheDocument();
+  expect(screen.getByText(/seed capture failed \(HTTP 403\)/)).toBeInTheDocument();
+  expect(screen.getByLabelText('Candidate official manufacturer URL')).toBeInTheDocument();
+});
 it('opens literal candidate and final source URLs in safe external tabs', () => {
   const job = sourceJob('source_resolution_review');
   job.source_resolution!.attempts[0].final_uri = 'https://example.test/final-product';
@@ -804,9 +983,11 @@ it('opens literal candidate and final source URLs in safe external tabs', () => 
 it('keeps an unavailable final URL as unknown without manufacturing a link', () => {
   const job = sourceJob('source_resolution_review');
   job.source_resolution!.attempts[0].final_uri = undefined;
+  job.source_resolution!.attempts[0].can_accept = false;
   render(<SourceResolution job={job} client={client()} onUpdate={vi.fn()} />);
   expect(screen.getAllByRole('link')).toHaveLength(1);
   expect(screen.getByText('Unknown / not available')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Accept official source' })).toBeDisabled();
 });
 it('warns after off-domain acceptance that preparation may still fail officiality checks', () => {
   const job = sourceJob('created');

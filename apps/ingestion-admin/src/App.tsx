@@ -209,6 +209,7 @@ export function Review({
               {reviewable.map((field) => (
                 <li key={field.path}>
                   {field.path}: {display(field.value)}
+                  {field.canonical_unit ? ` ${field.canonical_unit}` : ''}
                 </li>
               ))}
               {qualified.map((assertion) => (
@@ -241,11 +242,13 @@ export function Review({
                   : 'Inspect unresolved evidence; defer or reject the review if it cannot be resolved.'
                 : s.state === 'approved'
                   ? 'A separate confirmed finalization action is available in Reviewable fields.'
-                  : s.state === 'preparation_failed'
-                    ? 'Inspect Diagnostics and Sources. This failed preparation is not eligible for approval.'
-                    : s.state === 'source_resolution_required'
-                      ? 'Provide an official source candidate.'
-                      : 'Inspect the current job state and diagnostics.'}
+                  : s.state === 'review_deferred'
+                    ? 'Product review is paused. Explicitly resume it in Reviewable fields when ready; no automatic re-preparation occurs.'
+                    : s.state === 'preparation_failed'
+                      ? 'Inspect Diagnostics and Sources. This failed preparation is not eligible for approval.'
+                      : s.state === 'source_resolution_required'
+                        ? 'Provide an official source candidate.'
+                        : 'Inspect the current job state and diagnostics.'}
           </p>
         </section>
       )}
@@ -378,7 +381,9 @@ export function Review({
                     ['id', 'Proposal ID'],
                     ['target', 'Target'],
                     ['disposition', 'Disposition'],
-                    ['proposed_value', 'Proposed value'],
+                    ['value_origin', 'Value treatment'],
+                    ['proposed_value', 'Canonical value'],
+                    ['canonical_unit', 'Canonical unit'],
                     ['evidence_refs', 'Evidence references'],
                     ['fact_refs', 'Fact references'],
                   ]}
@@ -395,6 +400,12 @@ export function Review({
                 {job.candidate.present ? (
                   <>
                     <h3>Projected canonical fields</h3>
+                    <p>
+                      These are candidate canonical values, not verbatim source assertions. For
+                      measurements, compare them with the SOURCE-STATED assertion and its NORMALIZED
+                      / CONVERTED canonical-unit value in Human product review. Simple unit
+                      conversions are not calculated / derived facts.
+                    </p>
                     <Values value={job.candidate.projected_fields} />
                     <h3>Field evidence</h3>
                     <Values value={job.candidate.field_evidence} />
@@ -433,7 +444,9 @@ export function Review({
                 ['id', 'Proposal ID'],
                 ['target', 'Target'],
                 ['disposition', 'Disposition'],
-                ['proposed_value', 'Value'],
+                ['value_origin', 'Value treatment'],
+                ['proposed_value', 'Canonical value'],
+                ['canonical_unit', 'Canonical unit'],
                 ['fact_refs', 'Fact references'],
               ]}
             />
@@ -490,12 +503,63 @@ export function SourceResolution({
     <section>
       <h2>Official source required</h2>
       <p>
-        Source identity review. Accepting a source confirms which product you intended; product
-        specifications require a separate later review.
+        Source identity review is separate from capture success. Accepting confirms which product
+        you intended; product specifications require a separate later review.
       </p>
       <h3>Requested product</h3>
       <Values value={section.requested_identity} />
       <p>The original intake remains unchanged and has no official product URL.</p>
+      {section.recovery?.can_reopen && (
+        <section aria-label="Source-selection recovery">
+          <h3>Acquisition failed for the accepted source</h3>
+          <p>
+            The accepted source decision remains in history. Choosing another source does not reject
+            that decision. A new URI must be captured and accepted separately, and acquisition must
+            succeed before extraction.
+          </p>
+          <dl>
+            <dt>Accepted source</dt>
+            <dd>Accepted</dd>
+            <dt>Selected URI</dt>
+            <dd>{section.accepted_uri ?? 'Unknown / not available'}</dd>
+            <dt>Acquisition</dt>
+            <dd>
+              Failed
+              {section.recovery.acquisition_response_status
+                ? ` — HTTP ${section.recovery.acquisition_response_status}`
+                : ` — ${section.recovery.acquisition_status ?? 'unknown'}`}
+            </dd>
+            <dt>Preparation</dt>
+            <dd>Failed at acquisition</dd>
+          </dl>
+          <button
+            disabled={busy}
+            onClick={() => void run(() => client.reopenSourceSelection(job.summary.id))}
+          >
+            Choose another official source
+          </button>
+        </section>
+      )}
+      {!!section.recovery_history?.length && (
+        <section aria-label="Previous source-selection recoveries">
+          <h3>Previous acquisition failures retained in history</h3>
+          {section.recovery_history.map((recovery, index) => (
+            <article key={`${recovery.requested_at}-${index}`}>
+              <p>Source-selection recovery recorded at {recovery.requested_at}.</p>
+              <p>Previous accepted source: {recovery.previous_source_uri ?? 'Unknown'}</p>
+              <p>
+                Preparation: {recovery.preparation_status} / {recovery.preparation_reason}
+              </p>
+              <p>
+                Acquisition: {recovery.acquisition_status}; seed capture{' '}
+                {recovery.seed_capture_disposition}
+                {recovery.seed_response_status ? ` (HTTP ${recovery.seed_response_status})` : ''}
+              </p>
+              <p>{recovery.acquisition_issues.join('; ')}</p>
+            </article>
+          ))}
+        </section>
+      )}
       {job.summary.state === 'source_resolution_required' && (
         <form
           onSubmit={(event) => {
@@ -578,6 +642,14 @@ export function SourceResolution({
           <h4>Capture evidence and diagnostics</h4>
           <Values value={attempt.capture} />
           <Values value={attempt.diagnostics} />
+          {attempt.disposition === 'pending' && attempt.capture.disposition !== 'authoritative' && (
+            <p>
+              Capture has not produced authoritative evidence
+              {attempt.capture.response_status ? ` (HTTP ${attempt.capture.response_status})` : ''}.
+              Accepting confirms source identity only; acquisition must still succeed before
+              extraction.
+            </p>
+          )}
           {attempt.review && <p>Reviewed at {attempt.review.reviewed_at} by local operator.</p>}
           {attempt.disposition === 'pending' &&
             job.summary.state === 'source_resolution_review' && (
@@ -653,6 +725,26 @@ function JobPage({ id, client }: { id: string; client: OperatorApi }) {
       setStarting(false);
     }
   }
+  async function reopenPreparation() {
+    if (!job?.preparation_recovery) return;
+    setStarting(true);
+    setError('');
+    try {
+      const recovery = job.preparation_recovery;
+      const updated = recovery.expected_lifecycle_snapshot
+        ? await client.reopenPreparation(
+            id,
+            recovery.expected_review_snapshot,
+            recovery.expected_lifecycle_snapshot,
+          )
+        : await client.reopenPreparation(id, recovery.expected_review_snapshot);
+      setJob(updated);
+    } catch (error) {
+      setError(message(error));
+    } finally {
+      setStarting(false);
+    }
+  }
   return (
     <>
       {error && <p role="alert">{error}</p>}
@@ -664,6 +756,26 @@ function JobPage({ id, client }: { id: string; client: OperatorApi }) {
           {starting ? 'Starting preparation…' : 'Start preparation'}
         </button>
       )}
+      {job?.preparation_recovery && (
+        <section>
+          <p>
+            {job.preparation_recovery.expected_lifecycle_snapshot
+              ? 'This resumed review may be explicitly re-prepared after capability changes. Reopening archives the complete reviewed result, including all semantic decisions; it does not reinterpret them. Start preparation remains a separate action using the accepted source.'
+              : 'This preparation produced no qualified facts or product candidate. Reopening preserves the complete previous result and the accepted source. It does not start capture, approve facts, or write a component. Use only after an extraction capability has been corrected.'}
+          </p>
+          <button disabled={starting} onClick={() => void reopenPreparation()}>
+            {job.preparation_recovery.expected_lifecycle_snapshot
+              ? 'Archive reviewed preparation for explicit re-preparation'
+              : 'Reopen empty preparation'}
+          </button>
+        </section>
+      )}
+      {job?.preparation_recovery_history?.map((entry) => (
+        <p key={entry.previous_review_snapshot + entry.requested_at}>
+          Previous preparation preserved: {entry.requested_at}; {entry.fact_count} facts;{' '}
+          {entry.extraction_count} extractions; source {entry.source_uri ?? 'not asserted'}.
+        </p>
+      ))}
       {job ? (
         <>
           <nav className="review-nav" aria-label="Job review sections">

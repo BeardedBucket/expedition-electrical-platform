@@ -11,6 +11,52 @@ import { ReviewValue, SourceLink } from './ReviewValue.js';
 
 type SemanticReview = NonNullable<OperatorJobDetail['semantic_review']>;
 type SemanticWorkItem = SemanticReview['work']['required'][number];
+type ProductReviewData = NonNullable<OperatorJobDetail['product_review']>;
+type ProductField = ProductReviewData['fields'][number];
+type ProductQualifiedValue = NonNullable<ProductReviewData['qualified_values']>[number];
+type FieldResolution = { selected_fact_id: string; rationale: string };
+
+interface ProductReviewControls {
+  review?: ProductReviewData;
+  fieldDecisions: Record<string, string>;
+  resolutions: Record<string, FieldResolution>;
+  qualifiedSelections: Record<string, boolean>;
+  factDecisions: Record<string, string>;
+  onFieldDecision: (field: string, decision: string) => void;
+  onResolutionChange: (field: string, resolution: FieldResolution) => void;
+  onQualifiedSelection: (id: string, selected: boolean) => void;
+  onFactDecision: (id: string, decision: string) => void;
+}
+const noProductReview: ProductReviewControls = {
+  fieldDecisions: {},
+  resolutions: {},
+  qualifiedSelections: {},
+  factDecisions: {},
+  onFieldDecision: () => {},
+  onResolutionChange: () => {},
+  onQualifiedSelection: () => {},
+  onFactDecision: () => {},
+};
+
+interface CardProductReview {
+  field?: ProductField;
+  ownsFieldDecision: boolean;
+  fieldDecision: string;
+  resolution?: FieldResolution;
+  resolutionRequired: boolean;
+  onFieldDecision: (decision: string) => void;
+  onResolutionChange: (resolution: FieldResolution) => void;
+  qualifiedValue?: ProductQualifiedValue;
+  ownsQualifiedDecision: boolean;
+  qualifiedSelected: boolean;
+  onQualifiedSelection: (selected: boolean) => void;
+  evidenceDecisions: ProductReviewData['candidate_facts'];
+  factDecisions: Record<string, string>;
+  onFactDecision: (id: string, decision: string) => void;
+  factOwners: ReadonlyMap<string, string>;
+  fieldOwners: ReadonlyMap<string, string>;
+  qualifiedOwners: ReadonlyMap<string, string>;
+}
 
 const outcomes = [
   {
@@ -75,6 +121,7 @@ function SemanticWorkItemCard({
   onStale,
   showEditor,
   allowCorrectionAction = false,
+  product,
 }: {
   item: SemanticWorkItem;
   job: OperatorJobDetail;
@@ -84,21 +131,39 @@ function SemanticWorkItemCard({
   onStale: (error: unknown, setError: (message: string) => void) => Promise<boolean>;
   showEditor: boolean;
   allowCorrectionAction?: boolean;
+  product: CardProductReview;
 }) {
   const [correctionOpen, setCorrectionOpen] = useState(false);
   const editorVisible = showEditor || correctionOpen;
+  const projectedValue = product.field?.display_value ?? product.field?.value;
+  const semanticValue = item.display_value ?? item.value ?? item.automatic_value;
+  const projectedValueAddsInformation =
+    product.field && JSON.stringify(projectedValue) !== JSON.stringify(semanticValue);
 
   return (
-    <article>
+    <article id={`semantic-${encodeURIComponent(item.id)}`}>
       <h4>{item.automatic_target || item.id}</h4>
       <p>
         Proposal {item.id} · automatic disposition: {item.automatic_disposition} · state:{' '}
         {item.state}
       </p>
-      {item.automatic_disposition === 'mapped' && item.automatic_value !== undefined && (
-        <p>
-          Original automatic value: <ReviewValue value={item.automatic_value} />
-        </p>
+      {item.automatic_disposition === 'mapped' &&
+        item.automatic_value !== undefined &&
+        item.active_decision?.outcome !== 'map' && (
+          <p>
+            {item.derived
+              ? 'Calculated / derived value: '
+              : item.active_decision
+                ? 'Prior automatic proposal value (not currently projected): '
+                : item.value_origin === 'normalized / converted'
+                  ? 'Normalized / converted canonical value: '
+                  : 'Automatically mapped canonical value: '}
+            <ReviewValue value={item.display_value ?? item.automatic_value} />{' '}
+            {item.canonical_unit ?? ''}
+          </p>
+        )}
+      {item.derived && (
+        <p>Calculated / derived result; derived proposals are not human semantic evidence.</p>
       )}
       {item.target && (
         <p>
@@ -107,15 +172,36 @@ function SemanticWorkItemCard({
       )}
       {item.value !== undefined && (
         <p>
-          Normalized / converted value: <ReviewValue value={item.value} />{' '}
-          {item.normalized_unit ?? ''}
+          Normalized / converted canonical value:{' '}
+          <ReviewValue value={item.display_value ?? item.value} />{' '}
+          {item.normalized_unit ?? item.canonical_unit ?? ''}
         </p>
       )}
+      {item.evidence.length > 0 &&
+        !product.field &&
+        !product.qualifiedValue &&
+        !item.required &&
+        !item.active_decision && (
+          <div>
+            <h5>SOURCE-STATED</h5>
+            {item.evidence.map((fact) => (
+              <p key={fact.id}>
+                {fact.label ?? 'Source label unavailable'}: <ReviewValue value={fact.raw_value} />
+                {fact.unit ? ` · Retained source unit: ${fact.unit}` : ''}
+              </p>
+            ))}
+          </div>
+        )}
       {item.evidence.map((fact) => (
-        <details key={fact.id} className="source-evidence" open={item.required || correctionOpen}>
+        <details
+          key={fact.id}
+          className="source-evidence"
+          open={item.required || !!item.active_decision || correctionOpen || !!product.field}
+        >
           <summary>
             Source-stated evidence · {fact.label ?? 'Source label unavailable'} · {fact.id}
           </summary>
+          {(product.field || product.qualifiedValue) && <h5>SOURCE-STATED</h5>}
           <dl>
             <dt>Exact source assertion</dt>
             <dd>
@@ -136,6 +222,29 @@ function SemanticWorkItemCard({
               <ReviewValue value={fact.locators} />
             </dd>
           </dl>
+          {product.evidenceDecisions.some((candidate) => candidate.id === fact.id) &&
+            (product.factOwners.get(fact.id) === item.id ? (
+              <label>
+                Product evidence handling for {fact.id}
+                <select
+                  value={product.factDecisions[fact.id] ?? ''}
+                  aria-label={`Product evidence handling for ${fact.id}`}
+                  onChange={(event) => product.onFactDecision(fact.id, event.target.value)}
+                >
+                  <option value="">No additional evidence decision</option>
+                  <option value="reviewed">Reviewed as evidence only</option>
+                  <option value="exclude">Exclude fact from product approval</option>
+                </select>
+              </label>
+            ) : (
+              <p>
+                Product evidence handling is available on{' '}
+                <a href={`#semantic-${encodeURIComponent(product.factOwners.get(fact.id) ?? '')}`}>
+                  its primary review card
+                </a>
+                .
+              </p>
+            ))}
         </details>
       ))}
       {item.active_decision && (
@@ -178,6 +287,102 @@ function SemanticWorkItemCard({
           onStale={onStale}
         />
       )}
+      {product.field && (
+        <section aria-label={`Product field approval for ${product.field.path}`}>
+          <h5>PRODUCT FIELD APPROVAL</h5>
+          <p>
+            Projected candidate field: <strong>{product.field.path}</strong>
+          </p>
+          {projectedValueAddsInformation && (
+            <p>
+              Candidate canonical value: <ReviewValue value={projectedValue} />{' '}
+              {product.field.canonical_unit ?? ''}
+            </p>
+          )}
+          {product.ownsFieldDecision ? (
+            <>
+              <label>
+                Product field decision for {product.field.path}
+                <select
+                  value={product.fieldDecision}
+                  onChange={(event) => product.onFieldDecision(event.target.value)}
+                >
+                  <option value="">Not reviewed</option>
+                  <option value="approve">Approve / include field</option>
+                  <option value="exclude">Exclude field</option>
+                </select>
+              </label>
+              {product.resolutionRequired && (
+                <details>
+                  <summary>Resolve multiple supporting facts for {product.field.path}</summary>
+                  <label>
+                    Selected supporting fact for {product.field.path}
+                    <select
+                      value={product.resolution?.selected_fact_id ?? ''}
+                      onChange={(event) =>
+                        product.onResolutionChange({
+                          rationale: product.resolution?.rationale ?? '',
+                          selected_fact_id: event.target.value,
+                        })
+                      }
+                    >
+                      <option value="">Use all supporting evidence</option>
+                      {product.field.candidate_fact_ids.map((id) => (
+                        <option key={id} value={id}>
+                          {id}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Resolution rationale for {product.field.path}
+                    <textarea
+                      value={product.resolution?.rationale ?? ''}
+                      onChange={(event) =>
+                        product.onResolutionChange({
+                          selected_fact_id: product.resolution?.selected_fact_id ?? '',
+                          rationale: event.target.value,
+                        })
+                      }
+                    />
+                  </label>
+                </details>
+              )}
+            </>
+          ) : (
+            <p>
+              Product field decision is on the primary card for{' '}
+              <a
+                href={`#semantic-${encodeURIComponent(product.fieldOwners?.get(product.field.path) ?? '')}`}
+              >
+                proposal {product.fieldOwners?.get(product.field.path)}
+              </a>
+              .
+            </p>
+          )}
+        </section>
+      )}
+      {product.qualifiedValue &&
+        (product.ownsQualifiedDecision ? (
+          <label>
+            <input
+              type="checkbox"
+              checked={product.qualifiedSelected}
+              onChange={(event) => product.onQualifiedSelection(event.target.checked)}
+            />
+            Include qualified candidate assertion {product.qualifiedValue.id} in product approval
+          </label>
+        ) : (
+          <p>
+            Qualified assertion {product.qualifiedValue.id} is selected on{' '}
+            <a
+              href={`#semantic-${encodeURIComponent(product.qualifiedOwners.get(product.qualifiedValue.id) ?? '')}`}
+            >
+              its primary review card
+            </a>
+            .
+          </p>
+        ))}
     </article>
   );
 }
@@ -187,11 +392,13 @@ export function SemanticAdjudication({
   client,
   reviewer,
   onUpdate,
+  productReview = noProductReview,
 }: {
   job: OperatorJobDetail;
   client: OperatorApi;
   reviewer: string;
   onUpdate: (job: OperatorJobDetail) => void;
+  productReview?: ProductReviewControls;
 }) {
   const semanticReview = job.semantic_review;
   const onStale = useCallback(
@@ -212,6 +419,91 @@ export function SemanticAdjudication({
   if (!semanticReview) return null;
   const requiredIds = (semanticReview.required_dispositions ?? []).map((item) => item.proposal_id);
   const work = semanticReview.work;
+  const allItems = [...work.required, ...work.reviewed, ...work.automatic, ...work.derived];
+  const fieldsByOwner = new Map<string, ProductField>();
+  const qualifiedByOwner = new Map<string, ProductQualifiedValue>();
+  const fieldOwners = new Map<string, string>();
+  const qualifiedOwners = new Map<string, string>();
+  const factOwners = new Map<string, string>();
+  // Field approval is field-scoped in the contract, so its first contributing proposal card owns the single control.
+  for (const item of allItems) {
+    const field = item.projected_field
+      ? productReview.review?.fields.find(
+          (candidate) => candidate.path === item.projected_field && candidate.selectable,
+        )
+      : undefined;
+    if (field) {
+      fieldsByOwner.set(item.id, field);
+      if (!fieldOwners.has(field.path)) fieldOwners.set(field.path, item.id);
+    }
+    const qualifiedValue = item.projected_qualified_value_id
+      ? productReview.review?.qualified_values?.find(
+          (candidate) => candidate.id === item.projected_qualified_value_id,
+        )
+      : undefined;
+    if (qualifiedValue) {
+      qualifiedByOwner.set(item.id, qualifiedValue);
+      if (!qualifiedOwners.has(qualifiedValue.id)) qualifiedOwners.set(qualifiedValue.id, item.id);
+    }
+    for (const fact of item.evidence)
+      if (
+        productReview.review?.candidate_facts.some((candidate) => candidate.id === fact.id) &&
+        !factOwners.has(fact.id)
+      )
+        factOwners.set(fact.id, item.id);
+  }
+  const cardProductReview = (item: SemanticWorkItem): CardProductReview => {
+    const field = fieldsByOwner.get(item.id);
+    const qualifiedValue = qualifiedByOwner.get(item.id);
+    const resolutionRequired =
+      !!field &&
+      (field.candidate_fact_ids.length > 1 ||
+        field.proposals.some((proposal) =>
+          proposal.evidence.some((evidence) => evidence.conflicts.length > 0),
+        ));
+    return {
+      field,
+      ownsFieldDecision: !!field && fieldOwners.get(field.path) === item.id,
+      fieldDecision: field ? (productReview.fieldDecisions[field.path] ?? '') : '',
+      resolution: field ? productReview.resolutions[field.path] : undefined,
+      resolutionRequired,
+      onFieldDecision: (decision) => field && productReview.onFieldDecision(field.path, decision),
+      onResolutionChange: (resolution) =>
+        field && productReview.onResolutionChange(field.path, resolution),
+      qualifiedValue,
+      ownsQualifiedDecision: !!qualifiedValue && qualifiedOwners.get(qualifiedValue.id) === item.id,
+      qualifiedSelected: qualifiedValue
+        ? (productReview.qualifiedSelections[qualifiedValue.id] ?? false)
+        : false,
+      onQualifiedSelection: (selected) =>
+        qualifiedValue && productReview.onQualifiedSelection(qualifiedValue.id, selected),
+      evidenceDecisions: productReview.review?.candidate_facts ?? [],
+      factDecisions: productReview.factDecisions,
+      onFactDecision: productReview.onFactDecision,
+      factOwners,
+      fieldOwners,
+      qualifiedOwners,
+    };
+  };
+
+  const renderItemCard = (
+    item: SemanticWorkItem,
+    showEditor: boolean,
+    allowCorrectionAction = false,
+  ) => (
+    <SemanticWorkItemCard
+      key={item.id}
+      item={item}
+      job={job}
+      client={client}
+      reviewer={reviewer}
+      onUpdate={onUpdate}
+      onStale={onStale}
+      showEditor={showEditor}
+      allowCorrectionAction={allowCorrectionAction}
+      product={cardProductReview(item)}
+    />
+  );
 
   return (
     <section aria-label="Semantic adjudication">
@@ -235,66 +527,27 @@ export function SemanticAdjudication({
           title="REVIEW REQUIRED"
           items={work.required}
           empty="No semantic dispositions remain outstanding."
-          render={(item) => (
-            <div id={`semantic-${encodeURIComponent(item.id)}`} key={item.id}>
-              <SemanticWorkItemCard
-                item={item}
-                job={job}
-                client={client}
-                reviewer={reviewer}
-                onUpdate={onUpdate}
-                onStale={onStale}
-                showEditor
-              />
-            </div>
-          )}
+          render={(item) => renderItemCard(item, true)}
         />
         <Section
           title="REVIEWED / DISPOSITIONED"
           items={work.reviewed}
           empty="No human dispositions have been recorded."
-          render={(item) => (
-            <SemanticWorkItemCard
-              key={item.id}
-              item={item}
-              job={job}
-              client={client}
-              reviewer={reviewer}
-              onUpdate={onUpdate}
-              onStale={onStale}
-              showEditor
-            />
-          )}
+          render={(item) => renderItemCard(item, true)}
         />
         <Section
           title="AUTOMATICALLY MAPPED"
           items={work.automatic}
           empty="No proposals were handled automatically."
-          render={(item) => (
-            <SemanticWorkItemCard
-              key={item.id}
-              item={item}
-              job={job}
-              client={client}
-              reviewer={reviewer}
-              onUpdate={onUpdate}
-              onStale={onStale}
-              allowCorrectionAction={item.automatic_disposition === 'mapped' && !item.derived}
-              showEditor={false}
-            />
-          )}
+          render={(item) =>
+            renderItemCard(item, false, item.automatic_disposition === 'mapped' && !item.derived)
+          }
         />
         <Section
           title="DERIVED / CALCULATED"
           items={work.derived}
           empty="No derived semantic proposals."
-          render={(item) => (
-            <article key={item.id}>
-              <h4>{item.automatic_target || item.id}</h4>
-              <p>Calculated / derived result; derived proposals are not human semantic evidence.</p>
-              <ReviewValue value={item.automatic_value} />
-            </article>
-          )}
+          render={(item) => renderItemCard(item, false)}
         />
       </div>
     </section>
@@ -551,8 +804,7 @@ function SemanticDecisionEditor({
                 setPreview(undefined);
               }}
             />
-            {fact.label ?? 'Source label unavailable'} · <ReviewValue value={fact.raw_value} /> ·{' '}
-            {fact.id}
+            {fact.label ?? 'Source label unavailable'} · {fact.id}
           </label>
         ))}
       </fieldset>
@@ -650,12 +902,17 @@ function SemanticDecisionEditor({
       {outcome === 'schema_gap' && (
         <>
           <label>
-            Schema concept key
-            <input value={conceptKey} onChange={(event) => setConceptKey(event.target.value)} />
+            Schema concept key (required)
+            <input
+              required
+              value={conceptKey}
+              onChange={(event) => setConceptKey(event.target.value)}
+            />
           </label>
           <label>
-            Explain the missing concept
+            Explain the missing concept (required)
             <textarea
+              required
               value={explanation}
               onChange={(event) => setExplanation(event.target.value)}
             />
@@ -665,7 +922,11 @@ function SemanticDecisionEditor({
       {outcome && (
         <label>
           Rationale{rationaleRequired ? ' (required)' : ' (optional)'}
-          <textarea value={rationale} onChange={(event) => setRationale(event.target.value)} />
+          <textarea
+            required={rationaleRequired}
+            value={rationale}
+            onChange={(event) => setRationale(event.target.value)}
+          />
         </label>
       )}
       <button type="button" disabled={!canSubmit} onClick={() => void submit()}>

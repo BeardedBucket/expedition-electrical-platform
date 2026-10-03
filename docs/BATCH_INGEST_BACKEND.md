@@ -38,10 +38,13 @@ are primary. The coarse state is only a summary:
   every child has that same state.
 - `failed` means every child has a runtime failure state:
   `preparation_failed` or `finalization_failed`.
-- `review_rejected` and `review_deferred` are human dispositions, not runtime
+- `review_rejected` (terminal) and `review_deferred` (explicitly resumable pause) are human dispositions, not runtime
   failures.
 - Heterogeneous lifecycle outcomes generally produce `mixed`; a mixed batch
   with both ready and failed children remains `mixed`.
+- A batch whose children are all rejected or deferred also reports `mixed`.
+  This coarse label does not claim that their lifecycle states differ; exact
+  counts and individual histories explain the independent human outcomes.
 
 `updated_at` is a batch metadata/orchestration timestamp, not the timestamp of
 the latest child lifecycle change. Child jobs may change independently through
@@ -82,12 +85,17 @@ Runtime core is complete for this slice:
 - Runtime regressions for persistence integrity, state semantics, failure
   isolation, idempotence, and restart reconstruction.
 
-Deferred to later slices:
+The local admin API and batch dashboard now expose this runtime contract; see
+[batch API](BATCH_INGEST_ADMIN_API.md) and the
+[operator runbook](../apps/ingestion-admin/README.md#maintaineroperator-runbook).
 
-- Thin admin HTTP API.
-- Admin UI and dashboard views.
+Outside the current operational implementation:
+
 - CSV/import layer.
 - Bounded concurrency.
 - Retry policy.
 - Transactional batch creation or rollback.
-- Batch-level approval/finalization orchestration.
+
+Semantic review, product review, approval, finalization, canonical writes, and
+recovery remain child-job operations. Batch-level decision authority is not a
+deferred capability or an implicit consequence of adding orchestration features.

@@ -1,5 +1,9 @@
 import { validateCaptureUri } from './http-capture.js';
 import { modelColumnObservations } from './model-column-qualification.js';
+import {
+  PDF_POSITIONED_SPECIFICATIONS,
+  pdfSharedIdentifiers,
+} from './pdf-positioned-specifications.js';
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import { createHash } from 'node:crypto';
@@ -1590,6 +1594,124 @@ const qualifyFromBlock = (
     );
     if (result.diagnostic) diagnostics.push(result.diagnostic);
   };
+
+  if (block.kind === 'table' && block.locator.section === PDF_POSITIONED_SPECIFICATIONS) {
+    const cells = block.cells ?? [];
+    const [identity, heading, ...data] = cells;
+    const requested = target.target_identifier ?? target.manufacturer_part_number;
+    const identifiers = identity && pdfSharedIdentifiers(identity.value);
+    const page = block.locator.page;
+    const rawBlocks = document.blocks.filter(
+      (item) =>
+        item.kind === 'text_block' && item.locator.kind === 'pdf' && item.locator.page === page,
+    );
+    const rawByOrdinal = new Map(rawBlocks.map((item) => [item.locator.ordinal, item]));
+    const linked = (cell: (typeof cells)[number]) => {
+      const raw = rawByOrdinal.get(cell.source_location.ordinal);
+      return (
+        cell.label === cell.value &&
+        cell.source_location.kind === 'pdf' &&
+        cell.source_location.page === page &&
+        cell.source_location.path === raw?.locator.path &&
+        cell.source_location.fragment === raw?.locator.fragment &&
+        cell.value === raw?.content &&
+        cell.colspan === undefined &&
+        cell.rowspan === undefined
+      );
+    };
+    const valid =
+      document.status === 'extracted' &&
+      document.source_capture.kind === 'source_capture' &&
+      document.source_acquisition.kind === 'source_acquisition' &&
+      block.locator.kind === 'pdf' &&
+      identity?.kind === 'header' &&
+      identity.row === 1 &&
+      identity.column === 1 &&
+      heading?.kind === 'header' &&
+      heading.row === 2 &&
+      heading.column === 1 &&
+      heading.value === 'Specifications' &&
+      identity.source_location.ordinal! < heading.source_location.ordinal! &&
+      new Set(rawBlocks.map((item) => item.locator.ordinal)).size === rawBlocks.length &&
+      cells.every(linked) &&
+      new Set(cells.map((cell) => cell.source_location.ordinal)).size === cells.length &&
+      data.length >= 4 &&
+      data.length % 2 === 0 &&
+      data.every(
+        (cell, index) =>
+          cell.kind === 'data' &&
+          cell.row === Math.floor(index / 2) + 3 &&
+          cell.column === (index % 2) + 1 &&
+          cell.source_location.ordinal! >
+            (index === 0
+              ? heading.source_location.ordinal!
+              : data[index - 1].source_location.ordinal!),
+      ) &&
+      document.blocks.filter(
+        (item) =>
+          item.kind === 'table' &&
+          item.locator.page === page &&
+          item.locator.section === PDF_POSITIONED_SPECIFICATIONS,
+      ).length === 1;
+    if (
+      !valid ||
+      !requested ||
+      (target.manufacturer_part_number !== undefined &&
+        target.manufacturer_part_number.trim() !== requested.trim()) ||
+      !identifiers?.includes(requested.trim())
+    ) {
+      diagnostics.push({
+        code: 'applicability_unresolved',
+        message:
+          'Positioned PDF specifications require complete source-linked rows and exact membership in one shared identifier header.',
+      });
+      return { facts, diagnostics };
+    }
+    // Footnotes are source context, not parsed engineering conditions. Keep them
+    // for review and prevent this new shape from silently projecting unconditional facts.
+    const markers = rawBlocks.filter((item) => item.content === '*');
+    if (markers.length > 1) {
+      diagnostics.push({
+        code: 'applicability_unresolved',
+        message: 'Multiple PDF footnote markers require human context review.',
+      });
+      return { facts, diagnostics };
+    }
+    const note = markers.length
+      ? rawBlocks.find((item) => item.locator.ordinal! > markers[0].locator.ordinal!)
+      : undefined;
+    if (markers.length && !note)
+      return {
+        facts,
+        diagnostics: [{ code: 'missing_value', message: 'PDF footnote text is missing.' }],
+      };
+    const applicability: ApplicabilityBinding = {
+      kind: 'exact_mpn_or_sku',
+      value: requested.trim(),
+      reason: `${PDF_POSITIONED_SPECIFICATIONS}: exact member of the source-declared shared identifier header; region context requires human semantic review`,
+    };
+    for (let index = 0; index < data.length; index += 2) {
+      const label = data[index];
+      const value = data[index + 1];
+      addFact(
+        label.value,
+        value.value,
+        requested.trim(),
+        requested.trim(),
+        value.source_location,
+        [
+          buildEvidence('subject', identity.value, document, identity.source_location),
+          buildEvidence('applicability', identity.value, document, identity.source_location),
+          buildEvidence('qualifier', heading.value, document, heading.source_location),
+          buildEvidence('label', label.value, document, label.source_location),
+          buildEvidence('value', value.value, document, value.source_location),
+          ...(note ? [buildEvidence('qualifier', note.content!, document, note.locator)] : []),
+        ],
+        applicability,
+      );
+    }
+    return { facts, diagnostics };
+  }
 
   if (block.kind === 'table' && block.cells?.length) {
     const directTarget =

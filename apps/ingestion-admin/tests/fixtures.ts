@@ -55,10 +55,27 @@ export const profile: ManufacturerAcquisitionProfile = {
   },
 };
 export function fixtureAdapter(
-  withCandidate: boolean | 'qualified' | 'mixed' | 'semantic' = true,
+  withCandidate: boolean | 'qualified' | 'mixed' | 'semantic' | 'provenance' = true,
+  failedCapture = false,
 ): SourceCaptureAdapter {
   return {
     async capture(request) {
+      if (failedCapture) {
+        return {
+          status: 'failed',
+          issues: [{ code: 'http_status', message: 'HTTP 403' }],
+          source: {
+            requested_uri: request.uri,
+            final_uri: request.uri,
+            retrieved_at: '2026-09-08T00:00:00.000Z',
+            response_status: 403,
+            media_type: 'text/html',
+            body: { text: '', bytes: new Uint8Array() },
+          },
+        };
+      }
+      const provenanceTable =
+        '<html><body><h1>Specifications</h1><table><thead><tr><th>Model</th><th>Outer dimensions (h x w x d)</th><th>Weight</th><th>Nominal voltage</th><th>Continuous current</th></tr></thead><tbody><tr><td>EX-1</td><td>12 x 18 x 3 cm</td><td>80.8 lb</td><td>12 V</td><td>150 A</td></tr></tbody></table></body></html>';
       const qualifiedTable =
         '<html><body><h1>Specifications</h1><table><thead><tr><th>Model</th><th>Supply voltage</th><th>Outer dimensions (h x w x d)</th>' +
         (withCandidate === 'mixed' ? '<th>nominal voltage</th>' : '') +
@@ -69,12 +86,14 @@ export function fixtureAdapter(
         withCandidate === 'semantic' ? '<th>Mystery electrical rating</th>' : '';
       const semanticValue = withCandidate === 'semantic' ? '<td>150 A</td>' : '';
       const html =
-        request.uri.includes('/docs/') &&
-        (withCandidate === 'qualified' || withCandidate === 'mixed')
-          ? qualifiedTable
-          : request.uri.includes('/docs/')
-            ? `<html><body><h1>Specifications</h1><table><thead><tr><th>Model</th><th>nominal voltage</th><th>continuous current</th>${semanticColumn}</tr></thead><tbody><tr><td>EX-1</td><td>24 V</td><td>10 A</td>${semanticValue}</tr></tbody></table><table><thead><tr><th>Model</th><th>nominal voltage</th><th>continuous current</th>${semanticColumn}</tr></thead><tbody><tr><td>EX-1</td><td>24.0 V</td><td>10.0 A</td>${semanticValue}</tr></tbody></table></body></html>`
-            : `<html><body><h1>Example Model</h1><p>Official product information for EX-1. RAW_BODY_MARKER</p>${withCandidate ? '<a href="https://example.test/docs/specifications.html">Specifications</a>' : ''}</body></html>`;
+        request.uri.includes('/docs/') && withCandidate === 'provenance'
+          ? provenanceTable
+          : request.uri.includes('/docs/') &&
+              (withCandidate === 'qualified' || withCandidate === 'mixed')
+            ? qualifiedTable
+            : request.uri.includes('/docs/')
+              ? `<html><body><h1>Specifications</h1><table><thead><tr><th>Model</th><th>nominal voltage</th><th>continuous current</th>${semanticColumn}</tr></thead><tbody><tr><td>EX-1</td><td>24 V</td><td>10 A</td>${semanticValue}</tr></tbody></table><table><thead><tr><th>Model</th><th>nominal voltage</th><th>continuous current</th>${semanticColumn}</tr></thead><tbody><tr><td>EX-1</td><td>24.0 V</td><td>10.0 A</td>${semanticValue}</tr></tbody></table></body></html>`
+              : `<html><body><h1>Example Model</h1><p>Official product information for EX-1. RAW_BODY_MARKER</p>${withCandidate ? '<a href="https://example.test/docs/specifications.html">Specifications</a>' : ''}</body></html>`;
       const bytes = new TextEncoder().encode(html);
       return {
         status: 'success',
@@ -94,12 +113,13 @@ export function fixtureAdapter(
 }
 export function fixtureService(
   root: string,
-  withCandidate: boolean | 'qualified' | 'mixed' | 'semantic' = true,
+  withCandidate: boolean | 'qualified' | 'mixed' | 'semantic' | 'provenance' = true,
+  failedCapture = false,
 ) {
   return new IngestionJobService({
     store: new FileIngestionJobStore(root),
     preparationRequest: () => ({
-      adapter: fixtureAdapter(withCandidate),
+      adapter: fixtureAdapter(withCandidate, failedCapture),
       profile,
       policy: operatorPolicy,
     }),

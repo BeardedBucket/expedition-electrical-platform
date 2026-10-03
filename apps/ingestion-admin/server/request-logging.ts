@@ -45,7 +45,7 @@ export function requestContext(
   pathname: string,
 ): RequestContext {
   const jobMatch =
-    /^\/api\/ingestion\/jobs\/([^/]+)(\/prepare|\/review\/(?:approve|reject|defer)|\/finalize)?$/.exec(
+    /^\/api\/ingestion\/jobs\/([^/]+)(\/prepare|\/review\/(?:approve|reject|defer|resume)|\/finalize)?$/.exec(
       pathname,
     );
   const batchMatch = /^\/api\/ingestion\/batches\/([^/]+)(\/prepare)?$/.exec(pathname);

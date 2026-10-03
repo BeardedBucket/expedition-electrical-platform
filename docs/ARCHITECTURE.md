@@ -1,5 +1,95 @@
 # Architecture
 
+## Resumable product-review deferral
+
+`review_deferred` is an explicit human pause, distinct from terminal
+`review_rejected`. The earlier Slice 2D implementation treated both as terminal;
+this was corrected after the human stopped before deferring the schema-gap-only
+Blue Sea review. The approval artifact's existing `deferred` enum is retained,
+but runtime lifecycle authority now requires a rationale and current lifecycle
+snapshot and appends the complete bound decision to `product_review_history`.
+Optional reason classification belongs to the human, not diagnostics.
+
+Explicit child-job resume appends a revisioned operator event and preserves the
+entire preparation unchanged; it does not recapture, rebuild, reinterpret,
+approve, or write. The deferred decision remains in history even though its
+current pointer is cleared. Legacy terminal-defer records can explicitly resume
+with their existing decision preserved as baseline evidence; absent historic
+rationale remains unknown. Rejected and finalized records cannot use this route.
+The batch only reflects paused children; batch preparation skips them.
+
+A resumed review can separately enter history-preserving re-preparation.
+Eligibility binds the exact preserved review and preparation-history count from
+the resume event, making this permission one-use. The full old reviewed result
+is archived before clearing the current preparation. Old semantic decisions,
+including schema-gap dispositions, remain immutable in that revision; they are
+not replayed under new schemas. Starting preparation and reviewing its new
+proposals require separate explicit operator actions. Store validation checks
+append-only history across archives and current review, exact lifecycle payload
+preservation, and valid defer/resume transitions. Lifecycle snapshot checks
+protect stale browser intent, while versioned reads, conditional saves, file
+locks, and atomic replacement remain authoritative for racing writers.
+
+## Empty preparation recovery and positioned PDF evidence
+
+Slice 2D inspection of the accepted Blue Sea 6006 instruction PDF identified a
+structure gap, not a capture/source-decision failure. Its original 303,948 bytes
+remain in the durable preparation and match SHA-256
+`1618923f816efde20d21492fc4b756e113831098cbcb18abea7329b3e71b1f83`.
+PDF.js extracts text with page/item provenance, but reports no tagged structure
+tree. Specification labels and values are separately positioned on repeated
+baselines. The original preparation retained only independent text blocks;
+ordinary text blocks do not qualify as label/value facts. A drawing dimension or
+nearby text must not acquire a fabricated label or product applicability.
+
+The bounded `pdf-positioned-label-value.v1` path preserves the original text
+blocks and additionally recognizes one exact `Specifications` heading and one
+larger shared-identifier title on the same page. The title must be an explicit
+slash-separated list of distinct identifier tokens containing digits, not prose,
+URL text, or a prefix match. Multiple such titles or specification headings are
+ambiguous. This is an independently owned PDF source-shape rule, not an extension
+of the HTML sole-model/DOM-span contract.
+
+Only upright text, exact shared row baselines, exact repeated two-column starts,
+non-overlapping cells, constant font height, and constant descending row pitch
+are supported. Two paired rows are the minimum structural repetition needed to
+establish columns, not an empirical confidence threshold. No geometric tolerance
+is introduced: near alignment remains unsupported. A larger heading at the
+same left edge ends the section. Interleaved unpaired rows, extra columns,
+competing titles, wraps, and malformed layouts reject the run. An unpaired
+left-column tail remains text and also withholds the immediately preceding pair,
+because the tail could qualify its label. A right-column tail could continue a
+value and rejects the run. Drawings and unsupported prose remain raw text.
+
+Supplemental cells retain separate original page/item paths for labels, values,
+identity, and heading; the table groups evidence rather than claiming native PDF
+table tags or fabricated spans. Qualification requires exact requested MPN/SKU
+membership in that title, verifies each cell against its retained raw item, and
+rejects incomplete extraction and contradictory requested identifiers. Heading
+context and a unique source footnote, when present, remain qualifier evidence.
+This deliberately prevents automatic unconditional semantic projection: the new
+facts are provisional source assertions awaiting human semantic review. Compound
+values/units remain raw unless the existing unit parser supports them.
+
+The supplement shares existing PDF item/text and table-cell budgets; its cells
+count as output items and both duplicated label/value strings count toward the
+retained-text budget. No supplemental table is retained when the aggregate would
+exceed a bound, and no truncated source receives table scope. The source-shape
+marker versions the new interpretation; source digests and document artifact
+identity include the actual emitted structure. No source-trust policy or canonical
+schema is changed. Auxiliary-document profile/seed support remains a separate
+known follow-up, not the cause of the original zero-fact preparation.
+
+The original empty-result same-job recovery is deliberately restricted to an empty,
+unapproved `review_ready` preparation with no facts, candidate, proposals, or
+semantic decisions. A human action bound to the current review snapshot archives
+the complete prior result before returning to `created`; accepted source
+decisions are unchanged. A separate preparation action captures/extracts again.
+Append-only store validation and CAS protect history and stale/replayed requests.
+See the ingestion runtime and operator runbooks for eligibility and sequencing.
+Populated reviewed results additionally use the explicit resumed-review archival
+contract above; ordinary populated reviews cannot use empty-result recovery.
+
 ## Explicit non-table product specification blocks
 
 The reviewed-profile `explicit_label_value_blocks` region (profile schema 1.5)

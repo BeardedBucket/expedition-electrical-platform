@@ -8,6 +8,7 @@ import {
   FileIngestionJobStore,
   IngestionJobService,
   type SemanticDecisionRequest,
+  productReviewLifecycleSnapshot,
 } from '../src/index.js';
 import { serializeJob } from '../src/codec.js';
 import * as replacement from '../src/file-replacement.js';
@@ -367,7 +368,11 @@ describe('persistent ingestion job runtime', () => {
       const job = await runtime.createJob(intake);
       await runtime.prepareJob(job.id);
       const { promotion_decisions: _promotion, ...bound } = approvalFor(noCandidate);
-      const approval: ProductionApproval = { ...bound, decision };
+      const approval: ProductionApproval = {
+        ...bound,
+        decision,
+        ...(decision === 'deferred' ? { reviewed_decisions: ['Await capability'] } : {}),
+      };
       await expect(
         runtime.submitApproval(job.id, { ...approval, reviewer_id: '' }),
       ).rejects.toThrow(/Invalid production approval/);
@@ -384,7 +389,17 @@ describe('persistent ingestion job runtime', () => {
         }),
       ).rejects.toThrow(/exact review package/);
       expect((await runtime.getJob(job.id)).state).toBe('review_ready');
-      const reviewed = await runtime.submitApproval(job.id, approval);
+      const reviewed = await runtime.submitApproval(
+        job.id,
+        approval,
+        decision === 'deferred'
+          ? {
+              expected_lifecycle_snapshot: productReviewLifecycleSnapshot(
+                await runtime.getJob(job.id),
+              ),
+            }
+          : undefined,
+      );
       expect(reviewed.state).toBe(`review_${decision}`);
       const reloaded = await new FileIngestionJobStore(storageRoot).load(job.id);
       expect(reloaded.approval).toEqual(approval);
@@ -781,6 +796,44 @@ describe('durable human semantic adjudication', () => {
     expect(entry?.state).toBe(outcome === 'map' ? 'human_mapped' : outcome);
     expect(updated.preparation.bridge.projected_proposal_ids.includes(proposal.id)).toBe(
       outcome === 'map',
+    );
+  });
+
+  it('persists a selected-fact rejection once and completes review without projection', async () => {
+    const storageRoot = await root();
+    const prepared = await prepare('10 A', mysteryRatingTable);
+    const { runtime } = service(storageRoot, prepared);
+    const ready = await createReviewReady(runtime);
+    const proposal = unknownProposal(prepared);
+    const request = dispositionRequest(prepared, 'reject');
+
+    const updated = await runtime.recordSemanticDecision(ready.id, request);
+    assertReviewReady(updated);
+    expect(reviewPackageSnapshot(updated.preparation.review_package)).not.toBe(
+      request.expected_review_snapshot,
+    );
+
+    const persisted = await new FileIngestionJobStore(storageRoot).load(ready.id);
+    assertReviewReady(persisted);
+    const history = persisted.preparation.bridge.reviewed_semantic_decisions;
+    expect(history).toHaveLength(1);
+    expect(history[0]).toMatchObject({
+      proposal_ref: expect.objectContaining({ reference: proposal.id }),
+      outcome: 'reject',
+      revision: 1,
+    });
+    expect(history[0].selected_fact_refs?.map((reference) => reference.reference)).toEqual(
+      request.selected_fact_ids,
+    );
+    expect(
+      evaluateSemanticReviewCompletion(
+        persisted.preparation.proposals,
+        persisted.preparation.bridge.reviewed_semantic_interpretation,
+      ),
+    ).toEqual({ complete: true, required_dispositions: [] });
+    expect(persisted.preparation.bridge.projected_proposal_ids).not.toContain(proposal.id);
+    expect(persisted.preparation.bridge.facts.some((fact) => fact.raw_value === '150 A')).toBe(
+      false,
     );
   });
 

@@ -1,9 +1,17 @@
 import type { IngestionJob } from '@expedition/ingestion-runtime';
+import {
+  isSourceSelectionRecoveryEligible,
+  isPreparationRecoveryEligible,
+  isResumedPreparationRecoveryEligible,
+  productReviewLifecycleSnapshot,
+} from '@expedition/ingestion-runtime';
 import type { ArtifactReference, CanonicalQualifiedValue } from '@expedition/ingestion';
 import {
   artifactDigest,
   canonicalIdFor,
+  canonicalizeConversionNoise,
   evaluateSemanticReviewCompletion,
+  productionSemanticTargetContract,
   reviewPackageSnapshot,
 } from '@expedition/ingestion';
 import { productRoles } from './product-review.js';
@@ -17,6 +25,31 @@ const valueAt = (data: unknown, path: string): unknown =>
       data,
     );
 const safeUri = (uri: string | undefined) => (uri && /^https?:\/\//i.test(uri) ? uri : undefined);
+const canonicalUnitForTarget = (target: string) => {
+  const unit = productionSemanticTargetContract(target)?.unit;
+  return unit && unit !== 'string' && unit !== 'structured' ? unit : undefined;
+};
+// Keep noisy display representations separate from the unmodified candidate and proposal values.
+const displayValue = (value: unknown): unknown => {
+  if (typeof value === 'number') return canonicalizeConversionNoise(value);
+  if (Array.isArray(value)) return value.map(displayValue);
+  if (value && typeof value === 'object')
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nested]) => [key, displayValue(nested)]),
+    );
+  return value;
+};
+const valuePresentation = (target: string, derived: boolean, hasValue: boolean) => {
+  const canonicalUnit = canonicalUnitForTarget(target);
+  return {
+    value_origin: derived
+      ? ('calculated / derived' as const)
+      : hasValue && canonicalUnit
+        ? ('normalized / converted' as const)
+        : ('automatic canonical' as const),
+    ...(canonicalUnit ? { canonical_unit: canonicalUnit } : {}),
+  };
+};
 const operatorIssues = (issues: readonly { code: string; path: string; message: string }[]) =>
   issues.slice(0, 100).map(({ code, path, message }) => ({
     code,
@@ -43,6 +76,14 @@ export function productReviewView(job: IngestionJob) {
         id: proposal.id,
         disposition: proposal.disposition,
         value: proposal.proposed_value,
+        ...(proposal.proposed_value !== undefined
+          ? { display_value: displayValue(proposal.proposed_value) }
+          : {}),
+        ...valuePresentation(
+          proposal.target,
+          proposal.derivation !== undefined,
+          proposal.disposition === 'mapped' && proposal.proposed_value !== undefined,
+        ),
         projected: p.bridge.projected_proposal_ids.includes(proposal.id),
         references: [...proposal.evidence_refs, ...(proposal.fact_refs ?? [])].map(reference),
         evidence: p.qualified_facts
@@ -96,17 +137,23 @@ export function productReviewView(job: IngestionJob) {
       fields.length > 200 ||
       p.proposals.length > 500 ||
       p.qualified_facts.length > 1000,
-    fields: fields.slice(0, 200).map((field) => ({
-      path: field,
-      value: valueAt(p.bridge.candidate?.component_data, field),
-      selectable: !!p.bridge.candidate?.field_evidence[field],
-      candidate_fact_ids: p.bridge.candidate?.field_evidence[field] ?? [],
-      proposals: proposalViews(field),
-    })),
+    fields: fields.slice(0, 200).map((field) => {
+      const value = valueAt(p.bridge.candidate?.component_data, field);
+      return {
+        path: field,
+        value,
+        ...(value !== undefined ? { display_value: displayValue(value) } : {}),
+        ...(canonicalUnitForTarget(field) ? { canonical_unit: canonicalUnitForTarget(field) } : {}),
+        selectable: !!p.bridge.candidate?.field_evidence[field],
+        candidate_fact_ids: p.bridge.candidate?.field_evidence[field] ?? [],
+        proposals: proposalViews(field),
+      };
+    }),
     qualified_values: (assertions ?? []).slice(0, 200).map((assertion) => ({
       id: assertion.id,
       target: assertion.target,
       value: assertion.value,
+      ...(assertion.value !== undefined ? { display_value: displayValue(assertion.value) } : {}),
       qualifiers: assertion.qualifiers,
       candidate_fact_ids: p.bridge.candidate?.qualified_value_evidence?.[assertion.id] ?? [],
       proposals: proposalViews(assertion.target, assertion.id),
@@ -259,20 +306,45 @@ export const jobDetail = (job: IngestionJob) => {
           ];
           const items = r.proposals.map((proposal) => {
             const interpretation = interpretationById.get(proposal.id);
+            const projectedField = productReview?.fields.find((field) =>
+              field.proposals.some(
+                (candidate) => candidate.id === proposal.id && candidate.projected,
+              ),
+            );
+            const projectedQualifiedValue = productReview?.qualified_values?.find((assertion) =>
+              assertion.proposals.some(
+                (candidate) => candidate.id === proposal.id && candidate.projected,
+              ),
+            );
             const history = semanticDecisionViews.filter(
               (decision) => decision.proposal_id === proposal.id,
             );
             return {
               id: proposal.id,
+              ...(projectedField ? { projected_field: projectedField.path } : {}),
+              ...(projectedQualifiedValue
+                ? { projected_qualified_value_id: projectedQualifiedValue.id }
+                : {}),
               automatic_target: proposal.target,
               automatic_disposition: proposal.disposition,
               ...(proposal.proposed_value !== undefined
                 ? { automatic_value: proposal.proposed_value }
                 : {}),
+              ...(proposal.proposed_value !== undefined
+                ? { display_value: displayValue(proposal.proposed_value) }
+                : {}),
               derived: proposal.derivation !== undefined,
+              ...valuePresentation(
+                proposal.target,
+                proposal.derivation !== undefined,
+                proposal.disposition === 'mapped' && proposal.proposed_value !== undefined,
+              ),
               state: interpretation?.state ?? 'automatic',
               ...(interpretation?.target ? { target: interpretation.target } : {}),
               ...(interpretation?.value !== undefined ? { value: interpretation.value } : {}),
+              ...(interpretation?.value !== undefined
+                ? { display_value: displayValue(interpretation.value) }
+                : {}),
               ...(interpretation?.normalized_unit
                 ? { normalized_unit: interpretation.normalized_unit }
                 : {}),
@@ -345,16 +417,67 @@ export const jobDetail = (job: IngestionJob) => {
           : undefined,
       }
     : undefined;
+  const activeSourceReference =
+    job.active_source_resolution ??
+    (job.source_resolution_recovery_history?.length ? undefined : job.accepted_source_resolution);
   const acceptedResolution =
-    job.accepted_source_resolution?.kind === 'source_resolution'
+    activeSourceReference?.kind === 'source_resolution'
       ? job.source_resolution_attempts?.find(
           ({ resolution }) =>
             resolution.disposition === 'accepted' &&
-            artifactDigest(resolution) === job.accepted_source_resolution?.digest,
+            artifactDigest(resolution) === activeSourceReference.digest,
         )?.resolution
       : undefined;
   return {
     summary: jobSummary(job),
+    ...(r
+      ? {
+          product_review_lifecycle: {
+            expected_lifecycle_snapshot: productReviewLifecycleSnapshot(job),
+            resumable: job.state === 'review_deferred',
+            history: (job.product_review_history ?? []).map((event) =>
+              event.action === 'deferred'
+                ? {
+                    action: event.action,
+                    revision: event.revision,
+                    recorded_at: event.approval.reviewed_at,
+                    actor_label: event.approval.reviewer_id,
+                    reason: event.reason,
+                    rationale: event.approval.reviewed_decisions,
+                    review_snapshot: event.approval.review_package_snapshot,
+                  }
+                : {
+                    action: event.action,
+                    revision: event.revision,
+                    recorded_at: event.recorded_at,
+                    actor_label: event.actor_label,
+                    review_snapshot: event.review_snapshot,
+                  },
+            ),
+          },
+        }
+      : {}),
+    ...((isPreparationRecoveryEligible(job) || isResumedPreparationRecoveryEligible(job)) && r
+      ? {
+          preparation_recovery: {
+            expected_review_snapshot: reviewPackageSnapshot(r.review_package),
+            ...(isResumedPreparationRecoveryEligible(job)
+              ? { expected_lifecycle_snapshot: productReviewLifecycleSnapshot(job) }
+              : {}),
+          },
+        }
+      : {}),
+    ...(job.preparation_recovery_history?.length
+      ? {
+          preparation_recovery_history: job.preparation_recovery_history.map((entry) => ({
+            requested_at: entry.requested_at,
+            previous_review_snapshot: entry.previous_review_snapshot,
+            source_uri: safeUri(entry.preparation.source_resolution?.final_uri),
+            fact_count: entry.preparation.qualified_facts.length,
+            extraction_count: entry.preparation.document_extractions.length,
+          })),
+        }
+      : {}),
     pipeline_summary,
     product_review: productReview,
     approval: job.approval
@@ -392,7 +515,41 @@ export const jobDetail = (job: IngestionJob) => {
           accepted_reference: job.accepted_source_resolution
             ? reference(job.accepted_source_resolution)
             : undefined,
+          active_reference: activeSourceReference ? reference(activeSourceReference) : undefined,
           accepted_uri: acceptedResolution?.final_uri,
+          recovery: {
+            can_reopen: isSourceSelectionRecoveryEligible(job),
+            acquisition_status:
+              job.preparation?.status === 'preparation_failed'
+                ? job.preparation.acquisition.status
+                : undefined,
+            acquisition_issues:
+              job.preparation?.status === 'preparation_failed'
+                ? job.preparation.acquisition.issues
+                : undefined,
+            acquisition_response_status:
+              job.preparation?.status === 'preparation_failed'
+                ? job.preparation.acquisition.seed_capture.artifact.response_status
+                : undefined,
+            preparation_reason:
+              job.preparation?.status === 'preparation_failed' ? job.preparation.reason : undefined,
+          },
+          recovery_history: (job.source_resolution_recovery_history ?? []).map((item) => ({
+            requested_at: item.requested_at,
+            method: item.method,
+            previous_source_reference: reference(item.previous_source_resolution),
+            previous_source_uri: item.preparation.source_resolution?.final_uri,
+            preparation_status: item.preparation.status,
+            preparation_reason:
+              item.preparation.status === 'preparation_failed'
+                ? item.preparation.reason
+                : undefined,
+            acquisition_status: item.preparation.acquisition.status,
+            acquisition_issues: item.preparation.acquisition.issues,
+            seed_capture_disposition: item.preparation.acquisition.seed_capture.disposition,
+            seed_response_status:
+              item.preparation.acquisition.seed_capture.artifact.response_status,
+          })),
           attempt_count: job.source_resolution_attempts?.length ?? 0,
           history_truncated: (job.source_resolution_attempts?.length ?? 0) > 50,
           attempts: (job.source_resolution_attempts ?? [])
@@ -430,8 +587,7 @@ export const jobDetail = (job: IngestionJob) => {
                     response_status,
                   })),
               },
-              can_accept:
-                r.disposition === 'pending' && c.disposition === 'authoritative' && !!r.final_uri,
+              can_accept: r.disposition === 'pending' && !!r.final_uri,
             })),
         }
       : undefined,
@@ -554,6 +710,11 @@ export const jobDetail = (job: IngestionJob) => {
       target: s.target,
       disposition: s.disposition,
       proposed_value: s.proposed_value,
+      ...valuePresentation(
+        s.target,
+        s.derivation !== undefined,
+        s.disposition === 'mapped' && s.proposed_value !== undefined,
+      ),
       evidence_refs: s.evidence_refs.map(reference),
       fact_refs: s.fact_refs?.map(reference),
     })),

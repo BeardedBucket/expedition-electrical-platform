@@ -54,6 +54,18 @@ export function resolutionAdapter(
         return {
           status: 'failed',
           issues: [{ code: 'network_error', message: 'Offline fixture failed.' }],
+          ...(options.final_uri
+            ? {
+                source: {
+                  requested_uri: request.uri,
+                  final_uri: options.final_uri,
+                  retrieved_at: '2026-09-08T00:00:00.000Z',
+                  response_status: 403,
+                  media_type: 'text/html',
+                  body: { bytes: new Uint8Array(), text: '' },
+                },
+              }
+            : {}),
         };
       const html =
         options.html ??

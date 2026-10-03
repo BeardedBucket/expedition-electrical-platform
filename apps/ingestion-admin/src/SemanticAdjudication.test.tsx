@@ -61,6 +61,8 @@ function job(overrides: Record<string, unknown> = {}) {
             automatic_target: 'electrical.continuous_current_a',
             automatic_value: 150,
             automatic_disposition: 'mapped',
+            canonical_unit: 'A',
+            value_origin: 'normalized / converted',
             derived: false,
             state: 'automatic',
             required: false,
@@ -74,6 +76,8 @@ function job(overrides: Record<string, unknown> = {}) {
             automatic_target: 'battery.usable_capacity_ah',
             automatic_value: 100,
             automatic_disposition: 'mapped',
+            canonical_unit: 'Ah',
+            value_origin: 'calculated / derived',
             derived: true,
             state: 'automatic',
             required: false,
@@ -152,6 +156,85 @@ describe('semantic adjudication operator workflow', () => {
       'noopener noreferrer',
     );
     expect(screen.getAllByLabelText('Semantic disposition')).toHaveLength(1);
+  });
+
+  it('submits Reject with the initially selected fact without a checkbox toggle', async () => {
+    const { client, onUpdate, updated } = setup();
+    const supportingFact = screen.getByRole('checkbox', { name: /Mystery electrical rating/ });
+    expect(supportingFact).toBeChecked();
+
+    fireEvent.change(screen.getByLabelText('Semantic disposition'), {
+      target: { value: 'reject' },
+    });
+    const submit = screen.getByRole('button', { name: 'Record semantic disposition' });
+    expect(submit).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('Rationale (required)'), {
+      target: {
+        value:
+          '“Model / SKU” is a table/field label, not a product value or semantic product assertion.',
+      },
+    });
+
+    expect(supportingFact).toBeChecked();
+    expect(submit).toBeEnabled();
+    fireEvent.click(submit);
+
+    await waitFor(() =>
+      expect(client.semanticDecision).toHaveBeenCalledWith(
+        'job-1',
+        expect.objectContaining({
+          proposal_id: proposalId,
+          expected_review_snapshot: snapshot,
+          selected_fact_ids: [fact.id],
+          actor_label: 'Local reviewer',
+          outcome: 'reject',
+          rationale:
+            '“Model / SKU” is a table/field label, not a product value or semantic product assertion.',
+        }),
+      ),
+    );
+    expect(onUpdate).toHaveBeenCalledWith(updated);
+  });
+
+  it('labels automatic normalization separately from actual derived results', () => {
+    setup();
+    const automaticCard = screen.getByText(/Proposal proposal\.automatic/).closest('article')!;
+    expect(automaticCard).toHaveTextContent('Normalized / converted canonical value: 150 A');
+    expect(automaticCard).toHaveTextContent('SOURCE-STATED');
+    expect(automaticCard).toHaveTextContent('Mystery electrical rating: 150 A');
+
+    const derivedSection = screen
+      .getByRole('heading', { name: 'DERIVED / CALCULATED' })
+      .closest('section')!;
+    expect(derivedSection).toHaveTextContent('Calculated / derived result');
+    expect(derivedSection).toHaveTextContent('battery.usable_capacity_ah');
+    expect(derivedSection).toHaveTextContent('100 Ah');
+    expect(derivedSection).not.toHaveTextContent('Normalized / converted canonical value');
+  });
+
+  it('labels and enforces every required Schema gap field before enabling submission', () => {
+    setup();
+    fireEvent.change(screen.getByLabelText('Semantic disposition'), {
+      target: { value: 'schema_gap' },
+    });
+
+    const conceptKey = screen.getByLabelText('Schema concept key (required)');
+    const explanation = screen.getByLabelText('Explain the missing concept (required)');
+    const rationale = screen.getByLabelText('Rationale (required)');
+    const submit = screen.getByRole('button', { name: 'Record semantic disposition' });
+
+    expect(conceptKey).toBeRequired();
+    expect(explanation).toBeRequired();
+    expect(rationale).toBeRequired();
+    expect(submit).toBeDisabled();
+
+    fireEvent.change(conceptKey, { target: { value: '  ' } });
+    fireEvent.change(explanation, { target: { value: 'A source-described rating.' } });
+    fireEvent.change(rationale, { target: { value: 'Reviewed against source evidence.' } });
+    expect(submit).toBeDisabled();
+
+    fireEvent.change(conceptKey, { target: { value: 'electrical.unmodeled_rating' } });
+    expect(submit).toBeEnabled();
   });
 
   it('loads target choices from the server and submits the exact server preview value', async () => {
@@ -250,7 +333,7 @@ describe('semantic adjudication operator workflow', () => {
     const automaticCard = screen.getByText(/Proposal proposal\.automatic/).closest('article');
     expect(screen.getByRole('status')).toHaveTextContent(/semantic review complete/i);
     expect(automaticCard).toHaveTextContent('electrical.continuous_current_a');
-    expect(automaticCard).toHaveTextContent('Original automatic value: 150');
+    expect(automaticCard).toHaveTextContent('Normalized / converted canonical value: 150 A');
     expect(automaticCard).toHaveTextContent('150 A');
     expect(within(automaticCard!).queryByLabelText('Semantic disposition')).not.toBeInTheDocument();
     const correctionAction = within(automaticCard!).getByRole('button', {
@@ -330,7 +413,7 @@ describe('semantic adjudication operator workflow', () => {
       ),
     );
     expect(automaticCard).toHaveTextContent('electrical.continuous_current_a');
-    expect(automaticCard).toHaveTextContent('Original automatic value: 150');
+    expect(automaticCard).toHaveTextContent('Normalized / converted canonical value: 150 A');
   });
 
   it('records a non-map disposition for an automatic mapping', async () => {
@@ -551,10 +634,10 @@ describe('semantic adjudication operator workflow', () => {
     const { client } = setup();
     fireEvent.change(screen.getByLabelText('Semantic disposition'), { target: { value: outcome } });
     if (outcome === 'schema_gap') {
-      fireEvent.change(screen.getByLabelText('Schema concept key'), {
+      fireEvent.change(screen.getByLabelText('Schema concept key (required)'), {
         target: { value: 'electrical.unmodeled_rating' },
       });
-      fireEvent.change(screen.getByLabelText('Explain the missing concept'), {
+      fireEvent.change(screen.getByLabelText('Explain the missing concept (required)'), {
         target: { value: 'The source states a distinct rating.' },
       });
     }

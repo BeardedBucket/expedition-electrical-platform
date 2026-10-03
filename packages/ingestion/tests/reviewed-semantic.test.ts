@@ -5,6 +5,7 @@ import {
   buildProductionProductCandidate,
   buildProductionSemanticProposals,
   buildQualifiedFactArtifact,
+  canonicalizeConversionNoise,
   PRODUCTION_SCHEMA_VERSION,
   normalizeProductionSemanticTarget,
   productionSemanticFieldDescriptor,
@@ -143,6 +144,15 @@ const rebuild = (
 };
 
 describe('reviewed semantic interpretation', () => {
+  it('canonicalizes display-only floating-point conversion noise within the existing ULP bound', () => {
+    expect(canonicalizeConversionNoise(180.08599999999998)).toBe(180.086);
+    expect(canonicalizeConversionNoise({ x: 180.08599999999998, y: [334.01] })).toEqual({
+      x: 180.086,
+      y: [334.01],
+    });
+    expect(canonicalizeConversionNoise(1.234567890123456)).toBe(1.234567890123456);
+  });
+
   it('keeps target contracts independent of automatic aliases and rejects schema-only paths', () => {
     expect(productionSemanticTargetContractIssues()).toEqual([]);
     expect(

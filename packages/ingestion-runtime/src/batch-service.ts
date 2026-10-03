@@ -230,11 +230,58 @@ export class IngestionBatchService {
     return this.dependencies.jobService.decideSourceResolution(id, attemptId, decision);
   }
 
+  reopenSourceSelection(id: string): Promise<IngestionJob> {
+    return this.dependencies.jobService.reopenSourceSelection(id);
+  }
+
+  reopenPreparation(
+    id: string,
+    expectedReviewSnapshot: string,
+    expectedLifecycleSnapshot?: string,
+  ): Promise<IngestionJob> {
+    return this.dependencies.jobService.reopenPreparation(
+      id,
+      expectedReviewSnapshot,
+      expectedLifecycleSnapshot,
+    );
+  }
+
+  resumeDeferredReview(
+    id: string,
+    request: Parameters<IngestionJobService['resumeDeferredReview']>[1],
+  ): Promise<IngestionJob> {
+    return this.dependencies.jobService.resumeDeferredReview(id, request);
+  }
+
   submitApproval(
     id: string,
     approval: Parameters<IngestionJobService['submitApproval']>[1],
+    deferral?: Parameters<IngestionJobService['submitApproval']>[2],
   ): Promise<IngestionJob> {
-    return this.dependencies.jobService.submitApproval(id, approval);
+    return this.dependencies.jobService.submitApproval(id, approval, deferral);
+  }
+
+  recordSemanticDecision(
+    id: string,
+    request: Parameters<IngestionJobService['recordSemanticDecision']>[1],
+  ): ReturnType<IngestionJobService['recordSemanticDecision']> {
+    return this.dependencies.jobService.recordSemanticDecision(id, request);
+  }
+
+  discoverSemanticTargets(
+    id: string,
+    proposalId: string,
+    request: Parameters<IngestionJobService['discoverSemanticTargets']>[2],
+  ): ReturnType<IngestionJobService['discoverSemanticTargets']> {
+    return this.dependencies.jobService.discoverSemanticTargets(id, proposalId, request);
+  }
+
+  previewSemanticMapping(
+    id: string,
+    proposalId: string,
+    request: Parameters<IngestionJobService['previewSemanticMapping']>[2],
+  ): ReturnType<IngestionJobService['previewSemanticMapping']> {
+    return this.dependencies.jobService.previewSemanticMapping(id, proposalId, request);
   }
 
   finalizeJob(

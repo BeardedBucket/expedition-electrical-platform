@@ -7,6 +7,7 @@ import {
   type ProductionApproval,
 } from '@expedition/ingestion';
 import type { IngestionJob } from '@expedition/ingestion-runtime';
+import { DEFER_REASONS, productReviewLifecycleSnapshot } from '@expedition/ingestion-runtime';
 import { randomUUID } from 'node:crypto';
 import { readComponentSchema } from '@expedition/engineering-core';
 
@@ -35,6 +36,7 @@ export function constructApproval(
     'reviewer_id',
     'reviewed_decisions',
     ...(decision === 'approved' ? ['promotion_decisions'] : []),
+    ...(decision === 'deferred' ? ['expected_lifecycle_snapshot', 'defer_reason'] : []),
   ];
   if (Object.keys(input).some((key) => !allowed.includes(key)))
     throw new ProductReviewError(
@@ -43,9 +45,29 @@ export function constructApproval(
     );
   if (typeof input.reviewer_id !== 'string' || !input.reviewer_id.trim())
     throw new ProductReviewError(400, 'Enter a reviewer label (not an authenticated identity).');
+  if (decision === 'deferred') {
+    if (typeof input.expected_lifecycle_snapshot !== 'string')
+      throw new ProductReviewError(400, 'Deferral requires the current lifecycle snapshot.');
+    if (input.expected_lifecycle_snapshot !== productReviewLifecycleSnapshot(job))
+      throw new ProductReviewError(
+        409,
+        'The product-review lifecycle changed; reload before deferring.',
+      );
+    if (
+      input.defer_reason !== undefined &&
+      !DEFER_REASONS.some((reason) => reason === input.defer_reason)
+    )
+      throw new ProductReviewError(400, 'Unknown deferral reason.');
+    if (
+      !Array.isArray(input.reviewed_decisions) ||
+      !input.reviewed_decisions.some((value) => typeof value === 'string' && value.trim())
+    )
+      throw new ProductReviewError(400, 'Deferral requires a human rationale.');
+  }
   const pkg = job.preparation.review_package;
+  const { expected_lifecycle_snapshot: _snapshot, defer_reason: _reason, ...decisions } = input;
   const approval = {
-    ...input,
+    ...decisions,
     reviewer_id: input.reviewer_id.trim(),
     schema_version: '1.0',
     artifact_kind: 'approval',

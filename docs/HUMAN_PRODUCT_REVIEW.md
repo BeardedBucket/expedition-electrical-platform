@@ -54,11 +54,31 @@ a second finalization, retry, reset or editing approval in place.
 | Approve       | review_ready with candidate and valid selections | approved                                       |
 | Reject        | review_ready, including no candidate             | review_rejected                                |
 | Defer         | review_ready, including no candidate             | review_deferred                                |
+| Resume review | review_deferred                                 | review_ready, exact prior review preserved      |
 | Confirm write | approved                                         | finalizing → finalized or finalization_failed  |
 
 Source-resolution states and operations remain unchanged. Reject/defer do not invoke
-promotion conversion. Approval does not invoke finalization. Terminal review and
-finalization records are immutable through the operator interface.
+promotion conversion. Approval does not invoke finalization. Reject is terminal;
+Defer is a resumable pause, not rejection of the product or evidence. Finalization
+records remain terminal through the operator interface.
+
+Deferral preserves the entire current reviewed preparation, including source,
+capture/acquisition, candidate if present, semantic decisions and completion.
+`product_review_history` is append-only; each deferred event stores the exact
+bound `ProductionApproval`, optional operator-selected reason, and revision.
+Rationale is mandatory for new deferrals. Resume records the operator label,
+timestamp, exact review snapshot, preparation-history count, and next event revision.
+It clears only the current decision pointer while retaining its full history.
+Both operations use per-job serialization, durable versioned reads, conditional
+CAS saves, and atomic replacement. The lifecycle snapshot additionally blocks
+an old browser intent after a defer/resume cycle with identical review evidence.
+
+Resume does not rebuild a candidate or reinterpret semantic decisions. For later
+schema/rule capability changes, a separate explicit preparation-reopen action
+archives the complete resumed review, including schema-gap decisions, and returns
+to `created`. Start preparation is yet another explicit action using the accepted
+source. Old schema gaps remain historical; new preparation requires new review.
+The one-use reopen permission is bound to the exact resumed snapshot/history count.
 
 ## Preview finding
 
@@ -75,30 +95,55 @@ write confirmation. No new durable state architecture is required for this flow.
 
 ## Operator surface and API
 
-The primary review surface groups proposals by canonical field. Every proposal keeps
-its disposition, value and supporting references; multiple proposals and multiple
-qualified facts remain separate. Evidence shows source wording, raw value, unit,
-applicability, qualification, document title where available, capture URI, locators,
-fact IDs and reconciliation conflicts/unresolved outcomes. Source links accept HTTP(S)
-and use `target="_blank"` with `rel="noopener noreferrer"`. Missing information remains
-unknown. Supporting references and IDs are secondary details. Existing preparation,
-extraction and source diagnostics remain available below the decision editor.
+The primary review surface gives each semantic proposal one card in its authoritative
+category: REVIEW REQUIRED, REVIEWED / DISPOSITIONED, AUTOMATICALLY MAPPED, or
+DERIVED / CALCULATED. A proposal that contributes to a projected field carries that
+field's separate product-approval control on the same card; the lower product-review
+section does not repeat the proposal, evidence, or field decision. When several
+proposals contribute to one candidate field, one card owns the shared field-level
+decision and the other cards link to that control. Semantic disposition and product
+approval remain separate domain decisions. Evidence shows source wording, raw value,
+unit, applicability, qualification, document title where available, capture URI,
+locators, fact IDs and reconciliation conflicts/unresolved outcomes. Source links accept
+HTTP(S) and use `target="_blank"` with `rel="noopener noreferrer"`. Missing information
+remains unknown. Supporting references and IDs are secondary details. Existing
+preparation, extraction and source diagnostics remain available below the decision editor.
 
-Field decisions start as not reviewed. Only projected candidate fields can be selected
-for placement; non-projected/unresolved proposals remain visible. The optional controls
-map directly to the actual structured contract. A field resolution's rationale is a
-human explanation, never fabricated semantic evidence. Role, category, reviewer and
-evidence acknowledgement have no selected defaults.
+Measurement review keeps provenance visible in two distinct representations: the exact
+SOURCE-STATED assertion retained with its source evidence, and the normalized / converted
+canonical value with the target contract's canonical unit. For example, `13.15 in` remains
+the source assertion while `334.01 mm` is the canonical representation; the browser only
+renders these server-provided values and units. Display values use the semantic domain's
+existing deterministic conversion-noise canonicalizer, limited to values within its
+existing four-ULP bound; the underlying candidate and engineering values are not rounded
+or rewritten for presentation. This removes binary floating-point artifacts such as
+`180.08599999999998 mm` while retaining the exact source assertion `7.09 in`. A unit
+conversion is not a calculated or derived fact. Only a proposal carrying explicit
+derivation metadata belongs in the CALCULATED / DERIVED group.
+
+Field decisions start as not reviewed and appear on the primary card for a projected
+semantic work item. Only projected candidate fields can be selected for placement;
+non-projecting dispositions remain visible in REVIEWED / DISPOSITIONED and receive no
+product-field approval control. Optional field resolution is offered only when multiple
+supporting facts or recorded conflicts make selection meaningful; a field with one
+unambiguous fact does not require a resolution interaction. The controls map directly to
+the actual structured contract. A field resolution's rationale is a human explanation,
+never fabricated semantic evidence. Role, category, reviewer and evidence acknowledgement
+remain product-level controls and have no selected defaults.
 
 For zero-fact/zero-proposal/no-candidate review_ready results, the surface explains that
-no promotable candidate exists and offers reject/defer with only a reviewer label and
-optional rationale. It never offers approval or asks for a fabricated role/category.
+no promotable candidate exists and offers terminal Reject or resumable Defer.
+Defer requires a reviewer label and rationale; optional reason classification has
+no inferred default. Neither action needs a fabricated role/category.
 
 Routes, relative to `/api/ingestion/jobs/:id`:
 
 - `POST /review/approve`: reviewer label, optional reviewed_decisions and exact structured
   promotion_decisions.
-- `POST /review/reject` and `POST /review/defer`: reviewer label and optional reviewed_decisions.
+- `POST /review/reject`: reviewer label and optional reviewed_decisions.
+- `POST /review/defer`: reviewer label, nonempty reviewed_decisions rationale,
+  expected_lifecycle_snapshot, and optional defer_reason.
+- `POST /review/resume`: expected_lifecycle_snapshot and actor_label only.
 - `POST /finalize`: exactly `{ "write": true }`.
 
 The server derives IDs, timestamps, package references and both snapshots from persisted
@@ -116,8 +161,9 @@ assertion, bound qualified facts, source/document links and locators. Derived pr
 not offered as human semantic evidence.
 An automatic mapping remains complete without human re-entry, but a non-derived mapped
 proposal offers optional correction controls; opening them does not change completion.
-The original automatic target and value remain visible while a human disposition is
-recorded through the same append-only decision flow.
+The automatic target and its canonical value remain visible while a human disposition
+is recorded through the same append-only decision flow; the canonical value is never
+described as the original/source assertion.
 
 Canonical mapping targets are discovered from the ingestion domain's explicit canonical
 target contracts and filtered against the current proposal's retained fact context. They
@@ -142,8 +188,14 @@ decision; it never edits an earlier event in place. Each successful disposition 
 the candidate and review package, returns the new snapshot and updates completion from
 the authoritative server result. A stale snapshot or a state change returns a conflict:
 the UI reloads current state and requires the operator to inspect and reconfirm rather
-than replaying old intent. Product approval remains behind the existing server completion
-gate, and the ordinary product approval/finalization flow is unchanged.
+than replaying old intent. Product field approval is co-located with the semantic proposal
+card only when the current server projection shows that proposal contributes to a
+candidate field. Qualified candidate assertions retain their separate product-approval
+IDs and are presented on their semantic card when one exists. A semantic correction
+changes the review snapshot and clears prior product field selections, resolutions,
+qualified-value selections, fact decisions, topology selections and evidence
+acknowledgement so the operator must review the server-refreshed projection. Product approval remains behind the existing server
+completion gate, and finalization authority is unchanged.
 
 The complete sequence is:
 

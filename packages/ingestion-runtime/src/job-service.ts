@@ -39,6 +39,16 @@ import {
 } from '@expedition/ingestion';
 import { assertJsonInput, deserializeJob, serializeJob } from './codec.js';
 import { JobStoreConflictError, type IngestionJobStore } from './job-store.js';
+import { isPreparationRecoveryEligible, PreparationRecoveryError } from './preparation-recovery.js';
+import {
+  DEFER_REASONS,
+  isResumedPreparationRecoveryEligible,
+  productReviewLifecycleSnapshot,
+  ProductReviewLifecycleError,
+  type ProductReviewEvent,
+  type DeferReviewRequest,
+  type ResumeReviewRequest,
+} from './product-review-lifecycle.js';
 
 export type IngestionJobState =
   | 'source_resolution_required'
@@ -71,9 +81,25 @@ export interface IngestionJob {
     readonly resolution: SourceResolutionArtifact;
     readonly capture: SourceCaptureArtifact;
   }[];
+  /** The first accepted reference is retained as a durable historical binding. */
   readonly accepted_source_resolution?: ArtifactReference<'source_resolution'>;
+  /** Explicit source currently selected for preparation; absent during source review. */
+  readonly active_source_resolution?: ArtifactReference<'source_resolution'>;
+  readonly source_resolution_recovery_history?: readonly {
+    readonly requested_at: string;
+    readonly method: 'local_operator';
+    readonly previous_source_resolution: ArtifactReference<'source_resolution'>;
+    readonly preparation: ProductionIngestWorkflowResult;
+  }[];
   readonly preparation?: ProductionIngestWorkflowResult;
+  readonly preparation_recovery_history?: readonly {
+    readonly requested_at: string;
+    readonly method: 'local_operator';
+    readonly previous_review_snapshot: string;
+    readonly preparation: ReviewReadyProductionIngest;
+  }[];
   readonly approval?: ProductionApproval;
+  readonly product_review_history?: readonly ProductReviewEvent[];
   readonly finalization_request?: FinalizationRequest;
   readonly final_result?: ProductionIngestFinalizeResult;
   readonly error?: { readonly operation: 'prepare' | 'finalize'; readonly message: string };
@@ -163,6 +189,41 @@ export class SourceResolutionError extends Error {
     super(message);
   }
 }
+
+const acceptedResolutionForReference = (
+  job: IngestionJob,
+  reference: ArtifactReference<'source_resolution'> | undefined,
+): SourceResolutionArtifact | undefined =>
+  reference
+    ? job.source_resolution_attempts?.find(
+        ({ resolution }) =>
+          resolution.disposition === 'accepted' && artifactDigest(resolution) === reference.digest,
+      )?.resolution
+    : undefined;
+
+const currentSourceResolutionReference = (
+  job: IngestionJob,
+): ArtifactReference<'source_resolution'> | undefined => {
+  if (job.active_source_resolution) return job.active_source_resolution;
+  // Older jobs used the immutable first-accepted reference as their active source.
+  // Recovery history makes an absent active pointer an intentional unselected state.
+  if (job.source_resolution_recovery_history?.length) return undefined;
+  return job.accepted_source_resolution;
+};
+
+export const isSourceSelectionRecoveryEligible = (job: IngestionJob): boolean => {
+  const currentReference = currentSourceResolutionReference(job);
+  return (
+    job.state === 'preparation_failed' &&
+    job.preparation?.status === 'preparation_failed' &&
+    job.preparation.reason === 'acquisition_failed' &&
+    job.preparation.acquisition.status === 'seed_failed' &&
+    !job.approval &&
+    !job.finalization_request &&
+    !!currentReference &&
+    !!acceptedResolutionForReference(job, currentReference)
+  );
+};
 
 export class IngestionJobService {
   private readonly busy = new Set<string>();
@@ -438,20 +499,16 @@ export class IngestionJobService {
         throw new SourceResolutionError(409, 'The requested source attempt is not pending review.');
       if (decision !== 'accepted' && decision !== 'rejected')
         throw new SourceResolutionError(400, 'Unknown source resolution decision.');
-      if (
-        decision === 'accepted' &&
-        (attempt.capture.disposition !== 'authoritative' || !attempt.capture.final_uri)
-      )
-        throw new SourceResolutionError(
-          409,
-          'A successful authoritative capture with a final URL is required for acceptance.',
-        );
       const resolved: SourceResolutionArtifact = {
         ...attempt.resolution,
         disposition: decision,
         review: { reviewed_at: this.timestamp(), method: 'local_operator' },
       };
-      if (decision === 'accepted') assertAcceptedSourceResolution(job.intake, resolved);
+      if (decision === 'accepted') {
+        if (!resolved.final_uri)
+          throw new SourceResolutionError(409, 'A final URL is required to accept a source.');
+        assertAcceptedSourceResolution(job.intake, resolved);
+      }
       const updated: IngestionJob = {
         ...job,
         state: decision === 'accepted' ? 'created' : 'source_resolution_required',
@@ -461,7 +518,17 @@ export class IngestionJobService {
         ),
         ...(decision === 'accepted'
           ? {
-              accepted_source_resolution: artifactReference(
+              ...(job.accepted_source_resolution
+                ? {}
+                : {
+                    accepted_source_resolution: artifactReference(
+                      'source_resolution',
+                      resolved,
+                      resolved.id,
+                      resolved.schema_version,
+                    ),
+                  }),
+              active_source_resolution: artifactReference(
                 'source_resolution',
                 resolved,
                 resolved.id,
@@ -475,13 +542,86 @@ export class IngestionJobService {
     });
   }
 
+  async reopenSourceSelection(id: string): Promise<IngestionJob> {
+    return this.exclusive(id, async () => {
+      const { job, version } = await this.readVersionedJob(id);
+      if (!isSourceSelectionRecoveryEligible(job) || !job.preparation)
+        throw new SourceResolutionError(
+          409,
+          'Source selection can only be reopened after an accepted source fails during acquisition.',
+        );
+      const previousSource = currentSourceResolutionReference(job);
+      if (!previousSource)
+        throw new SourceResolutionError(409, 'No active accepted source is available to recover.');
+      const requestedAt = this.timestamp();
+      const updated: IngestionJob = {
+        ...job,
+        state: 'source_resolution_required',
+        updated_at: requestedAt,
+        active_source_resolution: undefined,
+        preparation: undefined,
+        error: undefined,
+        source_resolution_recovery_history: [
+          ...(job.source_resolution_recovery_history ?? []),
+          {
+            requested_at: requestedAt,
+            method: 'local_operator',
+            previous_source_resolution: previousSource,
+            preparation: job.preparation,
+          },
+        ],
+      };
+      await this.dependencies.store.save(updated, version);
+      return updated;
+    });
+  }
+
+  async reopenPreparation(
+    id: string,
+    expectedReviewSnapshot: string,
+    expectedLifecycleSnapshot?: string,
+  ): Promise<IngestionJob> {
+    return this.exclusive(id, async () => {
+      const { job, version } = await this.readVersionedJob(id);
+      if (
+        (!isPreparationRecoveryEligible(job) && !isResumedPreparationRecoveryEligible(job)) ||
+        job.preparation?.status !== 'review_ready' ||
+        reviewPackageSnapshot(job.preparation.review_package) !== expectedReviewSnapshot ||
+        (expectedLifecycleSnapshot !== undefined &&
+          expectedLifecycleSnapshot !== productReviewLifecycleSnapshot(job)) ||
+        (isResumedPreparationRecoveryEligible(job) && !expectedLifecycleSnapshot)
+      )
+        throw new PreparationRecoveryError(
+          'Only the current empty review or explicitly resumed review can be reopened for preparation.',
+        );
+      const requestedAt = this.timestamp();
+      const updated: IngestionJob = {
+        ...job,
+        state: 'created',
+        updated_at: requestedAt,
+        preparation: undefined,
+        error: undefined,
+        preparation_recovery_history: [
+          ...(job.preparation_recovery_history ?? []),
+          {
+            requested_at: requestedAt,
+            method: 'local_operator',
+            previous_review_snapshot: expectedReviewSnapshot,
+            preparation: job.preparation,
+          },
+        ],
+      };
+      await this.dependencies.store.save(updated, version);
+      return updated;
+    });
+  }
+
   async prepareJob(id: string): Promise<IngestionJob> {
     return this.exclusive(id, async () => {
       const { job, version } = await this.readVersionedJob(id);
       if (job.state !== 'created') throw new Error(`Cannot prepare job in state ${job.state}.`);
-      const resolution = job.source_resolution_attempts?.find(
-        (item) => artifactDigest(item.resolution) === job.accepted_source_resolution?.digest,
-      )?.resolution;
+      const sourceReference = currentSourceResolutionReference(job);
+      const resolution = acceptedResolutionForReference(job, sourceReference);
       if (!job.intake.official_product_uri) {
         if (!resolution)
           throw new SourceResolutionError(409, 'Accept a source resolution before preparation.');
@@ -521,7 +661,11 @@ export class IngestionJobService {
     });
   }
 
-  async submitApproval(id: string, approval: ProductionApproval): Promise<IngestionJob> {
+  async submitApproval(
+    id: string,
+    approval: ProductionApproval,
+    deferral?: DeferReviewRequest,
+  ): Promise<IngestionJob> {
     return this.exclusive(id, async () => {
       const { job, version } = await this.readVersionedJob(id);
       if (job.state !== 'review_ready' || job.preparation?.status !== 'review_ready')
@@ -530,6 +674,20 @@ export class IngestionJobService {
       if (issues.length) throw new Error(`Invalid production approval: ${issues.join('; ')}`);
       if (!approvalMatchesReviewPackage(approval, job.preparation.review_package))
         throw new Error('Production approval does not match the exact review package.');
+      if (approval.decision === 'deferred') {
+        if (!approval.reviewed_decisions?.some((rationale) => rationale.trim()))
+          throw new ProductReviewLifecycleError(400, 'Deferral requires a human rationale.');
+        if (
+          !deferral ||
+          deferral.expected_lifecycle_snapshot !== productReviewLifecycleSnapshot(job)
+        )
+          throw new ProductReviewLifecycleError(
+            409,
+            'The product-review lifecycle changed; reload before deferring.',
+          );
+        if (deferral.reason !== undefined && !DEFER_REASONS.includes(deferral.reason))
+          throw new ProductReviewLifecycleError(400, 'Unknown deferral reason.');
+      }
       if (approval.decision === 'approved')
         productionApprovalToPromotionReview(
           approval,
@@ -557,7 +715,66 @@ export class IngestionJobService {
               ? 'review_rejected'
               : 'review_deferred',
         approval,
+        ...(approval.decision === 'deferred'
+          ? {
+              product_review_history: [
+                ...(job.product_review_history ?? []),
+                {
+                  action: 'deferred' as const,
+                  revision: (job.product_review_history?.length ?? 0) + 1,
+                  approval,
+                  ...(deferral?.reason ? { reason: deferral.reason } : {}),
+                },
+              ],
+            }
+          : {}),
         updated_at: this.timestamp(),
+      };
+      await this.dependencies.store.save(updated, version);
+      return updated;
+    });
+  }
+
+  async resumeDeferredReview(id: string, request: ResumeReviewRequest): Promise<IngestionJob> {
+    return this.exclusive(id, async () => {
+      const { job, version } = await this.readVersionedJob(id);
+      if (
+        job.state !== 'review_deferred' ||
+        job.approval?.decision !== 'deferred' ||
+        job.preparation?.status !== 'review_ready' ||
+        job.finalization_request ||
+        job.final_result ||
+        !approvalMatchesReviewPackage(job.approval, job.preparation.review_package) ||
+        request.expected_lifecycle_snapshot !== productReviewLifecycleSnapshot(job)
+      )
+        throw new ProductReviewLifecycleError(
+          409,
+          'Only the current deferred review may be explicitly resumed.',
+        );
+      if (typeof request.actor_label !== 'string' || !request.actor_label.trim())
+        throw new ProductReviewLifecycleError(400, 'An operator label is required.');
+      // Older terminal-defer records have no event stream. Preserve their exact
+      // bound decision as the baseline, without inventing a reason or rationale.
+      const history: readonly ProductReviewEvent[] = job.product_review_history?.length
+        ? job.product_review_history
+        : [{ action: 'deferred', revision: 1, approval: job.approval }];
+      const recordedAt = this.timestamp();
+      const updated: IngestionJob = {
+        ...job,
+        state: 'review_ready',
+        approval: undefined,
+        updated_at: recordedAt,
+        product_review_history: [
+          ...history,
+          {
+            action: 'resumed',
+            revision: history.length + 1,
+            recorded_at: recordedAt,
+            actor_label: request.actor_label.trim(),
+            review_snapshot: reviewPackageSnapshot(job.preparation.review_package),
+            preparation_history_count: job.preparation_recovery_history?.length ?? 0,
+          },
+        ],
       };
       await this.dependencies.store.save(updated, version);
       return updated;
