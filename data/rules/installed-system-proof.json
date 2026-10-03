@@ -1,0 +1,21 @@
+{
+  "id": "electrical.installed-system-proof",
+  "version": "1.1.0",
+  "status": "draft",
+  "kind": "constraint",
+  "description": "Project-authored installed topology interpretation: exact directed canonical power paths, same-domain passive continuity, nominal port compatibility, evidence-qualified schedules and explicitly permitted battery banks. No standards-derived numeric thresholds or installation certification.",
+  "inputs": [],
+  "expression": null,
+  "assumptions": [
+    "Domain voltages are explicit nominal design points, not complete operating envelopes.",
+    "Only explicitly supplied routes and schedules are evaluated; no architecture or products are selected."
+  ],
+  "source_refs": [
+    {
+      "type": "project-rationale",
+      "title": "Whole-system backend proof contract",
+      "path": "docs/WHOLE_SYSTEM_BACKEND.md"
+    }
+  ],
+  "tests": []
+}

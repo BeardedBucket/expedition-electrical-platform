@@ -3,7 +3,14 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['**/dist/**', '**/coverage/**', 'node_modules/**', '.tmp/**'],
+    // Local corpus drafts are outside repository validation and must not be read.
+    ignores: [
+      '**/dist/**',
+      '**/coverage/**',
+      'node_modules/**',
+      '.tmp/**',
+      '.local-corpus-draft-archive/**',
+    ],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,

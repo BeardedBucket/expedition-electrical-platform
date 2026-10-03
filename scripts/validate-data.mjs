@@ -1,6 +1,7 @@
 import { readFile, readdir } from 'node:fs/promises';
-import { basename, extname, join, relative, sep } from 'node:path';
+import { basename, extname, join, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { execFileSync } from 'node:child_process';
 import Ajv from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import { parse as parseYaml } from 'yaml';
@@ -51,7 +52,7 @@ const normalizeComponentKey = (value) => {
   return value.trim().toLowerCase();
 };
 
-export const validateDataRoot = async (dataRoot = join(process.cwd(), 'data')) => {
+export const validateDataRoot = async (dataRoot = join(process.cwd(), 'data'), options = {}) => {
   const schemaRoot = join(dataRoot, 'schemas');
   const ajv = new Ajv({ allErrors: true, strict: false, strictNumbers: true });
   addFormats(ajv);
@@ -60,14 +61,23 @@ export const validateDataRoot = async (dataRoot = join(process.cwd(), 'data')) =
   );
   const validators = new Map();
 
+  // Register named schemas before compilation so portable artifact schemas can
+  // reuse the canonical component/installation boundaries without duplication.
   for (const schemaFile of schemaFiles) {
     const schema = JSON.parse(await readFile(schemaFile, 'utf8'));
-    ajv.compile(schema);
     validators.set(schemaFile, schema);
+    if (schema.$id) ajv.addSchema(schema);
+  }
+  for (const schemaFile of schemaFiles) {
+    ajv.compile(validators.get(schemaFile));
     console.log(`schema ok: ${displayPath(schemaFile, process.cwd())}`);
   }
 
-  const dataFiles = (await recursiveFiles(dataRoot)).filter((file) => !file.startsWith(schemaRoot));
+  // Explicit file scope never walks local-only corpus material. The default
+  // remains unchanged for standalone test roots and ordinary complete validation.
+  const dataFiles = (options.files ?? (await recursiveFiles(dataRoot))).filter(
+    (file) => !file.startsWith(schemaRoot),
+  );
   let validated = 0;
   const advisoryIds = new Set();
   const evidenceIds = new Set();
@@ -249,5 +259,28 @@ export const validateDataRoot = async (dataRoot = join(process.cwd(), 'data')) =
 };
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  await validateDataRoot();
+  if (process.argv.includes('--tracked-only')) {
+    const files = execFileSync('git', ['ls-files', '-z', '--', 'data'], { encoding: 'utf8' })
+      .split('\0')
+      .filter(Boolean)
+      .map((file) => join(process.cwd(), file));
+    // New task-authored data can be named explicitly without enumerating other
+    // untracked material. Reject out-of-data paths rather than widen the scope.
+    for (let index = 2; index < process.argv.length; index += 1) {
+      if (process.argv[index] !== '--include-file') continue;
+      const argument = process.argv[++index];
+      if (!argument) throw new Error('--include-file requires a data file path.');
+      const path = resolve(argument);
+      const relativePath = relative(join(process.cwd(), 'data'), path);
+      if (
+        relativePath.startsWith('..') ||
+        resolve(join(process.cwd(), 'data'), relativePath) !== path
+      )
+        throw new Error('--include-file must remain within the repository data directory.');
+      files.push(path);
+    }
+    await validateDataRoot(join(process.cwd(), 'data'), { files: [...new Set(files)] });
+  } else {
+    await validateDataRoot();
+  }
 }

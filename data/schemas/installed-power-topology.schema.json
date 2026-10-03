@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:expedition-electrical-platform:schema:installed-power-topology",
+  "type": "object",
+  "required": ["domains", "bindings", "edges"],
+  "additionalProperties": false,
+  "properties": {
+    "domains": { "type": "array", "items": { "$ref": "#/$defs/domain" } },
+    "bindings": { "type": "array", "items": { "$ref": "#/$defs/binding" } },
+    "edges": { "type": "array", "items": { "$ref": "#/$defs/edge" } },
+    "bonding_contexts": { "type": "array", "items": { "$ref": "#/$defs/bonding" } }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+    "domain": {
+      "type": "object",
+      "required": ["id", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "kind": { "enum": ["dc", "pv_dc", "ac"] },
+        "nominal_voltage_v": { "type": "number", "exclusiveMinimum": 0 },
+        "frequency_hz": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "binding": {
+      "type": "object",
+      "required": ["id", "instance_id", "port_id", "domain_id"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "instance_id": { "$ref": "#/$defs/id" },
+        "port_id": { "$ref": "#/$defs/id" },
+        "domain_id": { "$ref": "#/$defs/id" }
+      }
+    },
+    "edge": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["id", "kind", "from", "to"],
+          "additionalProperties": false,
+          "properties": {
+            "id": { "$ref": "#/$defs/id" },
+            "kind": { "const": "wire" },
+            "from": { "$ref": "#/$defs/id" },
+            "to": { "$ref": "#/$defs/id" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["id", "kind", "from", "to", "instance_id", "power_path_id"],
+          "additionalProperties": false,
+          "properties": {
+            "id": { "$ref": "#/$defs/id" },
+            "kind": { "const": "power_path" },
+            "from": { "$ref": "#/$defs/id" },
+            "to": { "$ref": "#/$defs/id" },
+            "instance_id": { "$ref": "#/$defs/id" },
+            "power_path_id": { "$ref": "#/$defs/id" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["id", "kind", "from", "to", "instance_id", "relationship_id"],
+          "additionalProperties": false,
+          "properties": {
+            "id": { "$ref": "#/$defs/id" },
+            "kind": { "const": "conductive" },
+            "from": { "$ref": "#/$defs/id" },
+            "to": { "$ref": "#/$defs/id" },
+            "instance_id": { "$ref": "#/$defs/id" },
+            "relationship_id": { "$ref": "#/$defs/id" },
+            "switching_configuration_id": { "$ref": "#/$defs/id" }
+          }
+        }
+      ]
+    },
+    "bonding": {
+      "type": "object",
+      "required": [
+        "id",
+        "instance_id",
+        "terminal_id",
+        "domain_id",
+        "intended_role",
+        "source_ref_ids"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "instance_id": { "$ref": "#/$defs/id" },
+        "terminal_id": { "$ref": "#/$defs/id" },
+        "domain_id": { "$ref": "#/$defs/id" },
+        "intended_role": {
+          "enum": ["dc_return", "ac_protective_earth", "chassis_bond", "unresolved"]
+        },
+        "source_ref_ids": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/id" },
+          "uniqueItems": true
+        }
+      }
+    }
+  }
+}

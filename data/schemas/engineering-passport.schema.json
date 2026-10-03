@@ -1,0 +1,490 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:expedition-electrical-platform:schema:engineering-passport",
+  "description": "Structural envelope. Loading additionally reconstructs evaluation from embedded canonical records and rejects any result or trace that differs; hashes establish integrity, not source authenticity.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "evaluator_revision",
+    "input",
+    "input_digest",
+    "component_bindings",
+    "corpus_digest",
+    "rule_data",
+    "rule_data_digest",
+    "examined_evidence",
+    "decisions",
+    "calculations",
+    "result",
+    "passport_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "2.0.0"
+    },
+    "evaluator_revision": {
+      "type": "string"
+    },
+    "input": {
+      "$ref": "urn:expedition-electrical-platform:schema:whole-system-input"
+    },
+    "input_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "corpus_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "rule_data_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "passport_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "rule_data": {
+      "type": "object"
+    },
+    "component_bindings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["component_id", "record_digest", "record", "manufacturer_revision"],
+        "properties": {
+          "component_id": {
+            "type": "string"
+          },
+          "record_digest": {
+            "$ref": "#/$defs/digest"
+          },
+          "record": {
+            "$ref": "urn:expedition-electrical-platform:schema:component"
+          },
+          "manufacturer_revision": {
+            "oneOf": [
+              {
+                "type": "object",
+                "required": ["state"],
+                "additionalProperties": false,
+                "properties": {
+                  "state": {
+                    "const": "unknown"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "required": ["state", "value", "verification_status"],
+                "additionalProperties": false,
+                "properties": {
+                  "state": {
+                    "const": "recorded"
+                  },
+                  "value": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "verification_status": {
+                    "enum": ["unverified", "partially_verified", "verified"]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "rule_id",
+          "rule_revision",
+          "status",
+          "code",
+          "message",
+          "inputs",
+          "evidence_refs",
+          "assumption_ids"
+        ],
+        "properties": {
+          "status": {
+            "enum": ["satisfied", "blocked", "unresolved"]
+          },
+          "evidence_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/evidenceReference"
+            }
+          }
+        }
+      }
+    },
+    "calculations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "rule_id",
+          "rule_revision",
+          "formula",
+          "inputs",
+          "evidence_refs",
+          "assumption_ids",
+          "output",
+          "unit"
+        ],
+        "properties": {
+          "kind": {
+            "const": "derived"
+          },
+          "evidence_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/evidenceReference"
+            }
+          }
+        }
+      }
+    },
+    "result": {
+      "type": "object",
+      "required": [
+        "status",
+        "assertion_scope",
+        "installation_safety",
+        "energy",
+        "system_evaluation",
+        "warnings",
+        "limitations",
+        "rule_lifecycle_status"
+      ],
+      "properties": {
+        "status": {
+          "enum": ["satisfied", "blocked", "unresolved"]
+        },
+        "assertion_scope": {
+          "const": "nominal-connectivity-and-device-demand"
+        },
+        "installation_safety": {
+          "const": "not_evaluated"
+        },
+        "rule_lifecycle_status": {
+          "enum": ["draft", "reviewed", "approved", "deprecated"]
+        },
+        "energy": {
+          "$ref": "#/$defs/energy"
+        },
+        "system_evaluation": {
+          "type": "object"
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "examined_evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/evidence"
+      }
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "evidenceReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidence_id", "engineering_use"],
+      "properties": {
+        "evidence_id": {
+          "type": "string"
+        },
+        "engineering_use": {
+          "enum": ["accepted_input", "withheld"]
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "component_id",
+        "record_digest",
+        "path",
+        "canonical_value",
+        "origin",
+        "verification_status",
+        "engineering_use",
+        "source_refs",
+        "source_native",
+        "normalization"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "component_id": {
+          "type": "string"
+        },
+        "record_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "path": {
+          "type": "string"
+        },
+        "canonical_value": {},
+        "origin": {
+          "enum": ["canonical_assertion", "product_derivation"]
+        },
+        "verification_status": {
+          "enum": ["unverified", "partially_verified", "verified"]
+        },
+        "engineering_use": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["state"],
+              "properties": {
+                "state": {
+                  "const": "accepted_input"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["state", "reason"],
+              "properties": {
+                "state": {
+                  "const": "withheld"
+                },
+                "reason": {
+                  "const": "record_not_verified"
+                }
+              }
+            }
+          ]
+        },
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "source_native": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["state"],
+          "properties": {
+            "state": {
+              "const": "not_retained_in_canonical_record"
+            }
+          }
+        },
+        "normalization": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "value"],
+          "properties": {
+            "kind": {
+              "const": "canonical_projection"
+            },
+            "value": {},
+            "unit": {
+              "type": "string"
+            }
+          }
+        },
+        "product_derivation": {}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "verification_status": {
+                "const": "verified"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "engineering_use": {
+                "properties": {
+                  "state": {
+                    "const": "accepted_input"
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "engineering_use": {
+                "properties": {
+                  "state": {
+                    "const": "withheld"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "unresolvedEnergy": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "instance_id", "state_id", "reasons"],
+          "properties": {
+            "kind": {
+              "const": "state"
+            },
+            "instance_id": {
+              "type": "string"
+            },
+            "state_id": {
+              "type": "string"
+            },
+            "reasons": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": ["power_unknown", "duration_unknown", "energy_not_resolved"]
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "instance_id", "reasons"],
+          "properties": {
+            "kind": {
+              "const": "schedule"
+            },
+            "instance_id": {
+              "type": "string"
+            },
+            "reasons": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "schedule_missing",
+                  "duration_unknown",
+                  "horizon_unknown",
+                  "horizon_mismatch"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "reason"],
+          "properties": {
+            "kind": {
+              "const": "evaluation"
+            },
+            "reason": {
+              "const": "no_states"
+            }
+          }
+        }
+      ]
+    },
+    "energy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "basis",
+        "status",
+        "completeness",
+        "resolved_subtotal_energy_wh",
+        "unresolved_contributions"
+      ],
+      "properties": {
+        "basis": {
+          "const": "device-side"
+        },
+        "status": {
+          "enum": ["satisfied", "unresolved"]
+        },
+        "completeness": {
+          "enum": ["complete", "incomplete"]
+        },
+        "resolved_subtotal_energy_wh": {
+          "type": "number",
+          "minimum": 0
+        },
+        "total_energy_wh": {
+          "type": "number",
+          "minimum": 0
+        },
+        "unresolved_contributions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/unresolvedEnergy"
+          }
+        }
+      },
+      "oneOf": [
+        {
+          "required": ["total_energy_wh"],
+          "properties": {
+            "completeness": {
+              "const": "complete"
+            },
+            "status": {
+              "const": "satisfied"
+            },
+            "unresolved_contributions": {
+              "maxItems": 0
+            }
+          }
+        },
+        {
+          "not": {
+            "required": ["total_energy_wh"]
+          },
+          "properties": {
+            "completeness": {
+              "const": "incomplete"
+            },
+            "status": {
+              "const": "unresolved"
+            },
+            "unresolved_contributions": {
+              "minItems": 1
+            }
+          }
+        }
+      ]
+    }
+  }
+}

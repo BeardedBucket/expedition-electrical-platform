@@ -689,6 +689,56 @@ first published numeric representation converted to millimeters without rounding
 
 ## Domain profiles
 
+### Installed-system backend proof and Engineering Passport
+
+The implemented Phase 3 backend is documented in
+[Whole-system backend](WHOLE_SYSTEM_BACKEND.md). It composes the existing core's
+calculation, load-state, battery-bank and system-aggregation functions. The
+Node-only `@expedition/engineering-core/engineering-passport` entry point is
+separate from the browser index and has no ingestion-runtime dependencies.
+
+An `InstalledSystemArchitecture` owns one existing `ReferenceSystem` installation
+and an additive `InstalledPowerTopology` over those same component instances.
+Electrical domains, logical-port bindings, directed wiring, selected canonical
+power paths and conductive relationships are explicit. Domain assignment does
+not create connectivity. Neither passive hardware nor a product/category name
+creates a conversion path. Multi-function devices retain distinct interfaces.
+
+`evaluateInstalledSystem` receives the exact architecture, requirements,
+assumptions and canonical product records; it selects no products or routes.
+Its `EngineeringPassport` binds complete supplied record snapshots, their
+SHA-256 digests, exact examined canonical evidence, review states, rule metadata,
+decisions, calculations, unresolved dependencies and warnings. Its
+`examined_evidence` collection distinguishes accepted inputs from withheld
+observations, and trace references repeat that use state. Evidence presence alone
+does not establish engineering reliance. Manufacturer
+revision remains independently unknown or explicitly recorded with review
+status. A project digest never supplies that revision. Original source wording
+and units unavailable in canonical records are explicitly not retained, rather
+than reconstructed from ingestion or asserted as published.
+
+The result's machine-readable assertion scope is
+`nominal-connectivity-and-device-demand`; installation safety is explicitly
+`not_evaluated`. Unknown idle demand withholds total scheduled energy. The energy
+summary has explicit completeness, resolved subtotal and structured unresolved
+state/schedule/evaluation contributions, including instances with no schedule.
+PV/DC source-context continuity remains unresolved on nominal equality alone;
+an explicit reviewed solar-conversion path supplies the modeled boundary. Rule
+lifecycle is visible beside the result; executing a draft proof does not approve it.
+Device energy does not become battery-side energy, physical body dimensions do not
+become installed envelope, and permitted series counts do not imply balancing
+or installation approval. Unsupported environmental, autonomy, source-energy,
+isolation and shared-capacity assertions remain unresolved when requested.
+Advisory references stay separate; no advisory assessment or builder policy
+becomes an electrical fact.
+
+Strict JSON loading reconstructs the entire evaluation from embedded snapshots
+and rejects changed results or traces even if an envelope hash is recomputed.
+Replay additionally requires exact external record content and supported rule
+data/evaluator revision. No network, clock or randomness enters evaluation.
+The production acceptance deliberately remains incomplete on the currently
+unverified corpus; it neither repairs records nor upgrades their status.
+
 The engineering core should remain reusable across domains. The initial profile is mobile/off-grid vehicle installations. A future stationary-installation profile may add different standards, code requirements, grounding/bonding rules, utility/service assumptions, environmental constraints, and component categories without changing the fundamental component/provenance/advisory architecture.
 
 Advisory records are assessments over separately stored, source-attributed evidence. Severity and confidence remain independent, and policy actions (`inform`, `caution`, `suppress_recommendation`, or `exclude`) are not engineering compatibility results. Automatic assessment is conservative: litigation, community, forum, social, or news reports alone produce a review-needed result rather than a confirmed technical finding. Evaluation receives an explicit timestamp so stale and review-due states are deterministic. Human-reviewed decisions remain explicit and visible.

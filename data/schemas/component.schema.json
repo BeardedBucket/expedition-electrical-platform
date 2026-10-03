@@ -18,6 +18,11 @@
     "part_number": {
       "type": ["string", "null"]
     },
+    "manufacturer_revision": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "description": "Explicit source-published manufacturer revision. Project digests, ingestion revisions, retrieval dates and catalog snapshots are distinct identities and cannot populate this field. Missing/null is unknown."
+    },
     "derived_fields": {
       "type": "object",
       "description": "Provenance for calculated product values keyed by canonical field path. A field absent here is not thereby asserted to be published; source refs establish published facts.",
@@ -206,6 +211,22 @@
               "$ref": "#/$defs/electricalConstraint"
             }
           },
+          "frequency_hz": {
+            "description": "Port-specific published frequency support; no AC input/output or global frequency inheritance is implied.",
+            "oneOf": [
+              { "type": "number", "exclusiveMinimum": 0 },
+              {
+                "type": "object",
+                "required": ["min", "max"],
+                "properties": {
+                  "min": { "type": "number", "exclusiveMinimum": 0 },
+                  "max": { "type": "number", "exclusiveMinimum": 0 }
+                },
+                "additionalProperties": false
+              },
+              { "type": "null" }
+            ]
+          },
           "notes": {
             "type": ["string", "null"]
           }
@@ -372,7 +393,8 @@
       "default": []
     },
     "electrical": {
-      "type": "object",
+      "description": "Null preserves unknown electrical data, matching the canonical loader and TypeScript contract; it never means zero or unsupported.",
+      "type": ["object", "null"],
       "properties": {
         "nominal_voltage_v": {
           "oneOf": [
