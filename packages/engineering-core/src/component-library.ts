@@ -207,6 +207,8 @@ export interface ComponentLogicalPort {
   readonly voltage_v?: number | ComponentLibraryRange | null;
   readonly current_a?: number | ComponentLibraryRange | null;
   readonly power_w?: number | ComponentLibraryRange | null;
+  /** Port-specific frequency prevents multi-function AC input/output ambiguity. */
+  readonly frequency_hz?: number | ComponentLibraryRange | null;
   readonly constraints?: readonly ComponentElectricalConstraint[];
   readonly notes?: string | null;
   readonly [key: string]: unknown;
@@ -426,6 +428,8 @@ export interface ComponentLibraryAdvisoryReference extends Record<string, unknow
 }
 
 export interface ComponentLibraryRecord {
+  /** Published manufacturer revision only; never a project digest, retrieval date or ingestion revision. */
+  readonly manufacturer_revision?: string | null;
   readonly qualified_values?: readonly CanonicalQualifiedValue[];
   readonly id: string;
   readonly manufacturer: string;
@@ -954,6 +958,11 @@ const validateEngineeringConstraints = (input: unknown): readonly string[] => {
       validateOptionalRangeValue(`ports[${index}].voltage_v`, portRecord.voltage_v, addMessage);
       validateOptionalRangeValue(`ports[${index}].current_a`, portRecord.current_a, addMessage);
       validateOptionalRangeValue(`ports[${index}].power_w`, portRecord.power_w, addMessage);
+      validateOptionalRangeValue(
+        `ports[${index}].frequency_hz`,
+        portRecord.frequency_hz,
+        addMessage,
+      );
       if (
         portRecord.notes !== undefined &&
         portRecord.notes !== null &&

@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:expedition-electrical-platform:schema:whole-system-input",
+  "type": "object",
+  "required": ["requirements", "architecture", "assumptions"],
+  "additionalProperties": false,
+  "properties": {
+    "architecture": {
+      "type": "object",
+      "required": ["installation", "power_topology"],
+      "additionalProperties": false,
+      "properties": {
+        "installation": { "$ref": "urn:expedition-electrical-platform:schema:reference-system" },
+        "power_topology": {
+          "$ref": "urn:expedition-electrical-platform:schema:installed-power-topology"
+        }
+      }
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "origin", "statement"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "origin": { "enum": ["user", "project"] },
+          "statement": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "requirements": {
+      "type": "object",
+      "required": ["id", "supplies", "load_states", "battery_banks"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "house_domain_id": { "$ref": "#/$defs/id" },
+        "evaluation_hours": { "$ref": "#/$defs/nonnegative" },
+        "desired_autonomy_hours": { "$ref": "#/$defs/nonnegative" },
+        "environment": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "temperature_c": { "type": "number" }, "notes": { "type": "string" } }
+        },
+        "source_availability": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["domain_id"],
+            "additionalProperties": false,
+            "properties": {
+              "domain_id": { "$ref": "#/$defs/id" },
+              "available_hours": { "$ref": "#/$defs/nonnegative" }
+            }
+          }
+        },
+        "supplies": { "type": "array", "items": { "$ref": "#/$defs/supply" } },
+        "load_states": { "type": "array", "items": { "$ref": "#/$defs/loadState" } },
+        "battery_banks": { "type": "array", "items": { "$ref": "#/$defs/bank" } }
+      }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+    "nonnegative": { "type": "number", "minimum": 0 },
+    "supply": {
+      "type": "object",
+      "required": ["id", "from", "to", "edge_ids"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "from": { "$ref": "#/$defs/id" },
+        "to": { "$ref": "#/$defs/id" },
+        "edge_ids": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true },
+        "required_power_w": { "$ref": "#/$defs/nonnegative" },
+        "requires_isolation": { "type": "boolean" }
+      }
+    },
+    "loadState": {
+      "type": "object",
+      "required": ["id", "binding_id", "state", "power"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "binding_id": { "$ref": "#/$defs/id" },
+        "state": { "enum": ["active", "idle", "standby", "quiescent", "off"] },
+        "duration_hours": { "$ref": "#/$defs/nonnegative" },
+        "power": {
+          "oneOf": [
+            {
+              "type": "object",
+              "required": ["kind", "watts", "assumption_id"],
+              "additionalProperties": false,
+              "properties": {
+                "kind": { "const": "requirement" },
+                "watts": { "$ref": "#/$defs/nonnegative" },
+                "assumption_id": { "$ref": "#/$defs/id" }
+              }
+            },
+            {
+              "type": "object",
+              "required": ["kind"],
+              "additionalProperties": false,
+              "properties": {
+                "kind": { "const": "component" },
+                "qualified_value_id": { "$ref": "#/$defs/id" },
+                "context": { "type": "object" }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "bank": {
+      "type": "object",
+      "required": ["id", "instance_id", "domain_id", "series_count", "parallel_count"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "instance_id": { "$ref": "#/$defs/id" },
+        "domain_id": { "$ref": "#/$defs/id" },
+        "series_count": { "type": "integer", "minimum": 1 },
+        "parallel_count": { "type": "integer", "minimum": 1 },
+        "required_nominal_energy_wh": { "$ref": "#/$defs/nonnegative" }
+      }
+    }
+  }
+}
