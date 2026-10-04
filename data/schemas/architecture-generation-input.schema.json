@@ -1,0 +1,209 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:expedition-electrical-platform:schema:architecture-generation-input",
+  "type": "object",
+  "required": ["schema_version", "requirements", "assumptions"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "2.0.0"
+    },
+    "requirements": {
+      "type": "object",
+      "required": ["id", "loads", "charging_sources"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$",
+          "maxLength": 128
+        },
+        "fixed_house_voltage_v": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "loads": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "domain"],
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._-]*$",
+                "maxLength": 128
+              },
+              "domain": {
+                "type": "object",
+                "required": ["kind"],
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "enum": ["dc", "pv_dc", "ac"]
+                  },
+                  "nominal_voltage_v": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "frequency_hz": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  }
+                }
+              },
+              "required_power_w": {
+                "type": "number",
+                "minimum": 0
+              },
+              "requires_isolation": {
+                "type": "boolean"
+              },
+              "schedule": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["state"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "state": {
+                      "enum": ["active", "idle", "standby", "off"]
+                    },
+                    "duration_hours": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "power_w": {
+                      "type": "number",
+                      "minimum": 0
+                    }
+                  }
+                },
+                "maxItems": 64
+              }
+            }
+          },
+          "maxItems": 64
+        },
+        "charging_sources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "kind", "domain"],
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._-]*$",
+                "maxLength": 128
+              },
+              "kind": {
+                "enum": ["vehicle", "solar", "shore"]
+              },
+              "domain": {
+                "type": "object",
+                "required": ["kind"],
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "enum": ["dc", "pv_dc", "ac"]
+                  },
+                  "nominal_voltage_v": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "frequency_hz": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  }
+                }
+              },
+              "required_output_power_w": {
+                "type": "number",
+                "minimum": 0
+              },
+              "requires_isolation": {
+                "type": "boolean"
+              }
+            }
+          },
+          "maxItems": 16
+        },
+        "storage": {
+          "type": "object",
+          "required": ["required"],
+          "additionalProperties": false,
+          "properties": {
+            "required": {
+              "type": "boolean"
+            },
+            "minimum_nominal_energy_wh": {
+              "type": "number",
+              "minimum": 0
+            },
+            "desired_autonomy_hours": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          }
+        },
+        "unsupported_requirements": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "kind", "statement"],
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._-]*$",
+                "maxLength": 128
+              },
+              "kind": {
+                "enum": [
+                  "bonding",
+                  "protection",
+                  "distribution",
+                  "switching",
+                  "environment",
+                  "installation",
+                  "source_availability"
+                ]
+              },
+              "statement": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              }
+            }
+          },
+          "maxItems": 64
+        }
+      }
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "origin", "statement"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]*$",
+            "maxLength": 128
+          },
+          "origin": {
+            "enum": ["user", "project"]
+          },
+          "statement": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        }
+      },
+      "maxItems": 64
+    }
+  }
+}

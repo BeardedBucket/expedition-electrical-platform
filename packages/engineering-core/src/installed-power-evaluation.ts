@@ -1,3 +1,4 @@
+import { passiveDomainStates, powerPathDomainStates } from './nominal-domain-semantics.js';
 import type { PassportStatus } from './engineering-passport-contracts.js';
 import { conversionPowerToCurrent, directPowerToCurrent } from './calculations.js';
 import type { InstalledSystemContext } from './installed-system-context.js';
@@ -117,30 +118,7 @@ export const evaluateInstalledPowerTopology = (
     const localStates: PassportStatus[] = [];
     for (const binding of [from, to]) if (binding) localStates.push(bindingStates.get(binding.id)!);
     if (edge.kind === 'wire' || edge.kind === 'conductive') {
-      const known =
-        fromDomain.nominal_voltage_v !== undefined && toDomain.nominal_voltage_v !== undefined;
-      localStates.push(
-        dcKind(fromDomain) !== dcKind(toDomain) ||
-          (known && fromDomain.nominal_voltage_v !== toDomain.nominal_voltage_v)
-          ? 'blocked'
-          : !known
-            ? 'unresolved'
-            : 'satisfied',
-      );
-      if (fromDomain.kind !== toDomain.kind && dcKind(fromDomain) === dcKind(toDomain)) {
-        // Equal DC nominal points do not establish PV operating/source continuity.
-        // No universal controller requirement is asserted: this interpretation is
-        // simply unmodeled. Explicit canonical conversion is evaluated separately.
-        localStates.push('unresolved');
-      }
-      if (fromDomain.kind === 'ac' || toDomain.kind === 'ac')
-        localStates.push(
-          fromDomain.frequency_hz === undefined || toDomain.frequency_hz === undefined
-            ? 'unresolved'
-            : fromDomain.frequency_hz === toDomain.frequency_hz
-              ? 'satisfied'
-              : 'blocked',
-        );
+      localStates.push(...passiveDomainStates(fromDomain, toDomain));
     }
     if (edge.kind === 'wire') {
       // Ports consume or provide power; a wire cannot turn an input port into a
@@ -189,25 +167,7 @@ export const evaluateInstalledPowerTopology = (
         );
         if (!observedCapability) localStates.push('unresolved');
         else {
-          const kinds = [dcKind(fromDomain), dcKind(toDomain)].join(':');
-          const permitted =
-            observedCapability.type === 'dc_to_dc_conversion' ||
-            observedCapability.type === 'solar_energy_conversion'
-              ? kinds === 'dc:dc'
-              : observedCapability.type === 'inversion'
-                ? kinds === 'dc:ac'
-                : observedCapability.type === 'charging'
-                  ? kinds === 'ac:dc' || kinds === 'dc:dc'
-                  : false;
-          localStates.push(permitted ? 'satisfied' : 'blocked');
-          if (
-            fromDomain.kind !== toDomain.kind &&
-            dcKind(fromDomain) === dcKind(toDomain) &&
-            observedCapability.type !== 'solar_energy_conversion'
-          )
-            // An ordinary DC conversion capability does not interpret the
-            // distinct PV source context. A reviewed solar path can do so.
-            localStates.push('unresolved');
+          localStates.push(...powerPathDomainStates(observedCapability.type, fromDomain, toDomain));
         }
         const fromPort = getPort(from);
         const toPort = getPort(to);

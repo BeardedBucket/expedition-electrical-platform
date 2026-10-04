@@ -17,6 +17,10 @@
     "./component-library-loader": {
       "types": "./dist/component-library-loader.d.ts",
       "import": "./dist/component-library-loader.js"
+    },
+    "./architecture-generation": {
+      "types": "./dist/architecture-generation.d.ts",
+      "import": "./dist/architecture-generation.js"
     }
   },
   "scripts": {

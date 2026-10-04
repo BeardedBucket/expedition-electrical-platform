@@ -1,0 +1,24 @@
+{
+  "id": "electrical.architecture-generation",
+  "version": "2.0.0",
+  "status": "draft",
+  "kind": "constraint",
+  "description": "Product-independent mobile/off-grid abstract architecture generation; nominal DC/PV/AC domains and explicit directed functional paths, without installation approval or product matching.",
+  "source_refs": [
+    {
+      "type": "project-rationale",
+      "title": "Architecture generation ownership and limits",
+      "path": "docs/ARCHITECTURE_GENERATION.md"
+    }
+  ],
+  "candidate_house_voltages_v": [12, 24, 48],
+  "ac_function_arrangements": ["separate", "combined"],
+  "allow_dc_load_conversion": true,
+  "bounds": {
+    "max_candidates": 32,
+    "max_loads": 64,
+    "max_charging_sources": 16
+  },
+  "rationale": "12/24/48 V are project-supported exploration families, not preferences, vehicle defaults or standards values. At most 16 distinct voltage choices and two AC arrangements yield 32 candidates; fixed voltage is one choice. Compatible complete load domains share one functional boundary without inventing simultaneity, aggregate capacity or per-load product slots. Explicit isolation and unknown compatibility retain separate boundaries. This is one deterministic partition, not a Cartesian search dimension. 64 loads and 16 charging sources bound linear topology/trace work per candidate; conservative operating limits without measured production evidence. Reconsider with a supported larger requirements corpus. Bounds narrow admission, never silently truncate generation.",
+  "load_supply_arrangement": "shared_compatible_domains"
+}
