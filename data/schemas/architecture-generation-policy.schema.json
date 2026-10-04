@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:expedition-electrical-platform:schema:architecture-generation-policy",
+  "type": "object",
+  "required": [
+    "id",
+    "version",
+    "status",
+    "kind",
+    "description",
+    "source_refs",
+    "candidate_house_voltages_v",
+    "ac_function_arrangements",
+    "allow_dc_load_conversion",
+    "bounds",
+    "rationale",
+    "load_supply_arrangement"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]*$",
+      "maxLength": 128
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "status": {
+      "enum": ["draft", "reviewed", "approved", "deprecated"]
+    },
+    "kind": {
+      "const": "constraint"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "source_refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "title", "path"],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "project-rationale"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        }
+      },
+      "maxItems": 16,
+      "minItems": 1
+    },
+    "candidate_house_voltages_v": {
+      "type": "array",
+      "items": {
+        "type": "number",
+        "exclusiveMinimum": 0
+      },
+      "maxItems": 16,
+      "minItems": 1
+    },
+    "ac_function_arrangements": {
+      "type": "array",
+      "items": {
+        "enum": ["separate", "combined"]
+      },
+      "maxItems": 2,
+      "minItems": 1
+    },
+    "allow_dc_load_conversion": {
+      "type": "boolean"
+    },
+    "bounds": {
+      "type": "object",
+      "required": ["max_candidates", "max_loads", "max_charging_sources"],
+      "additionalProperties": false,
+      "properties": {
+        "max_candidates": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32
+        },
+        "max_loads": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        },
+        "max_charging_sources": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16
+        }
+      }
+    },
+    "rationale": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "load_supply_arrangement": {
+      "const": "shared_compatible_domains"
+    }
+  }
+}

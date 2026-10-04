@@ -178,7 +178,16 @@ export const validateDataRoot = async (dataRoot = join(process.cwd(), 'data'), o
       throw new Error(`No schema mapping for data file: ${relativePath}`);
     }
 
-    const schemaFile = join(schemaRoot, schemaName);
+    // Phase 4 policy remains a rule collection member, with a closed executable
+    // policy schema that includes the existing rule lifecycle metadata.
+    // File identity selects this schema; policy data cannot opt out by changing
+    // its own id. Explicit/tracked scope still owns which files are read.
+    const schemaFile = join(
+      schemaRoot,
+      collection === 'rules' && basename(dataFile) === 'architecture-generation.json'
+        ? 'architecture-generation-policy.schema.json'
+        : schemaName,
+    );
     const validate = ajv.compile(validators.get(schemaFile));
     const document = await readDataFile(dataFile);
     if (!validate(document)) {

@@ -9,6 +9,15 @@ certification. `result.status` is qualified by the machine-readable
 
 ## Ownership and existing-core composition
 
+Phase 4's [architecture generator](ARCHITECTURE_GENERATION.md) shares the extracted
+`nominal-domain-semantics.ts` pure helpers and `portable-json.ts` snapshot encoder.
+The nominal DC/PV/AC and capability/path rules are unchanged; valid existing
+passport digests retain their encoding. Shared encoding now also rejects array
+accessors/hidden properties and sparse arrays with compensating extra keys.
+Exact product evidence, installed routes, schedules, switching and battery-bank
+permission remain owned by this Phase 3 evaluator. Abstract generation never
+creates runtime witness records or weakens its canonical-review boundary.
+
 The Node-only `@expedition/engineering-core/engineering-passport` package entry
 point exposes `evaluateInstalledSystem`, `serializeEngineeringPassport`,
 `parseEngineeringPassport` and `replayEngineeringPassport`. It is deliberately

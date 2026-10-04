@@ -689,6 +689,31 @@ first published numeric representation converted to millimeters without rounding
 
 ## Domain profiles
 
+### Product-independent architecture generation
+
+The implemented Phase 4 backend is documented in
+[Architecture generation](ARCHITECTURE_GENERATION.md). Its Node-only
+`@expedition/engineering-core/architecture-generation` entry point takes explicit
+end-system requirements and versioned project policy, without catalog or overlay
+inputs. It generates bounded unranked nominal-domain candidates and abstract
+functional product roles with typed engineering predicates and input/decision
+provenance. Portable version 2 separates requirement-only demand endpoints from
+mandatory product slots. Compatible complete load domains share functional supply
+boundaries; individual W lower bounds do not establish concurrent capacity.
+Shared capacity stays unresolved and storage dispatch stays deferred until explicit
+requirements establish it. It shares nominal-domain interpretation with Phase 3
+and supplies no
+runtime synthetic products. Exact input/policy snapshots, stable digests and full
+reconstruction protect portable artifacts.
+
+`structurally_viable` has the explicit abstract-topology assertion scope;
+`product_binding` and `installation_safety` remain `not_evaluated`. Missing data
+and unsupported interpretations remain unresolved, known contradictions stay
+blocked, and draft policy lifecycle stays visible. Future Phase 5 applies product
+evidence to the role predicates and forms exact bindings for Phase 3; future
+Phase 6 compares tradeoffs. Product availability cannot change which architecture
+structures Phase 4 generates.
+
 ### Installed-system backend proof and Engineering Passport
 
 The implemented Phase 3 backend is documented in

@@ -33,22 +33,13 @@ const freezeRuleData = (value: unknown): void => {
 freezeRuleData(ruleData);
 export const installedSystemRuleData: PassportRuleData = ruleData;
 
-export const statusOf = (states: readonly PassportStatus[]): PassportStatus =>
-  states.includes('blocked')
-    ? 'blocked'
-    : states.includes('unresolved')
-      ? 'unresolved'
-      : 'satisfied';
+export { statusOf, dcKind } from './nominal-domain-semantics.js';
 export const severityOf = (status: PassportStatus) =>
   status === 'blocked'
     ? ('FAIL' as const)
     : status === 'unresolved'
       ? ('CONDITIONAL' as const)
       : ('PASS' as const);
-// Canonical ports express current type, not installed source context. Only port
-// matching/current arithmetic may erase the PV label; continuity must retain it.
-export const dcKind = (domain: InstalledElectricalDomain) =>
-  domain.kind === 'pv_dc' ? 'dc' : domain.kind;
 export const includesValue = (rating: unknown, value: number): boolean | undefined => {
   if (typeof rating === 'number') return rating === value;
   if (
