@@ -14,6 +14,31 @@ export interface PassportAssumption {
 }
 
 export interface InstalledSystemRequirements {
+  /** Requirement-owned endpoints have no component/instance identity or manufacturer facts. */
+  readonly project_demands?: readonly {
+    readonly id: string;
+    readonly domain_id: string;
+    readonly required_power_w?: number;
+    readonly provenance: {
+      readonly requirement_id: string;
+      readonly pointer: string;
+      /** Only genuine dependencies; these IDs must resolve in input.assumptions. */
+      readonly assumption_ids?: readonly string[];
+    };
+    readonly schedule?: readonly {
+      readonly state: 'active' | 'idle' | 'standby' | 'off';
+      readonly duration_hours?: number;
+      readonly power_w?: number;
+    }[];
+  }[];
+  /** Inherited failures/unknowns can only weaken a proof; an upstream label cannot supply YES. */
+  readonly mandatory_conditions?: readonly {
+    readonly id: string;
+    readonly status: 'blocked' | 'unresolved';
+    readonly artifact_digest: string;
+    readonly subject_id: string;
+    readonly reason_codes: readonly string[];
+  }[];
   readonly id: string;
   readonly house_domain_id?: string;
   readonly evaluation_hours?: number;
@@ -126,6 +151,11 @@ export interface PassportRuleData {
 }
 
 export type UnresolvedEnergyContribution =
+  | {
+      readonly kind: 'project_demand';
+      readonly demand_id: string;
+      readonly reasons: readonly string[];
+    }
   | {
       readonly kind: 'state';
       readonly instance_id: string;

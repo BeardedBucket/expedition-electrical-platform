@@ -3,7 +3,7 @@
   "$id": "urn:expedition-electrical-platform:schema:component",
   "title": "Component",
   "type": "object",
-  "required": ["id", "manufacturer", "model", "category", "verification_status"],
+  "required": ["id", "manufacturer", "model", "verification_status"],
   "properties": {
     "id": {
       "type": "string",
@@ -52,6 +52,26 @@
         "additionalProperties": false
       }
     },
+    "unsupported_capabilities": {
+      "type": "array",
+      "uniqueItems": true,
+      "description": "Explicit source-backed unsupported capabilities. Missing positive entries do not assert absence. Engineering use requires the same record review as positive capabilities.",
+      "items": {
+        "enum": [
+          "energy_storage",
+          "inversion",
+          "charging",
+          "dc_to_dc_conversion",
+          "solar_energy_conversion",
+          "monitoring",
+          "communication",
+          "control",
+          "distribution",
+          "load_consumption",
+          "other"
+        ]
+      }
+    },
     "product_role": {
       "type": ["string", "null"],
       "enum": [
@@ -97,6 +117,16 @@
               "load_consumption",
               "other"
             ]
+          },
+          "port_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._-]+$"
+            },
+            "description": "Exact capability participants. Omission is unknown; global capability presence does not associate an unrelated port."
           },
           "name": {
             "type": ["string", "null"]
@@ -252,6 +282,10 @@
             "type": "string",
             "pattern": "^[a-z0-9][a-z0-9._-]+$"
           },
+          "isolated": {
+            "type": "boolean",
+            "description": "Explicit path-local galvanic isolation assertion. Omission is unknown."
+          },
           "to_port": {
             "type": "string",
             "pattern": "^[a-z0-9][a-z0-9._-]+$"
@@ -261,7 +295,8 @@
       }
     },
     "category": {
-      "type": "string"
+      "type": "string",
+      "description": "Optional classification metadata; omission does not exclude a canonical record from engineering selection."
     },
     "product_family": {
       "type": ["string", "null"]

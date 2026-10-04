@@ -21,6 +21,10 @@
     "./architecture-generation": {
       "types": "./dist/architecture-generation.d.ts",
       "import": "./dist/architecture-generation.js"
+    },
+    "./product-selection": {
+      "types": "./dist/product-selection.d.ts",
+      "import": "./dist/product-selection.js"
     }
   },
   "scripts": {

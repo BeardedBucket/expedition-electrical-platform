@@ -23,7 +23,7 @@ import type {
 
 // Version owns interpretation and composition, not manufacturer revision. Bump
 // alongside rule data whenever behavior changes; replay requires exact equality.
-export const WHOLE_SYSTEM_EVALUATOR_REVISION = 'installed-system-proof/1.1.0';
+export const WHOLE_SYSTEM_EVALUATOR_REVISION = 'installed-system-proof/1.2.0';
 const freezeRuleData = (value: unknown): void => {
   if (value && typeof value === 'object') {
     Object.values(value).forEach(freezeRuleData);
@@ -103,6 +103,20 @@ export const createInstalledSystemContext = (
   const bindings = unique(topology.bindings, 'binding');
   const edges = unique(topology.edges, 'edge');
   const assumptions = unique(request.assumptions, 'assumption');
+  const projectDemands = unique(request.requirements.project_demands ?? [], 'project demand');
+  unique(request.requirements.mandatory_conditions ?? [], 'mandatory condition');
+  for (const demand of projectDemands.values()) {
+    if (domains.has(demand.id) || bindings.has(demand.id) || instances.has(demand.id))
+      throw new TypeError(
+        'Project demand identity must remain distinct from product/domain identity.',
+      );
+    // Requirement ID/pointer are direct source locators, not references to an
+    // invented requirement registry. Only actual assumption dependencies resolve here.
+    if (!domains.has(demand.domain_id))
+      throw new TypeError('Project demand requires an existing domain.');
+    if (demand.provenance.assumption_ids?.some((id) => !assumptions.has(id)))
+      throw new TypeError('Project demand cites a nonexistent assumption dependency.');
+  }
   unique(request.requirements.supplies, 'supply');
   unique(request.requirements.load_states, 'load state');
   unique(request.requirements.battery_banks, 'battery bank');
@@ -130,7 +144,9 @@ export const createInstalledSystemContext = (
     boundPorts.add(key);
   }
   const endpointDomain = (id: string): InstalledElectricalDomain => {
-    const domain = domains.get(id) ?? domains.get(bindings.get(id)?.domain_id ?? '');
+    const domain =
+      domains.get(id) ??
+      domains.get(bindings.get(id)?.domain_id ?? projectDemands.get(id)?.domain_id ?? '');
     if (!domain) throw new TypeError(`Missing endpoint '${id}'.`);
     return domain;
   };
@@ -253,6 +269,7 @@ export const createInstalledSystemContext = (
     bindings,
     edges,
     assumptions,
+    projectDemands,
     decisions,
     calculations,
     facts,

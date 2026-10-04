@@ -52,6 +52,14 @@ export const evaluateInstalledSystem = (
       code: 'rule_review_required',
       message: `Rule lifecycle remains ${ruleData.status}; nominal satisfaction does not assert rule approval.`,
     });
+  for (const condition of request.requirements.mandatory_conditions ?? [])
+    decide(
+      `inherited:${condition.id}`,
+      condition.status,
+      'inherited_mandatory_condition',
+      'A retained upstream mandatory failure or unknown cannot disappear in exact-system evaluation. Content identity is not supporting engineering evidence.',
+      condition,
+    );
   for (const instance of instances.values()) {
     const component = componentFor(instance.id);
     if (instance.status !== 'selected' && instance.status !== 'installed')

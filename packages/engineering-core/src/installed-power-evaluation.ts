@@ -121,6 +121,7 @@ export const evaluateInstalledPowerTopology = (
       localStates.push(...passiveDomainStates(fromDomain, toDomain));
     }
     if (edge.kind === 'wire') {
+      if (context.projectDemands.has(edge.from)) localStates.push('blocked');
       // Ports consume or provide power; a wire cannot turn an input port into a
       // source or drive an output-only port. Bus nodes have no invented roles.
       if (from) {

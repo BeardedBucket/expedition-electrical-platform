@@ -9,6 +9,7 @@ import type {
 import type { InstalledSystemContext } from './installed-system-context.js';
 import { statusOf, dcKind } from './installed-system-context.js';
 import { serializePassportValue } from './passport-integrity.js';
+import { evaluateProjectOwnedDemand } from './project-demand-evaluation.js';
 
 /** Exclusive device-state schedules. Device-side demand is distinct from battery-side energy/losses. */
 export const evaluateInstalledScheduledDemand = (
@@ -189,11 +190,13 @@ export const evaluateInstalledScheduledDemand = (
       reasons,
     });
   }
-  if (stateResults.length === 0)
+  const projectDemand = evaluateProjectOwnedDemand(context);
+  unresolvedContributions.push(...projectDemand.unresolved);
+  if (stateResults.length === 0 && projectDemand.stateCount === 0)
     unresolvedContributions.push({ kind: 'evaluation', reason: 'no_states' });
   const resolvedSubtotalEnergyWh = stateResults.reduce(
     (sum, { result }) => sum + (result.energyWh === undefined ? 0 : result.energyWh),
-    0,
+    projectDemand.subtotal,
   );
   const coverageStates: PassportStatus[] = [];
   for (const instance of instances.values()) {
@@ -241,7 +244,8 @@ export const evaluateInstalledScheduledDemand = (
     ...stateResults.map(({ result }) =>
       result.energyWh === undefined ? ('unresolved' as const) : ('satisfied' as const),
     ),
-    ...(stateResults.length === 0 ? ['unresolved' as const] : []),
+    ...(stateResults.length === 0 && projectDemand.stateCount === 0 ? ['unresolved' as const] : []),
+    ...(projectDemand.unresolved.length ? ['unresolved' as const] : []),
   ]);
   if (!Number.isFinite(resolvedSubtotalEnergyWh))
     throw new TypeError('Energy arithmetic overflow; no finite portable result can be produced.');
@@ -272,6 +276,9 @@ export const evaluateInstalledScheduledDemand = (
         .filter(({ result }) => result.energyWh !== undefined)
         .map(({ state, result }) => ({ state_id: state.id, energy_wh: result.energyWh })),
       unresolved_contributions: unresolvedContributions,
+      ...(context.projectDemands.size
+        ? { resolved_project_demand_energy_wh: projectDemand.subtotal }
+        : {}),
       complete_schedule: energyStatus === 'satisfied',
     },
     resolvedSubtotalEnergyWh,
@@ -284,6 +291,9 @@ export const evaluateInstalledScheduledDemand = (
       {
         state_ids: stateResults.map(({ state }) => state.id),
         energy_wh: stateResults.map(({ result }) => result.energyWh),
+        ...(context.projectDemands.size
+          ? { resolved_project_demand_energy_wh: projectDemand.subtotal }
+          : {}),
       },
       resolvedSubtotalEnergyWh,
       'Wh',

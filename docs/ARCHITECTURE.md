@@ -691,6 +691,12 @@ first published numeric representation converted to millimeters without rounding
 
 ### Product-independent architecture generation
 
+Phase 5 now applies these required roles through the Node-only
+`@expedition/engineering-core/product-selection` entry. See
+[Product selection](PRODUCT_SELECTION.md) for exact witnesses, tri-state gates,
+fixed equipment, bounded storage assemblies and project-owned Phase 3 demand.
+No preference/ranking authority or production-corpus expansion is introduced.
+
 The implemented Phase 4 backend is documented in
 [Architecture generation](ARCHITECTURE_GENERATION.md). Its Node-only
 `@expedition/engineering-core/architecture-generation` entry point takes explicit

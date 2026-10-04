@@ -75,9 +75,17 @@ describe('canonical catalog validation', () => {
   it('rejects malformed canonical components', async () => {
     const root = await makeRoot({
       file: 'acme.example-01.yaml',
-      record: component({ category: undefined }),
+      record: component({ id: undefined }),
     });
     await expect(validateDataRoot(root)).rejects.toThrow(/failed validation/i);
+  });
+
+  it('accepts absent optional classification without inventing a category', async () => {
+    const root = await makeRoot({
+      file: 'acme.example-01.yaml',
+      record: component({ category: undefined }),
+    });
+    await expect(validateDataRoot(root)).resolves.toMatchObject({ validated: 1 });
   });
 
   it.each(['.yml', '.json'])('rejects %s canonical component extensions', async (extension) => {

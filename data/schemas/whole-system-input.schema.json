@@ -55,6 +55,93 @@
             }
           }
         },
+        "project_demands": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "domain_id", "provenance"],
+            "properties": {
+              "id": {
+                "$ref": "#/$defs/id"
+              },
+              "domain_id": {
+                "$ref": "#/$defs/id"
+              },
+              "required_power_w": {
+                "$ref": "#/$defs/nonnegative"
+              },
+              "provenance": {
+                "type": "object",
+                "required": ["requirement_id", "pointer"],
+                "properties": {
+                  "assumption_ids": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": { "$ref": "#/$defs/id" }
+                  },
+                  "requirement_id": {
+                    "$ref": "#/$defs/id"
+                  },
+                  "pointer": {
+                    "type": "string",
+                    "pattern": "^/"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "schedule": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["state"],
+                  "properties": {
+                    "state": {
+                      "enum": ["active", "idle", "standby", "off"]
+                    },
+                    "duration_hours": {
+                      "$ref": "#/$defs/nonnegative"
+                    },
+                    "power_w": {
+                      "$ref": "#/$defs/nonnegative"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "mandatory_conditions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "status", "artifact_digest", "subject_id", "reason_codes"],
+            "properties": {
+              "id": {
+                "$ref": "#/$defs/id"
+              },
+              "status": {
+                "enum": ["blocked", "unresolved"]
+              },
+              "artifact_digest": {
+                "type": "string",
+                "pattern": "^sha256:[a-f0-9]{64}$"
+              },
+              "subject_id": {
+                "$ref": "#/$defs/id"
+              },
+              "reason_codes": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        },
         "supplies": { "type": "array", "items": { "$ref": "#/$defs/supply" } },
         "load_states": { "type": "array", "items": { "$ref": "#/$defs/loadState" } },
         "battery_banks": { "type": "array", "items": { "$ref": "#/$defs/bank" } }

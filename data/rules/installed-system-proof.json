@@ -1,6 +1,6 @@
 {
   "id": "electrical.installed-system-proof",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "status": "draft",
   "kind": "constraint",
   "description": "Project-authored installed topology interpretation: exact directed canonical power paths, same-domain passive continuity, nominal port compatibility, evidence-qualified schedules and explicitly permitted battery banks. No standards-derived numeric thresholds or installation certification.",
@@ -8,7 +8,8 @@
   "expression": null,
   "assumptions": [
     "Domain voltages are explicit nominal design points, not complete operating envelopes.",
-    "Only explicitly supplied routes and schedules are evaluated; no architecture or products are selected."
+    "Only explicitly supplied routes and schedules are evaluated; no architecture or products are selected.",
+    "Project-owned demand endpoints retain explicit requirement provenance and schedules separately from manufacturer products; inherited mandatory unknowns/failures cannot strengthen proof."
   ],
   "source_refs": [
     {

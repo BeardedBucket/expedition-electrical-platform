@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:expedition-electrical-platform:schema:product-selection",
+  "description": "Output semantics are validated by complete deterministic reconstruction, including all nested role/gate/evidence/calculation fields, rather than trusting digest identity.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "selector_revision",
+    "input",
+    "input_digest",
+    "corpus_digest",
+    "architecture_digest",
+    "policy",
+    "policy_digest",
+    "roles",
+    "warnings",
+    "result_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "selector_revision": {
+      "const": "product-selection/1.0.0"
+    },
+    "input": {
+      "$ref": "urn:expedition-electrical-platform:schema:product-selection-input"
+    },
+    "input_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "corpus_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "architecture_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "policy": {
+      "$ref": "urn:expedition-electrical-platform:schema:product-selection-policy"
+    },
+    "policy_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "roles": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "result_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    }
+  },
+  "additionalProperties": false
+}
