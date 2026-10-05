@@ -257,13 +257,18 @@ its unsupported table/layout diagnostic are unchanged.
 1. **Physical constants and calculations** — deterministic formulas such as power/current relationships and conductor resistance calculations.
 2. **Standards datasets** — human-entered, versioned tables derived from standards under an allowed-use process.
 3. **Engineering rules** — human-reviewable rules that transform requirements into constraints, warnings, and candidate architectures.
-4. **Global component library** — product facts, dimensions, electrical limits, weight, links, cost snapshots, CAD/drawing availability, and compatibility metadata.
+4. **Global component library** — product facts, dimensions, electrical limits, weight, links, CAD/drawing availability, and compatibility metadata. Commercial cost snapshots have separate ownership.
 5. **Safety/advisory layer** — time-aware advisories, recalls, watch items, affected revisions, evidence, and disposition.
 6. **Builder overlay** — inventory, preferred products, services, regions, lead routing, and optional builder-specific pricing.
-7. **Recommendation engine** — selects and scores candidates without allowing commercial preference to defeat engineering constraints.
+7. **Recommendation engine** — compares exact evaluated systems using explicit preference tiers and structured tradeoffs, preserving engineering status and advisory governance.
 8. **Configurator UI/embed** — generic hosted app plus builder-aware embeddable mode.
 
 ## Recommendation precedence
+
+The following describes legacy candidate/overlay processing. Phase 6 exact-system
+comparison first preserves engineering classes and advisory exclusions, then uses
+only the explicit priority tiers in the supplied preference profile; it does not
+introduce this list as a hidden default ordering among preference dimensions.
 
 Safety exclusion / mandatory constraint
 → engineering compatibility
@@ -275,7 +280,8 @@ Safety exclusion / mandatory constraint
 
 ## Important distinction
 
-A product may score highly for engineering fit while carrying an active advisory. The advisory state is never hidden inside a single weighted score.
+A product may be engineering-eligible while carrying an active advisory. Advisory
+state remains visible separately from preference facts, comparisons and fronts.
 
 ## Builder overlay catalog model
 
@@ -690,6 +696,21 @@ first published numeric representation converted to millimeters without rounding
 ## Domain profiles
 
 ### Product-independent architecture generation
+
+The implemented Phase 6 Node-only `@expedition/engineering-core/recommendation`
+entry composes exact Phase 5 bindings with Phase 3 passports, then produces
+separate satisfied/unresolved preference fronts and retained excluded/deferred
+analysis. See [Recommendation and tradeoffs](RECOMMENDATION.md) for explicit
+commercial snapshots, structured facts, priority-tier semantics, complete bounded
+construction, late exact demand accounting and deterministic replay. No score,
+preference filter or builder signal changes engineering truth.
+
+Phase 3's generic optional `schedule_provenance` distinguishes requirement-owned
+timing from explicit evaluation input independently of endpoint identity/domain/W
+provenance. Missing attribution remains unknown. Passport decisions and energy
+calculations preserve both; evaluator/rule revision `1.3.0` owns this trace change,
+with additive compatibility under passport schema `2.0.0`. See
+[Whole-system backend](WHOLE_SYSTEM_BACKEND.md) for origin and replay boundaries.
 
 Phase 5 now applies these required roles through the Node-only
 `@expedition/engineering-core/product-selection` entry. See

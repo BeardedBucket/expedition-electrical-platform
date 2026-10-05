@@ -1,5 +1,21 @@
 # Product selection (Phase 5)
 
+Phase 6 now consumes this exact boundary; see [Recommendation](RECOMMENDATION.md).
+Its additive `project_demand_schedules` handoff input supplies explicit Phase 3
+accounting for existing requirement-owned demand endpoints when Phase 4 supplied
+no schedule. Duplicate/unknown demand IDs or replacement of an existing schedule
+reject. Identical existing schedules remain allowed with every upstream unresolved
+condition retained. Endpoint identity/domain/required W and Phase 4/5 artifacts,
+gates, revisions and fixed intents remain unchanged. No default schedule, product
+record, generated assumption, dispatch or shared-capacity conclusion is introduced.
+The recommendation source and exact passport retain the explicit late accounting.
+Generic Phase 3 `schedule_provenance: { origin: 'evaluation_input' }` identifies late
+timing independently of endpoint requirement provenance. Upstream schedules retain
+`{ origin: 'requirement', requirement_id, pointer }` with the actual `/schedule`
+locator, including identical late repetitions. Decisions and calculations preserve
+both origins; missing provenance stays unknown. Existing handoff calls retain
+their engineering behavior. Phase 3's trace revision is `1.3.0` with schema `2.0.0`.
+
 Phase 5 is the parts picker. It evaluates every supplied canonical record against
 each mandatory Phase 4 product role. Demand endpoints remain requirement-owned,
 without appliance selection slots. Architecture composition, role counts, shared
@@ -210,7 +226,8 @@ become installed-system failure provenance. Phase 3 interprets the generic condi
 contract without a Phase 5 special case.
 Project demands can establish scheduled energy without resolving Phase 4's unsupported
 source dispatch or other mandatory scopes. Passport schema stays `2.0.0` with additive
-optional inputs; evaluator/rule revision becomes `1.2.0`. Old valid input behavior is
+optional inputs; evaluator/rule revision is `1.3.0` including independent schedule
+attribution in portable decisions/calculations. Old valid input behavior is
 preserved, but older evaluator artifacts must not be silently replayed as the new revision.
 
 Reason codes distinguish actual mismatch, explicit negative capability, fact missing,

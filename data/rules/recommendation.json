@@ -1,0 +1,23 @@
+{
+  "id": "recommendation",
+  "version": "1.0.0",
+  "kind": "preference",
+  "status": "draft",
+  "description": "Explicit priority-tier Pareto preference over exact Phase 3/5 results, with separate engineering classes.",
+  "source_refs": [
+    {
+      "type": "project-rationale",
+      "title": "Recommendation ownership and conservative operational bounds",
+      "path": "docs/RECOMMENDATION.md"
+    }
+  ],
+  "rationale": "Conservative application bounds without measured workload tuning. 128 options bound retained passports; 8128 is 128*127/2 and bounds pairwise work. 16 selection sources, 32 criteria and 4096 observations independently bound retained inputs. Automatic construction reports overflow atomically without sampling, truncation or preference pruning. Explicit admission rejects overflow. No electrical or safety thresholds. Revisit with measured supported workloads. The independent 100000 fact-record bound rejects large option-by-feature products before materialization; its conservative rationale has no empirical tuning. Observation admission also counts exact handoff device states and demand schedule states.",
+  "bounds": {
+    "max_selections": 16,
+    "max_options": 128,
+    "max_pairwise_comparisons": 8128,
+    "max_criteria": 32,
+    "max_observations": 4096,
+    "max_tradeoff_facts": 100000
+  }
+}

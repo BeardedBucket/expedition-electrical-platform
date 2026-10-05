@@ -1,10 +1,18 @@
 # Whole-system backend proof
 
+[Phase 6 recommendation](RECOMMENDATION.md) uses this evaluator through Phase 5's
+exact handoff and preserves the complete passport verbatim. Explicit late endpoint
+accounting is an additive handoff input. Generic Phase 3 `schedule_provenance`
+distinguishes requirement-owned timing from explicit evaluation input; evaluator
+and rule revision `1.3.0` retain that attribution in decisions and calculations.
+All inherited blocked/unresolved conditions remain unchanged. Preference never alters
+the passport's engineering status, warnings or assertion scope.
+
 Phase 5's post-selection audit adds explicit requirement-owned `project_demands`
 and inherited blocked/unresolved `mandatory_conditions`. See
 [Product selection](PRODUCT_SELECTION.md) for the handoff and provenance contract.
 These optional inputs preserve existing valid-input behavior and passport schema
-2.0.0; evaluator/rule revision is now 1.2.0. Project endpoints have no product
+2.0.0; evaluator/rule revision is now 1.3.0. Project endpoints have no product
 instance, canonical evidence or invented idle demand. Their schedules participate
 in device-side accounting with separate unresolved contributions. Inherited
 unknowns cannot be omitted by the exact selection handoff or supplied as YES.
@@ -138,6 +146,30 @@ reference a separate Phase 3 registry: Phase 5 reconstructs the source Phase 4
 requirements, while standalone Phase 3 treats them as explicit project input.
 Missing W/schedule/duration/horizon stays unknown; explicit zero stays zero. A project
 demand can receive power but cannot act as a wire source.
+
+Optional `schedule_provenance` owns timing attribution separately from endpoint
+`provenance`. Its closed forms are `{ origin: 'requirement', requirement_id, pointer }`
+(locator to the actual requirement schedule), `{ origin: 'evaluation_input' }`
+(explicit accounting declaration with no invented external citation), and
+`{ origin: 'unknown' }`. Omission also means unknown. The exact input snapshot keeps
+omission intact; project-demand decisions and each resolved project-energy
+calculation expose an explicit unknown origin rather than infer a source. Declaring
+provenance requires a schedule value, but does not supply missing power or duration.
+Phase 5 attributes existing schedules to their requirement `/schedule` pointer,
+including identical late repetitions, and labels newly supplied timing as
+evaluation input. Standalone Phase 3 callers can use the same generic forms.
+No assumption or manufacturer evidence is created by any origin label.
+
+The optional field preserves legacy valid inputs and numerical behavior under
+schema `2.0.0`. Trace semantics changed, so evaluator and rule revisions move
+together from `1.2.0` to `1.3.0`; older revision passports require their matching
+implementation and fail current exact-revision replay. Origin participates in input
+and passport hashes and reconstruction. Input/trace discrepancies reject even when
+rehashed. Coherently evaluated changed inputs are new artifacts: standalone replay
+checks live components/rules, not an external requirement document or project-input
+registry. A hash or origin label authenticates neither source nor author. Phase 6
+additionally reconstructs the handoff from its authoritative selection/input and
+external replay compares the original recommendation input identity.
 
 Inherited `mandatory_conditions` preserve only the selected witness's non-YES
 gate/assembly reasons and applicable required upstream dependencies. Model aggregate

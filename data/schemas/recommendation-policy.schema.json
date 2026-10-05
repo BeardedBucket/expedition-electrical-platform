@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:expedition-electrical-platform:schema:recommendation-policy",
+  "description": "Closed authoritative inputs; output semantics require complete deterministic reconstruction. Metadata string limits bound retained context and are operational, not engineering thresholds.",
+  "type": "object",
+  "required": [
+    "id",
+    "version",
+    "kind",
+    "status",
+    "description",
+    "rationale",
+    "source_refs",
+    "bounds"
+  ],
+  "properties": {
+    "id": {
+      "const": "recommendation"
+    },
+    "version": {
+      "const": "1.0.0"
+    },
+    "kind": {
+      "const": "preference"
+    },
+    "status": {
+      "enum": ["draft", "reviewed", "approved", "deprecated"]
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "rationale": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "source_refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "title", "path"],
+        "properties": {
+          "type": {
+            "const": "project-rationale"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "additionalProperties": false
+      },
+      "minItems": 1,
+      "maxItems": 16
+    },
+    "bounds": {
+      "type": "object",
+      "required": [
+        "max_selections",
+        "max_options",
+        "max_pairwise_comparisons",
+        "max_criteria",
+        "max_observations",
+        "max_tradeoff_facts"
+      ],
+      "properties": {
+        "max_selections": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "max_options": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "max_pairwise_comparisons": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "max_criteria": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "max_observations": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "max_tradeoff_facts": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

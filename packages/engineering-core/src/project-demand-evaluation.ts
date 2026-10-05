@@ -12,6 +12,9 @@ export const evaluateProjectOwnedDemand = (context: InstalledSystemContext) => {
   let stateCount = 0;
   for (const demand of context.projectDemands.values()) {
     const assumptionIds = demand.provenance.assumption_ids ?? [];
+    // Never infer timing ownership from the endpoint locator. Legacy omission
+    // stays unknown in the trace without changing the caller's input snapshot.
+    const scheduleProvenance = demand.schedule_provenance ?? { origin: 'unknown' as const };
     const states = demand.schedule ?? [];
     let hours = 0;
     const reasons: string[] = [];
@@ -38,7 +41,12 @@ export const evaluateProjectOwnedDemand = (context: InstalledSystemContext) => {
         context.derive(
           `project-energy:${demand.id}.${index}`,
           'energyWh = explicitProjectPowerW * explicitDurationHours',
-          { power_w: power, duration_hours: state.duration_hours, provenance: demand.provenance },
+          {
+            power_w: power,
+            duration_hours: state.duration_hours,
+            provenance: demand.provenance,
+            schedule_provenance: scheduleProvenance,
+          },
           result.energyWh,
           'Wh',
           [],
@@ -60,7 +68,7 @@ export const evaluateProjectOwnedDemand = (context: InstalledSystemContext) => {
       distinctReasons.length ? 'unresolved' : 'satisfied',
       'project_owned_demand',
       'Project demand remains separate from a product assertion; missing W/durations remain unknown.',
-      demand,
+      { ...demand, schedule_provenance: scheduleProvenance },
       [],
       assumptionIds,
     );
