@@ -1,5 +1,10 @@
 # Architecture generation (Phase 4)
 
+[Phase 6 recommendation](RECOMMENDATION.md) compares exact downstream systems
+without changing this layer's roles, topology or mandatory conditions. Supplying
+late Phase 3 accounting never resolves Phase 4's existing schedule/shared-capacity
+interpretation or becomes a preference-owned engineering requirement.
+
 The implemented downstream [Phase 5 selector](PRODUCT_SELECTION.md) consumes
 this v2 contract without changing role count, topology, capacity or demand authority.
 Its exact Phase 3 handoff retains requirement-owned demand without appliance records.

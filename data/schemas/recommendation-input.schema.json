@@ -1,0 +1,498 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:expedition-electrical-platform:schema:recommendation-input",
+  "description": "Closed authoritative inputs; output semantics require complete deterministic reconstruction. Metadata string limits bound retained context and are operational, not engineering thresholds.",
+  "type": "object",
+  "required": ["schema_version", "sources", "construction", "preference", "context"],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["selection", "handoff"],
+        "properties": {
+          "selection": {
+            "$ref": "urn:expedition-electrical-platform:schema:product-selection"
+          },
+          "handoff": {
+            "type": "object",
+            "required": [],
+            "properties": {
+              "evaluation_hours": {
+                "$ref": "urn:expedition-electrical-platform:schema:whole-system-input#/$defs/nonnegative"
+              },
+              "device_states": {
+                "type": "array",
+                "items": {
+                  "$ref": "urn:expedition-electrical-platform:schema:whole-system-input#/$defs/loadState"
+                }
+              },
+              "project_demand_schedules": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["demand_id", "schedule"],
+                  "properties": {
+                    "demand_id": {
+                      "$ref": "urn:expedition-electrical-platform:schema:whole-system-input#/$defs/id"
+                    },
+                    "schedule": {
+                      "$ref": "urn:expedition-electrical-platform:schema:whole-system-input#/properties/requirements/properties/project_demands/items/properties/schedule"
+                    }
+                  }
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "construction": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["mode"],
+          "properties": {
+            "mode": {
+              "const": "automatic"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["mode", "choices"],
+          "properties": {
+            "mode": {
+              "const": "explicit"
+            },
+            "choices": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["selection_digest", "bindings"],
+                "properties": {
+                  "selection_digest": {
+                    "type": "string",
+                    "pattern": "^sha256:[a-f0-9]{64}$"
+                  },
+                  "bindings": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["role_id", "component_id", "binding_id"],
+                      "properties": {
+                        "role_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 512
+                        },
+                        "component_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 512
+                        },
+                        "binding_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 512
+                        },
+                        "assembly": {
+                          "type": "object",
+                          "required": ["kind", "component_id", "series_count", "parallel_count"],
+                          "properties": {
+                            "kind": {
+                              "const": "homogeneous"
+                            },
+                            "component_id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512
+                            },
+                            "series_count": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 9007199254740991
+                            },
+                            "parallel_count": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "additionalProperties": false
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "preference": {
+      "type": "object",
+      "required": ["schema_version", "id", "tiers"],
+      "properties": {
+        "schema_version": {
+          "const": "1.0.0"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "tiers": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "required": ["kind", "direction"],
+                  "properties": {
+                    "kind": {
+                      "enum": [
+                        "purchase_cost",
+                        "weight",
+                        "component_count",
+                        "reuse_existing",
+                        "manufacturer_count",
+                        "selected_power_path_count"
+                      ]
+                    },
+                    "direction": {
+                      "enum": ["minimize", "maximize"]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "required": ["kind", "capability", "direction"],
+                  "properties": {
+                    "kind": {
+                      "const": "optional_capability"
+                    },
+                    "capability": {
+                      "enum": [
+                        "energy_storage",
+                        "inversion",
+                        "charging",
+                        "dc_to_dc_conversion",
+                        "solar_energy_conversion",
+                        "monitoring",
+                        "communication",
+                        "control",
+                        "distribution",
+                        "load_consumption",
+                        "other"
+                      ]
+                    },
+                    "direction": {
+                      "enum": ["prefer_present", "prefer_absent"]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "required": ["kind", "feature", "direction"],
+                  "properties": {
+                    "kind": {
+                      "const": "optional_feature"
+                    },
+                    "feature": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 512
+                    },
+                    "direction": {
+                      "enum": ["prefer_present", "prefer_absent"]
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "minItems": 1
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "context": {
+      "type": "object",
+      "required": ["prices", "owned_acquisition", "features"],
+      "properties": {
+        "prices": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["component_id", "amount", "currency", "source"],
+            "properties": {
+              "component_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "amount": {
+                "type": "number",
+                "minimum": 0
+              },
+              "currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              "source": {
+                "type": "object",
+                "required": ["owner", "reference", "context"],
+                "properties": {
+                  "owner": {
+                    "enum": ["user", "commercial", "builder"]
+                  },
+                  "reference": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4096
+                  },
+                  "context": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4096
+                  },
+                  "observed_at": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4096
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "owned_acquisition": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["selection_digest", "role_id", "basis", "currency", "source"],
+            "properties": {
+              "selection_digest": {
+                "type": "string",
+                "pattern": "^sha256:[a-f0-9]{64}$"
+              },
+              "role_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "basis": {
+                "const": "owned_no_incremental_acquisition_cost"
+              },
+              "currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              "source": {
+                "type": "object",
+                "required": ["owner", "reference", "context"],
+                "properties": {
+                  "owner": {
+                    "enum": ["user", "commercial", "builder"]
+                  },
+                  "reference": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4096
+                  },
+                  "context": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4096
+                  },
+                  "observed_at": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4096
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "features": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["component_id", "feature", "fact", "source"],
+            "properties": {
+              "component_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "feature": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "fact": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "required": ["state", "value"],
+                    "properties": {
+                      "state": {
+                        "const": "known"
+                      },
+                      "value": {
+                        "type": "boolean"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "required": ["state"],
+                    "properties": {
+                      "state": {
+                        "const": "absent"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "required": ["state", "reason"],
+                    "properties": {
+                      "state": {
+                        "const": "unknown"
+                      },
+                      "reason": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 4096
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "required": ["state", "reason"],
+                    "properties": {
+                      "state": {
+                        "const": "not_applicable"
+                      },
+                      "reason": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 4096
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                ]
+              },
+              "source": {
+                "type": "object",
+                "required": ["owner", "reference", "context"],
+                "properties": {
+                  "owner": {
+                    "enum": ["user", "commercial", "builder"]
+                  },
+                  "reference": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4096
+                  },
+                  "context": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4096
+                  },
+                  "observed_at": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4096
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "advisory": {
+          "type": "object",
+          "required": ["evaluated_at", "records", "evidence", "configuration"],
+          "properties": {
+            "evaluated_at": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "records": {
+              "type": "array",
+              "items": {
+                "type": "object"
+              }
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object"
+              }
+            },
+            "configuration": {
+              "type": "object",
+              "required": [],
+              "properties": {
+                "staleAfterDays": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "evidenceStaleAfterDays": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "reviewDueGraceDays": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "resolvedPolicyAction": {
+                  "enum": ["none", "inform", "caution", "suppress_recommendation", "exclude"]
+                },
+                "withdrawnPolicyAction": {
+                  "enum": ["none", "inform", "caution", "suppress_recommendation", "exclude"]
+                },
+                "supersededPolicyAction": {
+                  "enum": ["none", "inform", "caution", "suppress_recommendation", "exclude"]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

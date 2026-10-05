@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:expedition-electrical-platform:schema:recommendation",
+  "description": "Closed authoritative inputs; output semantics require complete deterministic reconstruction. Metadata string limits bound retained context and are operational, not engineering thresholds.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "engine_revision",
+    "input",
+    "input_digest",
+    "policy",
+    "policy_digest",
+    "construction",
+    "options",
+    "deferred",
+    "comparisons",
+    "fronts",
+    "excluded_option_ids",
+    "warnings",
+    "result_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "engine_revision": {
+      "const": "recommendation/1.0.0"
+    },
+    "input": {
+      "$ref": "urn:expedition-electrical-platform:schema:recommendation-input"
+    },
+    "input_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "policy": {
+      "$ref": "urn:expedition-electrical-platform:schema:recommendation-policy"
+    },
+    "policy_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "construction": {
+      "type": "object"
+    },
+    "options": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "deferred": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "comparisons": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "fronts": {
+      "type": "object"
+    },
+    "excluded_option_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      }
+    },
+    "result_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    }
+  },
+  "additionalProperties": false
+}

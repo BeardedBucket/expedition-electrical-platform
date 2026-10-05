@@ -9,6 +9,35 @@ import type {
 } from './product-selection-contracts.js';
 import { parseProductSelection } from './product-selection.js';
 import { serializePassportValue } from './portable-json.js';
+import type { ArchitectureDemandEndpoint } from './architecture-generation-contracts.js';
+
+type ExactDemandSchedule = {
+  readonly demand_id: string;
+  readonly schedule: NonNullable<
+    NonNullable<InstalledSystemRequirements['project_demands']>[number]['schedule']
+  >;
+};
+
+/** Reference/ownership admission is reusable before option-space expansion, including
+ * when no product choice can materialize. This does not evaluate schedule engineering.
+ */
+export const assertExactDemandSchedules = (
+  demands: readonly ArchitectureDemandEndpoint[],
+  schedules: readonly ExactDemandSchedule[],
+): void => {
+  if (new Set(schedules.map((s) => s.demand_id)).size !== schedules.length)
+    throw new TypeError('Duplicate exact project demand schedule.');
+  for (const schedule of schedules) {
+    const demand = demands.find((d) => d.id === schedule.demand_id);
+    if (!demand)
+      throw new TypeError('Exact schedule references a missing requirement-owned demand.');
+    if (
+      demand.schedule !== undefined &&
+      serializePassportValue(demand.schedule) !== serializePassportValue(schedule.schedule)
+    )
+      throw new TypeError('Exact timing cannot replace an upstream requirement-owned schedule.');
+  }
+};
 
 export interface SelectedRoleBinding {
   readonly role_id: string;
@@ -28,6 +57,11 @@ export const bindProductSelection = (
   options: {
     readonly evaluation_hours?: number;
     readonly device_states?: InstalledSystemRequirements['load_states'];
+    /** Later exact-evaluation timing for requirement-owned endpoints. Existing
+     * Phase 4 schedules cannot be replaced; inherited conditions are never removed.
+     * Timing does not assert shared capacity, dispatch or architecture feasibility.
+     */
+    readonly project_demand_schedules?: readonly ExactDemandSchedule[];
   } = {},
 ): {
   input: WholeSystemEvaluationInput;
@@ -96,7 +130,10 @@ export const bindProductSelection = (
       ],
     });
   const assumptions = [...result.input.generation.input.assumptions];
+  const schedules = options.project_demand_schedules ?? [];
+  assertExactDemandSchedules(candidate.demand_endpoints, schedules);
   const projectDemands = candidate.demand_endpoints.map((demand) => {
+    const schedule = demand.schedule ?? schedules.find((s) => s.demand_id === demand.id)?.schedule;
     const pointer = demand.provenance.find((p) => p.kind === 'requirement');
     if (!pointer || pointer.kind !== 'requirement')
       throw new TypeError('Demand lacks exact requirement provenance.');
@@ -110,7 +147,22 @@ export const bindProductSelection = (
       ...(demand.required_power_w === undefined
         ? {}
         : { required_power_w: demand.required_power_w }),
-      ...(demand.schedule === undefined ? {} : { schedule: demand.schedule }),
+      ...(schedule === undefined
+        ? {}
+        : {
+            schedule,
+            // Upstream ownership wins even when late input repeats identical
+            // timing. Otherwise the exact-evaluation declaration is its origin,
+            // with no claim that the original requirement asserted this value.
+            schedule_provenance:
+              demand.schedule === undefined
+                ? { origin: 'evaluation_input' as const }
+                : {
+                    origin: 'requirement' as const,
+                    requirement_id: demand.source_requirement_id,
+                    pointer: `${pointer.pointer}/schedule`,
+                  },
+          }),
     };
   });
   const byRole = new Map(selected.map((s) => [s.role.role.id, s]));

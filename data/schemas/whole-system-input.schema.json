@@ -60,6 +60,7 @@
           "items": {
             "type": "object",
             "required": ["id", "domain_id", "provenance"],
+            "dependentRequired": { "schedule_provenance": ["schedule"] },
             "properties": {
               "id": {
                 "$ref": "#/$defs/id"
@@ -88,6 +89,27 @@
                   }
                 },
                 "additionalProperties": false
+              },
+              "schedule_provenance": {
+                "description": "Independent timing attribution; omission is unknown, never inferred from endpoint provenance. Origin is a project assertion, not source authentication.",
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "required": ["origin", "requirement_id", "pointer"],
+                    "additionalProperties": false,
+                    "properties": {
+                      "origin": { "const": "requirement" },
+                      "requirement_id": { "$ref": "#/$defs/id" },
+                      "pointer": { "type": "string", "pattern": "^/" }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "required": ["origin"],
+                    "additionalProperties": false,
+                    "properties": { "origin": { "enum": ["evaluation_input", "unknown"] } }
+                  }
+                ]
               },
               "schedule": {
                 "type": "array",

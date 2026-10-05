@@ -13,6 +13,19 @@ export interface PassportAssumption {
   readonly statement: string;
 }
 
+/** Schedule attribution is independent of the endpoint's identity/domain/W locator.
+ * Evaluation input needs no invented document citation. Omission means unknown,
+ * including legacy callers; origin labels establish no evidence authenticity.
+ */
+export type ProjectDemandScheduleProvenance =
+  | {
+      readonly origin: 'requirement';
+      readonly requirement_id: string;
+      readonly pointer: string;
+    }
+  | { readonly origin: 'evaluation_input' }
+  | { readonly origin: 'unknown' };
+
 export interface InstalledSystemRequirements {
   /** Requirement-owned endpoints have no component/instance identity or manufacturer facts. */
   readonly project_demands?: readonly {
@@ -25,6 +38,7 @@ export interface InstalledSystemRequirements {
       /** Only genuine dependencies; these IDs must resolve in input.assumptions. */
       readonly assumption_ids?: readonly string[];
     };
+    readonly schedule_provenance?: ProjectDemandScheduleProvenance;
     readonly schedule?: readonly {
       readonly state: 'active' | 'idle' | 'standby' | 'off';
       readonly duration_hours?: number;

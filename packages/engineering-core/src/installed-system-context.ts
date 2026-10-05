@@ -23,7 +23,7 @@ import type {
 
 // Version owns interpretation and composition, not manufacturer revision. Bump
 // alongside rule data whenever behavior changes; replay requires exact equality.
-export const WHOLE_SYSTEM_EVALUATOR_REVISION = 'installed-system-proof/1.2.0';
+export const WHOLE_SYSTEM_EVALUATOR_REVISION = 'installed-system-proof/1.3.0';
 const freezeRuleData = (value: unknown): void => {
   if (value && typeof value === 'object') {
     Object.values(value).forEach(freezeRuleData);
