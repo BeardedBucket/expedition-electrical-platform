@@ -1,5 +1,14 @@
 # Whole-system backend proof
 
+Phase 5's post-selection audit adds explicit requirement-owned `project_demands`
+and inherited blocked/unresolved `mandatory_conditions`. See
+[Product selection](PRODUCT_SELECTION.md) for the handoff and provenance contract.
+These optional inputs preserve existing valid-input behavior and passport schema
+2.0.0; evaluator/rule revision is now 1.2.0. Project endpoints have no product
+instance, canonical evidence or invented idle demand. Their schedules participate
+in device-side accounting with separate unresolved contributions. Inherited
+unknowns cannot be omitted by the exact selection handoff or supplied as YES.
+
 Phase 3 evaluates an explicitly supplied installed architecture. Its portable
 artifact is an **Engineering Passport**. It produces no recommendation, product
 selection, voltage preference, builder overlay, UI state or installation safety
@@ -119,6 +128,22 @@ copied intact into the passport. Input schemas reject builder/commercial fields.
 Environment, autonomy and source-availability inputs are retained, but requested
 assertions involving them remain unresolved because the corresponding complete
 operating profiles are not implemented here.
+
+Requirement-owned `project_demands` carry direct `requirement_id` and exact source
+JSON `pointer` in their provenance, preserved in decision and calculation inputs.
+They create no assumptions or manufacturer evidence. Optional `assumption_ids`
+must resolve to genuine input assumptions when an actual dependency is declared;
+unrelated upstream assumptions remain intact. These requirement locators do not
+reference a separate Phase 3 registry: Phase 5 reconstructs the source Phase 4
+requirements, while standalone Phase 3 treats them as explicit project input.
+Missing W/schedule/duration/horizon stays unknown; explicit zero stays zero. A project
+demand can receive power but cannot act as a wire source.
+
+Inherited `mandatory_conditions` preserve only the selected witness's non-YES
+gate/assembly reasons and applicable required upstream dependencies. Model aggregate
+diagnostics are broader and have no exact trace authority. The role remains the
+condition ID, and `subject_id` identifies the selected binding. Generic Phase 3
+condition interpretation retains a blocker even if another model witness is eligible.
 
 Each instance needs a full-duration schedule relative to explicit
 `evaluation_hours`. States for one instance declare mutually exclusive occupancy

@@ -1,0 +1,21 @@
+{
+  "id": "product-selection",
+  "version": "1.0.0",
+  "kind": "constraint",
+  "status": "draft",
+  "description": "Mandatory role feasibility over exact reviewed product bindings; no ranking.",
+  "source_refs": [
+    {
+      "type": "project-rationale",
+      "title": "Phase 5 selection ownership and operating bounds",
+      "path": "docs/PRODUCT_SELECTION.md"
+    }
+  ],
+  "rationale": "Conservative application limits without empirical production tuning. Evaluate every supplied record and every finite binding; reject overflow rather than truncate. Storage generation emits only the unique homogeneous voltage ratio and minimum energy count when exact authoritative scalars establish that reduction. Reconsider limits with measured workload or supported larger projects. These are not electrical safety thresholds.",
+  "bounds": {
+    "max_products": 512,
+    "max_bindings_per_candidate": 4096,
+    "max_total_bindings": 100000,
+    "max_assembly_units": 1024
+  }
+}

@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:expedition-electrical-platform:schema:product-selection-input",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "generation",
+    "candidate_id",
+    "corpus",
+    "fixed_existing",
+    "assemblies"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "generation": {
+      "$ref": "urn:expedition-electrical-platform:schema:architecture-generation"
+    },
+    "candidate_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "corpus": {
+      "type": "array",
+      "items": {
+        "$ref": "urn:expedition-electrical-platform:schema:component"
+      }
+    },
+    "fixed_existing": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["role_id", "component_id"],
+        "properties": {
+          "role_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "component_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "assembly": {
+            "type": "object",
+            "required": ["kind", "component_id", "series_count", "parallel_count"],
+            "properties": {
+              "kind": {
+                "const": "homogeneous"
+              },
+              "component_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "series_count": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "parallel_count": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "assemblies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["role_id", "kind", "component_id", "series_count", "parallel_count"],
+        "properties": {
+          "role_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "const": "homogeneous"
+          },
+          "component_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "series_count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "parallel_count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

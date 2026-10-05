@@ -351,8 +351,37 @@
         }
       ]
     },
+    "projectDemandEnergy": {
+      "type": "object",
+      "required": ["kind", "demand_id", "reasons"],
+      "properties": {
+        "kind": {
+          "const": "project_demand"
+        },
+        "demand_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+        },
+        "reasons": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "schedule_missing",
+              "power_unknown",
+              "duration_unknown",
+              "horizon_unknown",
+              "horizon_mismatch"
+            ]
+          }
+        }
+      },
+      "additionalProperties": false
+    },
     "unresolvedEnergy": {
       "oneOf": [
+        { "$ref": "#/$defs/projectDemandEnergy" },
         {
           "type": "object",
           "additionalProperties": false,

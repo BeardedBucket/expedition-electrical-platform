@@ -194,6 +194,8 @@ export interface ComponentLibraryBattery {
 export interface ComponentCapability {
   readonly id: string;
   readonly type: CapabilityType;
+  /** Explicit participants constrain every owned path; absent lists require another exact relationship. */
+  readonly port_ids?: readonly string[];
   readonly name?: string | null;
   readonly label?: string | null;
   readonly notes?: string | null;
@@ -219,7 +221,19 @@ export interface ComponentPowerPath {
   readonly capability_id: string;
   readonly from_port: string;
   readonly to_port: string;
+  /** Explicit source assertion; omission is unknown, never non-isolated. */
+  readonly isolated?: boolean;
 }
+
+/** A directed canonical path establishes participants when no list was supplied.
+ * An explicit list is binding authority and cannot be overridden by that path.
+ */
+export const capabilityAllowsPathParticipants = (
+  capability: ComponentCapability,
+  path: ComponentPowerPath,
+): boolean =>
+  capability.port_ids === undefined ||
+  (capability.port_ids.includes(path.from_port) && capability.port_ids.includes(path.to_port));
 
 export interface ComponentConnectionPoint {
   readonly id: string;
@@ -428,6 +442,8 @@ export interface ComponentLibraryAdvisoryReference extends Record<string, unknow
 }
 
 export interface ComponentLibraryRecord {
+  /** Explicit reviewed negative assertions, independent of an incomplete positive list. */
+  readonly unsupported_capabilities?: readonly CapabilityType[];
   /** Published manufacturer revision only; never a project digest, retrieval date or ingestion revision. */
   readonly manufacturer_revision?: string | null;
   readonly qualified_values?: readonly CanonicalQualifiedValue[];
@@ -444,7 +460,7 @@ export interface ComponentLibraryRecord {
   readonly switching?: ComponentSwitching | null;
   readonly protection?: ComponentProtection | null;
   readonly measurement?: ComponentMeasurement | null;
-  readonly category: string;
+  readonly category?: string;
   readonly product_family?: string | null;
   readonly verification_status: ComponentVerificationStatus;
   readonly source_type?: string | null;
@@ -1744,7 +1760,29 @@ export const validateComponentLibraryRecord = (
     return { ok: false, errors };
   }
 
-  const semanticErrors = validateEngineeringConstraints(input);
+  const semanticErrors = [...validateEngineeringConstraints(input)];
+  const record = input as ComponentLibraryRecord;
+  for (const capability of record.capabilities ?? []) {
+    for (const portId of capability.port_ids ?? []) {
+      if (!record.ports?.some((port) => port.id === portId))
+        semanticErrors.push(
+          `capabilities.${capability.id}.port_ids: missing canonical port '${portId}'.`,
+        );
+    }
+    for (const path of record.power_paths ?? []) {
+      if (
+        path.capability_id === capability.id &&
+        !capabilityAllowsPathParticipants(capability, path)
+      )
+        semanticErrors.push(
+          `power_paths.${path.id}: participants contradict capabilities.${capability.id}.port_ids.`,
+        );
+    }
+    if (record.unsupported_capabilities?.includes(capability.type))
+      semanticErrors.push(
+        `capabilities.${capability.id}: conflicting explicit negative capability.`,
+      );
+  }
   if (semanticErrors.length > 0) {
     return { ok: false, errors: semanticErrors };
   }

@@ -1,5 +1,9 @@
 # Architecture generation (Phase 4)
 
+The implemented downstream [Phase 5 selector](PRODUCT_SELECTION.md) consumes
+this v2 contract without changing role count, topology, capacity or demand authority.
+Its exact Phase 3 handoff retains requirement-owned demand without appliance records.
+
 Phase 4 transforms explicit end-system requirements into abstract electrical
 architectures and required product-role predicates. It generates the engineering
 filters. It does not apply them to products, choose an exact binding, or recommend
