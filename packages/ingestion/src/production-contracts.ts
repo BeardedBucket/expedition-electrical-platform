@@ -1,5 +1,13 @@
 import { validateCaptureUri } from './http-capture.js';
-import { modelColumnObservations } from './model-column-qualification.js';
+import { qualifyPdfGrid } from './pdf-grid-qualification.js';
+import { qualifyPdfLayout } from './pdf-layout-qualification.js';
+import { PDF_SOURCE_LAYOUT } from './pdf-layout-structure.js';
+import { qualifiedContext, qualifiedContextValid } from './qualified-context.js';
+import {
+  modelColumnObservations,
+  modelHeaderPairObservations,
+} from './model-column-qualification.js';
+import { exactModelPartRelation } from './model-part-applicability.js';
 import {
   PDF_POSITIONED_SPECIFICATIONS,
   pdfSharedIdentifiers,
@@ -8,6 +16,7 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import { createHash } from 'node:crypto';
 import productionIngestionSchema from '../../../data/schemas/production-ingestion.schema.json' with { type: 'json' };
+import humanAdjudicationSchema from '../../../data/schemas/human-adjudication.schema.json' with { type: 'json' };
 import type {
   CanonicalQualifiedValue,
   JsonObject,
@@ -28,6 +37,7 @@ type ProductionArtifactValidator = ((_value: unknown) => boolean) & {
   errors?: readonly { instancePath?: string; message?: string }[];
 };
 const ProductionAjv = Ajv2020 as unknown as new (options?: Record<string, unknown>) => {
+  addSchema: (_schema: unknown) => void;
   compile: (_schema: unknown) => ProductionArtifactValidator;
 };
 const productionAjv = new ProductionAjv({ allErrors: true, strict: false, strictNumbers: true });
@@ -35,7 +45,13 @@ const registerProductionFormats = addFormats as unknown as (instance: {
   addFormat?: (...args: unknown[]) => void;
 }) => void;
 registerProductionFormats(productionAjv as unknown as { addFormat?: (...args: unknown[]) => void });
+productionAjv.addSchema(humanAdjudicationSchema);
 const validateProductionArtifact = productionAjv.compile(productionIngestionSchema);
+const validateHumanIntentSchema = productionAjv.compile(humanAdjudicationSchema);
+export const validateHumanAdjudicationIntent = (
+  value: unknown,
+): value is import('./human-adjudication.js').HumanAdjudicationIntent =>
+  validateHumanIntentSchema(value);
 
 export const validateProductionArtifactSchema = (value: unknown): readonly string[] =>
   validateProductionArtifact(value)
@@ -588,6 +604,8 @@ export type QualifiedFactEvidenceRole =
   'value' | 'label' | 'subject' | 'applicability' | 'qualifier' | 'context';
 
 export interface QualifiedFactEvidence {
+  /** Absent on persisted legacy context: semantic purpose remains unresolved. */
+  readonly context?: import('./qualified-context.js').QualifiedContext;
   readonly role: QualifiedFactEvidenceRole;
   readonly source_reference?: ArtifactReference<
     'document_extraction' | 'source_capture' | 'source_acquisition'
@@ -631,6 +649,7 @@ export interface QualifiedFactMetadata {
 }
 
 export interface QualifiedFactArtifact {
+  readonly human_source?: import('./human-adjudication.js').HumanSourceProof;
   readonly schema_version: typeof PRODUCTION_SCHEMA_VERSION;
   readonly artifact_kind: 'qualified_fact';
   readonly id: string;
@@ -699,6 +718,8 @@ export interface ProposalProvenance {
 }
 
 export interface SemanticProposal {
+  readonly evidence_classification?: import('./retained-evidence-rules.js').AutomaticEvidenceClassification;
+  readonly semantic_assertions?: readonly import('./semantic-rules.js').SemanticAssertion[];
   readonly schema_version: typeof PRODUCTION_SCHEMA_VERSION;
   readonly artifact_kind: 'semantic_proposal';
   readonly id: string;
@@ -727,6 +748,8 @@ export interface ReviewedSemanticActor {
 
 /** Immutable event; timestamps and IDs are supplied by the owning runtime, never generated here. */
 export interface ReviewedSemanticDecision {
+  readonly human_mapping?: import('./human-adjudication.js').HumanMappingIntent;
+  readonly qualified_value?: CanonicalQualifiedValue;
   readonly schema_version: typeof PRODUCTION_SCHEMA_VERSION;
   readonly artifact_kind: 'reviewed_semantic_decision';
   readonly id: string;
@@ -760,6 +783,8 @@ export type ReviewedSemanticInterpretationState =
   | 'stale';
 
 export interface ReviewedSemanticInterpretationEntry {
+  readonly human_mapping?: import('./human-adjudication.js').HumanMappingIntent;
+  readonly qualified_value?: CanonicalQualifiedValue;
   readonly proposal_id: string;
   readonly automatic_target: string;
   readonly automatic_disposition: ProposalDisposition;
@@ -1016,6 +1041,12 @@ export const validateQualifiedFact = (fact: QualifiedFactArtifact): readonly str
       issues.push('qualified fact qualification_state is not recognized');
   }
   fact.evidence?.forEach((evidence, index) => {
+    if (
+      evidence.context !== undefined &&
+      (!['context', 'qualifier'].includes(evidence.role) ||
+        !qualifiedContextValid(evidence.context))
+    )
+      issues.push(`evidence[${index}].context has an unsupported role or policy/producer revision`);
     if (
       !['value', 'label', 'subject', 'applicability', 'qualifier', 'context'].includes(
         evidence.role,
@@ -1331,6 +1362,9 @@ const buildEvidence = (
   locator?: DocumentSourceLocation,
 ): QualifiedFactEvidence => ({
   role,
+  ...(role === 'qualifier'
+    ? { context: qualifiedContext('source_semantic', 'document-qualification') }
+    : {}),
   text,
   source_reference: document.source_capture,
   locator,
@@ -1539,6 +1573,25 @@ const qualifyFromBlock = (
 ): { readonly facts: QualifiedFactArtifact[]; readonly diagnostics: QualificationDiagnostic[] } => {
   const facts: QualifiedFactArtifact[] = [];
   const diagnostics: QualificationDiagnostic[] = [];
+
+  if (block.kind === 'structured' && block.locator.kind === 'pdf') {
+    if (block.locator.section === PDF_SOURCE_LAYOUT)
+      return { facts: [...qualifyPdfLayout(document, block, target)], diagnostics };
+    const replacement = document.blocks
+      .filter(
+        (b) => b.locator.page === block.locator.page && b.locator.section === PDF_SOURCE_LAYOUT,
+      )
+      .flatMap((b) => qualifyPdfLayout(document, b, target));
+    // Select the newer confirmed relationship for the same source row instead
+    // of feeding F both a scoped interpretation and v1's all-page unknown note.
+    // Unrecovered rows continue through v1; historical artifacts are unchanged.
+    return {
+      facts: [...qualifyPdfGrid(document, block, target)].filter(
+        (f) => !replacement.some((r) => r.metadata.source_label === f.metadata.source_label),
+      ),
+      diagnostics,
+    };
+  }
 
   const addFact = (
     label: string,
@@ -1771,7 +1824,16 @@ const qualifyFromBlock = (
             valueCell.source_location,
             [
               buildEvidence('subject', scope.model, document, scope.header.source_location),
-              buildEvidence('context', scope.header.value, document, scope.header.source_location),
+              {
+                ...buildEvidence(
+                  'context',
+                  scope.header.value,
+                  document,
+                  scope.header.source_location,
+                ),
+                // This header establishes model scope, not a rating condition.
+                context: qualifiedContext('qualification_provenance', 'document-qualification'),
+              },
               {
                 ...buildEvidence('applicability', scope.header.value, document, block.locator),
                 note: applicability.reason,
@@ -1784,7 +1846,9 @@ const qualifyFromBlock = (
         }
         return { facts, diagnostics };
       }
-      const columns = modelColumnObservations(document, block, target);
+      const columns =
+        modelHeaderPairObservations(document, block, target) ??
+        modelColumnObservations(document, block, target);
       if (columns?.length) {
         for (const observation of columns) {
           addFact(
@@ -1991,16 +2055,47 @@ export const qualifyDocumentExtraction = (
     truncationSignals.has(document.status) ||
     (document.diagnostics?.some((diagnostic) => truncationSignals.has(diagnostic.code)) ?? false);
 
+  const relation = exactModelPartRelation(document, target);
+  const scopedTarget = relation
+    ? { ...target, manufacturer_part_number: target.product_model }
+    : target;
   const facts: QualifiedFactArtifact[] = [];
   const diagnostics: QualificationDiagnostic[] = [];
   for (const block of document.blocks) {
-    const qualified = qualifyFromBlock(document, block, target, {
+    const options = {
       qualifier: qualifiers.qualifier ?? 'production-qualified-fact',
       qualifier_version: qualifiers.qualifier_version ?? PRODUCTION_SCHEMA_VERSION,
-    });
-    facts.push(...qualified.facts);
-    diagnostics.push(...qualified.diagnostics);
+    };
+    const original = qualifyFromBlock(document, block, target, options);
+    const qualified = relation
+      ? qualifyFromBlock(document, block, scopedTarget, options)
+      : original;
+    // A model link supplements exact MPN evidence. It never replaces the original
+    // target pass, which may find MPN-labelled rows in the same document.
+    facts.push(
+      ...[...original.facts, ...(relation ? qualified.facts : [])].map((fact) =>
+        relation && fact.metadata.applicability.value === target.product_model
+          ? buildQualifiedFactArtifact({
+              ...fact,
+              source_capture: document.source_capture,
+              qualifier_version: `${fact.qualifier_version}+exact-model-part-relation.v1`,
+              metadata: {
+                ...fact.metadata,
+                applicability: {
+                  kind: 'exact_mpn_or_sku',
+                  value: target.manufacturer_part_number,
+                  reason: 'exact-model-part-relation.v1: source-backed model/part row',
+                },
+              },
+              evidence: [...(fact.evidence ?? []), ...relation],
+            })
+          : fact,
+      ),
+    );
+    diagnostics.push(...original.diagnostics, ...(relation ? qualified.diagnostics : []));
   }
+  const distinctFacts = [...new Map(facts.map((f) => [artifactDigest(f), f])).values()];
+  facts.splice(0, facts.length, ...distinctFacts);
 
   if (coverageTruncated) {
     diagnostics.push({

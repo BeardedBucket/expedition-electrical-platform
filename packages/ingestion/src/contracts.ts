@@ -34,6 +34,7 @@ export type PowerConsumptionQualifiers =
 /** Mirrors the target-discriminated canonical component schema. */
 export type CanonicalQualifiedValue = JsonObject &
   (
+    | SourceRatingQualifiedValue
     | {
         readonly id: string;
         readonly target: 'electrical.input_voltage_range_v';
@@ -58,6 +59,43 @@ export type CanonicalQualifiedValue = JsonObject &
         };
       }
   );
+
+export type SourceRatingTarget =
+  | 'dimensions_mm.x'
+  | 'dimensions_mm.y'
+  | 'dimensions_mm.z'
+  | 'electrical.output_current_a'
+  | 'electrical.input_current_a'
+  | 'electrical.charge_current_a'
+  | 'electrical.discharge_current_a'
+  | 'electrical.output_voltage_v'
+  | 'electrical.input_voltage_v'
+  | 'electrical.operating_power_w'
+  | 'electrical.output_power_w'
+  | 'electrical.peak_power_w'
+  | 'electrical.apparent_power_va'
+  | 'electrical.frequency_hz'
+  | 'electrical.pv_open_circuit_voltage_v'
+  | 'electrical.idle_current_a'
+  | 'electrical.standby_current_a'
+  | 'electrical.conditioned_consumption_w'
+  | 'efficiency_fraction'
+  | 'weight_kg'
+  | 'electrical.nominal_voltage_v'
+  | 'electrical.continuous_power_w'
+  | 'electrical.rated_power_w'
+  | 'battery.nominal_capacity_ah'
+  | 'battery.nominal_energy_wh'
+  | 'battery.charging_voltage_range_v'
+  | 'battery.float_voltage_range_v';
+export interface SourceRatingQualifiedValue {
+  readonly id: string;
+  readonly target: SourceRatingTarget;
+  readonly value: number | { readonly min: number; readonly max: number };
+  readonly qualifiers: import('./semantic-rules.js').SourceRatingQualifiers & {
+    readonly kind: 'source_rating';
+  };
+}
 
 export type ProductSourceType =
   | 'manufacturer_product_page'
@@ -158,6 +196,13 @@ export interface ConstraintTarget {
 }
 
 export interface ProductFact {
+  readonly human_source?: import('./production-contracts.js').QualifiedFactArtifact;
+  /** Retained evidence for replay of a generic rule, independent from product approval. */
+  readonly semantic_source?: {
+    readonly fact: import('./production-contracts.js').QualifiedFactArtifact;
+    readonly context_facts: readonly import('./production-contracts.js').QualifiedFactArtifact[];
+    readonly assertion: import('./semantic-rules.js').SemanticAssertion;
+  };
   readonly schema_version: string;
   readonly id: string;
   readonly source_id: string;

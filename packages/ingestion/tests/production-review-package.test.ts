@@ -75,16 +75,15 @@ const mixed = () => [
   fact('mystery conflict', '24', 'conflict-a'),
   fact('mystery conflict', '25', 'conflict-b'),
 ];
-const run = (facts: readonly QualifiedFactArtifact[]) => {
+const run = (facts: readonly QualifiedFactArtifact[], archived = false) => {
   const reconciliation = reconcileQualifiedFactsForWholeIntake({
     facts,
     source_acquisitions: [acquisition],
   });
-  const proposals = buildProductionSemanticProposals({
-    facts,
-    source_acquisitions: [acquisition],
-    reconciliation,
-  });
+  const proposals = buildProductionSemanticProposals(
+    { facts, source_acquisitions: [acquisition], reconciliation },
+    archived ? 'semantic-assertions.v3' : undefined,
+  );
   const bridge = buildProductionProductCandidate({
     intake,
     captures: [capture],
@@ -118,7 +117,7 @@ describe('production review package', () => {
       bridge.non_projected.map((item) => `${item.proposal_id}: ${item.reason}`),
     );
     expect(bridge.proposals.map((proposal) => proposal.disposition)).toEqual(
-      expect.arrayContaining(['evidence_only', 'unsupported', 'unresolved', 'conflicting']),
+      expect.arrayContaining(['mapped', 'unsupported', 'unresolved', 'conflicting']),
     );
   });
 
@@ -151,13 +150,15 @@ describe('production review package', () => {
     );
   });
 
-  it('validates multiple projected proposals contributing to one candidate field', () => {
+  it('validates archived v3 proposals contributing to one candidate field', () => {
     const facts = [
       ...mapped(),
       fact('nominal battery voltage', '24', 'a'),
       fact('nominal battery voltage', '24.0', 'b'),
     ];
-    const { reconciliation, bridge, review } = run(facts);
+    // Current battery-owned voltage requires independent role evidence. This
+    // checks the preserved earlier multi-field review contract, not that guard.
+    const { reconciliation, bridge, review } = run(facts, true);
     const field = 'electrical.nominal_voltage_v';
     expect(reconciliation.group_reconciliations).toHaveLength(2);
     expect(bridge.proposals).toHaveLength(2);
@@ -175,7 +176,7 @@ describe('production review package', () => {
     expect(review.proposal_refs.map((ref) => ref.digest)).toEqual(
       bridge.proposals.map(artifactDigest),
     );
-    expect(run([...facts].reverse()).review.semantic_snapshot).toBe(review.semantic_snapshot);
+    expect(run([...facts].reverse(), true).review.semantic_snapshot).toBe(review.semantic_snapshot);
     expect(() =>
       buildProductionReviewPackage({
         intake,

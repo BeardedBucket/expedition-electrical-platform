@@ -107,6 +107,35 @@ const setup = (facts: readonly QualifiedFactArtifact[] = inputFacts) => {
 };
 
 describe('production promotion', () => {
+  it('requires explicit approval of a generic qualified rating and retains rule/source lineage without granting verification', () => {
+    const { bridge, reviewPackage, approval } = setup([fact('Max DC output current', '40', 'A')]);
+    const assertions = bridge.candidate!.component_data.qualified_values as { id: string }[];
+    expect(assertions).toHaveLength(1);
+    const omitted = promoteProductionCandidate(approval, reviewPackage, bridge).result;
+    expect(omitted.proposal?.qualified_values).toBeUndefined();
+    const result = promoteProductionCandidate(
+      {
+        ...approval,
+        promotion_decisions: {
+          ...approval.promotion_decisions!,
+          approved_qualified_value_ids: [assertions[0].id],
+        },
+      },
+      reviewPackage,
+      bridge,
+    ).result;
+    expect(result.status).toBe('success');
+    expect(result.proposal?.verification_status).toBe('unverified');
+    expect(result.proposal?.qualified_values).toHaveLength(1);
+    expect(result.proposal).not.toHaveProperty('electrical.continuous_output_current_a');
+    const sourceRefs = result.proposal?.source_refs as {
+      semantic_assertion_evidence?: unknown[];
+    }[];
+    expect(sourceRefs.some((r) => r.semantic_assertion_evidence?.length)).toBe(true);
+    expect(JSON.stringify(sourceRefs)).toContain('generic.output_current');
+    expect(JSON.stringify(sourceRefs)).toContain('label_pattern');
+    expect(result.proposal).not.toHaveProperty('engineering_verification_history');
+  });
   it('produces a canonical promotion result from an approved production review', () => {
     const { bridge, reviewPackage, approval } = setup();
     const { review, result } = promoteProductionCandidate(approval, reviewPackage, bridge);

@@ -1,9 +1,10 @@
 import '@testing-library/jest-dom/vitest';
 import { StrictMode } from 'react';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import App, { Review, SourceResolution } from './App.js';
 import type { OperatorApi, OperatorJobDetail } from './api.js';
+import { OperatorApiError } from './api.js';
 
 const id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const detail: OperatorJobDetail = {
@@ -50,6 +51,10 @@ const detail: OperatorJobDetail = {
   diagnostics: [],
 };
 const client = (): OperatorApi => ({
+  humanEvidence: vi.fn(),
+  humanProperties: vi.fn(),
+  humanPreview: vi.fn(),
+  humanAdjudication: vi.fn(),
   resumeDeferredReview: vi.fn().mockResolvedValue(detail),
   review: vi.fn().mockResolvedValue(detail),
   semanticTargets: vi.fn().mockResolvedValue({ proposal_id: '', targets: [] }),
@@ -1025,4 +1030,300 @@ it('shows accepted source separately, enables explicit preparation, and skips re
   cleanup();
   render(<SourceResolution job={detail} client={c} onUpdate={vi.fn()} />);
   expect(screen.queryByText('Official source required')).not.toBeInTheDocument();
+});
+
+function specificationJob(): OperatorJobDetail {
+  const evidence = (name: string, factId: string) => ({
+    id: factId,
+    label: name,
+    raw_value: '150 A',
+    unit: 'A',
+    applicability: { kind: 'exact_mpn_or_sku', value: 'EX-1' },
+    qualification: 'exact',
+    source_uri: 'https://example.test/specifications',
+    document: 'Specifications',
+    locators: [],
+    conflicts: [],
+  });
+  const item = (proposalId: string, name: string) => ({
+    id: proposalId,
+    automatic_target: 'source_label:mystery electrical rating',
+    automatic_disposition: 'unsupported',
+    derived: false,
+    state: 'automatic',
+    required: true,
+    decision_history: [],
+    evidence: [evidence(name, proposalId + '.fact')],
+  });
+  return {
+    ...detail,
+    semantic_review: {
+      complete: false,
+      required_dispositions: [
+        { proposal_id: 'first', reason: 'human_disposition_required' },
+        { proposal_id: 'second', reason: 'human_disposition_required' },
+      ],
+      expected_review_snapshot: 'snapshot.1',
+      interpretation: [],
+      decisions: [],
+      work: {
+        required: [item('first', 'First current rating'), item('second', 'Second current rating')],
+        reviewed: [],
+        automatic: [],
+        derived: [],
+      },
+    },
+  } as unknown as OperatorJobDetail;
+}
+function withRecordedDecision(
+  current: OperatorJobDetail,
+  proposalId: string,
+  outcome: string,
+  gap?: { concept_key: string; explanation: string },
+  rationale?: string,
+): OperatorJobDetail {
+  const review = current.semantic_review!;
+  const item = review.work.required.find((item) => item.id === proposalId)!;
+  const decision = {
+    id: 'decision.' + proposalId,
+    proposal_id: proposalId,
+    revision: 1,
+    active: true,
+    outcome,
+    schema_gap: gap,
+    rationale,
+    actor_label: 'Reviewer',
+    recorded_at: '2026-10-10T00:00:00Z',
+    selected_fact_ids: item.evidence.map((fact) => fact.id),
+  };
+  const required = review.work.required.filter((item) => item.id !== proposalId);
+  return {
+    ...current,
+    semantic_review: {
+      ...review,
+      complete: !required.length,
+      expected_review_snapshot: review.expected_review_snapshot + '.saved',
+      required_dispositions: required.map((item) => ({
+        proposal_id: item.id,
+        reason: 'human_disposition_required',
+      })),
+      work: {
+        ...review.work,
+        required,
+        reviewed: [
+          ...review.work.reviewed,
+          {
+            ...item,
+            required: false,
+            state: outcome,
+            active_decision: decision,
+            decision_history: [decision],
+          },
+        ],
+      },
+    },
+  } as unknown as OperatorJobDetail;
+}
+async function openSpecificationApp(api: OperatorApi) {
+  window.location.hash = '/jobs/' + id;
+  render(<App client={api} />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Reviewable fields' }));
+  fireEvent.change(screen.getByLabelText('Reviewer label'), { target: { value: 'Reviewer' } });
+}
+
+describe('Slice A full App route and durable review workflow', () => {
+  it('keeps the job hash through selection, section round trips, successful Save and next, last-item completion and reopening', async () => {
+    const api = client();
+    let current = specificationJob();
+    vi.mocked(api.get).mockImplementation(async () => current);
+    let persist!: () => void;
+    vi.mocked(api.semanticDecision).mockImplementation(async (_id, input) => {
+      await new Promise<void>((resolve) => {
+        persist = resolve;
+      });
+      current = withRecordedDecision(
+        current,
+        input.proposal_id,
+        input.outcome,
+        'schema_gap' in input ? input.schema_gap : undefined,
+        input.rationale,
+      );
+      return current;
+    });
+    await openSpecificationApp(api);
+    const queue = () =>
+      within(screen.getByRole('navigation', { name: 'Specification work queue' }));
+    fireEvent.click(queue().getByRole('button', { name: 'Second current rating' }));
+    expect(window.location.hash).toBe('#/jobs/' + id);
+    expect(screen.getByRole('heading', { name: 'Review: Second current rating' })).toHaveFocus();
+    fireEvent.click(screen.getByRole('button', { name: 'Overview' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Reviewable fields' }));
+    expect(
+      screen.getByRole('heading', { name: 'Review: Second current rating' }),
+    ).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Review decision'), { target: { value: 'unresolved' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save and next outstanding item' }));
+    expect(
+      screen.getByRole('heading', { name: 'Review: Second current rating' }),
+    ).toBeInTheDocument();
+    expect(queue().getByRole('button', { name: 'First current rating' })).toBeDisabled();
+    await act(async () => {
+      persist();
+    });
+    expect(screen.getByRole('heading', { name: 'Review: First current rating' })).toHaveFocus();
+    expect(
+      queue().getByRole('button', { name: /Second current rating · Leave unresolved/ }),
+    ).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Review decision'), { target: { value: 'schema_gap' } });
+    fireEvent.change(screen.getByLabelText('Missing engineering concept or topic (required)'), {
+      target: { value: 'Measurement accuracy' },
+    });
+    fireEvent.change(
+      screen.getByLabelText(
+        'Explain the missing concept and why existing properties do not fit (required)',
+      ),
+      { target: { value: 'No eligible precision property is available.' } },
+    );
+    fireEvent.change(screen.getByLabelText('Rationale (required)'), {
+      target: { value: 'Keep this topic for a separately reviewed contract.' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save and next outstanding item' }));
+    await act(async () => {
+      persist();
+    });
+    expect(screen.getByText(/All required review decisions are recorded/)).toHaveTextContent(
+      /may remain unresolved/,
+    );
+    expect(window.location.hash).toBe('#/jobs/' + id);
+    fireEvent.click(screen.getByRole('button', { name: 'Return to saved review' }));
+    await waitFor(() =>
+      expect(screen.getByText(/Current durable review reloaded/)).toBeInTheDocument(),
+    );
+    fireEvent.click(
+      queue().getByRole('button', { name: /Second current rating · Leave unresolved/ }),
+    );
+    const advanced = screen
+      .getByText('Product field approval and advanced proposal details')
+      .closest('details')!;
+    advanced.open = true;
+    fireEvent(advanced, new Event('toggle'));
+    expect(
+      within(document.getElementById('semantic-second')!).getByText(
+        /revision 1, unresolved by Reviewer/,
+      ),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      queue().getByRole('button', {
+        name: /First current rating · Report a possible missing property/,
+      }),
+    );
+    expect(
+      within(screen.getByLabelText('Current engineering interpretation')).getByText(
+        /Possible missing concept: Measurement accuracy/,
+      ),
+    ).toBeInTheDocument();
+    for (const action of [
+      api.review,
+      api.finalize,
+      api.prepare,
+      api.reopenPreparation,
+      api.submitSourceCandidate,
+    ])
+      expect(action).not.toHaveBeenCalled();
+  });
+  it('preserves item, local input and error after a snapshot conflict without replaying', async () => {
+    const api = client();
+    const current = specificationJob();
+    vi.mocked(api.get)
+      .mockResolvedValueOnce(current)
+      .mockResolvedValue({
+        ...current,
+        semantic_review: {
+          ...current.semantic_review!,
+          expected_review_snapshot: 'snapshot.concurrent',
+        },
+      });
+    vi.mocked(api.semanticDecision).mockRejectedValue(
+      new OperatorApiError(409, 'Concurrent reviewer changed this job'),
+    );
+    await openSpecificationApp(api);
+    fireEvent.change(screen.getByLabelText('Review decision'), { target: { value: 'unresolved' } });
+    fireEvent.change(screen.getByLabelText('Rationale (optional)'), {
+      target: { value: 'Need exact measurement basis' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save and next outstanding item' }));
+    await waitFor(() =>
+      expect(screen.getByText(/Your decision was not saved/)).toBeInTheDocument(),
+    );
+    expect(
+      screen.getByRole('heading', { name: 'Review: First current rating' }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText('Review decision')).toHaveValue('unresolved');
+    expect(screen.getByLabelText('Rationale (optional)')).toHaveValue(
+      'Need exact measurement basis',
+    );
+    expect(screen.getByRole('button', { name: 'Save decision' })).toBeDisabled();
+    expect(api.semanticDecision).toHaveBeenCalledTimes(1);
+    expect(window.location.hash).toBe('#/jobs/' + id);
+    fireEvent.click(screen.getByRole('button', { name: 'Review current evidence and recheck' }));
+    expect(api.semanticDecision).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: 'Save decision' })).toBeEnabled();
+  });
+});
+
+describe('Slice A authoritative queue recovery', () => {
+  it('uses the returned outstanding queue rather than the pre-save browser order', async () => {
+    const api = client();
+    const current = specificationJob();
+    const returned = withRecordedDecision(current, 'first', 'unresolved');
+    const serverNext = {
+      ...returned.semantic_review!.work.required[0],
+      id: 'server-next',
+      evidence: [
+        {
+          ...returned.semantic_review!.work.required[0].evidence[0],
+          label: 'Server next specification',
+        },
+      ],
+    };
+    returned.semantic_review!.work.required = [serverNext];
+    vi.mocked(api.get).mockResolvedValue(current);
+    vi.mocked(api.semanticDecision).mockResolvedValue(returned);
+    await openSpecificationApp(api);
+    fireEvent.change(screen.getByLabelText('Review decision'), { target: { value: 'unresolved' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save and next outstanding item' }));
+    await waitFor(() =>
+      expect(
+        screen.getByRole('heading', { name: 'Review: Server next specification' }),
+      ).toHaveFocus(),
+    );
+    expect(window.location.hash).toBe('#/jobs/' + id);
+  });
+  it('blocks another save when conflict reload fails and requires evidence confirmation after successful reload', async () => {
+    const api = client();
+    const current = specificationJob();
+    vi.mocked(api.get)
+      .mockResolvedValueOnce(current)
+      .mockRejectedValueOnce(new Error('Unavailable'))
+      .mockResolvedValue({
+        ...current,
+        semantic_review: {
+          ...current.semantic_review!,
+          expected_review_snapshot: 'snapshot.latest',
+        },
+      });
+    vi.mocked(api.semanticDecision).mockRejectedValue(new OperatorApiError(409, 'Review changed'));
+    await openSpecificationApp(api);
+    fireEvent.change(screen.getByLabelText('Review decision'), { target: { value: 'unresolved' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save decision' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Reload current review' }));
+    const recheck = await screen.findByRole('button', {
+      name: 'Review current evidence and recheck',
+    });
+    expect(screen.getByRole('button', { name: 'Save decision' })).toBeDisabled();
+    expect(api.semanticDecision).toHaveBeenCalledOnce();
+    fireEvent.click(recheck);
+    expect(screen.getByRole('button', { name: 'Save decision' })).toBeEnabled();
+    expect(api.semanticDecision).toHaveBeenCalledOnce();
+  });
 });

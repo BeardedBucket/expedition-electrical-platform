@@ -20,6 +20,10 @@ import {
 } from './reconciliation.js';
 import { reviewedSemanticContext } from './semantic-context.js';
 import { deriveProductSemanticProposals } from './product-derivations.js';
+import { buildSemanticAssertionProposals } from './semantic-assertion-bridge.js';
+import { classifyRetainedEvidenceProposal } from './retained-evidence-rules.js';
+import { SEMANTIC_RULE_INTERPRETER, type SemanticInterpreter } from './semantic-rules.js';
+import { isQualificationProvenance } from './qualified-context.js';
 import type { CanonicalQualifiedValue, JsonValue } from './contracts.js';
 import {
   parseContextualMeasurement,
@@ -29,6 +33,66 @@ import {
 
 const METHOD_VERSION = 'production-semantic-bridge.v6';
 
+export const buildProductionSemanticProposals = (
+  input: ProductionSemanticBridgeInput,
+  interpreter: SemanticInterpreter = SEMANTIC_RULE_INTERPRETER,
+): readonly SemanticProposal[] => {
+  const proposals = buildSemanticAssertionProposals(
+    input,
+    buildLegacyProductionSemanticProposals(input),
+    interpreter,
+  );
+  return (
+    interpreter === 'semantic-assertions.v2'
+      ? [...proposals]
+      : proposals.map((p) => {
+          // Generic assertions preserve their full context. A legacy scalar
+          // mapping has no such representation: new snapshots must expose any
+          // remaining source/unknown context as human work, including labels
+          // outside the numeric assertion catalog. Archived v6/v7 stay unchanged.
+          let current = p;
+          if (
+            !p.derivation &&
+            !p.semantic_assertions &&
+            p.disposition === 'mapped' &&
+            p.fact_refs?.some((ref) => {
+              const fact = input.facts.find(
+                (f) => f.id === ref.reference && artifactDigest(f) === ref.digest,
+              );
+              return fact?.evidence?.some(
+                (e) =>
+                  (e.role === 'context' || e.role === 'qualifier') &&
+                  !isQualificationProvenance(e, fact),
+              );
+            })
+          ) {
+            const { id: ignored, ...base } = p;
+            void ignored;
+            const content = {
+              ...base,
+              disposition: 'unresolved' as const,
+              provenance: {
+                method: 'rule' as const,
+                rule_version:
+                  interpreter === 'semantic-assertions.v3'
+                    ? 'production-semantic-bridge.v8'
+                    : interpreter === 'semantic-assertions.v4'
+                      ? 'production-semantic-bridge.v9'
+                      : 'production-semantic-bridge.v10',
+                rationale:
+                  'Legacy interpretation lacks a complete source/unknown context representation; explicit qualifier-preserving interpretation required.',
+              },
+            };
+            current = {
+              ...content,
+              id: `semantic-proposal.${artifactDigest(content).slice(7, 31)}`,
+            };
+          }
+          return classifyRetainedEvidenceProposal(current, input.facts);
+        })
+  ).sort((a, b) => a.id.localeCompare(b.id));
+};
+
 export interface ProductionSemanticBridgeInput {
   readonly facts: readonly QualifiedFactArtifact[];
   readonly source_acquisitions: readonly SourceAcquisitionArtifact[];
@@ -36,7 +100,7 @@ export interface ProductionSemanticBridgeInput {
 }
 
 /** F outcomes are evidence comparisons, never approval or canonical truth. */
-export const buildProductionSemanticProposals = (
+export const buildLegacyProductionSemanticProposals = (
   input: ProductionSemanticBridgeInput,
 ): readonly SemanticProposal[] => {
   validateProductionSemanticTargetContracts();

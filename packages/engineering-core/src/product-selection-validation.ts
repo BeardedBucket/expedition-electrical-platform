@@ -7,6 +7,7 @@ import input from '../../../data/schemas/product-selection-input.schema.json' wi
 import policy from '../../../data/schemas/product-selection-policy.schema.json' with { type: 'json' };
 import result from '../../../data/schemas/product-selection.schema.json' with { type: 'json' };
 import { serializePassportValue } from './portable-json.js';
+import { hasCurrentCanonicalVerification } from './canonical-verification.js';
 
 type Validator = ((v: unknown) => boolean) & {
   errors?: readonly { instancePath?: string; message?: string }[];
@@ -35,4 +36,10 @@ export const assertSelectionSchema = (value: unknown, kind: keyof typeof validat
     throw new TypeError(
       `Selection ${kind} schema rejected: ${(validate.errors ?? []).map((e) => `${e.instancePath}: ${e.message}`).join('; ')}`,
     );
+  if (kind === 'input') {
+    const corpus = (value as { corpus?: readonly Record<string, unknown>[] }).corpus ?? [];
+    for (const record of corpus)
+      if (record.verification_status === 'verified' && !hasCurrentCanonicalVerification(record))
+        throw new TypeError('Canonical engineering verification is stale or invalid.');
+  }
 };

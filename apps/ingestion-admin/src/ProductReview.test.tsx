@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -132,7 +133,7 @@ function setup(job = detail()) {
     semanticPreview: vi.fn(),
   } as unknown as OperatorApi;
   const onUpdate = vi.fn();
-  const view = render(<ProductReview job={job} client={client} onUpdate={onUpdate} />);
+  const view = renderWithDetails(<ProductReview job={job} client={client} onUpdate={onUpdate} />);
   return {
     job,
     client,
@@ -167,8 +168,8 @@ describe('field oriented human product review', () => {
   it('keeps a projected automatic proposal in one semantic card with source and both decisions', () => {
     const job = withAutomaticSemanticItem();
     setup(job);
-    const card = screen
-      .getByRole('heading', { name: 'electrical.nominal_voltage' })
+    const card = within(document.getElementById('semantic-required')!)
+      .getByRole('heading', { name: 'Nominal voltage', level: 4 })
       .closest('article')!;
     expect(
       within(card).getByText('Source-stated evidence · Nominal voltage · qualified.1'),
@@ -197,7 +198,7 @@ describe('field oriented human product review', () => {
     fireEvent.change(fieldDecision, { target: { value: 'approve' } });
     fireEvent.click(screen.getByRole('button', { name: 'Review / correct automatic mapping' }));
     expect(fieldDecision).toHaveValue('approve');
-    expect(screen.getByLabelText('Semantic disposition')).toHaveValue('');
+    expect(screen.getByLabelText('Review decision')).toHaveValue('');
   });
   it('keeps a human-mapped projected proposal in REVIEWED / DISPOSITIONED with product approval there', () => {
     const job = withAutomaticSemanticItem();
@@ -222,8 +223,8 @@ describe('field oriented human product review', () => {
     ];
     setup(job);
     expect(screen.getByRole('heading', { name: 'REVIEWED / DISPOSITIONED' })).toBeInTheDocument();
-    const card = screen
-      .getByRole('heading', { name: 'electrical.nominal_voltage' })
+    const card = within(document.getElementById('semantic-required')!)
+      .getByRole('heading', { name: 'Nominal voltage', level: 4 })
       .closest('article')!;
     expect(
       within(card).getByLabelText('Product field decision for electrical.nominal_voltage'),
@@ -260,7 +261,9 @@ describe('field oriented human product review', () => {
         },
       ];
       setup(job);
-      const card = screen.getByRole('heading', { name: field.path }).closest('article')!;
+      const card = within(document.getElementById('semantic-required')!)
+        .getByRole('heading', { name: fact.label, level: 4 })
+        .closest('article')!;
       expect(within(card).getByText(new RegExp(`${outcome} by Reviewer`))).toBeInTheDocument();
       expect(within(card).queryByLabelText(`Product field decision for ${field.path}`)).toBeNull();
       expect(screen.queryByRole('heading', { name: `Proposed field: ${field.path}` })).toBeNull();
@@ -319,7 +322,7 @@ describe('field oriented human product review', () => {
     } as unknown as NonNullable<OperatorJobDetail['semantic_review']>;
     setup(job);
     const card = screen
-      .getByRole('heading', { name: 'battery.usable_capacity_ah' })
+      .getByRole('heading', { name: 'Usable battery capacity' })
       .closest('article')!;
     expect(screen.getByRole('heading', { name: 'DERIVED / CALCULATED' })).toBeInTheDocument();
     expect(
@@ -941,3 +944,14 @@ describe('field oriented human product review', () => {
     expect(onUpdate).not.toHaveBeenCalled();
   });
 });
+
+function renderWithDetails(element: ReactElement) {
+  const view = render(element);
+  const advanced = screen.queryByText('Product field approval and advanced proposal details');
+  if (advanced) {
+    fireEvent.click(advanced);
+    advanced.closest('details')!.open = true;
+    fireEvent(advanced.closest('details')!, new Event('toggle'));
+  }
+  return view;
+}

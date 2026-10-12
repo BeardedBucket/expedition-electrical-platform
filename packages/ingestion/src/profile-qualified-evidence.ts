@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { qualifiedContext } from './qualified-context.js';
 import { parse, type DefaultTreeAdapterTypes } from 'parse5';
 import type { CapturedSource, ExtractedBlock } from './capture-types.js';
 import type { JsonObject, JsonValue } from './contracts.js';
@@ -736,13 +737,17 @@ export const prepareProfileQualifiedEvidence = (input: {
               // without structural line boundaries are intentionally not NLP.
               const chunks: string[] = [''];
               let malformed = false;
+              // Inline links are inert label/value text, not a new region or
+              // identity grant. A link in one ordinary specification must not
+              // discard the other BR-delimited quantities. Nested block content
+              // remains unsupported rather than being flattened into a line.
+              const inline = (child: Node): boolean =>
+                !('tagName' in child) ||
+                (['strong', 'b', 'span', 'em', 'i', 'a'].includes(child.tagName) &&
+                  child.childNodes.every(inline));
               for (const child of node.node.childNodes) {
                 if ('tagName' in child && child.tagName === 'br') chunks.push('');
-                else if (
-                  'tagName' in child &&
-                  !['strong', 'b', 'span', 'em', 'i'].includes(child.tagName)
-                )
-                  malformed = true;
+                else if (!inline(child)) malformed = true;
                 else chunks[chunks.length - 1] += text(child);
               }
               if (malformed || (region.kind === 'label_value_lines' && chunks.length < 2)) continue;
@@ -833,7 +838,15 @@ export const prepareProfileQualifiedEvidence = (input: {
     role: QualifiedFactEvidence['role'],
     value: string,
     locator: DocumentSourceLocation,
-  ): QualifiedFactEvidence => ({ role, text: value, locator, source_reference: captureRef });
+  ): QualifiedFactEvidence => ({
+    role,
+    text: value,
+    locator,
+    source_reference: captureRef,
+    ...(role === 'qualifier'
+      ? { context: qualifiedContext('source_semantic', 'profile-qualified-evidence') }
+      : {}),
+  });
   // Conditions explicitly written in a label remain evidence even when a legacy
   // semantic alias recognizes that label. Recognition cannot erase a temperature,
   // mode or "only when" qualification. This is a conservative context guard,
@@ -874,6 +887,7 @@ export const prepareProfileQualifiedEvidence = (input: {
             ),
             {
               role: 'context',
+              context: qualifiedContext('qualification_provenance', 'profile-qualified-evidence'),
               text: o.context,
               source_reference: documentRef,
               locator: o.location,

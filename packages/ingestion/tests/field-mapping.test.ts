@@ -226,11 +226,16 @@ const run = (rows: readonly (readonly [string, string])[], categories: readonly 
     facts,
     source_acquisitions: [acquisition],
   });
-  const proposals = buildProductionSemanticProposals({
-    facts,
-    source_acquisitions: [acquisition],
-    reconciliation,
-  });
+  // These lifecycle/legacy-field fixtures exercise the archived v3 contract.
+  // Fresh producer-to-candidate behavior is covered by greenfield-production-path.
+  const proposals = buildProductionSemanticProposals(
+    {
+      facts,
+      source_acquisitions: [acquisition],
+      reconciliation,
+    },
+    'semantic-assertions.v3',
+  );
   return {
     facts,
     reconciliation,

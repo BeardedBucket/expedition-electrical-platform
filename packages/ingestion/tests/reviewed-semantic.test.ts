@@ -335,7 +335,7 @@ describe('reviewed semantic interpretation', () => {
     );
   });
 
-  it('resolves an unresolved proposal using explicit evidence', () => {
+  it('refuses to flatten unresolved condition-bearing evidence through a scalar human decision', () => {
     const facts = [fact('Output ampacity', '150 A', { conditions: ['at 25 C'] })];
     const { proposals } = prepare(facts);
     expect(proposals[0].disposition).toBe('unresolved');
@@ -346,9 +346,7 @@ describe('reviewed semantic interpretation', () => {
       normalized_unit: 'A',
       rationale: 'The retained row identifies continuous output current.',
     });
-    expect(rebuild(facts, [reviewed]).bridge.candidate?.component_data).toEqual({
-      electrical: { continuous_output_current_a: 150 },
-    });
+    expect(() => rebuild(facts, [reviewed])).toThrow(/qualifier-preserving semantic rule/);
   });
 
   it('retains an automatic target correction separately from the original proposal', () => {
@@ -453,7 +451,9 @@ describe('reviewed semantic interpretation', () => {
   });
 
   it('records exact inch-to-millimetre conversion as normalization, not derivation', () => {
-    const facts = [fact('Width', '7.09 in')];
+    // Exercise explicit human scalar normalization separately from the generic
+    // body-axis rule, whose source-scope assertion must remain qualified.
+    const facts = [fact('Reviewed dimension measurement', '7.09 in')];
     const { proposals } = prepare(facts);
     const reviewed = decision(facts, proposals, proposals[0], {
       outcome: 'map',
@@ -479,6 +479,13 @@ describe('reviewed semantic interpretation', () => {
     expect(result.bridge.facts[0].derivation).toBeUndefined();
     expect(result.bridge.candidate?.derived_fields).toBeUndefined();
     expect(facts[0].metadata.raw_value).toBe('7.09 in');
+  });
+
+  it('does not let a human scalar mapping erase the generic body-axis scope requirement', () => {
+    const facts = [fact('Width', '7.09 in')];
+    expect(() =>
+      previewReviewedSemanticMapping('dimensions_mm.x', facts, facts, [acquisition]),
+    ).toThrow(/qualifier-preserving/);
   });
 
   it('keeps automatic source conversion typed and separate from calculated derivation', () => {

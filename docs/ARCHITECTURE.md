@@ -1,5 +1,70 @@
 # Architecture
 
+## Human source adjudication and integration validation
+
+Source correction is a provisional, append-only review event over immutable
+captures, retained documents and original automated observations. Its
+`source-context.v1` proof independently retains applicable containing statements,
+headings and notes: an editable label or cropped quote cannot erase material
+conditions. Exact requested-model evidence, closed mapping intents, deterministic
+normalization, durable replay and CAS remain server-owned. A correction does not
+inherit product approval, canonical promotion or content-bound verification.
+See [human adjudication](../packages/ingestion/HUMAN_ADJUDICATION_V1.md) and
+[the maintainer correction workspace](../apps/ingestion-admin/HUMAN_REVIEW_UX.md)
+for source ownership, revision history, preview sequencing and UI boundaries.
+
+Production ingestion schema validation now depends on the human-adjudication
+schema's source-proof definition. Independent AJV consumers must register that
+schema before compiling the production schema. Package regression tests also
+depend on current built workspace exports; stale `dist` output is not evidence
+of current source behavior. The normal contributor sequence builds before tests.
+Protected-corpus integration runs must use an explicit safe file/test scope and
+may build an exact-file disposable workspace rather than overwrite existing
+outputs. A targeted retry is not a clean complete regression result.
+
+A bounded runtime-import audit found cycles between production contracts and
+PDF qualification helpers, between field mapping, qualified values and human
+mapping, and between product selection and its handoff. Their cross-module
+helpers run after initialization; eager schema compilation uses imported JSON,
+and selection initialization freezes its imported policy. Do not introduce
+top-level calls into the cyclic helpers. Fresh built entry points and replay
+tests exercise the current ordering. These are explicit dependency concerns for
+a future focused refactor, not grounds to remove historical replay code.
+
+## Semantic interpretation and local verification
+
+The production v12 bridge compares typed semantic assertions separately from
+source-native F reconciliation. Its generic rules retain conditions and exact
+source applicability; recognized ratings do not assert installation suitability.
+Approved promotion still writes `unverified`. A separate explicit trusted-local
+operator action binds verification to exact canonical content, source/amendment
+lineage, and its durable promotion. Changes invalidate authority and require
+re-verification; absent fields remain unknown and Phase 5 remains verified-only.
+A status-only `verified` record has no current authority: a valid event bound to
+its exact current content is required. Verification reads the validated absolute
+destination recorded by the successful write; same-ID files in a changed root
+cannot inherit that write's identity. Qualifier/context evidence without usable
+source assertion text stays unresolved and cannot disappear during comparison.
+See [the architecture repair](INGESTION_ARCHITECTURE_REPAIR.md) for vocabulary
+governance, legacy replay, lock/write ownership, authority limits, and pressure
+evidence.
+
+`qualified-context.v1` records producer-owned source semantics, qualification
+provenance, or unresolved context. Current interpreter v7 ignores only valid bound
+provenance as a rating condition; untyped persisted context remains unresolved.
+`retained-evidence.v1` closes exact identity/commercial observations with complete
+source/rule proof and zero engineering projection authority. See
+[context and workload ownership](INGESTION_CONTEXT_WORKLOAD.md) for every
+producer/consumer, archived v2/v3 replay, rule changes and audit boundaries.
+See [greenfield ingestion](INGESTION_GREENFIELD_ACCEPTANCE.md) for native HTML
+ownership, archived v4/v5 interpretation, competing quantity/unit guards, and the
+source-observable engineering coverage acceptance boundary.
+See [PDF structural reconstruction](INGESTION_PDF_STRUCTURE_REPAIR.md) for the
+versioned open/painted/aligned mechanisms, source scope, heuristic limits and
+explicit archived v6/v11 replay.
+See [upstream structure repair](INGESTION_UPSTREAM_REPAIR.md) for vector PDF
+ownership, ProductGroup selection, publisher attribution, and remaining limits.
+
 ## Resumable product-review deferral
 
 `review_deferred` is an explicit human pause, distinct from terminal
@@ -371,7 +436,9 @@ and need not reconstruct the legacy text collector's inserted separators.
 This evidence asserts neither product identity nor footnote meaning. The HTML
 extractor version identifies the enriched output, and artifact hashing includes
 the optional structure. Existing schema-version 1.0 artifacts remain valid.
-PDF extraction remains text-only and does not infer HTML cell structure.
+PDF extraction retains ordinary text and narrowly supported positioned/vector
+supplements; it does not infer HTML cell structure. See the upstream repair
+contract for source-painted grid ownership and abstention.
 
 ### Structured whole-table product qualification
 
@@ -467,7 +534,10 @@ closed. Defaults remain 1,000 pages and 100,000 characters per block; PDF output
 has independent block and total-text budgets described below. The declared text
 cap is now enforced for PDF blocks as well as HTML. The HTML table-cell ceiling
 remains 50,000 per table, with table blocks subject to the item cap; PDF table
-structure remains unsupported and produces zero tables. There is no separate
+structure outside the supported positioned, vector-grid and source-layout
+grammars remains unsupported. Supported supplements can emit table evidence,
+which still requires independent ownership qualification; ordinary text alone
+does not acquire table scope. There is no separate
 table-count setting. Parser exceptions, including cleanup failures, produce an
 explicit failed result with no fabricated blocks.
 
@@ -552,7 +622,7 @@ diagnostic schema and runtime allowlist both admit it. Existing stream-finally
 ownership cancels with Error, releases the lock, cleans the page, stops subsequent
 pages, and destroys the task; cleanup failures remain contained parser failures.
 Capture bytes and digest ownership are unchanged. Input/page/per-block limits,
-no OCR, and no PDF table inference remain independent.
+no OCR, and abstention outside the supported PDF structure grammars remain independent.
 
 Reconsider these defaults when a broader supported corpus or measured operational
 allocation/storage/latency evidence demonstrates insufficient headroom or excessive
@@ -635,14 +705,19 @@ qualifier contexts. A materially qualified assertion must never also populate it
 unconditional direct field. Unrecognized material qualifier meaning prevents
 projection, rather than being discarded to fit a direct field.
 
-The initial target union supports `electrical.input_voltage_range_v` with explicit
+The initial target union supported `electrical.input_voltage_range_v` with explicit
 `electrical_domain: ac | dc`, and `dimensions_mm` with
 `physical_scope: { kind: physical_body, exclusions: [...] }`. Exclusions currently
 support `connectors` and `mounting_accessories`. Domain is never inferred from
 plain V, category, manufacturer, or system expectations. Body dimensions remain
-distinct from mounted/installed envelopes and service clearances. Future operating
-state, duration, temperature, measurement, and location qualifier kinds extend
-the typed target/qualifier union without changing the surrounding assertion shape.
+distinct from mounted/installed envelopes and service clearances. The current
+typed union also represents supported source ratings with direction, domain,
+rating basis, duration, temperature, comparison and measurement context, as well
+as conditioned consumption. The versioned semantic rules and canonical schema
+own the actual eligible combinations; this historical initial-target description
+is not the current allowlist. Unknown material conditions still prevent
+projection. Downstream consumers must support the complete target and qualifiers
+before using an assertion in an engineering calculation.
 
 Initial production IDs hash target, normalized value, qualifiers, and sorted
 source-qualified fact IDs using the existing deterministic artifact hash pattern.

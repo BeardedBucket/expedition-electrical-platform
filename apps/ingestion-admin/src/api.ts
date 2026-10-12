@@ -1,6 +1,15 @@
 import type { OperatorJobDetail, OperatorJobSummary } from '../server/operator-views.js';
 import type { IntakeSuggestions } from '../server/suggestions.js';
 import type { JsonValue, ProductionPromotionDecisions } from '@expedition/ingestion';
+import type { HumanAdjudicationIntent } from '@expedition/ingestion';
+import type { IngestionJobService } from '@expedition/ingestion-runtime';
+export type HumanEvidencePage = Awaited<ReturnType<IngestionJobService['humanEvidence']>>;
+export type HumanPreview = Awaited<ReturnType<IngestionJobService['previewHumanAdjudication']>>;
+export interface HumanReviewRequest {
+  expected_review_snapshot: string;
+  actor_label: string;
+  intent: HumanAdjudicationIntent;
+}
 import type {
   ReviewedSemanticMappingPreview,
   ReviewedSemanticTargetDescriptor,
@@ -126,7 +135,55 @@ const intakeRecord = (input: IntakeInput) => ({
     ? { official_product_uri: input.official_product_uri }
     : {}),
 });
+export interface EngineeringVerificationPreview {
+  record: Record<string, unknown>;
+  snapshot: string;
+  content_digest: string;
+  current: boolean;
+}
+// Kept separate from intake/review commands: neither finalization nor an ordinary
+// job refresh can request this authority transition.
+export const verificationApi = {
+  preview: (id: string) =>
+    request<EngineeringVerificationPreview>(`/${encodeURIComponent(id)}/engineering-verification`),
+  verify: (id: string, expected_snapshot: string, operator_label: string) =>
+    request<EngineeringVerificationPreview>(
+      `/${encodeURIComponent(id)}/engineering-verification`,
+      'POST',
+      { expected_snapshot, operator_label },
+    ),
+};
 export const api = {
+  humanProperties: (
+    id: string,
+    input: HumanReviewRequest & {
+      statement_index: number;
+      representation?: Parameters<IngestionJobService['humanProperties']>[1]['representation'];
+    },
+  ) =>
+    request<SemanticTargetResponse>(
+      `/${encodeURIComponent(id)}/review/human-properties`,
+      'POST',
+      input,
+    ),
+  humanEvidence: (
+    id: string,
+    input: {
+      expected_review_snapshot: string;
+      document_id: string;
+      offset: number;
+      query?: string;
+    },
+  ) =>
+    request<HumanEvidencePage>(`/${encodeURIComponent(id)}/review/human-evidence`, 'POST', input),
+  humanPreview: (id: string, input: HumanReviewRequest) =>
+    request<HumanPreview>(`/${encodeURIComponent(id)}/review/human-preview`, 'POST', input),
+  humanAdjudication: (id: string, input: HumanReviewRequest) =>
+    request<OperatorJobDetail>(
+      `/${encodeURIComponent(id)}/review/human-adjudication`,
+      'POST',
+      input,
+    ),
   suggestions: async (): Promise<IntakeSuggestions> => {
     const response = await fetch('/api/ingestion/suggestions');
     if (!response.ok) throw new Error('Canonical suggestions could not be loaded.');

@@ -10,8 +10,13 @@ import {
 } from '../src/product-selection.js';
 import { evaluateProductWitness, feasibility } from '../src/product-binding-evaluation.js';
 import { passportDigest, serializePassportValue } from '../src/portable-json.js';
-import { batteryProduct, converterProduct, selectionRequest } from './fixtures/selection.js';
+import {
+  batteryProduct,
+  converterProduct,
+  verifiedSelectionRequest,
+} from './fixtures/selection.js';
 import type { ComponentLibraryRecord } from '../src/component-library.js';
+import { verifySyntheticRecord } from './fixtures/verification.js';
 const copy = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 const candidate = (input: ProductSelectionInput) =>
   evaluateProductSelection(input).roles.find((r) => r.role.function === 'dc_conversion')!
@@ -24,7 +29,7 @@ const mutate = (f: (r: Record<string, unknown>) => void): ComponentLibraryRecord
 
 describe('mandatory product feasibility', () => {
   it('proves a complete binding with exact accepted evidence for every YES', () => {
-    const c = candidate(selectionRequest());
+    const c = candidate(verifiedSelectionRequest());
     expect(c.status).toBe('ELIGIBLE');
     const binding = c.bindings.find((b) => b.status === 'ELIGIBLE')!;
     expect(binding.witness).toEqual({
@@ -42,7 +47,7 @@ describe('mandatory product feasibility', () => {
     'withholds %s evidence from both YES and NO',
     (verification) => {
       const p = { ...converterProduct(), verification_status: verification };
-      const c = candidate(selectionRequest([p]));
+      const c = candidate(verifiedSelectionRequest([p]));
       expect(c.status).toBe('UNRESOLVED');
       expect(c.bindings.flatMap((b) => b.gates).every((g) => g.truth === 'UNKNOWN')).toBe(true);
     },
@@ -54,14 +59,14 @@ describe('mandatory product feasibility', () => {
         delete r[field];
         if (field !== 'power_paths') delete r.power_paths;
       });
-      expect(candidate(selectionRequest([p])).status).toBe('UNRESOLVED');
+      expect(candidate(verifiedSelectionRequest([p])).status).toBe('UNRESOLVED');
     },
   );
   it.each(['voltage_v', 'power_w'] as const)('missing numeric %s never becomes zero', (field) => {
     const p = copy(converterProduct());
     const out = { ...p.ports![1]! };
     delete (out as Record<string, unknown>)[field];
-    const c = candidate(selectionRequest([{ ...p, ports: [p.ports![0]!, out] }]));
+    const c = candidate(verifiedSelectionRequest([{ ...p, ports: [p.ports![0]!, out] }]));
     expect(c.status).toBe('UNRESOLVED');
     expect(
       c.bindings.some((b) =>
@@ -79,7 +84,7 @@ describe('mandatory product feasibility', () => {
     const out = { ...p.ports![1]!, [field]: value };
     expect(
       candidate(
-        selectionRequest([
+        verifiedSelectionRequest([
           {
             ...p,
             ports: [p.ports![0]!, out],
@@ -92,7 +97,7 @@ describe('mandatory product feasibility', () => {
   it('records every gate after a blocker and preserves all contradictions', () => {
     const p = copy(converterProduct());
     const c = candidate(
-      selectionRequest([
+      verifiedSelectionRequest([
         {
           ...p,
           ports: [
@@ -104,7 +109,7 @@ describe('mandatory product feasibility', () => {
     );
     for (const b of c.bindings)
       expect(b.gates.length).toBe(
-        selectionRequest().generation.candidates[0]!.required_roles[0]!.constraints.length,
+        verifiedSelectionRequest().generation.candidates[0]!.required_roles[0]!.constraints.length,
       );
     expect(c.bindings.some((b) => b.gates.filter((g) => g.truth === 'NO').length >= 3)).toBe(true);
   });
@@ -125,7 +130,7 @@ describe('mandatory product feasibility', () => {
         battery: { nominal_energy_wh: 4800 },
         ...(unsupported === false ? { unsupported_capabilities: ['communication' as const] } : {}),
       };
-      let request = selectionRequest([p], false, true);
+      let request = verifiedSelectionRequest([p], false, true);
       const role = request.generation.candidates[0]!.required_roles.find(
         (r) => r.function === 'storage',
       )!;
@@ -141,7 +146,7 @@ describe('mandatory product feasibility', () => {
     ['missing', 'UNKNOWN'],
     ['unreviewed', 'UNKNOWN'],
   ] as const)('mandatory communication %s distinguishes negatives and missing', (mode, truth) => {
-    const request = selectionRequest();
+    const request = verifiedSelectionRequest();
     const architecture = request.generation.candidates[0]!;
     const role = architecture.required_roles[0]!;
     const p = {
@@ -163,7 +168,7 @@ describe('mandatory product feasibility', () => {
           },
         ],
       },
-      p,
+      verifySyntheticRecord(p),
       { interfaces: { dc: 'in', output: 'out' }, paths: { supply: 'convert' } },
     );
     expect(b.gates.find((g) => g.constraint.id === 'communication')!.truth).toBe(truth);
@@ -171,7 +176,7 @@ describe('mandatory product feasibility', () => {
   it('cannot union unrelated port voltage and power facts', () => {
     const p = copy(converterProduct());
     const c = candidate(
-      selectionRequest([
+      verifiedSelectionRequest([
         {
           ...p,
           ports: [
@@ -189,7 +194,7 @@ describe('mandatory product feasibility', () => {
     const p = copy(converterProduct());
     expect(
       candidate(
-        selectionRequest([
+        verifiedSelectionRequest([
           {
             ...p,
             ports: [
@@ -223,7 +228,7 @@ describe('mandatory product feasibility', () => {
       // Omitted modeled context remains genuinely absent, not JSON undefined.
       const clean = copy(out);
       const c = candidate(
-        selectionRequest([
+        verifiedSelectionRequest([
           { ...p, electrical: { continuous_power_w: 5000 }, ports: [p.ports![0]!, clean] },
         ]),
       );
@@ -238,12 +243,12 @@ describe('mandatory product feasibility', () => {
       const path = { ...p.power_paths![0]! };
       delete (path as Record<string, unknown>).isolated;
       if (isolated !== undefined) (path as { isolated?: boolean }).isolated = isolated;
-      const c = candidate(selectionRequest([{ ...p, power_paths: [path] }]));
+      const c = candidate(verifiedSelectionRequest([{ ...p, power_paths: [path] }]));
       expect(c.status).toBe(isolated === false ? 'BLOCKED' : 'UNRESOLVED');
     },
   );
   it('preserves upstream shared capacity even when all lower bounds pass', () => {
-    const request = selectionRequest(undefined, true);
+    const request = verifiedSelectionRequest(undefined, true);
     const role = evaluateProductSelection(request).roles[0]!;
     expect(role.upstream_unresolved[0]!.unresolved_reasons).toContain('concurrency_not_asserted');
     const b = role.candidates[0]!.bindings.find((b) => b.gates.every((g) => g.truth === 'YES'))!;
@@ -256,7 +261,7 @@ describe('mandatory product feasibility', () => {
     expect(b.calculations).toEqual([]);
   });
   it('unknown individual demand remains upstream unknown, not a zero W gate', () => {
-    const req = selectionRequest(undefined, true);
+    const req = verifiedSelectionRequest(undefined, true);
     const gen = copy(req.generation.input);
     delete (gen.requirements.loads[1] as Record<string, unknown>).required_power_w;
     // Regeneration, rather than editing a portable role artifact.
@@ -299,7 +304,7 @@ describe('fixed intent, assembly and deterministic portability', () => {
                   ports: converterProduct().ports!.map((p) => ({ ...p, voltage_v: 48 })),
                 }
               : converterProduct();
-      const request = selectionRequest(
+      const request = verifiedSelectionRequest(
         p ? [p, { ...converterProduct(), id: 'fixture.alternative' }] : [converterProduct()],
       );
       const role = request.generation.candidates[0]!.required_roles[0]!;
@@ -322,7 +327,7 @@ describe('fixed intent, assembly and deterministic portability', () => {
     },
   );
   it('other roles remain selectable around a missing fixed model', () => {
-    const request = selectionRequest([converterProduct()], false, true);
+    const request = verifiedSelectionRequest([converterProduct()], false, true);
     const storage = request.generation.candidates[0]!.required_roles.find(
       (r) => r.function === 'storage',
     )!;
@@ -335,7 +340,9 @@ describe('fixed intent, assembly and deterministic portability', () => {
     ).toBe('ELIGIBLE');
   });
   it('derives minimum series/parallel bank with exact formulas and preserved deferred dispatch', () => {
-    const result = evaluateProductSelection(selectionRequest([batteryProduct()], false, true));
+    const result = evaluateProductSelection(
+      verifiedSelectionRequest([batteryProduct()], false, true),
+    );
     const role = result.roles.find((r) => r.role.function === 'storage')!;
     const c = role.candidates.find((c) => c.assembly)!;
     expect(c.assembly).toMatchObject({ series_count: 2, parallel_count: 2 });
@@ -357,7 +364,7 @@ describe('fixed intent, assembly and deterministic portability', () => {
     (axis) => {
       const p = batteryProduct();
       const field = `allowed_${axis}_count`;
-      const request = selectionRequest(
+      const request = verifiedSelectionRequest(
         [{ ...p, battery: { ...p.battery, [field]: { min: 1, max: 1 } } }],
         false,
         true,
@@ -369,7 +376,7 @@ describe('fixed intent, assembly and deterministic portability', () => {
       ).toBe('BLOCKED');
       const battery = { ...p.battery };
       delete (battery as Record<string, unknown>)[field];
-      const c = evaluateProductSelection(selectionRequest([{ ...p, battery }], false, true))
+      const c = evaluateProductSelection(verifiedSelectionRequest([{ ...p, battery }], false, true))
         .roles.find((r) => r.role.function === 'storage')!
         .candidates.find((c) => c.assembly)!;
       expect(c.status).toBe('UNRESOLVED');
@@ -379,7 +386,7 @@ describe('fixed intent, assembly and deterministic portability', () => {
   it('missing unit energy retains a symbolic unresolved assembly rather than quantity guessing', () => {
     const p = batteryProduct();
     const c = evaluateProductSelection(
-      selectionRequest(
+      verifiedSelectionRequest(
         [{ ...p, battery: { allowed_series_count: { min: 1, max: 4 } } }],
         false,
         true,
@@ -391,7 +398,7 @@ describe('fixed intent, assembly and deterministic portability', () => {
     expect(c.some((c) => c.assembly)).toBe(false);
   });
   it('explicit count assemblies are deterministic, including an engineering contradiction', () => {
-    const request = selectionRequest([batteryProduct()], false, true);
+    const request = verifiedSelectionRequest([batteryProduct()], false, true);
     const role = request.generation.candidates[0]!.required_roles.find(
       (r) => r.function === 'storage',
     )!;
@@ -427,21 +434,21 @@ describe('fixed intent, assembly and deterministic portability', () => {
     };
     expect(() =>
       evaluateProductSelection(
-        selectionRequest([converterProduct(), batteryProduct()], false, true),
+        verifiedSelectionRequest([converterProduct(), batteryProduct()], false, true),
         policy,
       ),
     ).toThrow(/bound/);
   });
   it('corpus order has no effect on the complete artifact', () => {
-    const input = selectionRequest([converterProduct(), batteryProduct()]);
+    const input = verifiedSelectionRequest([converterProduct(), batteryProduct()]);
     expect(evaluateProductSelection({ ...input, corpus: [...input.corpus].reverse() })).toEqual(
       evaluateProductSelection(input),
     );
   });
   it('unrelated product addition/removal cannot change another product truth', () => {
-    const a = candidate(selectionRequest());
+    const a = candidate(verifiedSelectionRequest());
     const b = evaluateProductSelection(
-      selectionRequest([converterProduct(), batteryProduct()]),
+      verifiedSelectionRequest([converterProduct(), batteryProduct()]),
     ).roles[0]!.candidates.find((c) => c.component_id === converterProduct().id)!;
     expect(b).toEqual(a);
   });
@@ -466,11 +473,11 @@ describe('fixed intent, assembly and deterministic portability', () => {
             : field === 'price' || field === 'popularity'
               ? 999
               : 'changed';
-    const c = candidate(selectionRequest([{ ...p, [field]: value }]));
+    const c = candidate(verifiedSelectionRequest([{ ...p, [field]: value }]));
     expect(c.status).toBe('ELIGIBLE');
   });
   it('predicate order changes neither gate outcomes nor aggregate truth', () => {
-    const request = selectionRequest();
+    const request = verifiedSelectionRequest();
     const a = request.generation.candidates[0]!;
     const role = a.required_roles[0]!;
     const w = { interfaces: { dc: 'in', output: 'out' }, paths: { supply: 'convert' } };
@@ -478,13 +485,13 @@ describe('fixed intent, assembly and deterministic portability', () => {
       evaluateProductWitness(
         a,
         { ...role, constraints: [...role.constraints].reverse() },
-        converterProduct(),
+        verifySyntheticRecord(converterProduct()),
         w,
       ),
-    ).toEqual(evaluateProductWitness(a, role, converterProduct(), w));
+    ).toEqual(evaluateProductWitness(a, role, verifySyntheticRecord(converterProduct()), w));
   });
   it('round trips and exactly replays through the public source API', () => {
-    const input = selectionRequest();
+    const input = verifiedSelectionRequest();
     const result = evaluateProductSelection(input);
     expect(parseProductSelection(serializeProductSelection(result))).toEqual(result);
     expect(replayProductSelection(result, input)).toEqual(result);
@@ -532,7 +539,7 @@ describe('fixed intent, assembly and deterministic portability', () => {
     // Withheld evidence ensures a forged YES is a material semantic change.
     const r = copy(
       evaluateProductSelection(
-        selectionRequest([{ ...converterProduct(), verification_status: 'unverified' }]),
+        verifiedSelectionRequest([{ ...converterProduct(), verification_status: 'unverified' }]),
       ),
     );
     change(r);
@@ -541,7 +548,9 @@ describe('fixed intent, assembly and deterministic portability', () => {
     expect(() => parseProductSelection(serializePassportValue(r))).toThrow();
   });
   it.each(['count', 'calculation'] as const)('rejects rehashed assembly %s tampering', (field) => {
-    const r = copy(evaluateProductSelection(selectionRequest([batteryProduct()], false, true)));
+    const r = copy(
+      evaluateProductSelection(verifiedSelectionRequest([batteryProduct()], false, true)),
+    );
     const c = r.roles
       .find((r) => r.role.function === 'storage')!
       .candidates.find((c) => c.assembly)!;
@@ -552,7 +561,7 @@ describe('fixed intent, assembly and deterministic portability', () => {
     expect(() => parseProductSelection(serializePassportValue(r))).toThrow();
   });
   it('replay rejects a changed external evidence snapshot', () => {
-    const input = selectionRequest();
+    const input = verifiedSelectionRequest();
     const result = evaluateProductSelection(input);
     expect(() =>
       replayProductSelection(result, {
@@ -562,7 +571,7 @@ describe('fixed intent, assembly and deterministic portability', () => {
     ).toThrow();
   });
   it('rejects fixed demand-endpoint intent instead of making appliance slots', () => {
-    const input = selectionRequest();
+    const input = verifiedSelectionRequest();
     expect(() =>
       evaluateProductSelection({
         ...input,
@@ -578,7 +587,7 @@ describe('fixed intent, assembly and deterministic portability', () => {
   it('rejects contradictory canonical capability assertions', () => {
     expect(() =>
       evaluateProductSelection(
-        selectionRequest([
+        verifiedSelectionRequest([
           { ...converterProduct(), unsupported_capabilities: ['dc_to_dc_conversion'] },
         ]),
       ),
@@ -590,14 +599,14 @@ describe('additional canonical and assembly trust boundaries', () => {
   it('missing category metadata does not exclude a proven product', () => {
     const p = converterProduct();
     delete (p as Record<string, unknown>).category;
-    expect(candidate(selectionRequest([p])).status).toBe('ELIGIBLE');
+    expect(candidate(verifiedSelectionRequest([p])).status).toBe('ELIGIBLE');
   });
   it('raw/provisional extractions and confidence never fill missing port power', () => {
     const p = converterProduct();
     const out = { ...p.ports![1]! };
     delete (out as Record<string, unknown>).power_w;
     const c = candidate(
-      selectionRequest([
+      verifiedSelectionRequest([
         {
           ...p,
           ports: [p.ports![0]!, out],
@@ -625,7 +634,7 @@ describe('additional canonical and assembly trust boundaries', () => {
             ]
           : p.ports;
       const r = evaluateProductSelection(
-        selectionRequest([{ ...p, capabilities, ports }], false, true),
+        verifiedSelectionRequest([{ ...p, capabilities, ports }], false, true),
       );
       expect(
         r.roles
@@ -645,7 +654,11 @@ describe('additional canonical and assembly trust boundaries', () => {
           : status === 'UNRESOLVED'
             ? { ...p.battery, allowed_series_count: null }
             : p.battery;
-      const request = selectionRequest([{ ...p, battery }, converterProduct()], false, true);
+      const request = verifiedSelectionRequest(
+        [{ ...p, battery }, converterProduct()],
+        false,
+        true,
+      );
       const role = request.generation.candidates[0]!.required_roles.find(
         (r) => r.function === 'storage',
       )!;
@@ -674,7 +687,7 @@ describe('additional canonical and assembly trust boundaries', () => {
     const p = batteryProduct();
     const battery = { ...p.battery };
     delete (battery as Record<string, unknown>).nominal_energy_wh;
-    const r = evaluateProductSelection(selectionRequest([{ ...p, battery }], false, true));
+    const r = evaluateProductSelection(verifiedSelectionRequest([{ ...p, battery }], false, true));
     const c = r.roles
       .find((r) => r.role.function === 'storage')!
       .candidates.find((c) => c.assembly)!;
@@ -696,7 +709,7 @@ describe('additional canonical and assembly trust boundaries', () => {
       ports: p.ports!.map((port) => ({ ...port, voltage_v: 24 })),
       battery: { ...p.battery, nominal_energy_wh: 4800 },
     };
-    const r = evaluateProductSelection(selectionRequest([p, native], false, true));
+    const r = evaluateProductSelection(verifiedSelectionRequest([p, native], false, true));
     const candidates = r.roles.find((r) => r.role.function === 'storage')!.candidates;
     expect(
       candidates.some(
@@ -714,7 +727,7 @@ describe('additional canonical and assembly trust boundaries', () => {
       id: 'fixture.c' + i,
     }));
     expect(
-      evaluateProductSelection(selectionRequest(corpus)).roles[0]!.candidates.filter(
+      evaluateProductSelection(verifiedSelectionRequest(corpus)).roles[0]!.candidates.filter(
         (c) => c.status === 'ELIGIBLE',
       ),
     ).toHaveLength(30);
@@ -725,7 +738,7 @@ describe('minimum feasible assembly and missing fixed bank trace', () => {
   it('honors a reviewed parallel minimum when it exceeds the energy-only count', () => {
     const p = batteryProduct();
     const r = evaluateProductSelection(
-      selectionRequest(
+      verifiedSelectionRequest(
         [{ ...p, battery: { ...p.battery, allowed_parallel_count: { min: 3, max: 4 } } }],
         false,
         true,
@@ -738,7 +751,7 @@ describe('minimum feasible assembly and missing fixed bank trace', () => {
     expect(c.status).toBe('ELIGIBLE');
   });
   it('retains all permission UNKNOWNs for an absent fixed assembly record', () => {
-    const input = selectionRequest([], false, true);
+    const input = verifiedSelectionRequest([], false, true);
     const role = input.generation.candidates[0]!.required_roles.find(
       (r) => r.function === 'storage',
     )!;

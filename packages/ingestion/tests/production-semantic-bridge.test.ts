@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { buildLegacyProductionSemanticProposals } from '../src/production-semantic-bridge.js';
 import {
   artifactReference,
   buildProductionSemanticProposals,
@@ -179,13 +180,20 @@ describe('production semantic proposal bridge', () => {
 
   it('keeps an explicit evidence target evidence only', () => {
     const source = acquisition('source');
-    const proposals = bridge(
-      [
-        fact('a', source, 'maximum pv open-circuit voltage', '24'),
-        fact('b', source, 'maximum pv open-circuit voltage', '24'),
-      ],
-      [source],
-    );
+    const facts = [
+      fact('a', source, 'maximum pv open-circuit voltage', '24'),
+      fact('b', source, 'maximum pv open-circuit voltage', '24'),
+    ];
+    // Frozen v6 artifacts keep their original evidence-only interpretation.
+    // New qualified PV assertions are covered in the v7 architecture suite.
+    const proposals = buildLegacyProductionSemanticProposals({
+      facts,
+      source_acquisitions: [source],
+      reconciliation: reconcileQualifiedFactsForWholeIntake({
+        facts,
+        source_acquisitions: [source],
+      }),
+    });
     expect(proposals[0]).toMatchObject({
       target: 'electrical.max_pv_voltage_v',
       disposition: 'evidence_only',
@@ -254,15 +262,20 @@ describe('production semantic proposal bridge', () => {
     const contextual = fact('a', source, 'nominal voltage', '24', { conditions: ['at 25 C'] });
     const other = fact('b', source, 'nominal voltage', '24');
     const proposals = bridge([contextual, other], [source]);
-    expect(proposals[0].disposition).toBe('unresolved');
-    expect(proposals[0]).not.toHaveProperty('proposed_value');
-    expect(proposals[0].fact_refs).toHaveLength(2);
+    expect(proposals).toHaveLength(2);
+    expect(proposals.every((p) => p.disposition === 'mapped' && p.qualified_value)).toBe(true);
     expect(
-      proposals[0].alternatives?.some((alternative) => alternative.rationale.includes('at 25 C')),
+      proposals.some((p) =>
+        p.semantic_assertions?.some((a) => a.qualifiers.source_conditions?.includes('at 25 C')),
+      ),
     ).toBe(true);
+    expect(proposals.every((p) => p.fact_refs?.length === 1)).toBe(true);
     const domainA = fact('domain-a', source, 'nominal voltage', '24', { source_unit: 'VDC' });
     const domainB = fact('domain-b', source, 'nominal voltage', '24', { source_unit: 'VDC' });
-    expect(bridge([domainA, domainB], [source])[0].disposition).toBe('unresolved');
+    expect(bridge([domainA, domainB], [source])[0]).toMatchObject({
+      disposition: 'mapped',
+      qualified_value: { qualifiers: { electrical_domain: 'dc' } },
+    });
   });
 
   it('keeps IDs and ordering stable when equivalent inputs are reordered and rejects stale F', () => {

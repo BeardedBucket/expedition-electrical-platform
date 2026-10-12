@@ -1177,10 +1177,10 @@ describe('Checkpoint C official-source discovery and acquisition', () => {
     expect(proposedResult.artifact?.profile_binding).toBeUndefined();
 
     const noLinks = await acquireOfficialSources({
-      intake: intake({ official_product_uri: 'https://example.test/products/empty' }),
+      intake: intake({ official_product_uri: 'https://example.test/products/empty-document' }),
       adapter: adapterFor({
-        'https://example.test/products/empty': source(
-          'https://example.test/products/empty',
+        'https://example.test/products/empty-document': source(
+          'https://example.test/products/empty-document',
           bytes(`<html><body>${'product content '.repeat(100)}</body></html>`),
           'text/html',
         ),

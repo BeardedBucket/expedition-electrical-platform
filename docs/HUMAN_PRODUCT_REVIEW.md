@@ -1,5 +1,31 @@
 # Human product review and guarded finalization
 
+Automatic retained evidence is separate from human semantic work. Completion
+accepts only exact replayed `retained-evidence.v1` proof in an automatic entry;
+bare evidence-only or unsupported proposals remain human-reviewable. The operator
+can inspect rule identity and raw source evidence without assigning an engineering
+target. No candidate projection or product approval follows. See
+[the workload policy](INGESTION_CONTEXT_WORKLOAD.md).
+
+## Explicit engineering verification after canonical write
+
+Semantic review, product approval, and finalization do not verify a product.
+After a successful approved canonical write, the separate engineering-verification
+panel loads the exact current record and requires an operator label and explicit
+acknowledgement before the service binds verification to that snapshot. Labels
+are unauthenticated audit text under the existing trusted-local operator policy.
+The service owns time, record, and durable promotion origin. Its path is the exact
+recorded successful write destination, validated against the configured canonical
+root and component identity; a changed root with a same-ID file is rejected.
+Status alone does not establish verification authority without a valid current
+content-bound event. Ordinary amendments cannot edit the verification history.
+Stale content
+or history requires reloading and reconfirming intent. A changed canonical record
+retains history but loses authority until a new explicit verification action;
+verification does not fill missing fields. See [the lifecycle and recovery
+contract](INGESTION_ARCHITECTURE_REPAIR.md). The original 20-product pressure batch
+has not crossed any approval, write, or verification boundary.
+
 ## Contract audit
 
 `ProductionApproval` requires an ID, schema/artifact kind, reviewer string, timestamp,
@@ -54,7 +80,7 @@ a second finalization, retry, reset or editing approval in place.
 | Approve       | review_ready with candidate and valid selections | approved                                       |
 | Reject        | review_ready, including no candidate             | review_rejected                                |
 | Defer         | review_ready, including no candidate             | review_deferred                                |
-| Resume review | review_deferred                                 | review_ready, exact prior review preserved      |
+| Resume review | review_deferred                                  | review_ready, exact prior review preserved     |
 | Confirm write | approved                                         | finalizing → finalized or finalization_failed  |
 
 Source-resolution states and operations remain unchanged. Reject/defer do not invoke

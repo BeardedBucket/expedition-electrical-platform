@@ -14,7 +14,10 @@ import {
   type SourceAcquisitionArtifact,
 } from './production-contracts.js';
 import type { JsonValue } from './contracts.js';
-import { buildProductionSemanticProposals } from './production-semantic-bridge.js';
+import {
+  buildProductionSemanticProposals,
+  buildLegacyProductionSemanticProposals,
+} from './production-semantic-bridge.js';
 import {
   productionSemanticFieldDescriptor,
   productionSemanticFieldDescriptors,
@@ -26,8 +29,11 @@ import {
 import { reviewedSemanticContext } from './semantic-context.js';
 import type { QualifiedFactWholeIntakeReconciliationResult } from './reconciliation.js';
 import { parseExactUnitValue, resolveUnit } from './units.js';
+import { recognizeSemanticAssertion } from './semantic-rules.js';
+import { isQualificationProvenance } from './qualified-context.js';
+import { previewHumanMapping } from './human-adjudication.js';
 
-export const REVIEWED_SEMANTIC_POLICY_VERSION = 'reviewed-semantic.v1';
+export const REVIEWED_SEMANTIC_POLICY_VERSION = 'reviewed-semantic.v2';
 
 export interface ReviewedSemanticInput {
   readonly intake: ProductIntake;
@@ -97,6 +103,12 @@ export const validateReviewedSemanticDecision = (
   decision: ReviewedSemanticDecision,
 ): readonly string[] => {
   const issues = [...validateProductionArtifactSchema(decision)];
+  if (
+    !['reviewed-semantic.v1', 'human-adjudication.v1', REVIEWED_SEMANTIC_POLICY_VERSION].includes(
+      decision.validation_policy_version,
+    )
+  )
+    issues.push('Unsupported reviewed semantic policy version.');
   if (decision.artifact_kind !== 'reviewed_semantic_decision')
     issues.push('Decision artifact kind is invalid.');
   if (decision.proposal_ref.kind !== 'semantic_proposal' || !decision.proposal_ref.reference)
@@ -124,10 +136,19 @@ export const validateReviewedSemanticDecision = (
   )
     issues.push(`Outcome '${decision.outcome}' requires a rationale.`);
   if (decision.outcome === 'map') {
+    if (decision.qualified_value && !decision.human_mapping)
+      issues.push('Qualified manual mappings require an evidence-bound typed intent.');
+    if (
+      (decision.human_mapping || decision.qualified_value) &&
+      decision.validation_policy_version !== 'human-adjudication.v1'
+    )
+      issues.push('Human qualified mappings require the versioned human adjudication policy.');
     if (!decision.target?.trim()) issues.push('Map decisions require a canonical target.');
     if (decision.normalized_value === undefined)
       issues.push('Map decisions require a normalized semantic value.');
   } else if (
+    decision.human_mapping !== undefined ||
+    decision.qualified_value !== undefined ||
     decision.target !== undefined ||
     decision.normalized_value !== undefined ||
     decision.normalized_unit !== undefined ||
@@ -243,6 +264,41 @@ export const previewReviewedSemanticMapping = (
   reviewedSourceUnit?: string,
 ): ReviewedSemanticMappingPreview => {
   if (!selectedFacts.length) throw new Error('A map decision must select supporting evidence.');
+  // Corrected source facts carry a typed, replayable meaning. Sending them back
+  // through the legacy scalar route would evade the new direction/context checks.
+  if (selectedFacts.some((f) => f.human_source))
+    throw new Error(
+      'Use Correct source information or model scope to revise this human-adjudicated engineering interpretation.',
+    );
+  for (const fact of selectedFacts) {
+    const a = recognizeSemanticAssertion(fact, allFacts);
+    if (
+      fact.metadata.conditions?.length ||
+      fact.metadata.duration !== undefined ||
+      fact.metadata.temperature_context !== undefined ||
+      fact.metadata.revision_context !== undefined ||
+      fact.metadata.derivation !== undefined ||
+      fact.metadata.derived_value !== undefined ||
+      fact.metadata.alternative_interpretations !== undefined ||
+      fact.evidence?.some(
+        (e) =>
+          (e.role === 'qualifier' || e.role === 'context') && !isQualificationProvenance(e, fact),
+      ) ||
+      (a &&
+        (a.target !== target ||
+          a.qualifiers.electrical_domain ||
+          a.qualifiers.source_conditions ||
+          a.qualifiers.comparison ||
+          a.qualifiers.battery_voltage_v ||
+          a.qualifiers.measurement_basis))
+    )
+      // The existing manual decision binds a scalar, not a condition interpreter.
+      // Human intent cannot erase context. Add/review a reusable qualified rule
+      // or retain an explicit unresolved/schema-gap disposition instead.
+      throw new Error(
+        `Retained source fact '${fact.id}' requires a qualifier-preserving semantic rule; a scalar map cannot discard source context.`,
+      );
+  }
   const contexts = selectedFacts.map((fact) =>
     reviewedSemanticContext(fact, allFacts, acquisitions),
   );
@@ -337,6 +393,21 @@ const validateMappedDecision = (
   allFacts: readonly QualifiedFactArtifact[],
   acquisitions: readonly SourceAcquisitionArtifact[],
 ): void => {
+  if (decision.human_mapping) {
+    const previews = selectedFacts.map((f) => previewHumanMapping(f, decision.human_mapping!));
+    if (
+      !previews.length ||
+      previews.some(
+        (p) =>
+          p.target !== decision.target ||
+          !same(p.normalized_value, decision.normalized_value) ||
+          p.normalized_unit !== decision.normalized_unit ||
+          !same(p.qualified_value, decision.qualified_value),
+      )
+    )
+      throw new Error('Human mapping does not replay from retained source proof.');
+    return;
+  }
   const contexts = selectedFacts.map((fact) =>
     reviewedSemanticContext(fact, allFacts, acquisitions),
   );
@@ -507,6 +578,8 @@ export const buildReviewedSemanticInterpretation = (
         : {}),
       state: active.outcome === 'map' ? 'human_mapped' : active.outcome,
       decision_ref: reference,
+      ...(active.human_mapping ? { human_mapping: active.human_mapping } : {}),
+      ...(active.qualified_value ? { qualified_value: active.qualified_value } : {}),
       ...(active.target ? { target: active.target } : {}),
       ...(active.normalized_value !== undefined ? { value: active.normalized_value } : {}),
       ...(active.normalized_unit ? { normalized_unit: active.normalized_unit } : {}),
@@ -544,4 +617,20 @@ export const buildReviewedSemanticInterpretation = (
 };
 
 const buildAutomatic = (input: ReviewedSemanticInput): readonly SemanticProposal[] =>
-  buildProductionSemanticProposals(input);
+  input.proposals.some((p) => p.provenance.rule_version === 'production-semantic-bridge.v12')
+    ? buildProductionSemanticProposals(input)
+    : input.proposals.some((p) => p.provenance.rule_version === 'production-semantic-bridge.v11')
+      ? buildProductionSemanticProposals(input, 'semantic-assertions.v6')
+      : input.proposals.some((p) => p.provenance.rule_version === 'production-semantic-bridge.v10')
+        ? buildProductionSemanticProposals(input, 'semantic-assertions.v5')
+        : input.proposals.some((p) => p.provenance.rule_version === 'production-semantic-bridge.v9')
+          ? buildProductionSemanticProposals(input, 'semantic-assertions.v4')
+          : input.proposals.some(
+                (p) => p.provenance.rule_version === 'production-semantic-bridge.v8',
+              )
+            ? buildProductionSemanticProposals(input, 'semantic-assertions.v3')
+            : input.proposals.some(
+                  (p) => p.provenance.rule_version === 'production-semantic-bridge.v7',
+                )
+              ? buildProductionSemanticProposals(input, 'semantic-assertions.v2')
+              : buildLegacyProductionSemanticProposals(input);

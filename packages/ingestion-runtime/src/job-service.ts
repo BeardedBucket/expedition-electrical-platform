@@ -1,4 +1,81 @@
 import { randomUUID } from 'node:crypto';
+import { createHumanSourceEvent, rebuildHumanPreparation } from './human-review.js';
+import type {
+  HumanAdjudicationIntent,
+  HumanAdjudicationEvent,
+  SourceRatingQualifiers,
+  HumanMappingIntent,
+} from '@expedition/ingestion';
+import {
+  humanStatementFact,
+  previewHumanMapping,
+  productionSemanticFieldDescriptors,
+  genericSemanticRules,
+  resolveUnit,
+  validateHumanAdjudicationIntent,
+} from '@expedition/ingestion';
+
+export type HumanDiscoveryRepresentation =
+  | { readonly kind: 'scalar' | 'source_observation' }
+  | { readonly kind: 'source_rating'; readonly qualifiers: SourceRatingQualifiers };
+// Read-only discovery/preview can precede the reason field. This marker is
+// server-owned, never returned as the operator reason or persisted by a save.
+// Durable event creation still requires the actual supplied nonempty rationale.
+const previewIntent = (intent: HumanAdjudicationIntent): HumanAdjudicationIntent => ({
+  ...intent,
+  rationale:
+    intent.rationale.trim() || 'Read-only validation; correction reason has not been supplied.',
+});
+export function isHumanPreviewIntent(value: unknown): value is HumanAdjudicationIntent {
+  return (
+    !!value &&
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    typeof (value as HumanAdjudicationIntent).rationale === 'string' &&
+    validateHumanAdjudicationIntent(previewIntent(value as HumanAdjudicationIntent))
+  );
+}
+export function isHumanDiscoveryRepresentation(
+  value: unknown,
+): value is HumanDiscoveryRepresentation {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const v = value as HumanDiscoveryRepresentation;
+  if (
+    !['scalar', 'source_rating', 'source_observation'].includes(v.kind) ||
+    Object.keys(v).some(
+      (key) => !['kind', ...(v.kind === 'source_rating' ? ['qualifiers'] : [])].includes(key),
+    )
+  )
+    return false;
+  // Reuse the closed existing mapping schema for structural validation. These
+  // targets are schema probes, never selections, facts or eligibility defaults.
+  return validateHumanAdjudicationIntent({
+    version: 'human-adjudication.v1',
+    group_id: 'shape',
+    replaces_fact_ids: [],
+    action: 'add',
+    disposition: 'ready',
+    rationale: 'Shape validation',
+    statements: [
+      {
+        label: 'shape',
+        value: 'shape',
+        wording: 'shape',
+        citations: [],
+        applicability: { relationship: 'unresolved' },
+        mapping: {
+          ...v,
+          target:
+            v.kind === 'scalar'
+              ? 'weight_kg'
+              : v.kind === 'source_rating'
+                ? 'electrical.output_current_a'
+                : 'dimensions_mm',
+        },
+      },
+    ],
+  });
+}
 import {
   approvalMatchesReviewPackage,
   artifactDigest,
@@ -36,6 +113,8 @@ import {
   type ArtifactReference,
   type ReviewedSemanticMappingPreview,
   type ReviewedSemanticTargetDescriptor,
+  readEngineeringVerificationPreview,
+  verifyCanonicalEngineering,
 } from '@expedition/ingestion';
 import { assertJsonInput, deserializeJob, serializeJob } from './codec.js';
 import { JobStoreConflictError, type IngestionJobStore } from './job-store.js';
@@ -71,6 +150,9 @@ export interface FinalizationRequest {
 }
 
 export interface IngestionJob {
+  /** Never replaced by the effective review overlay. */
+  readonly human_adjudication_original?: ReviewReadyProductionIngest;
+  readonly human_adjudications?: readonly HumanAdjudicationEvent[];
   readonly schema_version: '1.0';
   readonly id: string;
   readonly created_at: string;
@@ -93,6 +175,8 @@ export interface IngestionJob {
   }[];
   readonly preparation?: ProductionIngestWorkflowResult;
   readonly preparation_recovery_history?: readonly {
+    readonly human_adjudication_original?: ReviewReadyProductionIngest;
+    readonly human_adjudications?: readonly HumanAdjudicationEvent[];
     readonly requested_at: string;
     readonly method: 'local_operator';
     readonly previous_review_snapshot: string;
@@ -226,6 +310,35 @@ export const isSourceSelectionRecoveryEligible = (job: IngestionJob): boolean =>
 };
 
 export class IngestionJobService {
+  private verificationOrigin(job: IngestionJob) {
+    if (job.state !== 'finalized' || !job.approval || !job.final_result)
+      throw new Error(
+        'Engineering verification is available only after completed canonical promotion/write.',
+      );
+    return { job_id: job.id, approval: job.approval, finalization: job.final_result };
+  }
+  async engineeringVerificationPreview(id: string, canonicalRoot: string) {
+    const job = await this.dependencies.store.load(id);
+    return readEngineeringVerificationPreview(canonicalRoot, this.verificationOrigin(job));
+  }
+  async verifyEngineering(
+    id: string,
+    canonicalRoot: string,
+    expectedSnapshot: string,
+    operatorLabel: string,
+  ) {
+    return this.exclusive(id, async () => {
+      const job = await this.dependencies.store.load(id);
+      await verifyCanonicalEngineering({
+        root: canonicalRoot,
+        origin: this.verificationOrigin(job),
+        expected_snapshot: expectedSnapshot,
+        operator_label: operatorLabel,
+        recorded_at: this.timestamp(),
+      });
+      return this.engineeringVerificationPreview(id, canonicalRoot);
+    });
+  }
   private readonly busy = new Set<string>();
   // This queue reduces same-process contention; durable store CAS is authoritative.
   private readonly decisionTails = new Map<string, Promise<void>>();
@@ -601,6 +714,8 @@ export class IngestionJobService {
         updated_at: requestedAt,
         preparation: undefined,
         error: undefined,
+        human_adjudication_original: undefined,
+        human_adjudications: undefined,
         preparation_recovery_history: [
           ...(job.preparation_recovery_history ?? []),
           {
@@ -608,6 +723,12 @@ export class IngestionJobService {
             method: 'local_operator',
             previous_review_snapshot: expectedReviewSnapshot,
             preparation: job.preparation,
+            ...(job.human_adjudication_original
+              ? {
+                  human_adjudication_original: job.human_adjudication_original,
+                  human_adjudications: job.human_adjudications,
+                }
+              : {}),
           },
         ],
       };
@@ -913,6 +1034,276 @@ export class IngestionJobService {
         preparation: { ...preparation, bridge, review_package },
         updated_at: recordedAt,
       };
+      try {
+        await this.dependencies.store.save(updated, version);
+      } catch (error) {
+        if (error instanceof JobStoreConflictError)
+          throw new SemanticDecisionError(409, error.message);
+        throw error;
+      }
+      return updated;
+    });
+  }
+
+  async previewHumanAdjudication(
+    id: string,
+    request: {
+      expected_review_snapshot: string;
+      actor_label: string;
+      intent: HumanAdjudicationIntent;
+    },
+  ) {
+    const job = await this.getJob(id);
+    const preparation = this.assertSemanticReviewEditable(job, request.expected_review_snapshot);
+    try {
+      const event = createHumanSourceEvent(
+        preparation,
+        job.human_adjudications ?? [],
+        previewIntent(request.intent),
+        request.actor_label,
+        'human-adjudication.preview',
+        this.timestamp(),
+        request.expected_review_snapshot,
+      );
+      const next = rebuildHumanPreparation(
+        job.human_adjudication_original ?? preparation,
+        [...(job.human_adjudications ?? []), event],
+        preparation.bridge.reviewed_semantic_decisions,
+        () => `reviewed-semantic-decision.${randomUUID()}`,
+        this.timestamp(),
+      );
+      return {
+        version: 'human-adjudication.v1' as const,
+        input_digest: artifactDigest(request.intent),
+        disposition: request.intent.disposition,
+        assertions: event.facts.map((f) => ({
+          id: f.id,
+          label: f.metadata.source_label,
+          source_value: f.metadata.raw_value,
+          source_unit: f.metadata.source_unit,
+          mapping: f.human_source?.statement.mapping,
+          projected: next.proposals.some(
+            (proposal) =>
+              proposal.fact_refs?.some((ref) => ref.reference === f.id) &&
+              next.bridge.projected_proposal_ids.includes(proposal.id),
+          ),
+          restriction_reasons: next.bridge.non_projected
+            .filter((diagnostic) =>
+              next.proposals.some(
+                (proposal) =>
+                  proposal.id === diagnostic.proposal_id &&
+                  proposal.fact_refs?.some((ref) => ref.reference === f.id),
+              ),
+            )
+            .map((diagnostic) => diagnostic.reason),
+          ...(f.human_source?.statement.mapping
+            ? (() => {
+                const result = previewHumanMapping(f, f.human_source!.statement.mapping!);
+                return {
+                  normalized_value: result.normalized_value,
+                  normalized_unit: result.normalized_unit,
+                  qualified_value: result.qualified_value,
+                };
+              })()
+            : {}),
+        })),
+        candidate: next.bridge.candidate?.component_data,
+        non_projected: next.bridge.non_projected,
+      };
+    } catch (error) {
+      throw new SemanticDecisionError(
+        400,
+        error instanceof Error ? error.message : 'Source correction could not be validated.',
+      );
+    }
+  }
+
+  async humanEvidence(
+    id: string,
+    request: {
+      expected_review_snapshot: string;
+      document_id: string;
+      offset: number;
+      query?: string;
+    },
+  ) {
+    const job = await this.getJob(id);
+    const preparation = this.assertSemanticReviewEditable(job, request.expected_review_snapshot);
+    const document = preparation.document_extractions.find((d) => d.id === request.document_id);
+    if (!document || !Number.isSafeInteger(request.offset) || request.offset < 0)
+      throw new SemanticDecisionError(400, 'Choose a retained document and valid evidence page.');
+    const entries = document.blocks.flatMap((block) => [
+      ...(block.content
+        ? [
+            {
+              document_id: document.id,
+              block_id: block.id,
+              text: block.content,
+              kind: block.kind,
+              locator: block.locator,
+            },
+          ]
+        : []),
+      ...(block.cells ?? []).map((cell) => ({
+        document_id: document.id,
+        block_id: block.id,
+        cell_id: `${cell.row}:${cell.column}`,
+        text: cell.value,
+        kind: cell.kind,
+        locator: cell.source_location,
+      })),
+    ]);
+    // Fifty entries is a presentation page, not an evidence/extraction quota. All
+    // retained entries remain reachable, and long text is never truncated here.
+    const pageSize = 50;
+    if (request.query !== undefined && typeof request.query !== 'string')
+      throw new SemanticDecisionError(400, 'Source search must be text.');
+    const terms = (request.query ?? '').trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const matching = entries.filter((entry) =>
+      terms.every((term) =>
+        `${entry.text} ${entry.kind} ${JSON.stringify(entry.locator)}`.toLowerCase().includes(term),
+      ),
+    );
+    return {
+      document_id: document.id,
+      document_total: entries.length,
+      total: matching.length,
+      offset: request.offset,
+      next_offset:
+        request.offset + pageSize < matching.length ? request.offset + pageSize : undefined,
+      entries: matching.slice(request.offset, request.offset + pageSize),
+    };
+  }
+
+  async humanProperties(
+    id: string,
+    request: {
+      expected_review_snapshot: string;
+      actor_label: string;
+      intent: HumanAdjudicationIntent;
+      statement_index: number;
+      representation?: HumanDiscoveryRepresentation;
+    },
+  ) {
+    const job = await this.getJob(id);
+    const preparation = this.assertSemanticReviewEditable(job, request.expected_review_snapshot);
+    try {
+      const statement = request.intent.statements[request.statement_index];
+      const mapping = statement?.mapping ?? request.representation;
+      if (
+        !statement ||
+        !mapping ||
+        (request.representation && !isHumanDiscoveryRepresentation(request.representation))
+      )
+        throw new Error('Choose the engineering representation and provide its source context.');
+      const sourceIntent = {
+        ...previewIntent(request.intent),
+        statements: request.intent.statements.map((s) => ({ ...s, mapping: undefined })),
+      };
+      // Undefined members are absent from the transport JSON, not invented source values.
+      const detached = JSON.parse(JSON.stringify(sourceIntent)) as HumanAdjudicationIntent;
+      const event = createHumanSourceEvent(
+        preparation,
+        job.human_adjudications ?? [],
+        detached,
+        request.actor_label,
+        'human-adjudication.discovery',
+        this.timestamp(),
+        request.expected_review_snapshot,
+      );
+      const fact = event.facts[request.statement_index];
+      if (!fact) throw new Error('Draft corrections have no engineering eligibility.');
+      const fields =
+        mapping.kind === 'scalar'
+          ? productionSemanticFieldDescriptors().map((d) => d.canonical_field)
+          : mapping.kind === 'source_rating'
+            ? [...new Set(genericSemanticRules.map((r) => r.target))]
+            : [
+                'electrical.input_voltage_range_v',
+                'electrical.power_consumption_w',
+                'dimensions_mm',
+              ];
+      const targets = fields.flatMap((target) => {
+        try {
+          const intent = { ...mapping, target } as HumanMappingIntent;
+          const corrected = humanStatementFact({
+            ...fact.human_source!,
+            statement: { ...fact.human_source!.statement, mapping: intent },
+          });
+          const preview = previewHumanMapping(corrected, intent);
+          return [
+            {
+              canonical_field: target,
+              value_shapes: ['number', 'object'] as const,
+              dimension: resolveUnit(preview.normalized_unit)?.dimension ?? 'structured',
+              unit: preview.normalized_unit,
+              allows_unit_conversion: true,
+              human_adjudication:
+                mapping.kind === 'scalar' ? ('source_fact' as const) : ('qualified_only' as const),
+              normalizer_version: 'human-adjudication.v1',
+            },
+          ];
+        } catch {
+          return [];
+        }
+      });
+      return { proposal_id: request.intent.group_id, targets };
+    } catch (error) {
+      throw new SemanticDecisionError(
+        400,
+        error instanceof Error ? error.message : 'Evidence eligibility could not be established.',
+      );
+    }
+  }
+
+  async recordHumanAdjudication(
+    id: string,
+    request: {
+      expected_review_snapshot: string;
+      actor_label: string;
+      intent: HumanAdjudicationIntent;
+    },
+  ): Promise<IngestionJob> {
+    return this.exclusiveSemanticDecision(id, async () => {
+      const { job, version } = await this.readVersionedJob(id);
+      const preparation = this.assertSemanticReviewEditable(job, request.expected_review_snapshot);
+      const recordedAt = this.timestamp();
+      let updated: IngestionJob;
+      try {
+        const event = createHumanSourceEvent(
+          preparation,
+          job.human_adjudications ?? [],
+          request.intent,
+          request.actor_label,
+          `human-adjudication.${randomUUID()}`,
+          recordedAt,
+          request.expected_review_snapshot,
+        );
+        const history = [...(job.human_adjudications ?? []), event];
+        const original = job.human_adjudication_original ?? preparation;
+        const next =
+          request.intent.disposition === 'draft'
+            ? preparation
+            : rebuildHumanPreparation(
+                original,
+                history,
+                preparation.bridge.reviewed_semantic_decisions,
+                () => `reviewed-semantic-decision.${randomUUID()}`,
+                recordedAt,
+              );
+        updated = {
+          ...job,
+          human_adjudication_original: original,
+          human_adjudications: history,
+          preparation: next,
+          updated_at: recordedAt,
+        };
+      } catch (error) {
+        throw new SemanticDecisionError(
+          400,
+          error instanceof Error ? error.message : 'Source correction is invalid.',
+        );
+      }
       try {
         await this.dependencies.store.save(updated, version);
       } catch (error) {

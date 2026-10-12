@@ -210,6 +210,24 @@ export class IngestionBatchService {
     return this.dependencies.jobService.getJob(id);
   }
 
+  engineeringVerificationPreview(id: string, canonicalRoot: string) {
+    return this.dependencies.jobService.engineeringVerificationPreview(id, canonicalRoot);
+  }
+
+  verifyEngineering(
+    id: string,
+    canonicalRoot: string,
+    expectedSnapshot: string,
+    operatorLabel: string,
+  ) {
+    return this.dependencies.jobService.verifyEngineering(
+      id,
+      canonicalRoot,
+      expectedSnapshot,
+      operatorLabel,
+    );
+  }
+
   listJobs(): Promise<readonly IngestionJob[]> {
     return this.dependencies.jobService.listJobs();
   }
@@ -266,6 +284,25 @@ export class IngestionBatchService {
     request: Parameters<IngestionJobService['recordSemanticDecision']>[1],
   ): ReturnType<IngestionJobService['recordSemanticDecision']> {
     return this.dependencies.jobService.recordSemanticDecision(id, request);
+  }
+
+  humanEvidence(id: string, request: Parameters<IngestionJobService['humanEvidence']>[1]) {
+    return this.dependencies.jobService.humanEvidence(id, request);
+  }
+  humanProperties(id: string, request: Parameters<IngestionJobService['humanProperties']>[1]) {
+    return this.dependencies.jobService.humanProperties(id, request);
+  }
+  previewHumanAdjudication(
+    id: string,
+    request: Parameters<IngestionJobService['previewHumanAdjudication']>[1],
+  ) {
+    return this.dependencies.jobService.previewHumanAdjudication(id, request);
+  }
+  recordHumanAdjudication(
+    id: string,
+    request: Parameters<IngestionJobService['recordHumanAdjudication']>[1],
+  ) {
+    return this.dependencies.jobService.recordHumanAdjudication(id, request);
   }
 
   discoverSemanticTargets(

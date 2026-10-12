@@ -386,7 +386,7 @@ describe('production-safe source capture classification', () => {
       adapter(async () => response('', { headers: { 'content-type': 'text/html' } })),
       {
         capture_id: 'capture.empty',
-        uri: 'https://example.invalid/empty',
+        uri: 'https://example.invalid/empty-document',
         retention_status: 'not_retained',
         retrieved_at: fixedTimestamp,
       },

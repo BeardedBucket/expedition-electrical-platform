@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
+import humanAdjudicationSchema from '../../../data/schemas/human-adjudication.schema.json' with { type: 'json' };
 import { describe, expect, it } from 'vitest';
 import {
   PRODUCTION_SCHEMA_VERSION,
@@ -41,6 +42,9 @@ const productionIngestionSchema = JSON.parse(
   readFileSync(productionIngestionSchemaPath, 'utf8'),
 ) as Record<string, unknown>;
 const productionIngestionAjv = addFormats(new Ajv2020({ allErrors: true, strict: false }));
+// The production schema's source-proof reference is a real contract dependency.
+// Independent schema tests must register it just as the production validator does.
+productionIngestionAjv.addSchema(humanAdjudicationSchema);
 const validateProductionIngestionArtifact =
   productionIngestionAjv.compile(productionIngestionSchema);
 

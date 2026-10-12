@@ -39,15 +39,51 @@
           "assumptions"
         ],
         "properties": {
-          "status": { "const": "derived" },
-          "rule_version": { "type": "string", "minLength": 1 },
-          "formula": { "type": "string", "minLength": 1 },
-          "input_targets": { "type": "array", "items": { "type": "string" } },
-          "input_qualified_fact_ids": { "type": "array", "items": { "type": "string" } },
-          "input_fact_ids": { "type": "array", "items": { "type": "string" } },
-          "input_units": { "type": "array", "items": { "type": "string" } },
-          "output_unit": { "type": "string", "minLength": 1 },
-          "assumptions": { "type": "array", "items": { "type": "string" } }
+          "status": {
+            "const": "derived"
+          },
+          "rule_version": {
+            "type": "string",
+            "minLength": 1
+          },
+          "formula": {
+            "type": "string",
+            "minLength": 1
+          },
+          "input_targets": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "input_qualified_fact_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "input_fact_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "input_units": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "output_unit": {
+            "type": "string",
+            "minLength": 1
+          },
+          "assumptions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
         },
         "additionalProperties": false
       }
@@ -244,17 +280,28 @@
           "frequency_hz": {
             "description": "Port-specific published frequency support; no AC input/output or global frequency inheritance is implied.",
             "oneOf": [
-              { "type": "number", "exclusiveMinimum": 0 },
+              {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
               {
                 "type": "object",
                 "required": ["min", "max"],
                 "properties": {
-                  "min": { "type": "number", "exclusiveMinimum": 0 },
-                  "max": { "type": "number", "exclusiveMinimum": 0 }
+                  "min": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "max": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  }
                 },
                 "additionalProperties": false
               },
-              { "type": "null" }
+              {
+                "type": "null"
+              }
             ]
           },
           "notes": {
@@ -302,6 +349,7 @@
       "type": ["string", "null"]
     },
     "verification_status": {
+      "description": "Recorded status only. Engineering authority additionally requires a valid content-bound engineering verification history whose latest event matches the exact record. The loader withholds history-less or stale verified claims; schema validity alone does not establish authority.",
       "enum": ["unverified", "partially_verified", "verified"]
     },
     "source_type": {
@@ -570,8 +618,14 @@
         "charging_voltage_range_v": {
           "type": ["object", "null"],
           "properties": {
-            "min": { "type": "number", "exclusiveMinimum": 0 },
-            "max": { "type": "number", "exclusiveMinimum": 0 }
+            "min": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "max": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
           },
           "required": ["min", "max"],
           "additionalProperties": false
@@ -579,8 +633,14 @@
         "float_voltage_range_v": {
           "type": ["object", "null"],
           "properties": {
-            "min": { "type": "number", "exclusiveMinimum": 0 },
-            "max": { "type": "number", "exclusiveMinimum": 0 }
+            "min": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "max": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
           },
           "required": ["min", "max"],
           "additionalProperties": false
@@ -1314,6 +1374,14 @@
         "$ref": "#/$defs/canonicalQualifiedValue"
       },
       "uniqueItems": true
+    },
+    "engineering_verification_history": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/engineeringVerificationEvent"
+      },
+      "description": "Append-only explicit human verification events. Operator labels are unauthenticated trusted-local labels. Hashes bind exact content and origin, not authenticated identity; changed content requires a new explicit action."
     }
   },
   "additionalProperties": true,
@@ -1616,10 +1684,16 @@
               "not": {
                 "required": ["operating_state", "display"],
                 "properties": {
-                  "operating_state": { "const": "off" },
+                  "operating_state": {
+                    "const": "off"
+                  },
                   "display": {
                     "required": ["state"],
-                    "properties": { "state": { "const": "on" } }
+                    "properties": {
+                      "state": {
+                        "const": "on"
+                      }
+                    }
                   }
                 }
               },
@@ -1671,8 +1745,293 @@
             }
           },
           "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["id", "target", "value", "qualifiers"],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._-]+$"
+            },
+            "target": {
+              "enum": [
+                "electrical.output_current_a",
+                "electrical.input_current_a",
+                "electrical.charge_current_a",
+                "electrical.discharge_current_a",
+                "electrical.output_voltage_v",
+                "electrical.input_voltage_v",
+                "electrical.operating_power_w",
+                "electrical.output_power_w",
+                "electrical.peak_power_w",
+                "electrical.apparent_power_va",
+                "electrical.frequency_hz",
+                "electrical.pv_open_circuit_voltage_v",
+                "electrical.idle_current_a",
+                "electrical.standby_current_a",
+                "electrical.conditioned_consumption_w",
+                "efficiency_fraction",
+                "weight_kg",
+                "electrical.nominal_voltage_v",
+                "electrical.continuous_power_w",
+                "electrical.rated_power_w",
+                "battery.nominal_capacity_ah",
+                "battery.nominal_energy_wh",
+                "battery.charging_voltage_range_v",
+                "battery.float_voltage_range_v",
+                "dimensions_mm.x",
+                "dimensions_mm.y",
+                "dimensions_mm.z"
+              ]
+            },
+            "value": {
+              "oneOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "object",
+                  "required": ["min", "max"],
+                  "properties": {
+                    "min": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "max": {
+                      "type": "number",
+                      "minimum": 0
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "qualifiers": {
+              "type": "object",
+              "required": ["kind"],
+              "properties": {
+                "kind": {
+                  "const": "source_rating"
+                },
+                "electrical_domain": {
+                  "enum": ["ac", "dc"]
+                },
+                "direction": {
+                  "enum": ["input", "output"]
+                },
+                "rating_basis": {
+                  "enum": [
+                    "maximum",
+                    "rated",
+                    "rated_maximum",
+                    "continuous",
+                    "nominal",
+                    "peak",
+                    "surge"
+                  ]
+                },
+                "battery_voltage_v": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "measurement_basis": {
+                  "const": "rms"
+                },
+                "comparison": {
+                  "enum": [
+                    "less_than",
+                    "less_than_or_equal",
+                    "greater_than",
+                    "greater_than_or_equal"
+                  ]
+                },
+                "source_conditions": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "minItems": 1,
+                  "uniqueItems": true
+                },
+                "duration": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "temperature_context": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "revision_context": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "product_role": {
+                  "const": "battery"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "target": {
+                    "const": "efficiency_fraction"
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "value": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "target": {
+                    "not": {
+                      "enum": [
+                        "electrical.input_voltage_v",
+                        "electrical.output_voltage_v",
+                        "battery.charging_voltage_range_v",
+                        "battery.float_voltage_range_v"
+                      ]
+                    }
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "value": {
+                    "type": "number",
+                    "minimum": 0
+                  }
+                }
+              }
+            }
+          ],
+          "additionalProperties": false
         }
       ]
+    },
+    "engineeringVerificationEvent": {
+      "type": "object",
+      "required": [
+        "id",
+        "revision",
+        "policy_version",
+        "actor",
+        "authority_boundary",
+        "recorded_at",
+        "component_id",
+        "content_digest",
+        "content_snapshot",
+        "lineage_digest",
+        "promotion_binding"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^engineering-verification\\.[a-f0-9]{64}$"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "policy_version": {
+          "const": "canonical-engineering-verification.v1"
+        },
+        "actor": {
+          "type": "object",
+          "required": ["kind", "identifier"],
+          "properties": {
+            "kind": {
+              "const": "operator_label"
+            },
+            "identifier": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "authority_boundary": {
+          "const": "trusted_local_operator"
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "component_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "content_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "content_snapshot": {
+          "type": "object",
+          "required": ["id"],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "not": {
+            "anyOf": [
+              {
+                "required": ["verification_status"]
+              },
+              {
+                "required": ["engineering_verification_history"]
+              }
+            ]
+          }
+        },
+        "lineage_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "previous_event_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "promotion_binding": {
+          "type": "object",
+          "required": ["job_id", "approval_digest", "promotion_digest", "write_digest"],
+          "properties": {
+            "job_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "approval_digest": {
+              "type": "string",
+              "pattern": "^sha256:[a-f0-9]{64}$"
+            },
+            "promotion_digest": {
+              "type": "string",
+              "pattern": "^sha256:[a-f0-9]{64}$"
+            },
+            "write_digest": {
+              "type": "string",
+              "pattern": "^sha256:[a-f0-9]{64}$"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
     }
   }
 }

@@ -23,6 +23,8 @@ import {
 } from '../src/canonical-amendment.js';
 import type { ProductFact } from '../src/contracts.js';
 import type { NormalizedProductFact } from '../src/normalization-types.js';
+import { verifySyntheticRecord } from '../../engineering-core/tests/fixtures/verification.js';
+import { hasCurrentCanonicalVerification } from '../../engineering-core/src/canonical-verification.js';
 
 const syntheticTopologyComponent = (): Record<string, unknown> => ({
   id: 'synthetic.topology.component',
@@ -172,6 +174,92 @@ const candidateFor = (current: Record<string, unknown>): CanonicalAmendmentCandi
 });
 
 describe('canonical amendment workflow', () => {
+  it('cannot create, delete, replace or rewrite verification history through ordinary field actions', async () => {
+    const original = {
+      ...currentCanonical(),
+      id: 'synthetic.amendment.history',
+      verification_status: 'verified',
+    };
+    const verified = verifySyntheticRecord(original);
+    const root = await mkdtemp(join(tmpdir(), 'amendment-history-authority-'));
+    const target = join(root, `${original.id}.yaml`);
+    try {
+      for (const current of [original, verified]) {
+        const before = stringify(current, { aliasDuplicateObjects: false });
+        await writeFile(target, before);
+        for (const field of [
+          'engineering_verification_history',
+          'engineering_verification_history.0',
+          'engineering_verification_history.0.actor.identifier',
+        ]) {
+          for (const action of ['add', 'replace', 'remove'] as const) {
+            const result = await writeCanonicalAmendment({
+              current,
+              candidate: {
+                ...candidateFor(current),
+                component_data: {
+                  ...current,
+                  engineering_verification_history: (verified as Record<string, unknown>)
+                    .engineering_verification_history,
+                },
+              },
+              review: review({
+                component_id: current.id,
+                expected_snapshot: canonicalSerializedSnapshot(current),
+                approved_fields: [field],
+                field_actions: { [field]: action },
+                field_evidence: { [field]: ['fact.x'] },
+              }),
+              destinationRoot: root,
+              write: true,
+            });
+            expect(result.status).toBe('blocked');
+            expect(result.issues.length).toBeGreaterThan(0);
+            expect(await readFile(target, 'utf8')).toBe(before);
+          }
+        }
+      }
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+    expect(hasCurrentCanonicalVerification(verified)).toBe(true);
+  });
+  it('retains verification history byte-for-value on a supported write and invalidates changed content', async () => {
+    const current = verifySyntheticRecord({
+      ...currentCanonical(),
+      id: 'synthetic.amendment.history',
+      verification_status: 'verified',
+    });
+    const root = await mkdtemp(join(tmpdir(), 'amendment-verification-history-'));
+    // mkdtemp owns this disposable root; cleanup may never target the catalog.
+    const target = join(root, `${current.id}.yaml`);
+    try {
+      await writeFile(target, stringify(current, { aliasDuplicateObjects: false }));
+      const candidate = candidateFor(current);
+      const result = await writeCanonicalAmendment({
+        current,
+        candidate: {
+          ...candidate,
+          component_data: { ...candidate.component_data, engineering_verification_history: [] },
+        },
+        review: review({
+          component_id: current.id,
+          expected_snapshot: canonicalSerializedSnapshot(current),
+        }),
+        destinationRoot: root,
+        write: true,
+      });
+      expect(result.status).toBe('written');
+      const changed = parseYaml(await readFile(target, 'utf8'));
+      expect(changed.engineering_verification_history).toEqual(
+        (current as Record<string, unknown>).engineering_verification_history,
+      );
+      expect(changed.verification_status).toBe('unverified');
+      expect(hasCurrentCanonicalVerification(changed)).toBe(false);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
   it('accepts generic port constraint objects with explicit limit semantics', () => {
     const current = syntheticTopologyComponent();
     const fact = topologyFact('fact.pv.max-voc', 'port', 'smartsolar.pv-input');
@@ -480,6 +568,17 @@ describe('canonical amendment workflow', () => {
     expect(result.proposal?.electrical).toMatchObject({
       nominal_voltage_v: 24,
     });
+  });
+  it('an engineering amendment invalidates a legacy verified status rather than carrying it forward', () => {
+    const current = { ...currentCanonical(), verification_status: 'verified' };
+    const result = proposeCanonicalAmendment({
+      current,
+      candidate: candidateFor(current),
+      review: review({ expected_snapshot: canonicalSerializedSnapshot(current) }),
+    });
+    expect(result.status).toBe('proposed');
+    expect(result.proposal?.verification_status).toBe('unverified');
+    expect(current.verification_status).toBe('verified');
   });
 
   it('enriches an existing constraint without duplicating its stable ID', () => {

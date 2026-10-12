@@ -73,6 +73,54 @@ export type PowerConsumptionQualifiers =
 export type CanonicalQualifiedValue =
   | {
       readonly id: string;
+      readonly target:
+        | 'dimensions_mm.x'
+        | 'dimensions_mm.y'
+        | 'dimensions_mm.z'
+        | 'electrical.output_current_a'
+        | 'electrical.input_current_a'
+        | 'electrical.charge_current_a'
+        | 'electrical.discharge_current_a'
+        | 'electrical.output_voltage_v'
+        | 'electrical.input_voltage_v'
+        | 'electrical.operating_power_w'
+        | 'electrical.output_power_w'
+        | 'electrical.peak_power_w'
+        | 'electrical.apparent_power_va'
+        | 'electrical.frequency_hz'
+        | 'electrical.pv_open_circuit_voltage_v'
+        | 'electrical.idle_current_a'
+        | 'electrical.standby_current_a'
+        | 'electrical.conditioned_consumption_w'
+        | 'efficiency_fraction'
+        | 'weight_kg'
+        | 'electrical.nominal_voltage_v'
+        | 'electrical.continuous_power_w'
+        | 'electrical.rated_power_w'
+        | 'battery.nominal_capacity_ah'
+        | 'battery.nominal_energy_wh'
+        | 'battery.charging_voltage_range_v'
+        | 'battery.float_voltage_range_v';
+      readonly value: number | { readonly min: number; readonly max: number };
+      readonly qualifiers: {
+        readonly kind: 'source_rating';
+        readonly product_role?: 'battery';
+        readonly electrical_domain?: 'ac' | 'dc';
+        readonly direction?: 'input' | 'output';
+        readonly rating_basis?:
+          'maximum' | 'rated' | 'rated_maximum' | 'continuous' | 'nominal' | 'peak' | 'surge';
+        readonly battery_voltage_v?: number;
+        readonly measurement_basis?: 'rms';
+        readonly comparison?:
+          'less_than' | 'less_than_or_equal' | 'greater_than' | 'greater_than_or_equal';
+        readonly source_conditions?: readonly string[];
+        readonly duration?: string;
+        readonly temperature_context?: string;
+        readonly revision_context?: string;
+      };
+    }
+  | {
+      readonly id: string;
       readonly target: 'electrical.input_voltage_range_v';
       readonly value: { readonly min: number; readonly max: number };
       readonly qualifiers: { readonly electrical_domain: 'ac' | 'dc' };
@@ -836,6 +884,17 @@ const validateEngineeringConstraints = (input: unknown): readonly string[] => {
       const entry = raw as CanonicalQualifiedValue;
       if (ids.has(entry.id)) addMessage('qualified_values', 'duplicate qualified-value ID');
       ids.add(entry.id);
+      if ('kind' in entry.qualifiers && entry.qualifiers.kind === 'source_rating') {
+        if (typeof entry.value === 'number')
+          validateFiniteNonNegative('qualified_values.value', entry.value);
+        else if (
+          'min' in entry.value &&
+          (!Number.isFinite(entry.value.min) ||
+            !Number.isFinite(entry.value.max) ||
+            entry.value.min > entry.value.max)
+        )
+          addMessage('qualified_values', 'source-rating range is invalid');
+      }
       if (entry.target === 'electrical.power_consumption_w') {
         validateFiniteNonNegative('qualified_values.value', entry.value);
         const supply = entry.qualifiers?.supply_voltage_v;
@@ -1795,6 +1854,12 @@ export const normalizeComponentLibraryRecord = (input: unknown): ComponentLibrar
     throw new TypeError('A component record must be an object.');
   }
   const record = input as Record<string, unknown>;
+  // Workflow verification binds exact source content, including absent fields.
+  // Legacy presentation defaults would change that content and assert empty
+  // collections where the human reviewed unknowns. Keep workflow records exact;
+  // Node selection/loading boundaries separately validate the event and staleness.
+  if (record.engineering_verification_history !== undefined)
+    return { ...record } as ComponentLibraryRecord;
   const normalized = {
     ...record,
     ...(Array.isArray(record.capabilities) ? { capabilities: record.capabilities } : {}),

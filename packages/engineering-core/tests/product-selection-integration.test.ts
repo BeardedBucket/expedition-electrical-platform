@@ -16,13 +16,18 @@ import {
   replayEngineeringPassport,
   type WholeSystemEvaluationInput,
 } from '../src/engineering-passport.js';
-import { batteryProduct, converterProduct, selectionRequest } from './fixtures/selection.js';
+import {
+  batteryProduct,
+  converterProduct,
+  verifiedSelectionRequest,
+} from './fixtures/selection.js';
 import type { ComponentLibraryRecord } from '../src/component-library.js';
 import { productionAcceptanceComponentIds } from './fixtures/production-system.js';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { normalizeComponentLibraryRecord } from '../src/component-library.js';
 import { parse } from 'yaml';
+import { verifySyntheticRecord } from './fixtures/verification.js';
 
 const multifunction = (): ComponentLibraryRecord => ({
   id: 'fixture.multifunction',
@@ -91,7 +96,7 @@ const acRequest = (product = multifunction(), shared = false): ProductSelectionI
     candidate_id: generation.candidates.find(
       (c) => c.choices.ac_function_arrangement === 'combined',
     )!.id,
-    corpus: [product],
+    corpus: [verifySyntheticRecord(product)],
     fixed_existing: [],
     assemblies: [],
   };
@@ -180,7 +185,7 @@ describe('multifunction and real-record selection', () => {
         parse(readFileSync(resolve('data/components', `${id}.yaml`), 'utf8')),
       ),
     );
-    const input = selectionRequest(corpus);
+    const input = verifiedSelectionRequest(corpus);
     const result = evaluateProductSelection(input);
     expect(result.roles[0]!.candidates).toHaveLength(7);
     expect(result.roles[0]!.candidates.every((c) => c.status === 'UNRESOLVED')).toBe(true);
@@ -196,7 +201,7 @@ const pipeline = (shared = false, missingPower = false, withheld = false) => {
     ports: converterProduct().ports!.map((p) => ({ ...p, current_a: 100 })),
     ...(withheld ? { verification_status: 'unverified' as const } : {}),
   };
-  const original = selectionRequest([product], shared);
+  const original = verifiedSelectionRequest([product], shared);
   const req: ArchitectureGenerationInput = {
     ...original.generation.input,
     requirements: {
@@ -418,7 +423,7 @@ describe('Phase 4 → Phase 5 → exact Phase 3 project-owned demand', () => {
     const { selection } = pipeline();
     expect(() => bindProductSelection(selection, [])).toThrow();
     const r = evaluateProductSelection(
-      selectionRequest([{ ...converterProduct(), power_paths: [] }]),
+      verifiedSelectionRequest([{ ...converterProduct(), power_paths: [] }]),
     );
     const c = r.roles[0]!.candidates[0]!;
     expect(() =>
@@ -468,7 +473,7 @@ describe('selected storage assembly exact handoff', () => {
       { ...converterProduct(), electrical: { power_consumption_w: 2 } },
       { ...batteryProduct(), electrical: { nominal_voltage_v: 12, power_consumption_w: 1 } },
     ];
-    const input = selectionRequest(corpus, false, true);
+    const input = verifiedSelectionRequest(corpus, false, true);
     const selection = evaluateProductSelection(input);
     const choices = selection.roles.map((r) => {
       const c =

@@ -106,11 +106,16 @@ const setup = (
     facts,
     source_acquisitions: acquisitions,
   });
-  const proposals = buildProductionSemanticProposals({
-    facts,
-    source_acquisitions: acquisitions,
-    reconciliation,
-  });
+  // These lifecycle/legacy-field fixtures exercise the archived v3 contract.
+  // Fresh producer-to-candidate behavior is covered by greenfield-production-path.
+  const proposals = buildProductionSemanticProposals(
+    {
+      facts,
+      source_acquisitions: acquisitions,
+      reconciliation,
+    },
+    'semantic-assertions.v3',
+  );
   const bridge = buildProductionProductCandidate({
     intake,
     captures,

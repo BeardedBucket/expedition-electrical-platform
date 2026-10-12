@@ -1,5 +1,6 @@
 import { parse as parseYaml } from 'yaml';
 import type { ComponentLibraryRecord } from './component-library.js';
+import { hasCurrentCanonicalVerification } from './canonical-verification.js';
 import {
   normalizeComponentLibraryRecord,
   validateComponentLibraryRecord,
@@ -22,7 +23,16 @@ export const loadComponentLibraryFile = async (
     if (!validation.ok) {
       return { ok: false, errors: validation.errors, path: filePath };
     }
-    return { ok: true, value: normalizeComponentLibraryRecord(validation.value), path: filePath };
+    const normalized = normalizeComponentLibraryRecord(validation.value);
+    return {
+      ok: true,
+      value:
+        normalized.verification_status === 'verified' &&
+        !hasCurrentCanonicalVerification(normalized as unknown as Record<string, unknown>)
+          ? { ...normalized, verification_status: 'unverified' }
+          : normalized,
+      path: filePath,
+    };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown file loading error';
     return {

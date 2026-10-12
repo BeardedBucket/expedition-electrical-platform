@@ -1,10 +1,16 @@
-import { validateProductIntake, type ProductIntake } from '@expedition/ingestion';
+import {
+  validateProductIntake,
+  validateHumanAdjudicationIntent,
+  type ProductIntake,
+} from '@expedition/ingestion';
 import { randomUUID } from 'node:crypto';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import {
   MAX_INGESTION_BATCH_SIZE,
   SemanticDecisionError,
   SemanticReviewIncompleteError,
+  isHumanPreviewIntent,
+  isHumanDiscoveryRepresentation,
   JobStoreConflictError,
   PreparationRecoveryError,
   type IngestionBatchService,
@@ -37,7 +43,13 @@ export type OperatorService = Pick<
       | 'recordSemanticDecision'
       | 'discoverSemanticTargets'
       | 'previewSemanticMapping'
+      | 'previewHumanAdjudication'
+      | 'recordHumanAdjudication'
+      | 'humanEvidence'
+      | 'humanProperties'
       | 'finalizeJob'
+      | 'engineeringVerificationPreview'
+      | 'verifyEngineering'
     >
   > &
   Partial<Pick<IngestionBatchService, 'createBatch' | 'getBatch' | 'listBatches' | 'prepareBatch'>>;
@@ -64,7 +76,14 @@ async function jsonValue(req: IncomingMessage) {
   const chunks: Buffer[] = [];
   for await (const chunk of req) {
     bytes += chunk.length;
-    if (bytes > 16_384) throw new RequestError(413, 'Intake request is too large.');
+    // Retain the existing local JSON transport bound for review intents too.
+    // It limits allocation, not retained source size: reviewers cite the exact
+    // relevant passage rather than posting an entire document. No truncation occurs.
+    if (bytes > 16_384)
+      throw new RequestError(
+        413,
+        'Review or intake request exceeds 16 KiB. Cite the relevant source passage instead of the entire document.',
+      );
     chunks.push(Buffer.from(chunk));
   }
   try {
@@ -366,7 +385,7 @@ export function createOperatorApi(
         throw new RequestError(405, 'Method not allowed.');
       }
       const jobMatch =
-        /^\/api\/ingestion\/jobs\/([^/]+)(\/prepare|\/preparation\/reopen|\/review\/(?:approve|reject|defer|resume|semantic-decisions)|\/review\/semantic-proposals\/([^/]+)\/(?:targets|preview)|\/finalize|\/source-resolution\/(?:candidates|accept|reject|reopen))?$/.exec(
+        /^\/api\/ingestion\/jobs\/([^/]+)(\/engineering-verification|\/prepare|\/preparation\/reopen|\/review\/(?:approve|reject|defer|resume|semantic-decisions|human-adjudication|human-preview|human-evidence|human-properties)|\/review\/semantic-proposals\/([^/]+)\/(?:targets|preview)|\/finalize|\/source-resolution\/(?:candidates|accept|reject|reopen))?$/.exec(
           pathname,
         );
       const batchMatch = /^\/api\/ingestion\/batches\/([^/]+)(\/prepare)?$/.exec(pathname);
@@ -384,6 +403,49 @@ export function createOperatorApi(
       }
       if (!jobMatch) throw new RequestError(404, 'Route not found.');
       if (!validId.test(jobMatch[1])) throw new RequestError(400, 'Malformed ingestion job ID.');
+      if (jobMatch[2] === '/engineering-verification') {
+        if (!canonicalRoot || !service.engineeringVerificationPreview || !service.verifyEngineering)
+          throw new RequestError(409, 'Engineering verification is not configured.');
+        if (!['GET', 'POST'].includes(req.method ?? ''))
+          throw new RequestError(405, 'Method not allowed.');
+        // Intent only: the runtime owns canonical path, durable promotion and time.
+        // This endpoint has the existing trusted local operator boundary, no authentication.
+        let intent: { expected_snapshot: string; operator_label: string } | undefined;
+        if (req.method === 'POST') {
+          const body = await jsonBody(req);
+          if (
+            Object.keys(body).some((k) => !['expected_snapshot', 'operator_label'].includes(k)) ||
+            typeof body.expected_snapshot !== 'string' ||
+            !/^sha256:[a-f0-9]{64}$/.test(body.expected_snapshot) ||
+            typeof body.operator_label !== 'string' ||
+            !body.operator_label.trim()
+          )
+            throw new RequestError(
+              400,
+              'Provide only the exact snapshot and operator-supplied label.',
+            );
+          intent = body as typeof intent;
+        }
+        try {
+          return send(
+            res,
+            200,
+            intent
+              ? await service.verifyEngineering(
+                  jobMatch[1],
+                  canonicalRoot,
+                  intent.expected_snapshot,
+                  intent.operator_label,
+                )
+              : await service.engineeringVerificationPreview(jobMatch[1], canonicalRoot),
+          );
+        } catch (error) {
+          throw new RequestError(
+            409,
+            error instanceof Error ? error.message : 'Engineering verification failed.',
+          );
+        }
+      }
       if (jobMatch[2]?.endsWith('/targets') && req.method === 'POST') {
         if (!service.discoverSemanticTargets)
           throw new Error('Semantic target discovery is not configured.');
@@ -419,6 +481,115 @@ export function createOperatorApi(
           jobDetail(
             await service.recordSemanticDecision(jobMatch[1], await semanticDecisionBody(req)),
           ),
+        );
+      }
+      if (
+        ['/review/human-adjudication', '/review/human-preview'].includes(jobMatch[2]) &&
+        req.method === 'POST'
+      ) {
+        const body = await jsonBody(req);
+        const validIntent =
+          jobMatch[2] === '/review/human-preview'
+            ? isHumanPreviewIntent
+            : validateHumanAdjudicationIntent;
+        if (
+          Object.keys(body).some(
+            (key) => !['expected_review_snapshot', 'actor_label', 'intent'].includes(key),
+          ) ||
+          typeof body.expected_review_snapshot !== 'string' ||
+          typeof body.actor_label !== 'string' ||
+          !validIntent(body.intent)
+        )
+          throw new RequestError(
+            400,
+            'Provide a current review snapshot, reviewer label and supported source correction intent.',
+          );
+        const request = {
+          expected_review_snapshot: body.expected_review_snapshot,
+          actor_label: body.actor_label,
+          intent: body.intent,
+        };
+        if (jobMatch[2] === '/review/human-preview') {
+          if (!service.previewHumanAdjudication)
+            throw new RequestError(400, 'Source correction preview is unavailable.');
+          return send(res, 200, await service.previewHumanAdjudication(jobMatch[1], request));
+        }
+        if (!service.recordHumanAdjudication)
+          throw new RequestError(400, 'Source correction is unavailable.');
+        return send(
+          res,
+          200,
+          jobDetail(await service.recordHumanAdjudication(jobMatch[1], request)),
+        );
+      }
+      if (jobMatch[2] === '/review/human-evidence' && req.method === 'POST') {
+        const body = await jsonBody(req);
+        if (
+          Object.keys(body).some(
+            (k) => !['expected_review_snapshot', 'document_id', 'offset', 'query'].includes(k),
+          ) ||
+          typeof body.expected_review_snapshot !== 'string' ||
+          typeof body.document_id !== 'string' ||
+          typeof body.offset !== 'number' ||
+          (body.query !== undefined && typeof body.query !== 'string')
+        )
+          throw new RequestError(400, 'Choose a retained document and evidence page.');
+        if (!service.humanEvidence)
+          throw new RequestError(400, 'Retained source browsing is unavailable.');
+        return send(
+          res,
+          200,
+          await service.humanEvidence(jobMatch[1], {
+            expected_review_snapshot: body.expected_review_snapshot,
+            document_id: body.document_id,
+            offset: body.offset,
+            ...(typeof body.query === 'string' ? { query: body.query } : {}),
+          }),
+        );
+      }
+      if (jobMatch[2] === '/review/human-properties' && req.method === 'POST') {
+        const body = await jsonBody(req);
+        if (
+          Object.keys(body).some(
+            (k) =>
+              ![
+                'expected_review_snapshot',
+                'actor_label',
+                'intent',
+                'statement_index',
+                'representation',
+              ].includes(k),
+          ) ||
+          typeof body.expected_review_snapshot !== 'string' ||
+          typeof body.actor_label !== 'string' ||
+          !Number.isSafeInteger(body.statement_index) ||
+          (body.statement_index as number) < 0 ||
+          !isHumanPreviewIntent(body.intent) ||
+          (body.representation !== undefined &&
+            !isHumanDiscoveryRepresentation(body.representation))
+        )
+          throw new RequestError(
+            400,
+            'Provide a current source correction and selected source statement.',
+          );
+        if (!service.humanProperties)
+          throw new RequestError(400, 'Source correction property discovery is unavailable.');
+        return send(
+          res,
+          200,
+          await service.humanProperties(jobMatch[1], {
+            expected_review_snapshot: body.expected_review_snapshot,
+            actor_label: body.actor_label,
+            intent: body.intent,
+            statement_index: body.statement_index as number,
+            ...(body.representation !== undefined
+              ? {
+                  representation: body.representation as NonNullable<
+                    Parameters<IngestionJobService['humanProperties']>[1]['representation']
+                  >,
+                }
+              : {}),
+          }),
         );
       }
       if (jobMatch[2] === '/review/resume' && req.method === 'POST') {

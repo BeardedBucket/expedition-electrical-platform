@@ -155,15 +155,19 @@ describe('bounded positioned PDF specifications', () => {
     { extraIdentity: true },
     { tail: 'label' as const },
     { tail: 'value' as const },
-  ])('leaves ambiguous structure as text without inventing facts: %j', async (options) => {
+  ])('retains raw evidence and withholds ambiguous relationships: %j', async (options) => {
     const { artifact } = await extract(options);
-    expect(artifact.blocks.every((block) => block.kind === 'text_block')).toBe(true);
+    // A layout hypothesis retains source geometry without granting fact authority.
+    expect(artifact.blocks.some((block) => block.kind === 'text_block')).toBe(true);
+    expect(
+      artifact.blocks.some((block) => block.locator.section === PDF_POSITIONED_SPECIFICATIONS),
+    ).toBe(false);
     expect(qualifyDocumentExtraction(artifact, { manufacturer_part_number: 'EX-1' }).facts).toEqual(
       [],
     );
   });
 
-  it('is manufacturer-neutral and does not assign structure to ordinary unsupported PDFs', async () => {
+  it('is manufacturer-neutral and does not qualify unsupported PDF relationships', async () => {
     const changed = await extract({
       identity: 'AB-9 / AB-10',
       manufacturer: 'Another Manufacturer',
@@ -172,7 +176,12 @@ describe('bounded positioned PDF specifications', () => {
       qualifyDocumentExtraction(changed.artifact, { manufacturer_part_number: 'AB-9' }).facts,
     ).toHaveLength(2);
     const unsupported = await extract({ identity: 'Descriptive title without an identifier list' });
-    expect(unsupported.artifact.blocks.every((block) => block.kind === 'text_block')).toBe(true);
+    expect(unsupported.artifact.blocks.some((block) => block.kind === 'text_block')).toBe(true);
+    expect(
+      unsupported.artifact.blocks.some(
+        (block) => block.locator.section === PDF_POSITIONED_SPECIFICATIONS,
+      ),
+    ).toBe(false);
     expect(
       qualifyDocumentExtraction(unsupported.artifact, { manufacturer_part_number: 'EX-1' }).facts,
     ).toEqual([]);

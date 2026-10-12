@@ -5,7 +5,11 @@ import {
   isResumedPreparationRecoveryEligible,
   productReviewLifecycleSnapshot,
 } from '@expedition/ingestion-runtime';
-import type { ArtifactReference, CanonicalQualifiedValue } from '@expedition/ingestion';
+import type {
+  ArtifactReference,
+  CanonicalQualifiedValue,
+  HumanAdjudicationEvent,
+} from '@expedition/ingestion';
 import {
   artifactDigest,
   canonicalIdFor,
@@ -13,8 +17,10 @@ import {
   evaluateSemanticReviewCompletion,
   productionSemanticTargetContract,
   reviewPackageSnapshot,
+  genericSemanticRules,
 } from '@expedition/ingestion';
 import { productRoles } from './product-review.js';
+import { correctionRecord } from './correction-record.js';
 
 const valueAt = (data: unknown, path: string): unknown =>
   path
@@ -25,8 +31,29 @@ const valueAt = (data: unknown, path: string): unknown =>
       data,
     );
 const safeUri = (uri: string | undefined) => (uri && /^https?:\/\//i.test(uri) ? uri : undefined);
+const humanHistoryView = (e: HumanAdjudicationEvent) => ({
+  version: e.version,
+  id: e.id,
+  revision: e.revision,
+  recorded_at: e.recorded_at,
+  actor: e.actor,
+  intent: e.intent,
+  input_snapshot: e.input_snapshot,
+  previous_digest: e.previous_digest,
+  original_fact_refs: e.original_fact_refs,
+  facts: e.facts.map((f) => ({
+    id: f.id,
+    label: f.metadata.source_label,
+    value: f.metadata.raw_value,
+    unit: f.metadata.source_unit,
+    source_capture: f.source_capture,
+    document_extraction: f.document_extraction,
+  })),
+});
 const canonicalUnitForTarget = (target: string) => {
-  const unit = productionSemanticTargetContract(target)?.unit;
+  const unit =
+    productionSemanticTargetContract(target)?.unit ??
+    genericSemanticRules.find((r) => r.target === target)?.unit;
   return unit && unit !== 'string' && unit !== 'structured' ? unit : undefined;
 };
 // Keep noisy display representations separate from the unmodified candidate and proposal values.
@@ -64,12 +91,17 @@ const operatorIssues = (issues: readonly { code: string; path: string; message: 
 export function productReviewView(job: IngestionJob) {
   const p = job.preparation;
   if (p?.status !== 'review_ready') return undefined;
+  const effective = (id: string) =>
+    p.bridge.reviewed_semantic_interpretation.entries.find((e) => e.proposal_id === id);
   const proposalViews = (field: string, qualifiedId?: string) =>
     p.proposals
       .filter(
         (proposal) =>
-          proposal.target === field &&
-          (qualifiedId ? proposal.qualified_value?.id === qualifiedId : !proposal.qualified_value),
+          (effective(proposal.id)?.target ?? proposal.target) === field &&
+          (qualifiedId
+            ? (effective(proposal.id)?.qualified_value ?? proposal.qualified_value)?.id ===
+              qualifiedId
+            : !(effective(proposal.id)?.qualified_value ?? proposal.qualified_value)),
       )
       .slice(0, 500)
       .map((proposal) => ({
@@ -98,18 +130,55 @@ export function productReviewView(job: IngestionJob) {
             );
             return {
               id: fact.id,
-              label: fact.metadata.source_label,
-              raw_value: fact.metadata.raw_value,
-              unit: fact.metadata.source_unit,
-              applicability: fact.metadata.applicability,
+              ...(fact.human_source
+                ? {
+                    human_correction: {
+                      event_id: fact.human_source.event_id,
+                      statement: fact.human_source.statement,
+                    },
+                  }
+                : {}),
+              label: fact.metadata?.source_label,
+              raw_value: fact.metadata?.raw_value,
+              unit: fact.metadata?.source_unit,
+              applicability: fact.metadata?.applicability,
               qualification: fact.qualification_state,
               source_uri: safeUri(capture?.final_uri ?? capture?.requested_uri),
               document: document?.title,
-              locators: fact.evidence?.map(({ role, locator, block_id }) => ({
-                role,
-                locator,
-                block_id,
-              })),
+              // Capture provenance exists independently of optional fact metadata. This allowlist
+              // never exposes captured bodies, local paths, or internal provenance.
+              ...(fact.source_capture
+                ? {
+                    source_context: {
+                      wording: fact.metadata?.source_wording,
+                      conditions: fact.metadata?.conditions,
+                      duration: fact.metadata?.duration,
+                      temperature: fact.metadata?.temperature_context,
+                      revision: fact.metadata?.revision_context,
+                      alternatives: fact.metadata?.alternative_interpretations,
+                      capture: reference(fact.source_capture),
+                      document_reference: fact.document_extraction
+                        ? reference(fact.document_extraction)
+                        : undefined,
+                      capture_id: capture?.id,
+                      retrieved_at: capture?.retrieved_at,
+                      content_digest: capture?.content_digest,
+                      content_digest_algorithm: capture?.digest_algorithm,
+                    },
+                  }
+                : {}),
+              locators: fact.evidence?.map(
+                ({ role, locator, block_id, cell_id, context, text, note, source_reference }) => ({
+                  role,
+                  locator,
+                  block_id,
+                  ...(cell_id !== undefined ? { cell_id } : {}),
+                  ...(note !== undefined ? { note } : {}),
+                  ...(source_reference ? { source_reference: reference(source_reference) } : {}),
+                  ...(context ? { context } : {}),
+                  ...(text !== undefined ? { text } : {}),
+                }),
+              ),
               conflicts: p.reconciliation.group_reconciliations
                 .filter(
                   (group) =>
@@ -125,8 +194,10 @@ export function productReviewView(job: IngestionJob) {
   const fields = [
     ...new Set(
       p.proposals
-        .filter((proposal) => !proposal.qualified_value)
-        .map((proposal) => proposal.target),
+        .filter(
+          (proposal) => !(effective(proposal.id)?.qualified_value ?? proposal.qualified_value),
+        )
+        .map((proposal) => effective(proposal.id)?.target ?? proposal.target),
     ),
   ];
   return {
@@ -327,6 +398,25 @@ export const jobDetail = (job: IngestionJob) => {
                 : {}),
               automatic_target: proposal.target,
               automatic_disposition: proposal.disposition,
+              ...(proposal.evidence_classification
+                ? {
+                    automatic_retained_evidence: {
+                      policy_version: proposal.evidence_classification.policy_version,
+                      projection_authority: proposal.evidence_classification.projection_authority,
+                      rules: proposal.evidence_classification.assertions.map((a) => ({
+                        id: a.rule.id,
+                        revision: a.rule.revision,
+                        role: a.rule.role,
+                        rule_digest: a.rule_digest,
+                        source_fact_id: a.source_fact.id,
+                        source_fact_digest: a.source_fact_digest,
+                      })),
+                    },
+                  }
+                : {}),
+              ...(proposal.semantic_assertions
+                ? { semantic_assertions: proposal.semantic_assertions }
+                : {}),
               ...(proposal.proposed_value !== undefined
                 ? { automatic_value: proposal.proposed_value }
                 : {}),
@@ -745,6 +835,45 @@ export const jobDetail = (job: IngestionJob) => {
         }
       : undefined,
     semantic_review: semanticReview,
+    ...(r
+      ? {
+          human_adjudication: {
+            editable:
+              job.state === 'review_ready' &&
+              !job.approval &&
+              !job.finalization_request &&
+              !job.final_result,
+            documents: r.document_extractions.map((d) => ({
+              id: d.id,
+              title: d.title ?? 'Retained manufacturer document',
+              block_count: d.blocks.length,
+              source_uri: safeUri(
+                r.captures.find((c) => artifactDigest(c) === d.source_capture.digest)?.final_uri,
+              ),
+            })),
+            history: (job.human_adjudications ?? []).map(humanHistoryView),
+            ...(r.qualified_facts.length
+              ? { correction_records: r.qualified_facts.map((f) => correctionRecord(f, r)) }
+              : {}),
+            archived_history: job.preparation_recovery_history
+              ?.filter((recovery) => recovery.human_adjudications?.length)
+              .map((recovery) => ({
+                requested_at: recovery.requested_at,
+                review_snapshot: recovery.previous_review_snapshot,
+                events: recovery.human_adjudications!.map(humanHistoryView),
+              })),
+            original_observations: (
+              job.human_adjudication_original?.qualified_facts ?? r.qualified_facts
+            ).map((f) => ({
+              id: f.id,
+              label: f.metadata.source_label,
+              value: f.metadata.raw_value,
+              unit: f.metadata.source_unit,
+              wording: f.metadata.source_wording,
+            })),
+          },
+        }
+      : {}),
     diagnostics: [
       ...(job.error
         ? [

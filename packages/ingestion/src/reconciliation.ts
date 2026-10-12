@@ -180,7 +180,16 @@ const hasUnsafeObservationContext = (fact: QualifiedFactArtifact): boolean =>
   fact.metadata.derived_value !== undefined ||
   fact.metadata.derivation !== undefined ||
   fact.metadata.alternative_interpretations !== undefined ||
-  (fact.evidence?.some((evidence) => evidence.role === 'qualifier') ?? false);
+  // F remains source-native. Newly producer-typed source context has the same
+  // raw-comparison boundary as a qualifier; provenance typing grants no new
+  // electrical meaning. Untyped historical context keeps its archived F
+  // diagnostic behavior and remains unresolved in the semantic interpreter.
+  (fact.evidence?.some(
+    (evidence) =>
+      evidence.role === 'qualifier' ||
+      (evidence.role === 'context' && evidence.context?.kind === 'source_semantic'),
+  ) ??
+    false);
 
 const explicitElectricalDomain = (fact: QualifiedFactArtifact): string | undefined => {
   const embeddedUnit =

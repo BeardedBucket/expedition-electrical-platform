@@ -8,12 +8,21 @@ import type {
 import { OperatorApiError } from './api.js';
 import type { ReviewedSemanticMappingPreview } from '@expedition/ingestion';
 import { ReviewValue, SourceLink } from './ReviewValue.js';
+import { ReviewerPropertyPicker, propertyName } from './ReviewerProperties.js';
+import {
+  SourceEvidencePanel,
+  initialEvidenceBinding,
+  sourceScopeWarning,
+} from './SourceEvidencePanel.js';
+import { ReviewHelp } from './ReviewHelp.js';
+import { HumanSourceEditor } from './HumanSourceEditor.js';
 
 type SemanticReview = NonNullable<OperatorJobDetail['semantic_review']>;
 type SemanticWorkItem = SemanticReview['work']['required'][number];
 type ProductReviewData = NonNullable<OperatorJobDetail['product_review']>;
 type ProductField = ProductReviewData['fields'][number];
 type ProductQualifiedValue = NonNullable<ProductReviewData['qualified_values']>[number];
+type StaleResult = false | 'reloaded' | 'reload_failed';
 type FieldResolution = { selected_fact_id: string; rationale: string };
 
 interface ProductReviewControls {
@@ -61,35 +70,38 @@ interface CardProductReview {
 const outcomes = [
   {
     value: 'map',
-    label: 'Map to canonical field',
+    label: 'Map this specification',
     explanation:
-      "Choose the source assertion's canonical meaning; the platform computes its value.",
+      "Choose what this manufacturer specification means. Expedition converts its value into the selected property's units.",
   },
   {
     value: 'evidence_only',
-    label: 'Evidence only',
-    explanation: 'Keep relevant evidence without projecting it into the canonical component.',
+    label: 'Keep as source evidence',
+    explanation: 'Keep useful manufacturer information without assigning an engineering property.',
   },
   {
     value: 'schema_gap',
-    label: 'Schema gap',
-    explanation: 'The source has a meaningful concept but no supported canonical target exists.',
+    label: 'Report a possible missing property',
+    explanation:
+      'Describe a possible missing engineering concept. A missing search match alone does not establish a contract gap; this decision creates no property.',
   },
   {
     value: 'reject',
-    label: 'Reject assertion',
-    explanation: 'Do not use this retained assertion as an applicable semantic fact.',
+    label: 'Reject this source interpretation',
+    explanation:
+      'The extracted interpretation is wrong or unreliable. Keep the original evidence and explain the problem.',
   },
   {
     value: 'not_applicable',
-    label: 'Not applicable',
+    label: 'Not applicable to this component',
     explanation:
-      'The assertion is valid source material but does not apply to this product/context.',
+      'The source statement may be valid for a sibling model or another operating context, but does not apply to this component.',
   },
   {
     value: 'unresolved',
     label: 'Leave unresolved',
-    explanation: 'You examined the evidence but cannot safely determine its canonical meaning.',
+    explanation:
+      'Record that you reviewed this specification but cannot safely establish its meaning, conditions or model applicability. You can revisit it later.',
   },
 ] as const;
 
@@ -112,37 +124,44 @@ function Section({
   );
 }
 
+const itemLabel = (item: SemanticWorkItem) =>
+  item.evidence[0]?.label ?? propertyName(item.target ?? item.automatic_target) ?? item.id;
+
+// Automatically retained document evidence and derived results do not acquire a new review obligation.
+const canEditSemanticItem = (item: SemanticWorkItem) =>
+  !item.derived &&
+  (item.required ||
+    !!item.active_decision ||
+    (item.automatic_disposition === 'mapped' && !item.automatic_retained_evidence));
+
 function SemanticWorkItemCard({
   item,
-  job,
-  client,
-  reviewer,
-  onUpdate,
-  onStale,
-  showEditor,
   allowCorrectionAction = false,
   product,
+  onNavigate,
 }: {
   item: SemanticWorkItem;
-  job: OperatorJobDetail;
-  client: OperatorApi;
-  reviewer: string;
-  onUpdate: (job: OperatorJobDetail) => void;
-  onStale: (error: unknown, setError: (message: string) => void) => Promise<boolean>;
-  showEditor: boolean;
   allowCorrectionAction?: boolean;
   product: CardProductReview;
+  onNavigate: (id: string, focusCard?: boolean) => void;
 }) {
-  const [correctionOpen, setCorrectionOpen] = useState(false);
-  const editorVisible = showEditor || correctionOpen;
   const projectedValue = product.field?.display_value ?? product.field?.value;
   const semanticValue = item.display_value ?? item.value ?? item.automatic_value;
   const projectedValueAddsInformation =
     product.field && JSON.stringify(projectedValue) !== JSON.stringify(semanticValue);
 
   return (
-    <article id={`semantic-${encodeURIComponent(item.id)}`}>
-      <h4>{item.automatic_target || item.id}</h4>
+    <article id={`semantic-${encodeURIComponent(item.id)}`} tabIndex={-1}>
+      <h4>{itemLabel(item)}</h4>
+      <details>
+        <summary>Automatic proposal details</summary>
+        <code>{item.automatic_target}</code>
+      </details>
+      {canEditSemanticItem(item) && (
+        <button type="button" onClick={() => onNavigate(item.id)}>
+          Open specification review
+        </button>
+      )}
       <p>
         Proposal {item.id} · automatic disposition: {item.automatic_disposition} · state:{' '}
         {item.state}
@@ -164,6 +183,26 @@ function SemanticWorkItemCard({
         )}
       {item.derived && (
         <p>Calculated / derived result; derived proposals are not human semantic evidence.</p>
+      )}
+      {item.semantic_assertions && (
+        <details>
+          <summary>Semantic rules and source conditions</summary>
+          <ReviewValue value={item.semantic_assertions} />
+          <p>
+            These conditions describe the source rating. Mapping does not establish installation
+            applicability or engineering verification.
+          </p>
+        </details>
+      )}
+      {item.automatic_retained_evidence && (
+        <details>
+          <summary>Automatically retained evidence</summary>
+          <p>
+            No engineering projection. The source remains available for future interpretation; no
+            human mapping decision is required for this classification.
+          </p>
+          <ReviewValue value={item.automatic_retained_evidence} />
+        </details>
       )}
       {item.target && (
         <p>
@@ -193,11 +232,7 @@ function SemanticWorkItemCard({
           </div>
         )}
       {item.evidence.map((fact) => (
-        <details
-          key={fact.id}
-          className="source-evidence"
-          open={item.required || !!item.active_decision || correctionOpen || !!product.field}
-        >
+        <details key={fact.id} className="source-evidence" open={!!product.field}>
           <summary>
             Source-stated evidence · {fact.label ?? 'Source label unavailable'} · {fact.id}
           </summary>
@@ -239,9 +274,12 @@ function SemanticWorkItemCard({
             ) : (
               <p>
                 Product evidence handling is available on{' '}
-                <a href={`#semantic-${encodeURIComponent(product.factOwners.get(fact.id) ?? '')}`}>
+                <button
+                  type="button"
+                  onClick={() => onNavigate(product.factOwners.get(fact.id) ?? '', true)}
+                >
                   its primary review card
-                </a>
+                </button>
                 .
               </p>
             ))}
@@ -272,20 +310,14 @@ function SemanticWorkItemCard({
         </details>
       )}
       {allowCorrectionAction && (
-        <button type="button" onClick={() => setCorrectionOpen((open) => !open)}>
-          {correctionOpen ? 'Hide correction controls' : 'Review / correct automatic mapping'}
+        <button
+          type="button"
+          onClick={() => {
+            onNavigate(item.id);
+          }}
+        >
+          Review / correct automatic mapping
         </button>
-      )}
-      {editorVisible && (
-        <SemanticDecisionEditor
-          key={`${item.id}:${job.semantic_review?.expected_review_snapshot}`}
-          item={item}
-          job={job}
-          client={client}
-          reviewer={reviewer}
-          onUpdate={onUpdate}
-          onStale={onStale}
-        />
       )}
       {product.field && (
         <section aria-label={`Product field approval for ${product.field.path}`}>
@@ -352,11 +384,14 @@ function SemanticWorkItemCard({
           ) : (
             <p>
               Product field decision is on the primary card for{' '}
-              <a
-                href={`#semantic-${encodeURIComponent(product.fieldOwners?.get(product.field.path) ?? '')}`}
+              <button
+                type="button"
+                onClick={() =>
+                  onNavigate(product.fieldOwners?.get(product.field?.path ?? '') ?? '', true)
+                }
               >
                 proposal {product.fieldOwners?.get(product.field.path)}
-              </a>
+              </button>
               .
             </p>
           )}
@@ -375,11 +410,17 @@ function SemanticWorkItemCard({
         ) : (
           <p>
             Qualified assertion {product.qualifiedValue.id} is selected on{' '}
-            <a
-              href={`#semantic-${encodeURIComponent(product.qualifiedOwners.get(product.qualifiedValue.id) ?? '')}`}
+            <button
+              type="button"
+              onClick={() =>
+                onNavigate(
+                  product.qualifiedOwners.get(product.qualifiedValue?.id ?? '') ?? '',
+                  true,
+                )
+              }
             >
               its primary review card
-            </a>
+            </button>
             .
           </p>
         ))}
@@ -401,6 +442,50 @@ export function SemanticAdjudication({
   productReview?: ProductReviewControls;
 }) {
   const semanticReview = job.semantic_review;
+  const [selectedId, setSelectedId] = useState<string>();
+  const [sourceCorrection, setSourceCorrection] = useState<false | 'correct' | 'add'>(false);
+  const [sourceRevisionId, setSourceRevisionId] = useState<string>();
+  const [groupedFactIds, setGroupedFactIds] = useState<string[]>();
+  const [dirty, setDirty] = useState(false);
+  const [editorBusy, setEditorBusy] = useState(false);
+  const [loadingReview, setLoadingReview] = useState(false);
+  const [message, setMessage] = useState('');
+  const [queueQuery, setQueueQuery] = useState('');
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const focusRef = useRef<HTMLHeadingElement>(null);
+  const [focusCardId, setFocusCardId] = useState<string>();
+  const [focusRevision, setFocusRevision] = useState(0);
+  useEffect(() => {
+    if (!focusRevision) return;
+    const destination = focusCardId
+      ? document.getElementById('semantic-' + encodeURIComponent(focusCardId))
+      : focusRef.current;
+    destination?.focus();
+    destination?.scrollIntoView?.({ block: 'nearest' });
+  }, [selectedId, focusRevision, focusCardId]);
+  const navigate = (id: string, focusCard = false) => {
+    if (!id || editorBusy || loadingReview) return;
+    if (focusCard) setAdvancedOpen(true);
+    if (id === selected?.id) {
+      setFocusCardId(focusCard ? id : undefined);
+      setFocusRevision((revision) => revision + 1);
+      return;
+    }
+    if (
+      editorBusy ||
+      loadingReview ||
+      (dirty && !window.confirm('Discard unsaved review input and open another specification?'))
+    )
+      return;
+    setDirty(false);
+    setSelectedId(id);
+    setSourceCorrection(false);
+    setSourceRevisionId(undefined);
+    setGroupedFactIds(undefined);
+    setFocusCardId(focusCard ? id : undefined);
+    setMessage('');
+    setFocusRevision((revision) => revision + 1);
+  };
   const onStale = useCallback(
     async (error: unknown, setError: (message: string) => void) => {
       if (!(error instanceof OperatorApiError) || error.status !== 409) return false;
@@ -409,10 +494,11 @@ export function SemanticAdjudication({
         setError(
           'The review changed. Current job state was reloaded; inspect the evidence and reconfirm before recording a decision.',
         );
+        return 'reloaded' as const;
       } catch {
         setError('The review changed. Reload the job before making another decision.');
+        return 'reload_failed' as const;
       }
-      return true;
     },
     [client, job.summary.id, onUpdate],
   );
@@ -420,6 +506,84 @@ export function SemanticAdjudication({
   const requiredIds = (semanticReview.required_dispositions ?? []).map((item) => item.proposal_id);
   const work = semanticReview.work;
   const allItems = [...work.required, ...work.reviewed, ...work.automatic, ...work.derived];
+  const selected = allItems.find(
+    (item) =>
+      item.id ===
+      (selectedId ??
+        work.required[0]?.id ??
+        work.reviewed[0]?.id ??
+        (job.human_adjudication?.editable
+          ? work.automatic.find(canEditSemanticItem)?.id
+          : undefined)),
+  );
+  const revisionEvent = job.human_adjudication?.history.find((e) => e.id === sourceRevisionId);
+  const revisionFacts = revisionEvent
+    ? (job.human_adjudication?.history
+        .filter((e) => e.intent.group_id === revisionEvent.intent.group_id && e.facts.length)
+        .at(-1)
+        ?.facts.map((f) => f.id) ?? [...revisionEvent.intent.replaces_fact_ids])
+    : undefined;
+  const openSourceCorrection = (mode: 'correct' | 'add', eventId?: string, groupIds?: string[]) => {
+    if (
+      editorBusy ||
+      loadingReview ||
+      (dirty && !window.confirm('Discard unsaved input and open this source correction?'))
+    )
+      return;
+    setDirty(false);
+    setSourceRevisionId(eventId);
+    setGroupedFactIds(groupIds);
+    setSourceCorrection(mode);
+  };
+  const saved = (returned: OperatorJobDetail, next: boolean) => {
+    // Only the successful persisted response owns queue advancement. No stale client queue or replay.
+    setDirty(false);
+    onUpdate(returned);
+    const returnedReview = returned.semantic_review;
+    if (!returnedReview) {
+      setMessage(
+        'Decision saved, but the current work queue is unavailable. Reload the durable review before continuing.',
+      );
+      return;
+    }
+    const remaining = returnedReview.work.required;
+    setMessage(
+      remaining.length
+        ? 'Decision saved. Product approval and engineering verification remain separate.'
+        : returnedReview.complete
+          ? 'All required review decisions are recorded. Engineering specifications may remain unresolved; this component is not approved or verified by this save.'
+          : 'Decision saved. No next outstanding specification is available in the returned queue; inspect the durable review.',
+    );
+    if (next) setSelectedId(remaining[0]?.id ?? '');
+    setFocusCardId(undefined);
+    setFocusRevision((revision) => revision + 1);
+  };
+  const reload = async () => {
+    if (
+      editorBusy ||
+      (dirty &&
+        !window.confirm('Discard unsaved review input and return to the durable job review?'))
+    )
+      return;
+    setLoadingReview(true);
+    try {
+      const returned = await client.get(job.summary.id);
+      onUpdate(returned);
+      setDirty(false);
+      setSelectedId('');
+      setFocusCardId(undefined);
+      setMessage('Current durable review reloaded. Choose a recorded decision to revisit it.');
+      setFocusRevision((revision) => revision + 1);
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : 'Durable review could not load. Your input is retained.',
+      );
+    } finally {
+      setLoadingReview(false);
+    }
+  };
   const fieldsByOwner = new Map<string, ProductField>();
   const qualifiedByOwner = new Map<string, ProductQualifiedValue>();
   const fieldOwners = new Map<string, string>();
@@ -486,70 +650,394 @@ export function SemanticAdjudication({
     };
   };
 
-  const renderItemCard = (
-    item: SemanticWorkItem,
-    showEditor: boolean,
-    allowCorrectionAction = false,
-  ) => (
+  const renderItemCard = (item: SemanticWorkItem, allowCorrectionAction = false) => (
     <SemanticWorkItemCard
       key={item.id}
       item={item}
-      job={job}
-      client={client}
-      reviewer={reviewer}
-      onUpdate={onUpdate}
-      onStale={onStale}
-      showEditor={showEditor}
+      onNavigate={navigate}
       allowCorrectionAction={allowCorrectionAction}
       product={cardProductReview(item)}
     />
   );
 
+  const queueItems = [
+    ...work.required,
+    ...work.reviewed,
+    ...work.automatic.filter(canEditSemanticItem),
+  ];
+  const queueMatches = (item: SemanticWorkItem) => {
+    const status =
+      item.active_decision?.outcome === 'map'
+        ? 'mapped reviewed'
+        : item.active_decision
+          ? 'reviewed ' + item.active_decision.outcome
+          : item.required
+            ? 'awaiting review'
+            : 'automatic suggestion mapped';
+    const text = [
+      itemLabel(item),
+      status,
+      outcomes.find((choice) => choice.value === item.active_decision?.outcome)?.label,
+      ...item.evidence.flatMap((fact) => [
+        fact.label,
+        JSON.stringify(fact.raw_value),
+        fact.source_context?.wording,
+      ]),
+    ]
+      .join(' ')
+      .toLowerCase();
+    return queueQuery
+      .toLowerCase()
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .every((word) => text.includes(word));
+  };
+
   return (
-    <section aria-label="Semantic adjudication">
-      <h2>Semantic review</h2>
-      <p role="status">
-        {semanticReview.complete
-          ? 'Semantic review complete. The existing product approval workflow is available.'
-          : `Semantic review still requires dispositions for ${requiredIds.length} proposal(s).`}
+    <section aria-label="Semantic adjudication" className="specification-review">
+      <h2>Specification review</h2>
+      <p className="workflow-order">
+        1 · Find a specification → 2 · Read manufacturer evidence → 3 · Record engineering
+        interpretation
       </p>
-      {!semanticReview.complete && (
-        <ul aria-label="Proposals requiring disposition">
-          {requiredIds.map((id) => (
-            <li key={id}>
-              <a href={`#semantic-${encodeURIComponent(id)}`}>{id}</a>
-            </li>
-          ))}
-        </ul>
-      )}
-      <div id="semantic-required">
-        <Section
-          title="REVIEW REQUIRED"
-          items={work.required}
-          empty="No semantic dispositions remain outstanding."
-          render={(item) => renderItemCard(item, true)}
-        />
-        <Section
-          title="REVIEWED / DISPOSITIONED"
-          items={work.reviewed}
-          empty="No human dispositions have been recorded."
-          render={(item) => renderItemCard(item, true)}
-        />
-        <Section
-          title="AUTOMATICALLY MAPPED"
-          items={work.automatic}
-          empty="No proposals were handled automatically."
-          render={(item) =>
-            renderItemCard(item, false, item.automatic_disposition === 'mapped' && !item.derived)
-          }
-        />
-        <Section
-          title="DERIVED / CALCULATED"
-          items={work.derived}
-          empty="No derived semantic proposals."
-          render={(item) => renderItemCard(item, false)}
-        />
+      <div className="review-layout">
+        <aside className="review-queue" aria-label="Review queue">
+          <p role="status">
+            {semanticReview.complete
+              ? 'Required review decisions recorded. Engineering meaning may remain unresolved; approval and verification are separate.'
+              : requiredIds.length + ' specification(s) await a human decision.'}
+          </p>
+          <label>
+            Find a specification
+            <input
+              type="search"
+              value={queueQuery}
+              onChange={(event) => setQueueQuery(event.target.value)}
+              placeholder="Labels, source values, review status…"
+            />
+          </label>
+          <p className="queue-scope">
+            This product/job only · {queueItems.filter(queueMatches).length} of {queueItems.length}{' '}
+            specifications match
+          </p>
+          {queueQuery && (
+            <button type="button" onClick={() => setQueueQuery('')}>
+              Clear queue search
+            </button>
+          )}
+          {queueQuery && !queueItems.some(queueMatches) && (
+            <p role="status">No specifications match. Clear search to see all review groups.</p>
+          )}
+          <nav aria-label="Specification work queue">
+            {[
+              ['Awaiting a decision', work.required],
+              [
+                'Reviewed but engineering meaning unresolved',
+                work.reviewed.filter((item) =>
+                  ['unresolved', 'schema_gap', 'evidence_only'].includes(
+                    item.active_decision?.outcome ?? '',
+                  ),
+                ),
+              ],
+              [
+                'Recorded decisions',
+                work.reviewed.filter(
+                  (item) =>
+                    !['unresolved', 'schema_gap', 'evidence_only'].includes(
+                      item.active_decision?.outcome ?? '',
+                    ),
+                ),
+              ],
+              ['Optional automatic corrections', work.automatic.filter(canEditSemanticItem)],
+            ]
+              .filter(([, items]) => (items as readonly SemanticWorkItem[]).length > 0)
+              .map(([title, items]) => (
+                <details
+                  key={title as string}
+                  open={
+                    !!queueQuery.trim() ||
+                    title === 'Awaiting a decision' ||
+                    (title === 'Optional automatic corrections' &&
+                      !work.required.length &&
+                      !work.reviewed.length)
+                  }
+                  className="queue-group"
+                >
+                  <summary>
+                    {title as string} (
+                    {(items as readonly SemanticWorkItem[]).filter(queueMatches).length}
+                    {queueQuery ? ' / ' + (items as readonly SemanticWorkItem[]).length : ''})
+                  </summary>
+                  <ul>
+                    {(items as readonly SemanticWorkItem[]).filter(queueMatches).map((item) => (
+                      <li key={item.id}>
+                        <button
+                          type="button"
+                          disabled={editorBusy || loadingReview}
+                          aria-label={
+                            itemLabel(item) +
+                            (item.active_decision
+                              ? ' · ' +
+                                outcomes.find(
+                                  (choice) => choice.value === item.active_decision?.outcome,
+                                )?.label
+                              : '')
+                          }
+                          aria-current={selected?.id === item.id ? 'true' : undefined}
+                          onClick={() => navigate(item.id)}
+                        >
+                          <strong>{itemLabel(item)}</strong>
+                          <small>
+                            Source:{' '}
+                            {item.evidence
+                              .map((fact) =>
+                                typeof fact.raw_value === 'object'
+                                  ? 'Structured source value'
+                                  : String(fact.raw_value ?? 'Unknown value'),
+                              )
+                              .join(' · ')}
+                          </small>
+                          {item.active_decision
+                            ? ' · ' +
+                              outcomes.find(
+                                (choice) => choice.value === item.active_decision?.outcome,
+                              )?.label
+                            : ''}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              ))}
+          </nav>
+          <button
+            type="button"
+            disabled={editorBusy || loadingReview}
+            onClick={() => void reload()}
+          >
+            Return to saved review
+          </button>
+        </aside>
+        <div className="selected-specification">
+          <h3 ref={focusRef} tabIndex={-1}>
+            {selected
+              ? 'Review: ' + itemLabel(selected)
+              : 'Choose a specification to review or revisit'}
+          </h3>
+          {message && <p role="status">{message}</p>}
+          {job.human_adjudication?.editable && !sourceCorrection && (
+            <button
+              type="button"
+              className="correction-entry"
+              disabled={editorBusy || loadingReview}
+              onClick={() => openSourceCorrection(selected ? 'correct' : 'add')}
+            >
+              Correct or add information
+            </button>
+          )}
+          {sourceCorrection && job.human_adjudication && (
+            <HumanSourceEditor
+              key={`${sourceRevisionId ?? selected?.id ?? 'new'}:${sourceCorrection}:${groupedFactIds?.join(',') ?? ''}`}
+              job={job}
+              client={client}
+              reviewer={reviewer}
+              priorEventId={sourceRevisionId}
+              currentItem={sourceCorrection === 'correct' ? selected : undefined}
+              factIds={
+                sourceCorrection === 'add'
+                  ? []
+                  : (groupedFactIds ?? revisionFacts ?? selected?.evidence.map((f) => f.id) ?? [])
+              }
+              onDirty={setDirty}
+              onBusy={setEditorBusy}
+              onSaved={(next) => {
+                setSourceCorrection(false);
+                setSourceRevisionId(undefined);
+                setGroupedFactIds(undefined);
+                saved(next, false);
+                // The persisted response owns the replacement proposal IDs.
+                // Source corrections change IDs; select their effective facts,
+                // not the now-superseded client proposal or an arbitrary next item.
+                const event = next.human_adjudication?.history.at(-1);
+                const changedIds = event?.facts.length
+                  ? event.facts.map((fact) => fact.id)
+                  : (event?.intent.replaces_fact_ids ?? []);
+                const returnedWork = next.semantic_review?.work;
+                const updated =
+                  returnedWork &&
+                  [
+                    ...returnedWork.required,
+                    ...returnedWork.reviewed,
+                    ...returnedWork.automatic,
+                  ].find((item) => item.evidence.some((fact) => changedIds.includes(fact.id)));
+                if (updated) setSelectedId(updated.id);
+                setMessage(
+                  event?.intent.disposition === 'draft'
+                    ? 'Unresolved correction draft saved. Its source and reason remain available in correction history.'
+                    : 'Correction saved. The current effective record is shown; approval and verification remain separate.',
+                );
+              }}
+              onClose={() => {
+                if (
+                  !dirty ||
+                  window.confirm(
+                    'Discard unsaved source correction and return to specification review?',
+                  )
+                ) {
+                  setSourceCorrection(false);
+                  setSourceRevisionId(undefined);
+                  setGroupedFactIds(undefined);
+                  setDirty(false);
+                }
+              }}
+            />
+          )}
+          {/* Freeze input during durable reload so its response cannot discard input entered after the discard confirmation. */}
+          {!sourceCorrection && selected && canEditSemanticItem(selected) && (
+            <fieldset disabled={loadingReview} aria-label="Active specification review">
+              <SemanticDecisionEditor
+                key={selected.id}
+                item={selected}
+                job={job}
+                client={client}
+                reviewer={reviewer}
+                onStale={onStale}
+                onSaved={saved}
+                onDirty={setDirty}
+                onBusy={setEditorBusy}
+              />
+            </fieldset>
+          )}
+        </div>
       </div>
+      <details
+        open={advancedOpen}
+        onToggle={(event) => setAdvancedOpen(event.currentTarget.open)}
+        className="advanced-review"
+      >
+        <summary>Product field approval and advanced proposal details</summary>
+        <p>
+          Product approval choices are separate from specification decisions. Expand a source entry
+          to inspect exact locators and prior automatic results.
+        </p>
+        {advancedOpen && (
+          <div id="semantic-required">
+            <Section
+              title="REVIEW REQUIRED"
+              items={work.required}
+              empty="No semantic dispositions remain outstanding."
+              render={(item) => renderItemCard(item)}
+            />
+            <Section
+              title="REVIEWED / DISPOSITIONED"
+              items={work.reviewed}
+              empty="No human dispositions have been recorded."
+              render={(item) => renderItemCard(item)}
+            />
+            <Section
+              title="AUTOMATICALLY MAPPED"
+              items={work.automatic.filter((item) => !item.automatic_retained_evidence)}
+              empty="No automatically mapped engineering proposals."
+              render={(item) =>
+                renderItemCard(item, item.automatic_disposition === 'mapped' && !item.derived)
+              }
+            />
+            {work.automatic.some((item) => item.automatic_retained_evidence) && (
+              <Section
+                title="AUTOMATICALLY RETAINED EVIDENCE"
+                items={work.automatic.filter((item) => item.automatic_retained_evidence)}
+                render={(item) => renderItemCard(item)}
+              />
+            )}
+            <Section
+              title="DERIVED / CALCULATED"
+              items={work.derived}
+              empty="No derived semantic proposals."
+              render={(item) => renderItemCard(item)}
+            />
+          </div>
+        )}
+      </details>
+      {!!job.human_adjudication?.history.length && (
+        <details className="advanced-review">
+          <summary>
+            Human source correction history ({job.human_adjudication.history.length})
+          </summary>
+          {job.human_adjudication.history.map((event) => (
+            <article key={event.id}>
+              <h4>
+                {event.intent.action} · revision {event.revision} ·{' '}
+                {event.intent.disposition === 'draft'
+                  ? 'Unresolved draft — no engineering scope'
+                  : 'Source-adjudicated'}
+              </h4>
+              <p>
+                {event.actor.identifier} (local operator label) · {event.recorded_at}
+              </p>
+              <p>{event.intent.rationale}</p>
+              {event.intent.statements.map((statement, i) => (
+                <div key={i}>
+                  <strong>{statement.label}</strong>
+                  <p>
+                    Human source value: {statement.value} {statement.unit ?? ''}
+                  </p>
+                  <p>Manufacturer wording: {statement.wording}</p>
+                  <p>
+                    Engineering meaning:{' '}
+                    {statement.mapping ? propertyName(statement.mapping.target) : 'Unresolved'}
+                  </p>
+                </div>
+              ))}
+              {job.human_adjudication?.editable &&
+                job.human_adjudication.history
+                  .filter((e) => e.intent.group_id === event.intent.group_id)
+                  .at(-1)?.id === event.id && (
+                  <button
+                    type="button"
+                    disabled={editorBusy || loadingReview}
+                    onClick={() =>
+                      openSourceCorrection(
+                        event.intent.replaces_fact_ids.length || event.facts.length
+                          ? 'correct'
+                          : 'add',
+                        event.id,
+                      )
+                    }
+                  >
+                    Reopen this source correction
+                  </button>
+                )}
+            </article>
+          ))}
+        </details>
+      )}
+      {!!job.human_adjudication?.archived_history?.length && (
+        <details className="advanced-review">
+          <summary>Earlier source captures · archived human corrections</summary>
+          <p>
+            These records belong to earlier retained preparations. They remain read-only and do not
+            apply to the current source capture.
+          </p>
+          {job.human_adjudication.archived_history.map((archive) => (
+            <article key={archive.review_snapshot}>
+              <h4>Archived at {archive.requested_at}</h4>
+              {archive.events.map((event) => (
+                <details key={event.id}>
+                  <summary>
+                    {event.actor.identifier} · {event.recorded_at} ·{' '}
+                    {event.intent.disposition === 'draft'
+                      ? 'Unresolved draft'
+                      : 'Source correction'}
+                  </summary>
+                  <p>{event.intent.rationale}</p>
+                  <ReviewValue value={event} />
+                </details>
+              ))}
+            </article>
+          ))}
+        </details>
+      )}
     </section>
   );
 }
@@ -559,24 +1047,29 @@ function SemanticDecisionEditor({
   job,
   client,
   reviewer,
-  onUpdate,
   onStale,
+  onSaved,
+  onDirty,
+  onBusy,
 }: {
   item: SemanticWorkItem;
   job: OperatorJobDetail;
   client: OperatorApi;
   reviewer: string;
-  onUpdate: (job: OperatorJobDetail) => void;
-  onStale: (error: unknown, setError: (message: string) => void) => Promise<boolean>;
+  onSaved: (job: OperatorJobDetail, next: boolean) => void;
+  onDirty: (dirty: boolean) => void;
+  onBusy: (busy: boolean) => void;
+  onStale: (error: unknown, setError: (message: string) => void) => Promise<StaleResult>;
 }) {
   const semanticReview = job.semantic_review!;
   const [outcome, setOutcome] = useState<(typeof outcomes)[number]['value'] | ''>('');
   const [selectedFactIds, setSelectedFactIds] = useState<string[]>(() =>
-    item.evidence.map((fact) => fact.id),
+    initialEvidenceBinding(item),
   );
   const [targets, setTargets] = useState<SemanticTargetResponse['targets']>([]);
   const [target, setTarget] = useState('');
   const [sourceUnit, setSourceUnit] = useState('');
+  const [previewRevision, setPreviewRevision] = useState(0);
   const [rationale, setRationale] = useState('');
   const [conceptKey, setConceptKey] = useState('');
   const [explanation, setExplanation] = useState('');
@@ -586,9 +1079,45 @@ function SemanticDecisionEditor({
   }>();
   const previewIntentRef = useRef('');
   const [loadingTargets, setLoadingTargets] = useState(false);
+  const [discoveryState, setDiscoveryState] = useState<
+    'idle' | 'loading' | 'ready' | 'failed' | 'stale'
+  >('idle');
+  const [discoveryRevision, setDiscoveryRevision] = useState(0);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [saveFailed, setSaveFailed] = useState(false);
+  const [confirmedSnapshot, setConfirmedSnapshot] = useState(
+    semanticReview.expected_review_snapshot,
+  );
+  const [conflict, setConflict] = useState<'none' | 'reloaded' | 'reload_failed'>('none');
+  const snapshotMatches =
+    conflict === 'none' && confirmedSnapshot === semanticReview.expected_review_snapshot;
+  const handleFailure = async (caught: unknown, fallback: string) => {
+    const result = await onStale(caught, setError);
+    if (result) setConflict(result);
+    else setError(caught instanceof Error ? caught.message : fallback);
+  };
+  useEffect(() => {
+    onDirty(
+      !!(
+        outcome ||
+        rationale ||
+        conceptKey ||
+        explanation ||
+        target ||
+        sourceUnit ||
+        selectedFactIds.join('|') !== initialEvidenceBinding(item).join('|')
+      ),
+    );
+  }, [outcome, rationale, conceptKey, explanation, target, sourceUnit, selectedFactIds, onDirty]);
+  useEffect(() => {
+    onBusy(busy);
+    return () => onBusy(false);
+  }, [busy, onBusy]);
+  const selectedFactsAreCurrent =
+    selectedFactIds.length > 0 &&
+    selectedFactIds.every((id) => item.evidence.some((fact) => fact.id === id));
   const selectedKey = selectedFactIds.join('|');
   const selectedOutcome = outcomes.find((choice) => choice.value === outcome);
   const intentKey = (nextTarget: string, nextSourceUnit: string, factIds: string[]) =>
@@ -599,14 +1128,24 @@ function SemanticDecisionEditor({
     });
   const currentIntentKey = intentKey(target, sourceUnit, selectedFactIds);
   const currentPreview =
-    preview?.intentKey === currentIntentKey && previewIntentRef.current === currentIntentKey
+    snapshotMatches &&
+    discoveryState === 'ready' &&
+    targets.some((entry) => entry.canonical_field === target) &&
+    preview?.intentKey === currentIntentKey &&
+    previewIntentRef.current === currentIntentKey
       ? preview.value
       : undefined;
 
   // Event handlers advance this guard before React effects run, so an older request
   // cannot restore a preview after the operator changes mapping intent.
   useEffect(() => {
-    if (outcome !== 'map' || selectedFactIds.length === 0) {
+    if (!snapshotMatches) {
+      setDiscoveryState('stale');
+      setLoadingTargets(false);
+      return;
+    }
+    if (outcome !== 'map' || !selectedFactsAreCurrent) {
+      setDiscoveryState('idle');
       previewIntentRef.current = intentKey('', '', selectedFactIds);
       setTargets([]);
       setTarget('');
@@ -616,22 +1155,28 @@ function SemanticDecisionEditor({
     }
     let active = true;
     setLoadingTargets(true);
+    setDiscoveryState('loading');
     setTargets([]);
-    setTarget('');
-    setSourceUnit('');
     setPreview(undefined);
-    previewIntentRef.current = intentKey('', '', selectedFactIds);
+    previewIntentRef.current = intentKey(target, sourceUnit, selectedFactIds);
     void client
       .semanticTargets(job.summary.id, item.id, {
         expected_review_snapshot: semanticReview.expected_review_snapshot,
         selected_fact_ids: selectedFactIds,
       })
       .then((result) => {
-        if (active) setTargets(result.targets);
+        if (active) {
+          setTargets(result.targets);
+          setDiscoveryState('ready');
+          if (target && !result.targets.some((descriptor) => descriptor.canonical_field === target))
+            setTarget('');
+        }
       })
       .catch(async (caught: unknown) => {
-        if (active && !(await onStale(caught, setError)))
-          setError(caught instanceof Error ? caught.message : 'Canonical targets could not load.');
+        if (active) {
+          setDiscoveryState('failed');
+          await handleFailure(caught, 'Engineering properties could not load.');
+        }
       })
       .finally(() => {
         if (active) setLoadingTargets(false);
@@ -647,11 +1192,21 @@ function SemanticDecisionEditor({
     outcome,
     selectedFactIds,
     selectedKey,
+    discoveryRevision,
     semanticReview.expected_review_snapshot,
+    confirmedSnapshot,
+    snapshotMatches,
   ]);
 
   useEffect(() => {
-    if (outcome !== 'map' || !target || selectedFactIds.length === 0) {
+    if (
+      !snapshotMatches ||
+      discoveryState !== 'ready' ||
+      outcome !== 'map' ||
+      !target ||
+      !targets.some((entry) => entry.canonical_field === target) ||
+      !selectedFactsAreCurrent
+    ) {
       setLoadingPreview(false);
       return;
     }
@@ -659,7 +1214,6 @@ function SemanticDecisionEditor({
     const requestedIntentKey = intentKey(target, sourceUnit, selectedFactIds);
     setLoadingPreview(true);
     setPreview(undefined);
-    setError('');
     void client
       .semanticPreview(job.summary.id, item.id, {
         expected_review_snapshot: semanticReview.expected_review_snapshot,
@@ -672,8 +1226,7 @@ function SemanticDecisionEditor({
           setPreview({ intentKey: requestedIntentKey, value: result });
       })
       .catch(async (caught: unknown) => {
-        if (active && !(await onStale(caught, setError)))
-          setError(caught instanceof Error ? caught.message : 'Mapping preview failed.');
+        if (active) await handleFailure(caught, 'Mapping preview failed.');
       })
       .finally(() => {
         if (active) setLoadingPreview(false);
@@ -689,12 +1242,18 @@ function SemanticDecisionEditor({
     outcome,
     selectedKey,
     semanticReview.expected_review_snapshot,
+    confirmedSnapshot,
+    snapshotMatches,
     sourceUnit,
     selectedFactIds,
     target,
+    discoveryState,
+    targets,
+    previewRevision,
   ]);
 
-  const submit = async () => {
+  const submit = async (next = false) => {
+    if (!snapshotMatches || !selectedFactsAreCurrent || busy) return;
     if (!selectedOutcome || !reviewer.trim() || selectedFactIds.length === 0) return;
     const common = {
       proposal_id: item.id,
@@ -737,11 +1296,16 @@ function SemanticDecisionEditor({
     }
     setBusy(true);
     setError('');
+    setSaveFailed(false);
     try {
-      onUpdate(await client.semanticDecision(job.summary.id, input));
+      const returned = await client.semanticDecision(job.summary.id, input);
+      if (returned.semantic_review)
+        setConfirmedSnapshot(returned.semantic_review.expected_review_snapshot);
+      setConflict('none');
+      onSaved(returned, next);
     } catch (caught) {
-      if (!(await onStale(caught, setError)))
-        setError(caught instanceof Error ? caught.message : 'Semantic decision failed.');
+      setSaveFailed(true);
+      await handleFailure(caught, 'Decision could not save.');
     } finally {
       setBusy(false);
     }
@@ -749,190 +1313,520 @@ function SemanticDecisionEditor({
 
   const rationaleRequired = ['map', 'schema_gap', 'reject', 'not_applicable'].includes(outcome);
   const canSubmit =
+    snapshotMatches &&
     !!outcome &&
     !!reviewer.trim() &&
-    selectedFactIds.length > 0 &&
+    selectedFactsAreCurrent &&
     !busy &&
     (!rationaleRequired || !!rationale.trim()) &&
     (outcome !== 'map' || (!!target && !!currentPreview && !loadingPreview)) &&
     (outcome !== 'schema_gap' || (!!conceptKey.trim() && !!explanation.trim()));
 
   return (
-    <div className="semantic-editor">
-      {item.decision_history?.length ? (
-        <p>This records a new revision; it does not edit the current or prior decision.</p>
-      ) : null}
-      <label>
-        Semantic disposition
-        <select
-          value={outcome}
-          onChange={(event) => {
-            const nextOutcome = event.target.value as typeof outcome;
-            if (nextOutcome !== 'map') {
-              previewIntentRef.current = '';
-              setPreview(undefined);
-            } else {
-              previewIntentRef.current = intentKey(target, sourceUnit, selectedFactIds);
-            }
-            setOutcome(nextOutcome);
-          }}
-        >
-          <option value="">Choose a disposition</option>
-          {outcomes.map((choice) => (
-            <option key={choice.value} value={choice.value}>
-              {choice.label}
-            </option>
-          ))}
-        </select>
-      </label>
-      {selectedOutcome && <p>{selectedOutcome.explanation}</p>}
-      <fieldset>
-        <legend>Supporting retained facts</legend>
-        {item.evidence.map((fact) => (
-          <label key={fact.id}>
-            <input
-              type="checkbox"
-              checked={selectedFactIds.includes(fact.id)}
-              onChange={(event) => {
-                const nextFactIds = event.target.checked
-                  ? [...selectedFactIds, fact.id]
-                  : selectedFactIds.filter((id) => id !== fact.id);
-                previewIntentRef.current = intentKey('', '', nextFactIds);
-                setSelectedFactIds(nextFactIds);
+    <div className="specification-workspace">
+      <SourceEvidencePanel
+        item={item}
+        job={job}
+        selectedFactIds={selectedFactIds}
+        disabled={busy}
+        onSelectionChange={(nextFactIds) => {
+          previewIntentRef.current = intentKey('', '', nextFactIds);
+          setDiscoveryState('idle');
+          setTargets([]);
+          setError('');
+          setSelectedFactIds(nextFactIds);
+          setTarget('');
+          setSourceUnit('');
+          setPreview(undefined);
+        }}
+      />
+      <fieldset className="semantic-editor" disabled={busy}>
+        <section className="current-interpretation" aria-label="Current engineering interpretation">
+          <h3>Current engineering interpretation</h3>
+          {item.active_decision ? (
+            <>
+              <strong>
+                {item.active_decision.outcome === 'map'
+                  ? 'Human-reviewed mapping · ' +
+                    propertyName(item.target ?? item.active_decision.target ?? '')
+                  : outcomes.find((choice) => choice.value === item.active_decision?.outcome)
+                      ?.label}
+              </strong>
+              <p>
+                Recorded decision:{' '}
+                {outcomes.find((choice) => choice.value === item.active_decision?.outcome)?.label} ·
+                revision {item.active_decision.revision} · {item.active_decision.actor_label}.
+              </p>
+              {item.active_decision.outcome === 'map' && (
+                <p>
+                  Normalized representation:{' '}
+                  <ReviewValue value={item.display_value ?? item.value} />{' '}
+                  {item.normalized_unit ?? item.canonical_unit ?? ''}.{' '}
+                  {item.projected_field || item.projected_qualified_value_id
+                    ? 'Represented in the current candidate review; approval remains separate.'
+                    : 'Recorded mapping is not currently represented in the candidate.'}
+                </p>
+              )}
+              {item.active_decision.rationale && <p>{item.active_decision.rationale}</p>}
+              {item.active_decision.schema_gap && (
+                <p>
+                  Possible missing concept: {item.active_decision.schema_gap.concept_key}.{' '}
+                  {item.active_decision.schema_gap.explanation}
+                </p>
+              )}
+            </>
+          ) : item.automatic_disposition === 'mapped' ? (
+            <>
+              <strong>Automatic suggestion · {propertyName(item.automatic_target)}</strong>
+              <p>Provisional automatic interpretation; no human mapping decision recorded.</p>
+              <p>
+                Automatic normalized representation: <ReviewValue value={item.automatic_value} />{' '}
+                {item.canonical_unit ?? ''}
+              </p>
+            </>
+          ) : (
+            <>
+              <strong>No engineering property assigned</strong>
+              <p>This specification has no durable human mapping.</p>
+            </>
+          )}
+          {job.candidate?.non_projected
+            .filter((entry) => entry.proposal_id === item.id)
+            .map((entry) => (
+              <p className="source-warning" key={entry.proposal_id}>
+                Server projection reason: {entry.reason}
+              </p>
+            ))}
+          {item.evidence.map(
+            (fact) =>
+              sourceScopeWarning(fact, job) && (
+                <p className="source-warning" key={fact.id}>
+                  {sourceScopeWarning(fact, job)}
+                </p>
+              ),
+          )}
+          {item.evidence.some(
+            (fact) =>
+              fact.source_context?.duration ||
+              fact.source_context?.temperature ||
+              fact.source_context?.conditions?.length,
+          ) && (
+            <p className="source-warning">
+              Material source conditions are retained beside the original value. Scalar mapping
+              cannot discard them; server discovery and preview remain required.
+            </p>
+          )}
+          {(item.active_decision || item.automatic_disposition === 'mapped') && (
+            <button
+              type="button"
+              onClick={() => document.getElementById('review-outcome')?.focus()}
+            >
+              Review / correct interpretation
+            </button>
+          )}
+        </section>
+        <h3>Record a review decision</h3>
+        <p>
+          Saving records your review decision. It does not approve, publish or engineering-verify
+          this component.
+        </p>
+        {!snapshotMatches && (
+          <div role="alert">
+            <p>
+              The review snapshot changed. Your input is retained. Inspect the current evidence
+              before rechecking; no decision was replayed.
+            </p>
+            {conflict === 'reload_failed' ? (
+              <button
+                type="button"
+                onClick={() =>
+                  void handleFailure(
+                    new OperatorApiError(409, 'Reload requested'),
+                    'Current review could not load.',
+                  )
+                }
+              >
+                Reload current review
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setPreview(undefined);
+                  setConflict('none');
+                  setConfirmedSnapshot(semanticReview.expected_review_snapshot);
+                }}
+              >
+                Review current evidence and recheck
+              </button>
+            )}
+          </div>
+        )}
+        {item.decision_history?.length ? (
+          <p>This records a new revision; it does not edit the current or prior decision.</p>
+        ) : null}
+        <ReviewHelp topic="Choosing a review decision">
+          Mapping assigns an engineering meaning. Keep as source evidence stores useful information
+          without that assignment. Leave unresolved when meaning, conditions or model scope remain
+          uncertain. A possible missing property reports a gap and creates no field. Reject a wrong
+          interpretation; use Not applicable for valid evidence belonging to another component or
+          context.
+        </ReviewHelp>
+        <label>
+          Review decision
+          <select
+            id="review-outcome"
+            value={outcome}
+            onChange={(event) => {
+              const nextOutcome = event.target.value as typeof outcome;
+              if (nextOutcome !== 'map') {
+                previewIntentRef.current = '';
+                setPreview(undefined);
+              } else {
+                previewIntentRef.current = intentKey(target, sourceUnit, selectedFactIds);
+              }
+              setOutcome(nextOutcome);
+            }}
+          >
+            <option value="">Choose a review decision</option>
+            {outcomes.map((choice) => (
+              <option key={choice.value} value={choice.value}>
+                {choice.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        {selectedOutcome && <p>{selectedOutcome.explanation}</p>}
+        {!selectedFactsAreCurrent && selectedFactIds.length > 0 && (
+          <div role="alert">
+            <p>
+              A previously bound fact is absent from the current item. Select current evidence
+              before saving; old evidence references will not be replayed.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                const currentIds = initialEvidenceBinding({ ...item, active_decision: undefined });
+                previewIntentRef.current = intentKey('', '', currentIds);
+                setSelectedFactIds(currentIds);
                 setTarget('');
                 setSourceUnit('');
                 setPreview(undefined);
               }}
-            />
-            {fact.label ?? 'Source label unavailable'} · {fact.id}
-          </label>
-        ))}
-      </fieldset>
-      {outcome === 'map' && (
-        <>
-          <label>
-            Canonical target from the server contract
-            <select
+            >
+              Use current supporting facts
+            </button>
+          </div>
+        )}
+        {outcome === 'map' && (
+          <>
+            <ReviewerPropertyPicker
+              targets={targets}
               value={target}
-              disabled={loadingTargets || targets.length === 0}
-              onChange={(event) => {
-                const nextTarget = event.target.value;
+              loading={loadingTargets}
+              discoveryState={discoveryState}
+              onChange={(nextTarget) => {
                 previewIntentRef.current = intentKey(nextTarget, '', selectedFactIds);
+                setError('');
                 setPreview(undefined);
                 setSourceUnit('');
                 setTarget(nextTarget);
               }}
-            >
-              <option value="">
-                {loadingTargets ? 'Loading eligible targets...' : 'Choose a canonical field'}
-              </option>
-              {targets.map((descriptor) => (
-                <option key={descriptor.canonical_field} value={descriptor.canonical_field}>
-                  {descriptor.canonical_field} · {descriptor.dimension} · {descriptor.unit}
-                </option>
-              ))}
-            </select>
-          </label>
-          {targets.length === 0 && !loadingTargets && (
-            <p>No target is eligible for the selected evidence, or the source facts need review.</p>
-          )}
-          {target && (
-            <>
-              {targets.find((descriptor) => descriptor.canonical_field === target)
-                ?.allows_unit_conversion && (
-                <label>
-                  Explicit source unit, only if not recoverable from retained evidence
-                  <input
-                    value={sourceUnit}
-                    onChange={(event) => {
-                      const nextSourceUnit = event.target.value;
-                      previewIntentRef.current = intentKey(target, nextSourceUnit, selectedFactIds);
-                      setPreview(undefined);
-                      setSourceUnit(nextSourceUnit);
-                    }}
-                    placeholder="Leave blank to use retained source evidence"
-                  />
-                </label>
-              )}
+            />
+            {discoveryState === 'failed' && (
+              <button
+                type="button"
+                onClick={() => setDiscoveryRevision((revision) => revision + 1)}
+              >
+                Retry property discovery
+              </button>
+            )}
+            {targets.length === 0 && discoveryState === 'ready' && !loadingTargets && (
               <p>
-                Human-adjudicated meaning: <strong>{target}</strong>
+                No target is eligible for the selected evidence, or the source facts need review.
               </p>
-              {loadingPreview && <p role="status">Requesting server mapping preview…</p>}
-              {currentPreview && !loadingPreview && (
-                <div className="semantic-preview">
-                  <h5>Server-authoritative mapping preview</h5>
-                  <p>
-                    Source-stated value(s):{' '}
-                    {currentPreview.source_assertions.map((assertion) => (
-                      <span key={assertion.fact_id}>
-                        <ReviewValue value={assertion.raw_value} /> {assertion.fact_id}
-                      </span>
-                    ))}
-                  </p>
-                  {currentPreview.source_assertions.some(
-                    (assertion) => assertion.source_unit || assertion.effective_source_unit,
-                  ) && (
+            )}
+            {target && (
+              <>
+                {targets.find((descriptor) => descriptor.canonical_field === target)
+                  ?.allows_unit_conversion && (
+                  <label>
+                    Source unit clarification (only when retained evidence does not establish it)
+                    <input
+                      value={sourceUnit}
+                      onChange={(event) => {
+                        const nextSourceUnit = event.target.value;
+                        previewIntentRef.current = intentKey(
+                          target,
+                          nextSourceUnit,
+                          selectedFactIds,
+                        );
+                        setPreview(undefined);
+                        setSourceUnit(nextSourceUnit);
+                      }}
+                      placeholder="Leave blank to use retained source evidence"
+                    />
+                  </label>
+                )}
+                <p>
+                  Selected engineering meaning: <strong>{propertyName(target)}</strong>
+                </p>
+                {loadingPreview && <p role="status">Requesting server mapping preview…</p>}
+                {currentPreview && !loadingPreview && (
+                  <div className="semantic-preview">
+                    <h5>Value conversion preview</h5>
+                    <ReviewHelp topic="Source value and converted value">
+                      Source-stated values are the manufacturer assertions. Expedition computes the
+                      normalized value using server rules and supported units. Successful conversion
+                      does not prove exact model applicability, preserve unsupported conditions, or
+                      guarantee representation in a candidate.
+                    </ReviewHelp>
                     <p>
-                      Resolved source unit:{' '}
-                      {currentPreview.source_assertions
-                        .map(
-                          (assertion) =>
-                            `${assertion.fact_id}: ${assertion.source_unit ?? assertion.effective_source_unit}`,
-                        )
-                        .join('; ')}
+                      Source-stated value(s):{' '}
+                      {currentPreview.source_assertions.map((assertion) => (
+                        <span key={assertion.fact_id}>
+                          <ReviewValue value={assertion.raw_value} />
+                        </span>
+                      ))}
                     </p>
-                  )}
-                  <p>
-                    Normalized / converted value:{' '}
-                    <strong>
-                      <ReviewValue value={currentPreview.normalized_value} />{' '}
-                      {currentPreview.normalized_unit}
-                    </strong>
-                  </p>
-                  <p>
-                    The source assertion is preserved; the platform computes this canonical
-                    representation. This conversion is normalization, not a calculated fact.
-                  </p>
-                </div>
-              )}
-            </>
-          )}
-        </>
-      )}
-      {outcome === 'schema_gap' && (
-        <>
+                    {currentPreview.source_assertions.some(
+                      (assertion) => assertion.source_unit || assertion.effective_source_unit,
+                    ) && (
+                      <p>
+                        Resolved source unit:{' '}
+                        {currentPreview.source_assertions
+                          .map(
+                            (assertion) =>
+                              `${assertion.source_unit ?? assertion.effective_source_unit}`,
+                          )
+                          .join('; ')}
+                      </p>
+                    )}
+                    <p>
+                      Normalized / converted value:{' '}
+                      <strong>
+                        <ReviewValue value={currentPreview.normalized_value} />{' '}
+                        {currentPreview.normalized_unit}
+                      </strong>
+                    </p>
+                    <p>
+                      Downstream eligibility is not established by normalization. Exact model
+                      applicability, source conditions and candidate projection remain server
+                      checks; inspect the returned candidate review after saving.
+                    </p>
+                    <p>Original manufacturer evidence remains unchanged.</p>
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        )}
+        {outcome === 'schema_gap' && (
+          <>
+            <label>
+              Missing engineering concept or topic (required)
+              <input
+                required
+                id="missing-concept"
+                value={conceptKey}
+                onChange={(event) => setConceptKey(event.target.value)}
+              />
+            </label>
+            <label>
+              Explain the missing concept and why existing properties do not fit (required)
+              <textarea
+                required
+                id="gap-explanation"
+                value={explanation}
+                onChange={(event) => setExplanation(event.target.value)}
+              />
+            </label>
+          </>
+        )}
+        {outcome && (
+          <ReviewHelp topic="Review rationale">
+            Explain the source and reasoning behind your decision. Map, Reject interpretation, Not
+            applicable and Possible missing property require rationale. Leave unresolved and Keep
+            evidence allow optional notes.
+          </ReviewHelp>
+        )}
+        {outcome && (
           <label>
-            Schema concept key (required)
-            <input
-              required
-              value={conceptKey}
-              onChange={(event) => setConceptKey(event.target.value)}
-            />
-          </label>
-          <label>
-            Explain the missing concept (required)
+            Rationale{rationaleRequired ? ' (required)' : ' (optional)'}
             <textarea
-              required
-              value={explanation}
-              onChange={(event) => setExplanation(event.target.value)}
+              id="review-rationale"
+              required={rationaleRequired}
+              value={rationale}
+              onChange={(event) => setRationale(event.target.value)}
             />
           </label>
-        </>
-      )}
-      {outcome && (
-        <label>
-          Rationale{rationaleRequired ? ' (required)' : ' (optional)'}
-          <textarea
-            required={rationaleRequired}
-            value={rationale}
-            onChange={(event) => setRationale(event.target.value)}
-          />
-        </label>
-      )}
-      <button type="button" disabled={!canSubmit} onClick={() => void submit()}>
-        {busy ? 'Recording decision…' : 'Record semantic disposition'}
-      </button>
-      {error && <p role="alert">{error}</p>}
+        )}
+        {!reviewer.trim() && (
+          <p>Enter your local reviewer label at the top of product review before saving.</p>
+        )}
+        {!selectedFactIds.length && <p>Select at least one original manufacturer fact.</p>}
+        {rationaleRequired && !rationale.trim() && (
+          <p>Explain why this decision is appropriate before saving.</p>
+        )}
+        {outcome === 'map' && !currentPreview && (
+          <p>
+            Choose an eligible property and obtain a successful server preview. Conditioned or
+            unsupported ratings must remain unresolved or be recorded as a possible contract gap; do
+            not remove qualifiers to enable mapping.
+          </p>
+        )}
+        {outcome === 'schema_gap' && (
+          <p>
+            Use a short meaningful topic, such as measurement accuracy. This records a possible
+            contract gap and creates no engineering property. Complete the topic, explanation and
+            rationale.
+          </p>
+        )}
+        <section className="review-readiness" aria-label="Review readiness" aria-live="polite">
+          <h4>Ready to save?</h4>
+          <ul>
+            {[
+              {
+                id: 'reviewer-label',
+                label: 'Reviewer label',
+                valid: !!reviewer.trim(),
+                missing: 'Enter your local reviewer label in the product header.',
+              },
+              {
+                id: 'review-outcome',
+                label: 'Review decision',
+                valid: !!outcome,
+                missing: 'Choose a review decision.',
+              },
+              {
+                id: 'source-evidence',
+                label: 'Supporting evidence',
+                valid: selectedFactsAreCurrent,
+                missing: 'Choose at least one current source statement in manufacturer evidence.',
+              },
+              {
+                id: 'review-outcome',
+                label: 'Current review snapshot',
+                valid: snapshotMatches,
+                missing:
+                  'Review changed: reload/recheck current evidence. Input is retained; no save will replay.',
+              },
+              ...(rationaleRequired
+                ? [
+                    {
+                      id: 'review-rationale',
+                      label: 'Required rationale',
+                      valid: !!rationale.trim(),
+                      missing: 'Explain this decision before saving.',
+                    },
+                  ]
+                : []),
+              ...(outcome === 'map'
+                ? [
+                    {
+                      id: 'engineering-property',
+                      label: 'Eligible engineering property',
+                      valid:
+                        !!target &&
+                        discoveryState === 'ready' &&
+                        targets.some((entry) => entry.canonical_field === target),
+                      missing:
+                        discoveryState === 'loading'
+                          ? 'Pending: discovering eligible targets.'
+                          : discoveryState === 'failed'
+                            ? 'Invalid: target discovery failed; retry.'
+                            : discoveryState === 'stale'
+                              ? 'Stale: recheck evidence before discovering targets.'
+                              : discoveryState === 'ready' && !targets.length
+                                ? 'Mapping unavailable: no eligible target for this evidence under the current contract.'
+                                : 'Select an eligible engineering property.',
+                    },
+                    {
+                      id: 'normalization-preview',
+                      label: 'Server normalization preview',
+                      valid: !!currentPreview && !loadingPreview,
+                      missing: loadingPreview
+                        ? 'Pending: server preview is loading.'
+                        : target
+                          ? 'Validate the selected property again; inspect the preview error before saving.'
+                          : 'Choose a property before requesting normalization.',
+                    },
+                  ]
+                : []),
+              ...(outcome === 'schema_gap'
+                ? [
+                    {
+                      id: 'missing-concept',
+                      label: 'Possible missing concept',
+                      valid: !!conceptKey.trim(),
+                      missing: 'Describe the possible missing concept.',
+                    },
+                    {
+                      id: 'gap-explanation',
+                      label: 'Gap explanation',
+                      valid: !!explanation.trim(),
+                      missing: 'Explain why existing concepts do not fit.',
+                    },
+                  ]
+                : []),
+            ].map((requirement, index) => (
+              <li key={index} className={requirement.valid ? 'satisfied' : 'outstanding'}>
+                {requirement.valid ? (
+                  '✓ ' + requirement.label
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const node = document.getElementById(requirement.id);
+                      const control =
+                        requirement.id === 'source-evidence'
+                          ? (node?.querySelector<HTMLElement>('input[type="checkbox"]') ?? node)
+                          : node?.matches('input,select,textarea')
+                            ? node
+                            : node?.querySelector<HTMLElement>('input,select,textarea,button');
+                      control?.focus();
+                      node?.scrollIntoView?.({ block: 'nearest' });
+                    }}
+                  >
+                    {requirement.missing}
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+          {canSubmit && (
+            <p>
+              Ready to record this decision. Approval and engineering verification remain separate.
+            </p>
+          )}
+          {busy && <p>Saving… navigation waits for the server response.</p>}
+        </section>
+        <button type="button" disabled={!canSubmit} onClick={() => void submit(false)}>
+          {busy ? 'Saving decision…' : 'Save decision'}
+        </button>
+        <button type="button" disabled={!canSubmit} onClick={() => void submit(true)}>
+          Save and next outstanding item
+        </button>
+        {outcome === 'map' && target && (
+          <section id="normalization-preview" tabIndex={-1} aria-label="Normalization recovery">
+            <button
+              type="button"
+              disabled={busy || loadingPreview || !snapshotMatches}
+              onClick={() => setPreviewRevision((n) => n + 1)}
+            >
+              Retry selected property preview
+            </button>
+          </section>
+        )}
+        {error && (
+          <p role="alert">
+            {error}{' '}
+            {saveFailed ? 'Your decision was not saved.' : 'No valid mapping preview is available.'}{' '}
+            Local input is retained. Review the evidence or keep it unresolved; no automatic retry
+            occurs.
+          </p>
+        )}
+      </fieldset>
     </div>
   );
 }

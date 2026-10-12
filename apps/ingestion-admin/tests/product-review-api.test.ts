@@ -11,7 +11,7 @@ import {
 } from '@expedition/ingestion';
 import { createOperatorApi } from '../server/api.js';
 import { constructApproval } from '../server/product-review.js';
-import { jobDetail } from '../server/operator-views.js';
+import { jobDetail, productReviewView } from '../server/operator-views.js';
 import { fixtureService, input } from './fixtures.js';
 import {
   FileIngestionBatchStore,
@@ -220,6 +220,16 @@ describe('human review and guarded finalization API', () => {
       normalized_value: preview.normalized_value,
       normalized_unit: preview.normalized_unit,
     });
+    const durable = await fixtureService(join(f.root, 'jobs'), 'semantic').getJob(f.id);
+    expect(durable.preparation?.captures).toEqual(f.job.preparation?.captures);
+    expect(durable.preparation?.qualified_facts).toEqual(f.job.preparation?.qualified_facts);
+    expect(durable.preparation?.document_extractions).toEqual(
+      f.job.preparation?.document_extractions,
+    );
+    expect(durable.state).toBe('review_ready');
+    expect(durable.finalization_request).toBeUndefined();
+    expect(durable.approval).toBeUndefined();
+    expect(await readdir(f.canonical)).toEqual([]);
   });
 
   it('records a selected-fact rejection through the batch-backed operator API exactly once', async () => {
@@ -682,14 +692,14 @@ describe('human review and guarded finalization API', () => {
     expect(review.fields).toEqual([]);
     expect(review.qualified_values).toHaveLength(2);
     const voltage = review.qualified_values.find(
-      (a: { target: string }) => a.target === 'electrical.input_voltage_range_v',
+      (a: { target: string }) => a.target === 'electrical.input_voltage_v',
     );
     const dimensions = review.qualified_values.find(
       (a: { target: string }) => a.target === 'dimensions_mm',
     );
     expect(voltage).toMatchObject({
       value: { min: 8, max: 70 },
-      qualifiers: { electrical_domain: 'dc' },
+      qualifiers: { kind: 'source_rating', electrical_domain: 'dc' },
     });
     expect(dimensions).toMatchObject({
       value: { x: 187, y: 29.8, z: 124 },
@@ -1093,6 +1103,41 @@ describe('human review and guarded finalization API', () => {
     expect(durable.intake.official_product_uri).toBeUndefined();
     expect(jobDetail(durable).product_review?.fields.length).toBeGreaterThan(0);
   });
+  it('retains capture identity when optional presentation metadata is absent, without exposing source bodies', async () => {
+    const f = await fixture();
+    if (f.job.preparation?.status !== 'review_ready') throw new Error('Not prepared');
+    const p = structuredClone(f.job.preparation);
+    const original = p.qualified_facts[0];
+    const originalDigest = artifactDigest(original);
+    const capture = p.captures.find(
+      (entry) => artifactDigest(entry) === original.source_capture.digest,
+    )!;
+    // Valid production facts require metadata. This deliberately incomplete view input tests
+    // defensive presentation of independently retained provenance, not domain acceptance.
+    const missing = { ...original, metadata: undefined } as unknown as typeof original;
+    const qualified_facts = p.qualified_facts.map((entry) =>
+      entry.id === original.id ? missing : entry,
+    );
+    const proposals = p.proposals.map((proposal) => ({
+      ...proposal,
+      fact_refs: proposal.fact_refs?.map((ref) =>
+        ref.digest === originalDigest ? { ...ref, digest: artifactDigest(missing) } : ref,
+      ),
+    }));
+    const view = productReviewView({ ...f.job, preparation: { ...p, qualified_facts, proposals } });
+    const evidence = view?.fields
+      .flatMap((field) => field.proposals.flatMap((proposal) => proposal.evidence))
+      .find((entry) => entry.id === original.id);
+    expect(evidence?.source_context).toMatchObject({
+      capture_id: capture.id,
+      content_digest: capture.content_digest,
+      retrieved_at: capture.retrieved_at,
+      capture: { digest: original.source_capture.digest },
+    });
+    expect(evidence?.source_context?.wording).toBeUndefined();
+    expect(JSON.stringify(evidence)).not.toMatch(/RAW_BODY_MARKER|destinationRoot|"body"|"bytes"/);
+    expect(f.job.preparation.qualified_facts[0].metadata).toBeDefined();
+  });
   it('projects all evidence and locators while omitting bodies, byte arrays and writer internals', async () => {
     const f = await fixture();
     const review = f.detail.product_review;
@@ -1111,6 +1156,18 @@ describe('human review and guarded finalization API', () => {
     const evidence = review.fields[0].proposals[0].evidence[0];
     expect(evidence.source_uri).toContain('https://');
     expect(evidence.locators.length).toBeGreaterThan(0);
+    const original = p.qualified_facts.find((fact) => fact.id === evidence.id)!;
+    const capture = p.captures.find(
+      (capture) => artifactDigest(capture) === original.source_capture.digest,
+    )!;
+    expect(evidence.source_context.wording).toBe(original.metadata.source_wording);
+    expect(evidence.source_context.capture).toMatchObject({
+      digest: original.source_capture.digest,
+      digest_algorithm: original.source_capture.digest_algorithm,
+    });
+    expect(evidence.source_context.capture_id).toBe(capture.id);
+    expect(evidence.source_context.content_digest).toBe(capture.content_digest);
+    expect(evidence.source_context.retrieved_at).toBe(capture.retrieved_at);
     for (const forbidden of [
       'RAW_BODY_MARKER',
       '"bytes"',
@@ -1141,5 +1198,84 @@ describe('human review and guarded finalization API', () => {
     await expect(
       failing.finalizeJob(f.id, { destinationRoot: f.canonical, write: true }),
     ).rejects.toThrow('Cannot finalize');
+  });
+});
+
+describe('Slice A retained source context projection', () => {
+  it('allowlists conditions and bound evidence notes without mutating retained facts', async () => {
+    const f = await fixture('semantic');
+    if (f.job.preparation?.status !== 'review_ready') throw new Error('Not prepared');
+    const p = f.job.preparation;
+    const original = p.qualified_facts[0];
+    const enriched = {
+      ...original,
+      metadata: {
+        ...original.metadata,
+        conditions: ['Fixture operating condition'],
+        duration: '5 seconds',
+        temperature_context: '25°C',
+        revision_context: 'Fixture revision',
+        alternative_interpretations: ['Fixture alternative'],
+      },
+      evidence: [
+        ...(original.evidence ?? []),
+        {
+          role: 'qualifier' as const,
+          text: 'Fixture measurement basis',
+          note: 'Fixture bound source note',
+          cell_id: 'fixture.cell',
+          source_reference: original.document_extraction,
+          locator: { kind: 'pdf' as const, page: 2, row: 3, column: 2 },
+        },
+      ],
+    };
+    const before = JSON.stringify(enriched);
+    const originalBefore = JSON.stringify(original);
+    const oldDigest = artifactDigest(original);
+    const newDigest = artifactDigest(enriched);
+    const view = jobDetail({
+      ...f.job,
+      preparation: {
+        ...p,
+        qualified_facts: p.qualified_facts.map((fact) =>
+          fact.id === original.id ? enriched : fact,
+        ),
+        proposals: p.proposals.map((proposal) => ({
+          ...proposal,
+          fact_refs: proposal.fact_refs?.map((ref) =>
+            ref.digest === oldDigest ? { ...ref, digest: newDigest } : ref,
+          ),
+        })),
+      },
+    });
+    const fact = view
+      .product_review!.fields.flatMap((field) => field.proposals)
+      .flatMap((proposal) => proposal.evidence)
+      .find((fact) => fact.id === original.id)!;
+    expect(fact.source_context).toMatchObject({
+      conditions: ['Fixture operating condition'],
+      duration: '5 seconds',
+      temperature: '25°C',
+      revision: 'Fixture revision',
+      alternatives: ['Fixture alternative'],
+    });
+    expect(fact.locators).toContainEqual(
+      expect.objectContaining({
+        role: 'qualifier',
+        text: 'Fixture measurement basis',
+        note: 'Fixture bound source note',
+        cell_id: 'fixture.cell',
+      }),
+    );
+    expect(JSON.stringify(enriched)).toBe(before);
+    expect(JSON.stringify(original)).toBe(originalBefore);
+    for (const forbidden of [
+      'RAW_BODY_MARKER',
+      '"bytes"',
+      '"body"',
+      'source_provenance',
+      'destinationRoot',
+    ])
+      expect(JSON.stringify(view.product_review)).not.toContain(forbidden);
   });
 });

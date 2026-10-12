@@ -24,6 +24,7 @@ import { isReadOnlyEvidenceUri } from '../src/evidence-uri.js';
 import { HttpSourceCaptureAdapter } from '../src/http-capture.js';
 import { acquireOfficialSources } from '../src/source-acquisition.js';
 import { resolveCanonicalField } from '../src/field-mapping.js';
+import { recognizeSemanticAssertion } from '../src/semantic-rules.js';
 
 const intake: ProductIntake = {
   schema_version: '1.0',
@@ -114,6 +115,28 @@ const facts = (html: string, p = profile()) =>
   prepareProfileQualifiedEvidence(fixture(html, p))?.qualification.facts ?? [];
 
 describe('reviewed page regions and complete evidence ownership', () => {
+  it('types profile provenance at production while preserving source condition purpose', () => {
+    const plain = facts(
+      identity + '<table id="spec"><tr><th>Weight</th><td>2 kg</td></tr></table>',
+    )[0];
+    expect(plain.evidence?.find((e) => e.role === 'context')?.context).toEqual({
+      policy_version: 'qualified-context.v1',
+      kind: 'qualification_provenance',
+      producer: 'profile-qualified-evidence',
+      producer_revision: 2,
+    });
+    expect(recognizeSemanticAssertion(plain)?.review_required_reasons).toEqual([]);
+    const conditional = facts(
+      identity + '<table id="spec"><tr><th>Weight at 25 C</th><td>2 kg</td></tr></table>',
+    )[0];
+    expect(conditional.evidence?.find((e) => e.role === 'qualifier')?.context?.kind).toBe(
+      'source_semantic',
+    );
+    expect(conditional.metadata.conditions).toContain('Weight at 25 C');
+    expect(conditional.evidence?.find((e) => e.role === 'context')?.context?.kind).toBe(
+      'qualification_provenance',
+    );
+  });
   it('retains exact seed scope, source paths, deterministic identity and excludes unrelated tables', () => {
     const input = fixture(
       identity + table + '<table><tr><td>Nominal voltage</td><td>999 V</td></tr></table>',
@@ -540,6 +563,10 @@ describe('one supplementary retained-item envelope', () => {
 describe('read-only evidence URI eligibility', () => {
   it.each([
     '/cart/',
+    '/cart.php?action=add&product_id=162',
+    '/basket?action=update',
+    '/?action=empty',
+    '/?wc-ajax=add_to_cart',
     '/?add-to-cart=1',
     '/?do=edit',
     '/?do=backlink',
@@ -557,6 +584,8 @@ describe('read-only evidence URI eligibility', () => {
     '/?_document_product=EX-X',
     '/downloads/manual.pdf?version=2',
     '/products/charge-controller',
+    '/technical-data.php?model=EX-42',
+    '/products/cartesian-module',
   ])('keeps technical endpoints %s', (path) =>
     expect(isReadOnlyEvidenceUri('https://example.com' + path)).toBe(true),
   );
