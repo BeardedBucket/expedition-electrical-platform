@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { performance } from 'node:perf_hooks';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   artifactDigest,
@@ -47,13 +47,46 @@ import {
 } from '../../../packages/engineering-core/src/canonical-verification.js';
 
 const roots: string[] = [];
+function assertCleanupTarget(root: string) {
+  const candidate = resolve(root);
+  // mkdtemp owns only a direct child of the OS temp directory. Compare path
+  // components using the host's separators; a string prefix also admits nesting.
+  if (
+    dirname(candidate) !== resolve(tmpdir()) ||
+    !basename(candidate).startsWith('human-adjudication-')
+  )
+    throw new Error('Unexpected cleanup target');
+}
 afterEach(async () => {
   for (const root of roots.splice(0)) {
-    if (!resolve(root).startsWith(resolve(tmpdir()) + '\\human-adjudication-'))
-      throw new Error('Unexpected cleanup target');
+    assertCleanupTarget(root);
     await rm(root, { recursive: true, force: true });
   }
 });
+
+describe('human adjudication cleanup ownership', () => {
+  it.each([
+    join(tmpdir(), 'human-adjudication-fixture'),
+    join(tmpdir(), 'unused', '..', 'human-adjudication-fixture'),
+  ])('accepts an owned direct temporary child: %s', (root) => {
+    expect(() => assertCleanupTarget(root)).not.toThrow();
+  });
+  it.each([
+    tmpdir(),
+    join(tmpdir(), 'unrelated-fixture'),
+    join(
+      dirname(resolve(tmpdir())),
+      `${basename(resolve(tmpdir()))}-other`,
+      'human-adjudication-fixture',
+    ),
+    join(tmpdir(), 'human-adjudication-parent', 'human-adjudication-fixture'),
+    join(tmpdir(), 'unrelated-parent', 'human-adjudication-fixture'),
+    join(tmpdir(), 'human-adjudication-fixture', '..', '..', 'human-adjudication-outside'),
+  ])('refuses an unowned cleanup target before filesystem access: %s', (root) => {
+    expect(() => assertCleanupTarget(root)).toThrow('Unexpected cleanup target');
+  });
+});
+
 const lines = [
   'Example Model continuous input current 500 mA',
   'Example Model output current 150 A for 5 seconds at 25°C',
