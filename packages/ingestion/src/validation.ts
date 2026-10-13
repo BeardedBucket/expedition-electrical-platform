@@ -12,6 +12,8 @@ import {
   qualifiedValueCollectionValid,
 } from './qualified-values.js';
 import { deterministicSerialize } from './production-contracts.js';
+import { composeAdjudicatedProfile } from './engineering-profile-adjudication.js';
+import { canonicalIdFor } from './promotion.js';
 import type {
   JsonObject,
   JsonValue,
@@ -584,6 +586,48 @@ export const validateProductCandidate = (
     }
   }
   const referencedFactIds = new Set<string>();
+  if (candidate.component_data.engineering_profile !== undefined) {
+    try {
+      const ids = fieldEvidence.engineering_profile ?? [];
+      const support = ids.map((id) => factById.get(id)).filter((f): f is ProductFact => Boolean(f));
+      if (!support.length || support.length !== ids.length)
+        throw new Error('Atomic profile needs complete source support');
+      const proof = support[0]!.human_source?.human_source;
+      if (!proof) throw new Error('Atomic profile requires source-adjudication proof');
+      if (
+        proof.intake.manufacturer !== candidate.identity.manufacturer ||
+        proof.intake.product_model !== candidate.identity.model ||
+        proof.intake.manufacturer_part_number !== candidate.identity.manufacturer_part_number
+      )
+        throw new Error('Atomic profile intake/identity mismatch');
+      const rebuilt = composeAdjudicatedProfile(
+        proof.intake,
+        canonicalIdFor(candidate),
+        support,
+        sources,
+      );
+      if (
+        deterministicSerialize(rebuilt) !==
+        deterministicSerialize(candidate.component_data.engineering_profile)
+      )
+        throw new Error('Atomic profile differs from complete source proof replay');
+      if (
+        support.some(
+          (f) => deterministicSerialize(f.normalized_value) !== deterministicSerialize(rebuilt),
+        )
+      )
+        throw new Error('Atomic support value changed');
+    } catch (error) {
+      issues.push(
+        issue(
+          'profile_source_support_invalid',
+          'invalid',
+          'engineering_profile',
+          error instanceof Error ? error.message : 'Invalid atomic profile',
+        ),
+      );
+    }
+  }
   for (const [field, factIds] of Object.entries(fieldEvidence)) {
     if (!fieldPath.test(field))
       issues.push(

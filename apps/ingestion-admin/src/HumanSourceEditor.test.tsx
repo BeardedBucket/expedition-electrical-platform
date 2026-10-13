@@ -137,6 +137,25 @@ async function fill() {
   await screen.findByRole('option', { name: 'Continuous input current · A' });
 }
 describe('human source correction workflow', () => {
+  it('requires an explicit profile quantity and reuses server source eligibility without a default target', async () => {
+    const { client } = show();
+    await fill();
+    fireEvent.change(screen.getByLabelText('Engineering representation'), {
+      target: { value: 'engineering_profile_fact' },
+    });
+    expect(screen.getByLabelText('Profile quantity')).toHaveValue('');
+    expect(screen.getByLabelText('Engineering property')).toHaveValue('');
+    fireEvent.change(screen.getByLabelText('Profile quantity'), { target: { value: 'voc_v' } });
+    await waitFor(() =>
+      expect(client.humanProperties).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          representation: { kind: 'engineering_profile_fact', quantity: 'voc_v' },
+        }),
+      ),
+    );
+    expect(screen.getByLabelText('Engineering property')).toHaveValue('');
+  });
   it('reuses valid source values for interpretation-only correction with no hidden target', async () => {
     const { client } = show({}, true);
     expect(screen.getByRole('region', { name: 'Current record' })).toHaveTextContent('500');

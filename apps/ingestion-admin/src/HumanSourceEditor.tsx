@@ -45,9 +45,11 @@ const citation = (entry: SourceEntry): HumanCitation => ({
 });
 const citationKey = (c: HumanCitation) => `${c.document_id}:${c.block_id}:${c.cell_id ?? ''}`;
 const meaningMode = (s: HumanSourceStatement): HumanDiscoveryRepresentation =>
-  s.mapping?.kind === 'source_rating'
-    ? { kind: 'source_rating', qualifiers: s.mapping.qualifiers }
-    : { kind: s.mapping?.kind ?? 'scalar' };
+  s.mapping?.kind === 'engineering_profile_fact'
+    ? { kind: s.mapping.kind, quantity: s.mapping.quantity }
+    : s.mapping?.kind === 'source_rating'
+      ? { kind: 'source_rating', qualifiers: s.mapping.qualifiers }
+      : { kind: s.mapping?.kind ?? 'scalar' };
 export function HumanSourceEditor({
   job,
   client,
@@ -628,6 +630,24 @@ export function HumanSourceEditor({
   return (
     <div className="human-correction-flow">
       <CorrectionRecord job={currentJob} item={effectiveItem} factIds={boundFactIds} />
+      {data.profile_suggestions?.length ? (
+        <details>
+          <summary>Proposed PV/controller source facts ({data.profile_suggestions.length})</summary>
+          <p>
+            Unreviewed suggestions. Add or correct the statement with the source editor; missing
+            revision, temperature and installation context remain unknown.
+          </p>
+          {data.profile_suggestions.map((p, i) => (
+            <div key={i}>
+              <strong>
+                {p.statement.label}: {p.statement.value} {p.statement.unit}
+              </strong>
+              <p>{p.statement.wording}</p>
+              <p>Missing: {p.missing.join(', ')}</p>
+            </div>
+          ))}
+        </details>
+      ) : null}
       <div className="source-correction-workspace">
         <SourceEvidenceNavigator
           jobId={job.summary.id}
@@ -860,6 +880,9 @@ export function HumanSourceEditor({
                     >
                       <option value="scalar">Direct value — no material conditions</option>
                       <option value="source_rating">Rating with source conditions</option>
+                      <option value="engineering_profile_fact">
+                        PV or controller profile fact — source-bound atomic review
+                      </option>
                       <option value="source_observation">
                         Supported range, body dimensions or operating consumption
                       </option>
@@ -904,6 +927,49 @@ export function HumanSourceEditor({
                         ),
                       )}
                     </div>
+                  )}
+                  {representation.kind === 'engineering_profile_fact' && (
+                    <label>
+                      Profile quantity
+                      <select
+                        aria-label="Profile quantity"
+                        value={representation.quantity ?? ''}
+                        onChange={(e) => {
+                          setRepresentations((old) => ({
+                            ...old,
+                            [slot]: {
+                              kind: 'engineering_profile_fact',
+                              quantity: e.target.value as Extract<
+                                HumanMappingIntent,
+                                { kind: 'engineering_profile_fact' }
+                              >['quantity'],
+                            },
+                          }));
+                          patch({ mapping: undefined });
+                        }}
+                      >
+                        <option value="">Choose exact source quantity</option>
+                        {[
+                          'voc_v',
+                          'vmp_v',
+                          'isc_a',
+                          'imp_a',
+                          'pmax_w',
+                          'max_system_v',
+                          'pv_absolute_voc_v',
+                          'pv_max_isc_a',
+                        ].map((q) => (
+                          <option key={q} value={q}>
+                            {q.replaceAll('_', ' ')}
+                          </option>
+                        ))}
+                      </select>
+                      <span>
+                        Every member retains source context. The composed profile is reviewed
+                        atomically; missing reference, tracker and installation facts remain
+                        unresolved.
+                      </span>
+                    </label>
                   )}
                   <div id="human-property-picker">
                     <ReviewerPropertyPicker

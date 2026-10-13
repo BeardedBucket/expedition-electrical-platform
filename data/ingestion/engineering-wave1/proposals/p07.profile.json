@@ -1,0 +1,57 @@
+{
+  "schema_version": "engineering-profile.v1",
+  "component_id": "wave1.p07",
+  "model": "MPPT 150/45",
+  "manufacturer_revision": null,
+  "evidence": [
+    {
+      "id": "wave1.p07.max_isc_a",
+      "source_url": "https://www.victronenergy.com/media/pg/Manual_SmartSolar_MPPT_150-35__150-45/en/technical-specifications.html",
+      "publisher": "Victron Energy",
+      "model": "MPPT 150/45",
+      "manufacturer_revision": null,
+      "retrieved_at": "2026-10-13T05:05:16.698Z",
+      "source_digest": "409443a2c0d1fb691471c8f3d1355bb69f679609031601965545e519057135ba",
+      "statement": "Max. PV short circuit current 2: 45A",
+      "locator": "utf8-bytes:39575-39620",
+      "conditions": [
+        "Full containing table, section headings and footnotes require independent human qualification"
+      ],
+      "origin": "source_stated",
+      "rights": "metadata_and_limited_facts_only"
+    },
+    {
+      "id": "wave1.p07.absolute_voc_v",
+      "source_url": "https://www.victronenergy.com/media/pg/Manual_SmartSolar_MPPT_150-35__150-45/en/technical-specifications.html",
+      "publisher": "Victron Energy",
+      "model": "MPPT 150/45",
+      "manufacturer_revision": null,
+      "retrieved_at": "2026-10-13T05:05:16.698Z",
+      "source_digest": "409443a2c0d1fb691471c8f3d1355bb69f679609031601965545e519057135ba",
+      "statement": "Maximum PV open circuit voltage: 150V",
+      "locator": "utf8-bytes:39687-39745",
+      "conditions": [
+        "Full containing table, section headings and footnotes require independent human qualification"
+      ],
+      "origin": "source_stated",
+      "rights": "metadata_and_limited_facts_only"
+    }
+  ],
+  "trackers": [
+    {
+      "id": "pv_input_unassigned",
+      "grouping_status": "unresolved",
+      "evidence_ids": ["wave1.p07.max_isc_a", "wave1.p07.absolute_voc_v"],
+      "max_isc_a": {
+        "value": 45,
+        "unit": "A",
+        "evidence_ids": ["wave1.p07.max_isc_a"]
+      },
+      "absolute_voc_v": {
+        "value": 150,
+        "unit": "V",
+        "evidence_ids": ["wave1.p07.absolute_voc_v"]
+      }
+    }
+  ]
+}

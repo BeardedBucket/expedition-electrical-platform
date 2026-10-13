@@ -12,6 +12,7 @@ import type {
 } from '@expedition/ingestion';
 import {
   artifactDigest,
+  suggestEngineeringProfileSources,
   canonicalIdFor,
   canonicalizeConversionNoise,
   evaluateSemanticReviewCompletion,
@@ -311,6 +312,9 @@ export const batchDetail = (batch: {
 export const jobDetail = (job: IngestionJob) => {
   const p = job.preparation;
   const r = p?.status === 'review_ready' ? p : undefined;
+  const profileSuggestions = r
+    ? suggestEngineeringProfileSources(r.intake, r.document_extractions)
+    : [];
   const candidate = r?.bridge.candidate;
   const pkg = r?.review_package;
   const productReview = productReviewView(job);
@@ -838,6 +842,7 @@ export const jobDetail = (job: IngestionJob) => {
     ...(r
       ? {
           human_adjudication: {
+            ...(profileSuggestions.length ? { profile_suggestions: profileSuggestions } : {}),
             editable:
               job.state === 'review_ready' &&
               !job.approval &&

@@ -6,6 +6,18 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
+    "./engineering-profile": {
+      "types": "./dist/engineering-profile.d.ts",
+      "import": "./dist/engineering-profile.js"
+    },
+    "./engineering-envelope": {
+      "types": "./dist/engineering-envelope.d.ts",
+      "import": "./dist/engineering-envelope.js"
+    },
+    "./engineering-envelope-replay": {
+      "types": "./dist/engineering-envelope-replay.d.ts",
+      "import": "./dist/engineering-envelope-replay.js"
+    },
     "./canonical-verification": {
       "types": "./dist/canonical-verification.d.ts",
       "import": "./dist/canonical-verification.js"

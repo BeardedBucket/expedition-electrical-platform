@@ -1,0 +1,3268 @@
+{
+  "schema_version": "wave1-product-ledger.v1",
+  "requirements_version": "wave1-required-assertions.v1",
+  "requirements_digest": "909c14e10ad3cd0d81ea9c132dc37c3fb82638fd1aed7e92e4862f36152cfb31",
+  "status_definitions": {
+    "investigated": "Named source/context inspected; inherited planning investigations separately disclosed",
+    "acquired": "Current campaign fetched exact bytes successfully",
+    "retained": "Private immutable bytes/digest retained lawfully; not merely a URL",
+    "interpreted": "Typed provisional meaning authored against inspected evidence",
+    "draft_prepared": "Validated evidence-bound engineering proposal artifact exists",
+    "review_ready": "Required intended-use assertion inventory and complete source/candidate review package ready for human review; not approval",
+    "human_reviewed": "Explicit human source/product review recorded; agent cannot set",
+    "approved": "Explicit human product admission recorded; separate from source qualification",
+    "promoted": "Separate human-authorized canonical write completed",
+    "engineering_verified": "Separate durable content-bound verification completed",
+    "held": "A current missing prerequisite/identity/representation/authority issue remains"
+  },
+  "products": [
+    {
+      "id": "p01",
+      "manufacturer": "BLUETTI",
+      "model": "RV5 Power Hub — US",
+      "exact_identity_note": "Separate sales MPN unresolved; exact US model RV5",
+      "identity_status": "model_proposed_ordering_code_unconfirmed",
+      "intended_use": "multifunction",
+      "required_assertions": [
+        "exact_identity_revision",
+        "directional_ports_paths",
+        "battery_envelope",
+        "pv_tracker_limits",
+        "mode_specific_ac_conductors",
+        "w_va_pf_surge_duration",
+        "shared_capacity_exclusions",
+        "assembly_revision_counts",
+        "protocol_dependencies",
+        "ground_neutral_transfer",
+        "idle_thermal_installation"
+      ],
+      "sources": [
+        {
+          "url": "https://www.bluettipower.com/products/rv5-b4810?_pos=3&_sid=03abf2fd9&_ss=r&variant=47637165342939",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": "50c2c06144eb94f3bb7e53d25207c6c85ce377267d78e0bd666987938dcafd0b",
+          "rights": "private_research_only_no_public_redistribution_grant",
+          "retained": true,
+          "retrieved_at": "2026-10-13T05:13:15.197Z"
+        },
+        {
+          "url": "https://support.bluettipower.com/products/rv5-b4810",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": null,
+          "rights": "metadata_only_no_redistribution_grant",
+          "retained": false
+        },
+        {
+          "url": "https://s4.bluettipower.com/bluetti/purchasePageBiz/2025/09/RV5%C2%A0User%20Manual%20US%20EN-1759160161231-e9c8.pdf",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": null,
+          "rights": "metadata_only_no_redistribution_grant",
+          "retained": false
+        }
+      ],
+      "states": {
+        "investigated": true,
+        "acquired": true,
+        "retained": true,
+        "interpreted": true,
+        "draft_prepared": true,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Wave-1 exact named source acquisition and scoped extraction inspected; source availability/identity may remain held",
+      "hold_class": "source_qualification_and_intended_use_completeness",
+      "reviewer_actions": [
+        "Establish exact identity/revision and lawful retained evidence",
+        "Qualify each required assertion with model ownership and complete conditions",
+        "Review provisional draft; keep approval, promotion and verification separate"
+      ],
+      "representation_gaps": ["G3", "G4", "G5"],
+      "exact_model": "RV5",
+      "part_number": null,
+      "current_campaign": {
+        "capture_status": "success",
+        "retrieved_at": "2026-10-13T05:13:15.197Z",
+        "final_uri": "https://www.bluettipower.com/products/rv5-b4810?_pos=3&_sid=03abf2fd9&_ss=r&variant=47637165342939",
+        "source_digest": "50c2c06144eb94f3bb7e53d25207c6c85ce377267d78e0bd666987938dcafd0b",
+        "byte_count": 580014,
+        "issues": [],
+        "private_capture_file": "p01.capture.json",
+        "extraction_status": "extracted"
+      },
+      "preparation": {
+        "version": "engineering-preparation.v1",
+        "digest": "sha256:6a6e7efc4c222fca01bcb681bf450baf26c59d9a6a91905ee355d22de5a7e6f3",
+        "typed_review_objects": 1,
+        "profile_path": "data/ingestion/engineering-wave1/proposals/p01.profile.json",
+        "unresolved": [
+          "No complete multifunction or assembly suitability; AC conductor modes, BMS and protocols unknown",
+          "source_interpretation_review:wave1.p01.total",
+          "source_ownership_review:wave1.p01.total"
+        ],
+        "authority": "agent_proposed_not_admitted"
+      },
+      "production_preparation": {
+        "pipeline_state": "review_ready",
+        "qualified_fact_count": 0,
+        "candidate_present": false,
+        "note": "Pipeline review_ready is queue availability, not intended-use completeness"
+      }
+    },
+    {
+      "id": "p02",
+      "manufacturer": "BLUETTI",
+      "model": "B4810 LiFePO4 battery",
+      "exact_identity_note": "B4810 (separate ordering SKU unresolved)",
+      "identity_status": "model_proposed_ordering_code_unconfirmed",
+      "intended_use": "battery",
+      "required_assertions": [
+        "exact_identity_revision",
+        "nominal_v_ah_wh",
+        "charge_voltage_current",
+        "discharge_continuous_peak_duration",
+        "bms_cutoff_recovery",
+        "temperature_heater_policy",
+        "series_parallel_permission",
+        "terminals_fusing",
+        "installation_envelope"
+      ],
+      "sources": [
+        {
+          "url": "https://www.bluettipower.com/products/rv5-b4810?_pos=3&_sid=03abf2fd9&_ss=r&variant=47637165342939",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": "66245eedf7f2a8f4f8eaf3b914f8c56c4f77b4d3da4c044dd2695ba21bf8f5fb",
+          "rights": "private_research_only_no_public_redistribution_grant",
+          "retained": true,
+          "retrieved_at": "2026-10-13T05:13:16.958Z"
+        },
+        {
+          "url": "https://support.bluettipower.com/products/rv5-b4810",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": null,
+          "rights": "metadata_only_no_redistribution_grant",
+          "retained": false
+        }
+      ],
+      "states": {
+        "investigated": true,
+        "acquired": true,
+        "retained": true,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Wave-1 exact named source acquisition and scoped extraction inspected; source availability/identity may remain held",
+      "hold_class": "source_qualification_and_intended_use_completeness",
+      "reviewer_actions": [
+        "Establish exact identity/revision and lawful retained evidence",
+        "Qualify each required assertion with model ownership and complete conditions",
+        "Review provisional draft; keep approval, promotion and verification separate"
+      ],
+      "representation_gaps": ["G6"],
+      "exact_model": "B4810",
+      "part_number": null,
+      "current_campaign": {
+        "capture_status": "success",
+        "retrieved_at": "2026-10-13T05:13:16.958Z",
+        "final_uri": "https://www.bluettipower.com/products/rv5-b4810?_pos=3&_sid=03abf2fd9&_ss=r&variant=47637165342939",
+        "source_digest": "66245eedf7f2a8f4f8eaf3b914f8c56c4f77b4d3da4c044dd2695ba21bf8f5fb",
+        "byte_count": 580014,
+        "issues": [],
+        "private_capture_file": "p02.capture.json",
+        "extraction_status": "extracted"
+      }
+    },
+    {
+      "id": "p03",
+      "manufacturer": "BLUETTI",
+      "model": "Epanel Smart Distribution Panel — US",
+      "exact_identity_note": "Epanel (ordering MPN unresolved)",
+      "identity_status": "model_proposed_ordering_code_unconfirmed",
+      "intended_use": "distribution",
+      "required_assertions": [
+        "exact_identity_revision",
+        "bus_branch_voltage_current",
+        "protection_participants",
+        "included_required_fuses",
+        "ground_neutral_buses",
+        "aggregate_capacity",
+        "terminal_installation"
+      ],
+      "sources": [
+        {
+          "url": "https://www.bluettipower.com/products/epanel",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": "cf530f993218c05abc17f0933c62eebe4d053b6f1315479f650182281beed612",
+          "rights": "private_research_only_no_public_redistribution_grant",
+          "retained": true,
+          "retrieved_at": "2026-10-13T05:13:18.552Z"
+        },
+        {
+          "url": "https://support.bluettipower.com/products/rv5-b4810",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": null,
+          "rights": "metadata_only_no_redistribution_grant",
+          "retained": false
+        },
+        {
+          "url": "https://s4.bluettipower.com/bluetti/purchasePageBiz/2025/09/RV5%C2%A0User%20Manual%20US%20EN-1759160161231-e9c8.pdf",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": null,
+          "rights": "metadata_only_no_redistribution_grant",
+          "retained": false
+        }
+      ],
+      "states": {
+        "investigated": true,
+        "acquired": true,
+        "retained": true,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Wave-1 exact named source acquisition and scoped extraction inspected; source availability/identity may remain held",
+      "hold_class": "source_qualification_and_intended_use_completeness",
+      "reviewer_actions": [
+        "Establish exact identity/revision and lawful retained evidence",
+        "Qualify each required assertion with model ownership and complete conditions",
+        "Review provisional draft; keep approval, promotion and verification separate"
+      ],
+      "representation_gaps": ["G6"],
+      "exact_model": "Epanel",
+      "part_number": null,
+      "current_campaign": {
+        "capture_status": "success",
+        "retrieved_at": "2026-10-13T05:13:18.552Z",
+        "final_uri": "https://www.bluettipower.com/products/epanel",
+        "source_digest": "cf530f993218c05abc17f0933c62eebe4d053b6f1315479f650182281beed612",
+        "byte_count": 584379,
+        "issues": [],
+        "private_capture_file": "p03.capture.json",
+        "extraction_status": "extracted"
+      }
+    },
+    {
+      "id": "p04",
+      "manufacturer": "BLUETTI",
+      "model": "Epad Central Control Screen",
+      "exact_identity_note": "Epad (ordering MPN unresolved)",
+      "identity_status": "model_proposed_ordering_code_unconfirmed",
+      "intended_use": "monitor",
+      "required_assertions": [
+        "exact_identity_revision",
+        "supply_consumption",
+        "measurement_participants",
+        "accuracy_denominator_conditions",
+        "shunt_a_mv_transfer",
+        "included_optional_accessories",
+        "protocol_pinout_termination",
+        "installation"
+      ],
+      "sources": [
+        {
+          "url": "https://s4.bluettipower.com/bluetti/purchasePageBiz/2025/09/Epad%20User%20Manual%20EN-FR-DE-1759213344172-b0ae.pdf",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": "c0b33e4cb7330cbde80feae9761552a427b8b1dae3b04d43fff72ede2d5ce18f",
+          "rights": "private_research_only_no_public_redistribution_grant",
+          "retained": true,
+          "retrieved_at": "2026-10-13T05:13:19.929Z"
+        },
+        {
+          "url": "https://support.bluettipower.com/products/rv5-b4810",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": null,
+          "rights": "metadata_only_no_redistribution_grant",
+          "retained": false
+        }
+      ],
+      "states": {
+        "investigated": true,
+        "acquired": true,
+        "retained": true,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Wave-1 exact named source acquisition and scoped extraction inspected; source availability/identity may remain held",
+      "hold_class": "source_qualification_and_intended_use_completeness",
+      "reviewer_actions": [
+        "Establish exact identity/revision and lawful retained evidence",
+        "Qualify each required assertion with model ownership and complete conditions",
+        "Review provisional draft; keep approval, promotion and verification separate"
+      ],
+      "representation_gaps": ["G5", "G7"],
+      "exact_model": "Epad",
+      "part_number": null,
+      "current_campaign": {
+        "capture_status": "success",
+        "retrieved_at": "2026-10-13T05:13:19.929Z",
+        "final_uri": "https://s4.bluettipower.com/bluetti/purchasePageBiz/2025/09/Epad%20User%20Manual%20EN-FR-DE-1759213344172-b0ae.pdf",
+        "source_digest": "c0b33e4cb7330cbde80feae9761552a427b8b1dae3b04d43fff72ede2d5ce18f",
+        "byte_count": 12442950,
+        "issues": [],
+        "private_capture_file": "p04.capture.json",
+        "extraction_status": "extracted"
+      }
+    },
+    {
+      "id": "p05",
+      "manufacturer": "BLUETTI",
+      "model": "PV100 FX single flexible module",
+      "exact_identity_note": "PV100 FX (individual ordering SKU unresolved)",
+      "identity_status": "model_proposed_ordering_code_unconfirmed",
+      "intended_use": "solar",
+      "required_assertions": [
+        "exact_identity_revision",
+        "pmax_w",
+        "voc_v",
+        "vmp_v",
+        "isc_a",
+        "imp_a",
+        "reference_cell_temperature",
+        "reference_irradiance_spectrum",
+        "quantity_coefficients_domains",
+        "uncertainty",
+        "system_voltage_series_fuse",
+        "connectors_installation"
+      ],
+      "sources": [
+        {
+          "url": "https://www.bluettipower.com/collections/rv",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": "2ca5bc991f457a2b7a97ad33fce4b09d7c70af8241949bcbf23be4e557d7f2fb",
+          "rights": "private_research_only_no_public_redistribution_grant",
+          "retained": true,
+          "retrieved_at": "2026-10-13T05:13:20.608Z"
+        },
+        {
+          "url": "https://www.bluettipower.com/products/rv5-b4810?_pos=3&_sid=03abf2fd9&_ss=r&variant=47637165342939",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": null,
+          "rights": "metadata_only_no_redistribution_grant",
+          "retained": false
+        },
+        {
+          "url": "https://support.bluettipower.com/products/rv5-b4810",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": null,
+          "rights": "metadata_only_no_redistribution_grant",
+          "retained": false
+        }
+      ],
+      "states": {
+        "investigated": true,
+        "acquired": true,
+        "retained": true,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Wave-1 exact named source acquisition and scoped extraction inspected; source availability/identity may remain held",
+      "hold_class": "source_qualification_and_intended_use_completeness",
+      "reviewer_actions": [
+        "Establish exact identity/revision and lawful retained evidence",
+        "Qualify each required assertion with model ownership and complete conditions",
+        "Review provisional draft; keep approval, promotion and verification separate"
+      ],
+      "representation_gaps": ["G1", "G2"],
+      "exact_model": "PV100 FX",
+      "part_number": null,
+      "current_campaign": {
+        "capture_status": "success",
+        "retrieved_at": "2026-10-13T05:13:20.608Z",
+        "final_uri": "https://www.bluettipower.com/collections/rv",
+        "source_digest": "2ca5bc991f457a2b7a97ad33fce4b09d7c70af8241949bcbf23be4e557d7f2fb",
+        "byte_count": 979204,
+        "issues": [],
+        "private_capture_file": "p05.capture.json",
+        "extraction_status": "extracted"
+      }
+    },
+    {
+      "id": "p06",
+      "manufacturer": "COMVOLT",
+      "model": "Comvolt 6000",
+      "exact_identity_note": "Unconfirmed; do not import third-party Z6000UR alias",
+      "identity_status": "publisher_identity_hold",
+      "intended_use": "multifunction",
+      "required_assertions": [
+        "exact_identity_revision",
+        "directional_ports_paths",
+        "battery_envelope",
+        "pv_tracker_limits",
+        "mode_specific_ac_conductors",
+        "w_va_pf_surge_duration",
+        "shared_capacity_exclusions",
+        "assembly_revision_counts",
+        "protocol_dependencies",
+        "ground_neutral_transfer",
+        "idle_thermal_installation"
+      ],
+      "sources": [
+        {
+          "url": "https://comvolt-battery.com/products/comvolt-6000",
+          "publisher_status": "unconfirmed",
+          "document_revision": null,
+          "source_digest": null,
+          "rights": "metadata_only_no_redistribution_grant",
+          "retained": false
+        }
+      ],
+      "states": {
+        "investigated": true,
+        "acquired": false,
+        "retained": false,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "2026-10-11 supplied planning artifact; not a retained capture or current campaign result",
+      "hold_class": "identity_publisher",
+      "reviewer_actions": [
+        "Establish exact identity/revision and lawful retained evidence",
+        "Qualify each required assertion with model ownership and complete conditions",
+        "Review provisional draft; keep approval, promotion and verification separate"
+      ],
+      "representation_gaps": ["G3", "G4", "G5"],
+      "exact_model": "Comvolt 6000",
+      "part_number": null
+    },
+    {
+      "id": "p07",
+      "manufacturer": "Victron Energy",
+      "model": "SmartSolar MPPT 150/45",
+      "exact_identity_note": "Exact retail MPN unresolved; use 150/45 table column",
+      "identity_status": "model_proposed_ordering_code_unconfirmed",
+      "intended_use": "mppt",
+      "required_assertions": [
+        "exact_identity_revision",
+        "tracker_terminal_membership",
+        "absolute_pv_voc",
+        "operating_start_restart_voltage",
+        "pv_isc_imp",
+        "battery_voltage_charge_current",
+        "conditional_pv_power_clipping",
+        "input_sharing",
+        "connectors_protection",
+        "thermal_mounting"
+      ],
+      "sources": [
+        {
+          "url": "https://www.victronenergy.com/media/pg/Manual_SmartSolar_MPPT_150-35__150-45/en/technical-specifications.html",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": "409443a2c0d1fb691471c8f3d1355bb69f679609031601965545e519057135ba",
+          "rights": "private_research_only_no_public_redistribution_grant",
+          "retained": true,
+          "retrieved_at": "2026-10-13T05:05:16.698Z"
+        }
+      ],
+      "states": {
+        "investigated": true,
+        "acquired": true,
+        "retained": true,
+        "interpreted": true,
+        "draft_prepared": true,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Wave-1 exact named source acquisition and scoped extraction inspected; source availability/identity may remain held",
+      "hold_class": "source_qualification_and_intended_use_completeness",
+      "reviewer_actions": [
+        "Establish exact identity/revision and lawful retained evidence",
+        "Qualify each required assertion with model ownership and complete conditions",
+        "Review provisional draft; keep approval, promotion and verification separate"
+      ],
+      "representation_gaps": ["G2"],
+      "exact_model": "SmartSolar MPPT 150/45",
+      "part_number": null,
+      "current_campaign": {
+        "capture_status": "success",
+        "retrieved_at": "2026-10-13T05:05:16.698Z",
+        "final_uri": "https://www.victronenergy.com/media/pg/Manual_SmartSolar_MPPT_150-35__150-45/en/technical-specifications.html",
+        "source_digest": "409443a2c0d1fb691471c8f3d1355bb69f679609031601965545e519057135ba",
+        "byte_count": 50118,
+        "issues": [],
+        "private_capture_file": "p07.capture.json",
+        "extraction_status": "extracted"
+      },
+      "preparation": {
+        "version": "engineering-preparation.v1",
+        "digest": "sha256:3dba5d4e242265e755c6a03765f7e157ccae9cb41f83c91844e1f0d5079eac5e",
+        "typed_review_objects": 1,
+        "profile_path": "data/ingestion/engineering-wave1/proposals/p07.profile.json",
+        "unresolved": [
+          "Exact retail SKU/revision and tracker/terminal grouping not established",
+          "PV operating current differs from PV Isc and battery charge current; remaining input limits unknown",
+          "Startup/restart, power/clipping conditions, sharing, connector and protection qualification required",
+          "source_interpretation_review:wave1.p07.absolute_voc_v",
+          "source_interpretation_review:wave1.p07.max_isc_a"
+        ],
+        "authority": "agent_proposed_not_admitted"
+      },
+      "production_preparation": {
+        "pipeline_state": "review_ready",
+        "qualified_fact_count": 0,
+        "candidate_present": false,
+        "note": "Pipeline review_ready is queue availability, not intended-use completeness"
+      }
+    },
+    {
+      "id": "p08",
+      "manufacturer": "Victron Energy",
+      "model": "SmartSolar MPPT 250/100-Tr VE.Can",
+      "exact_identity_note": "Tr VE.Can sales MPN unresolved; do not use MC4 or 150/100 identity",
+      "identity_status": "model_proposed_ordering_code_unconfirmed",
+      "intended_use": "mppt",
+      "required_assertions": [
+        "exact_identity_revision",
+        "tracker_terminal_membership",
+        "absolute_pv_voc",
+        "operating_start_restart_voltage",
+        "pv_isc_imp",
+        "battery_voltage_charge_current",
+        "conditional_pv_power_clipping",
+        "input_sharing",
+        "connectors_protection",
+        "thermal_mounting"
+      ],
+      "sources": [
+        {
+          "url": "https://www.victronenergy.com/media/pg/Manual_SmartSolar_MPPT_150-70_up_to_250-100_VE.Can/en/technical-specifications.html",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": "37ef7205b98bb557c5cbf38f811ade7bb8eb60dd6f6ef209518197840c5f90f5",
+          "rights": "private_research_only_no_public_redistribution_grant",
+          "retained": true,
+          "retrieved_at": "2026-10-13T05:05:16.764Z"
+        }
+      ],
+      "states": {
+        "investigated": true,
+        "acquired": true,
+        "retained": true,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Wave-1 exact named source acquisition and scoped extraction inspected; source availability/identity may remain held",
+      "hold_class": "source_qualification_and_intended_use_completeness",
+      "reviewer_actions": [
+        "Establish exact identity/revision and lawful retained evidence",
+        "Qualify each required assertion with model ownership and complete conditions",
+        "Review provisional draft; keep approval, promotion and verification separate"
+      ],
+      "representation_gaps": ["G2"],
+      "exact_model": "SmartSolar MPPT 250/100-Tr VE.Can",
+      "part_number": null,
+      "current_campaign": {
+        "capture_status": "success",
+        "retrieved_at": "2026-10-13T05:05:16.764Z",
+        "final_uri": "https://www.victronenergy.com/media/pg/Manual_SmartSolar_MPPT_150-70_up_to_250-100_VE.Can/en/technical-specifications.html",
+        "source_digest": "37ef7205b98bb557c5cbf38f811ade7bb8eb60dd6f6ef209518197840c5f90f5",
+        "byte_count": 67592,
+        "issues": [],
+        "private_capture_file": "p08.capture.json",
+        "extraction_status": "extracted"
+      },
+      "production_preparation": {
+        "pipeline_state": "review_ready",
+        "qualified_fact_count": 0,
+        "candidate_present": false,
+        "note": "Pipeline review_ready is queue availability, not intended-use completeness"
+      }
+    },
+    {
+      "id": "p09",
+      "manufacturer": "Victron Energy",
+      "model": "Orion XS 12/12-50A DC-DC battery charger",
+      "exact_identity_note": "ORI121217040 documented drawing; confirm revision before acquisition",
+      "identity_status": "model_proposed_ordering_code_unconfirmed",
+      "intended_use": "dccharger",
+      "required_assertions": [
+        "exact_identity_revision",
+        "input_ranges_direction",
+        "charge_output_envelope",
+        "source_priority_concurrency",
+        "pv_limits_if_asserted",
+        "engine_detection_control",
+        "thermal_derating",
+        "isolation_scope",
+        "fusing_installation"
+      ],
+      "sources": [
+        {
+          "url": "https://www.victronenergy.com/media/pg/Orion_XS_12-12-50A_DC-DC_battery_charger/en/technical-data.html",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": null,
+          "rights": "metadata_only_no_redistribution_grant",
+          "retained": false
+        },
+        {
+          "url": "https://www.victronenergy.com/upload/documents/DimensionDrawing-ORI121217040-Orion-XS-12-12-50A-DC-DC-battery-charger.pdf",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": null,
+          "rights": "metadata_only_no_redistribution_grant",
+          "retained": false
+        }
+      ],
+      "states": {
+        "investigated": true,
+        "acquired": false,
+        "retained": false,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "2026-10-11 supplied planning artifact; not a retained capture or current campaign result",
+      "hold_class": "source_capture_and_completeness",
+      "reviewer_actions": [
+        "Establish exact identity/revision and lawful retained evidence",
+        "Qualify each required assertion with model ownership and complete conditions",
+        "Review provisional draft; keep approval, promotion and verification separate"
+      ],
+      "representation_gaps": ["G6"],
+      "exact_model": "ORI121217040",
+      "part_number": null
+    },
+    {
+      "id": "p10",
+      "manufacturer": "Victron Energy",
+      "model": "BMV-712 Smart",
+      "exact_identity_note": "BMV-712 Smart (ordering code not established here)",
+      "identity_status": "model_proposed_ordering_code_unconfirmed",
+      "intended_use": "monitor",
+      "required_assertions": [
+        "exact_identity_revision",
+        "supply_consumption",
+        "measurement_participants",
+        "accuracy_denominator_conditions",
+        "shunt_a_mv_transfer",
+        "included_optional_accessories",
+        "protocol_pinout_termination",
+        "installation"
+      ],
+      "sources": [
+        {
+          "url": "https://www.victronenergy.com/upload/documents/Datasheet-BMV-712-Smart-EN.pdf",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": "571accecb558bf454f11981ba6fc2e5cc138b9dbebe1c0e121f1a0d3b942de98",
+          "rights": "private_research_only_no_public_redistribution_grant",
+          "retained": true,
+          "retrieved_at": "2026-10-13T05:05:17.236Z"
+        }
+      ],
+      "states": {
+        "investigated": true,
+        "acquired": true,
+        "retained": true,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Wave-1 exact named source acquisition and scoped extraction inspected; source availability/identity may remain held",
+      "hold_class": "source_qualification_and_intended_use_completeness",
+      "reviewer_actions": [
+        "Establish exact identity/revision and lawful retained evidence",
+        "Qualify each required assertion with model ownership and complete conditions",
+        "Review provisional draft; keep approval, promotion and verification separate"
+      ],
+      "representation_gaps": ["G5", "G7"],
+      "exact_model": "BMV-712 Smart",
+      "part_number": null,
+      "current_campaign": {
+        "capture_status": "success",
+        "retrieved_at": "2026-10-13T05:05:17.236Z",
+        "final_uri": "https://www.victronenergy.com/upload/documents/Datasheet-BMV-712-Smart-EN.pdf",
+        "source_digest": "571accecb558bf454f11981ba6fc2e5cc138b9dbebe1c0e121f1a0d3b942de98",
+        "byte_count": 509921,
+        "issues": [],
+        "private_capture_file": "p10.capture.json",
+        "extraction_status": "extracted"
+      }
+    },
+    {
+      "id": "p11",
+      "manufacturer": "Victron Energy",
+      "model": "MultiPlus-II 2x120V 12/3000/120-50",
+      "exact_identity_note": "PMP122305100; confirm US label/serial applicability",
+      "identity_status": "model_proposed_ordering_code_unconfirmed",
+      "intended_use": "multifunction",
+      "required_assertions": [
+        "exact_identity_revision",
+        "directional_ports_paths",
+        "battery_envelope",
+        "pv_tracker_limits",
+        "mode_specific_ac_conductors",
+        "w_va_pf_surge_duration",
+        "shared_capacity_exclusions",
+        "assembly_revision_counts",
+        "protocol_dependencies",
+        "ground_neutral_transfer",
+        "idle_thermal_installation"
+      ],
+      "sources": [
+        {
+          "url": "https://www.victronenergy.com/media/pg/MultiPlus-II_2x120V/en/technical-specifications-mp-ii-2x120v.html",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": "85ae44f682e86af8ca8c566bd04ce5419fb31b32cec3b50509ad3bcfd9e31a8f",
+          "rights": "private_research_only_no_public_redistribution_grant",
+          "retained": true,
+          "retrieved_at": "2026-10-13T05:05:17.372Z"
+        }
+      ],
+      "states": {
+        "investigated": true,
+        "acquired": true,
+        "retained": true,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Wave-1 exact named source acquisition and scoped extraction inspected; source availability/identity may remain held",
+      "hold_class": "source_qualification_and_intended_use_completeness",
+      "reviewer_actions": [
+        "Establish exact identity/revision and lawful retained evidence",
+        "Qualify each required assertion with model ownership and complete conditions",
+        "Review provisional draft; keep approval, promotion and verification separate"
+      ],
+      "representation_gaps": ["G3", "G4", "G5"],
+      "exact_model": "PMP122305100",
+      "part_number": null,
+      "current_campaign": {
+        "capture_status": "success",
+        "retrieved_at": "2026-10-13T05:05:17.372Z",
+        "final_uri": "https://www.victronenergy.com/media/pg/MultiPlus-II_2x120V/en/technical-specifications-mp-ii-2x120v.html",
+        "source_digest": "85ae44f682e86af8ca8c566bd04ce5419fb31b32cec3b50509ad3bcfd9e31a8f",
+        "byte_count": 44952,
+        "issues": [],
+        "private_capture_file": "p11.capture.json",
+        "extraction_status": "extracted"
+      },
+      "production_preparation": {
+        "pipeline_state": "review_ready",
+        "qualified_fact_count": 0,
+        "candidate_present": false,
+        "note": "Pipeline review_ready is queue availability, not intended-use completeness"
+      }
+    },
+    {
+      "id": "p12",
+      "manufacturer": "Blue Sea Systems",
+      "model": "m-Series Mini On-Off Battery Switch",
+      "exact_identity_note": "6006",
+      "identity_status": "model_proposed_ordering_code_unconfirmed",
+      "intended_use": "switch",
+      "required_assertions": [
+        "exact_identity_revision",
+        "coil_contact_domains",
+        "carry_continuous_peak_duration",
+        "switching_interruption_distinction",
+        "participants_states",
+        "control_thresholds",
+        "terminals_protection_mounting"
+      ],
+      "sources": [
+        {
+          "url": "https://www.bluesea.com/products/6006/m-Series_Mini_On-Off_Battery",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": "985fc410167d201f14782484f47d1d6836264f5872cc2ad8b32f28780a052a13",
+          "rights": "private_research_only_no_public_redistribution_grant",
+          "retained": false,
+          "retrieved_at": "2026-10-13T05:13:20.801Z"
+        }
+      ],
+      "states": {
+        "investigated": true,
+        "acquired": false,
+        "retained": false,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Wave-1 exact named source acquisition and scoped extraction inspected; source availability/identity may remain held",
+      "hold_class": "source_acquisition_failure",
+      "reviewer_actions": [
+        "Establish exact identity/revision and lawful retained evidence",
+        "Qualify each required assertion with model ownership and complete conditions",
+        "Review provisional draft; keep approval, promotion and verification separate"
+      ],
+      "representation_gaps": ["G6"],
+      "exact_model": "6006",
+      "part_number": null,
+      "current_campaign": {
+        "capture_status": "failed",
+        "retrieved_at": "2026-10-13T05:13:20.801Z",
+        "final_uri": "https://www.bluesea.com/products/6006/m-Series_Mini_On-Off_Battery",
+        "source_digest": "985fc410167d201f14782484f47d1d6836264f5872cc2ad8b32f28780a052a13",
+        "byte_count": 4546,
+        "issues": [
+          {
+            "code": "http_status",
+            "message": "The source returned HTTP status 403."
+          }
+        ],
+        "private_capture_file": "p12.capture.json",
+        "extraction_status": null
+      }
+    },
+    {
+      "id": "p13",
+      "manufacturer": "Blue Sea Systems",
+      "model": "ST Blade Fuse Block 12 circuits with negative bus and cover",
+      "exact_identity_note": "5026",
+      "identity_status": "model_proposed_ordering_code_unconfirmed",
+      "intended_use": "distribution",
+      "required_assertions": [
+        "exact_identity_revision",
+        "bus_branch_voltage_current",
+        "protection_participants",
+        "included_required_fuses",
+        "ground_neutral_buses",
+        "aggregate_capacity",
+        "terminal_installation"
+      ],
+      "sources": [
+        {
+          "url": "https://www.bluesea.com/products/5026/ST%20Blade%20Fuse%20Block%20-%2012%20Circuits%20with%20Negative%20Bus%20and%20Cover",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": "208abbfdc84bb137ce263a5fab7d27234ff2fa65a5cca368cc4e59ca5c883d6c",
+          "rights": "private_research_only_no_public_redistribution_grant",
+          "retained": false,
+          "retrieved_at": "2026-10-13T05:13:20.859Z"
+        }
+      ],
+      "states": {
+        "investigated": true,
+        "acquired": false,
+        "retained": false,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Wave-1 exact named source acquisition and scoped extraction inspected; source availability/identity may remain held",
+      "hold_class": "source_acquisition_failure",
+      "reviewer_actions": [
+        "Establish exact identity/revision and lawful retained evidence",
+        "Qualify each required assertion with model ownership and complete conditions",
+        "Review provisional draft; keep approval, promotion and verification separate"
+      ],
+      "representation_gaps": ["G6"],
+      "exact_model": "5026",
+      "part_number": null,
+      "current_campaign": {
+        "capture_status": "failed",
+        "retrieved_at": "2026-10-13T05:13:20.859Z",
+        "final_uri": "https://www.bluesea.com/products/5026/ST%20Blade%20Fuse%20Block%20-%2012%20Circuits%20with%20Negative%20Bus%20and%20Cover",
+        "source_digest": "208abbfdc84bb137ce263a5fab7d27234ff2fa65a5cca368cc4e59ca5c883d6c",
+        "byte_count": 4546,
+        "issues": [
+          {
+            "code": "http_status",
+            "message": "The source returned HTTP status 403."
+          }
+        ],
+        "private_capture_file": "p13.capture.json",
+        "extraction_status": null
+      }
+    },
+    {
+      "id": "p14",
+      "manufacturer": "Blue Sea Systems",
+      "model": "ML-ACR automatic charging relay with manual control",
+      "exact_identity_note": "7622",
+      "identity_status": "model_proposed_ordering_code_unconfirmed",
+      "intended_use": "switch",
+      "required_assertions": [
+        "exact_identity_revision",
+        "coil_contact_domains",
+        "carry_continuous_peak_duration",
+        "switching_interruption_distinction",
+        "participants_states",
+        "control_thresholds",
+        "terminals_protection_mounting"
+      ],
+      "sources": [
+        {
+          "url": "https://www.bluesea.com/products/7622/ML-ACR",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": "b74e0dab45d1f8a6ea25ec1b8f695a9a539bd52e1e3c7976895930656fb51c27",
+          "rights": "private_research_only_no_public_redistribution_grant",
+          "retained": false,
+          "retrieved_at": "2026-10-13T05:13:20.927Z"
+        }
+      ],
+      "states": {
+        "investigated": true,
+        "acquired": false,
+        "retained": false,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Wave-1 exact named source acquisition and scoped extraction inspected; source availability/identity may remain held",
+      "hold_class": "source_acquisition_failure",
+      "reviewer_actions": [
+        "Establish exact identity/revision and lawful retained evidence",
+        "Qualify each required assertion with model ownership and complete conditions",
+        "Review provisional draft; keep approval, promotion and verification separate"
+      ],
+      "representation_gaps": ["G6"],
+      "exact_model": "7622",
+      "part_number": null,
+      "current_campaign": {
+        "capture_status": "failed",
+        "retrieved_at": "2026-10-13T05:13:20.927Z",
+        "final_uri": "https://www.bluesea.com/products/7622/ML-ACR",
+        "source_digest": "b74e0dab45d1f8a6ea25ec1b8f695a9a539bd52e1e3c7976895930656fb51c27",
+        "byte_count": 4546,
+        "issues": [
+          {
+            "code": "http_status",
+            "message": "The source returned HTTP status 403."
+          }
+        ],
+        "private_capture_file": "p14.capture.json",
+        "extraction_status": null
+      }
+    },
+    {
+      "id": "p15",
+      "manufacturer": "Samlex America",
+      "model": "EVO-2212",
+      "exact_identity_note": "EVO-2212",
+      "identity_status": "model_proposed_ordering_code_unconfirmed",
+      "intended_use": "multifunction",
+      "required_assertions": [
+        "exact_identity_revision",
+        "directional_ports_paths",
+        "battery_envelope",
+        "pv_tracker_limits",
+        "mode_specific_ac_conductors",
+        "w_va_pf_surge_duration",
+        "shared_capacity_exclusions",
+        "assembly_revision_counts",
+        "protocol_dependencies",
+        "ground_neutral_transfer",
+        "idle_thermal_installation"
+      ],
+      "sources": [
+        {
+          "url": "https://samlexamerica.com/products/2200-watt-pure-sine-inverter-charger-evo-2212/",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": "62390ee827e7a7cba0a7a2e4ed539e0a6700ef3e2aca2b791f6e4cb063654655",
+          "rights": "private_research_only_no_public_redistribution_grant",
+          "retained": true,
+          "retrieved_at": "2026-10-13T05:05:19.702Z"
+        },
+        {
+          "url": "https://samlexamerica.com/wp-content/uploads/2021/11/Samlex-EVO-Features-Spec-Sheet-1121.pdf",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": null,
+          "rights": "metadata_only_no_redistribution_grant",
+          "retained": false
+        }
+      ],
+      "states": {
+        "investigated": true,
+        "acquired": true,
+        "retained": true,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Wave-1 exact named source acquisition and scoped extraction inspected; source availability/identity may remain held",
+      "hold_class": "source_qualification_and_intended_use_completeness",
+      "reviewer_actions": [
+        "Establish exact identity/revision and lawful retained evidence",
+        "Qualify each required assertion with model ownership and complete conditions",
+        "Review provisional draft; keep approval, promotion and verification separate"
+      ],
+      "representation_gaps": ["G3", "G4", "G5"],
+      "exact_model": "EVO-2212",
+      "part_number": null,
+      "current_campaign": {
+        "capture_status": "success",
+        "retrieved_at": "2026-10-13T05:05:19.702Z",
+        "final_uri": "https://samlexamerica.com/products/2200-watt-pure-sine-inverter-charger-evo-2212/",
+        "source_digest": "62390ee827e7a7cba0a7a2e4ed539e0a6700ef3e2aca2b791f6e4cb063654655",
+        "byte_count": 102481,
+        "issues": [],
+        "private_capture_file": "p15.capture.json",
+        "extraction_status": "extracted"
+      }
+    },
+    {
+      "id": "p16",
+      "manufacturer": "Samlex America",
+      "model": "PST-2000-24",
+      "exact_identity_note": "PST-2000-24",
+      "identity_status": "model_proposed_ordering_code_unconfirmed",
+      "intended_use": "inverter",
+      "required_assertions": [
+        "exact_identity_revision",
+        "dc_input_window",
+        "ac_voltage_phase_hz",
+        "w_va_pf",
+        "surge_duration",
+        "idle_draw",
+        "thermal_derating",
+        "ground_neutral_modes",
+        "fusing_installation"
+      ],
+      "sources": [
+        {
+          "url": "https://samlexamerica.com/products/2000-watt-pure-sine-wave-inverter-pst-2000-24/",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": null,
+          "rights": "metadata_only_no_redistribution_grant",
+          "retained": false
+        }
+      ],
+      "states": {
+        "investigated": true,
+        "acquired": false,
+        "retained": false,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "2026-10-11 supplied planning artifact; not a retained capture or current campaign result",
+      "hold_class": "source_capture_and_completeness",
+      "reviewer_actions": [
+        "Establish exact identity/revision and lawful retained evidence",
+        "Qualify each required assertion with model ownership and complete conditions",
+        "Review provisional draft; keep approval, promotion and verification separate"
+      ],
+      "representation_gaps": ["G6"],
+      "exact_model": "PST-2000-24",
+      "part_number": null
+    },
+    {
+      "id": "p17",
+      "manufacturer": "Samlex America",
+      "model": "EVO-4248SP",
+      "exact_identity_note": "EVO-4248SP",
+      "identity_status": "model_proposed_ordering_code_unconfirmed",
+      "intended_use": "multifunction",
+      "required_assertions": [
+        "exact_identity_revision",
+        "directional_ports_paths",
+        "battery_envelope",
+        "pv_tracker_limits",
+        "mode_specific_ac_conductors",
+        "w_va_pf_surge_duration",
+        "shared_capacity_exclusions",
+        "assembly_revision_counts",
+        "protocol_dependencies",
+        "ground_neutral_transfer",
+        "idle_thermal_installation"
+      ],
+      "sources": [
+        {
+          "url": "https://samlexamerica.com/evo-4248sp-split-phase-inverter-charger/",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": "ae33b7ed50fe87779ee926f9c97e2105c353914613ca23d92576f00b2ed9a2bd",
+          "rights": "private_research_only_no_public_redistribution_grant",
+          "retained": true,
+          "retrieved_at": "2026-10-13T05:13:22.510Z"
+        }
+      ],
+      "states": {
+        "investigated": true,
+        "acquired": true,
+        "retained": true,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Wave-1 exact named source acquisition and scoped extraction inspected; source availability/identity may remain held",
+      "hold_class": "source_qualification_and_intended_use_completeness",
+      "reviewer_actions": [
+        "Establish exact identity/revision and lawful retained evidence",
+        "Qualify each required assertion with model ownership and complete conditions",
+        "Review provisional draft; keep approval, promotion and verification separate"
+      ],
+      "representation_gaps": ["G3", "G4", "G5"],
+      "exact_model": "EVO-4248SP",
+      "part_number": null,
+      "current_campaign": {
+        "capture_status": "success",
+        "retrieved_at": "2026-10-13T05:13:22.510Z",
+        "final_uri": "https://samlexamerica.com/evo-4248sp-split-phase-inverter-charger/",
+        "source_digest": "ae33b7ed50fe87779ee926f9c97e2105c353914613ca23d92576f00b2ed9a2bd",
+        "byte_count": 94249,
+        "issues": [],
+        "private_capture_file": "p17.capture.json",
+        "extraction_status": "extracted"
+      }
+    },
+    {
+      "id": "p18",
+      "manufacturer": "Morningstar",
+      "model": "TriStar MPPT 60",
+      "exact_identity_note": "TS-MPPT-60; display/network variants separately scoped",
+      "identity_status": "model_proposed_ordering_code_unconfirmed",
+      "intended_use": "mppt",
+      "required_assertions": [
+        "exact_identity_revision",
+        "tracker_terminal_membership",
+        "absolute_pv_voc",
+        "operating_start_restart_voltage",
+        "pv_isc_imp",
+        "battery_voltage_charge_current",
+        "conditional_pv_power_clipping",
+        "input_sharing",
+        "connectors_protection",
+        "thermal_mounting"
+      ],
+      "sources": [
+        {
+          "url": "https://www.morningstarcorp.com/products/tristar-mppt/",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": "1dc8b071c84de57e9cdc935052e2bfaf1a7ff6687f52035930ea85378ff19792",
+          "rights": "private_research_only_no_public_redistribution_grant",
+          "retained": true,
+          "retrieved_at": "2026-10-13T05:13:22.894Z"
+        }
+      ],
+      "states": {
+        "investigated": true,
+        "acquired": true,
+        "retained": true,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Wave-1 exact named source acquisition and scoped extraction inspected; source availability/identity may remain held",
+      "hold_class": "source_qualification_and_intended_use_completeness",
+      "reviewer_actions": [
+        "Establish exact identity/revision and lawful retained evidence",
+        "Qualify each required assertion with model ownership and complete conditions",
+        "Review provisional draft; keep approval, promotion and verification separate"
+      ],
+      "representation_gaps": ["G2"],
+      "exact_model": "TS-MPPT-60",
+      "part_number": null,
+      "current_campaign": {
+        "capture_status": "success",
+        "retrieved_at": "2026-10-13T05:13:22.894Z",
+        "final_uri": "https://www.morningstarcorp.com/products/tristar-mppt/",
+        "source_digest": "1dc8b071c84de57e9cdc935052e2bfaf1a7ff6687f52035930ea85378ff19792",
+        "byte_count": 227314,
+        "issues": [],
+        "private_capture_file": "p18.capture.json",
+        "extraction_status": "extracted"
+      }
+    },
+    {
+      "id": "p19",
+      "manufacturer": "Morningstar",
+      "model": "SunSaver MPPT",
+      "exact_identity_note": "SS-MPPT-15L",
+      "identity_status": "model_proposed_ordering_code_unconfirmed",
+      "intended_use": "mppt",
+      "required_assertions": [
+        "exact_identity_revision",
+        "tracker_terminal_membership",
+        "absolute_pv_voc",
+        "operating_start_restart_voltage",
+        "pv_isc_imp",
+        "battery_voltage_charge_current",
+        "conditional_pv_power_clipping",
+        "input_sharing",
+        "connectors_protection",
+        "thermal_mounting"
+      ],
+      "sources": [
+        {
+          "url": "https://www.morningstarcorp.com/products/sunsaver-mppt/",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": "cbe859f1b36c04357e58eab172e273e75df85a446cdce77ef96ad01fd8e0bbd8",
+          "rights": "private_research_only_no_public_redistribution_grant",
+          "retained": true,
+          "retrieved_at": "2026-10-13T05:05:20.160Z"
+        }
+      ],
+      "states": {
+        "investigated": true,
+        "acquired": true,
+        "retained": true,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Wave-1 exact named source acquisition and scoped extraction inspected; source availability/identity may remain held",
+      "hold_class": "source_qualification_and_intended_use_completeness",
+      "reviewer_actions": [
+        "Establish exact identity/revision and lawful retained evidence",
+        "Qualify each required assertion with model ownership and complete conditions",
+        "Review provisional draft; keep approval, promotion and verification separate"
+      ],
+      "representation_gaps": ["G2"],
+      "exact_model": "SS-MPPT-15L",
+      "part_number": null,
+      "current_campaign": {
+        "capture_status": "success",
+        "retrieved_at": "2026-10-13T05:05:20.160Z",
+        "final_uri": "https://www.morningstarcorp.com/products/sunsaver-mppt/",
+        "source_digest": "cbe859f1b36c04357e58eab172e273e75df85a446cdce77ef96ad01fd8e0bbd8",
+        "byte_count": 220221,
+        "issues": [],
+        "private_capture_file": "p19.capture.json",
+        "extraction_status": "extracted"
+      }
+    },
+    {
+      "id": "p20",
+      "manufacturer": "KISAE",
+      "model": "DMT1250 DC-DC battery charger",
+      "exact_identity_note": "DMT1250",
+      "identity_status": "model_proposed_ordering_code_unconfirmed",
+      "intended_use": "dccharger",
+      "required_assertions": [
+        "exact_identity_revision",
+        "input_ranges_direction",
+        "charge_output_envelope",
+        "source_priority_concurrency",
+        "pv_limits_if_asserted",
+        "engine_detection_control",
+        "thermal_derating",
+        "isolation_scope",
+        "fusing_installation"
+      ],
+      "sources": [
+        {
+          "url": "https://www.kisaepower.com/products/dmt1250/",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": "bdea2fc519478a941630314dd7b369a6348dea2b2e408b69fcab2d7df728feee",
+          "rights": "private_research_only_no_public_redistribution_grant",
+          "retained": true,
+          "retrieved_at": "2026-10-13T05:13:23.469Z"
+        },
+        {
+          "url": "https://www.kisaepower.com/downloads/",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": null,
+          "rights": "metadata_only_no_redistribution_grant",
+          "retained": false
+        }
+      ],
+      "states": {
+        "investigated": true,
+        "acquired": true,
+        "retained": true,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Wave-1 exact named source acquisition and scoped extraction inspected; source availability/identity may remain held",
+      "hold_class": "source_qualification_and_intended_use_completeness",
+      "reviewer_actions": [
+        "Establish exact identity/revision and lawful retained evidence",
+        "Qualify each required assertion with model ownership and complete conditions",
+        "Review provisional draft; keep approval, promotion and verification separate"
+      ],
+      "representation_gaps": ["G6"],
+      "exact_model": "DMT1250",
+      "part_number": null,
+      "current_campaign": {
+        "capture_status": "success",
+        "retrieved_at": "2026-10-13T05:13:23.469Z",
+        "final_uri": "https://www.kisaepower.com/products/dmt1250/",
+        "source_digest": "bdea2fc519478a941630314dd7b369a6348dea2b2e408b69fcab2d7df728feee",
+        "byte_count": 211003,
+        "issues": [],
+        "private_capture_file": "p20.capture.json",
+        "extraction_status": "extracted"
+      }
+    },
+    {
+      "id": "p21",
+      "manufacturer": "KISAE",
+      "model": "IC122055 inverter/charger",
+      "exact_identity_note": "IC122055",
+      "identity_status": "model_proposed_ordering_code_unconfirmed",
+      "intended_use": "multifunction",
+      "required_assertions": [
+        "exact_identity_revision",
+        "directional_ports_paths",
+        "battery_envelope",
+        "pv_tracker_limits",
+        "mode_specific_ac_conductors",
+        "w_va_pf_surge_duration",
+        "shared_capacity_exclusions",
+        "assembly_revision_counts",
+        "protocol_dependencies",
+        "ground_neutral_transfer",
+        "idle_thermal_installation"
+      ],
+      "sources": [
+        {
+          "url": "https://www.kisaepower.com/products/ic122055/",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": "ffcce6c1b8bd984fa3bfcc7cbe1270065c0eb84e00b55decdb628466f57537fd",
+          "rights": "private_research_only_no_public_redistribution_grant",
+          "retained": true,
+          "retrieved_at": "2026-10-13T05:13:23.694Z"
+        },
+        {
+          "url": "https://www.kisaepower.com/wp-content/uploads/2024/01/Datasheet_Inverter_Charger_IC122055_HF.pdf",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": null,
+          "rights": "metadata_only_no_redistribution_grant",
+          "retained": false
+        }
+      ],
+      "states": {
+        "investigated": true,
+        "acquired": true,
+        "retained": true,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Wave-1 exact named source acquisition and scoped extraction inspected; source availability/identity may remain held",
+      "hold_class": "source_qualification_and_intended_use_completeness",
+      "reviewer_actions": [
+        "Establish exact identity/revision and lawful retained evidence",
+        "Qualify each required assertion with model ownership and complete conditions",
+        "Review provisional draft; keep approval, promotion and verification separate"
+      ],
+      "representation_gaps": ["G3", "G4", "G5"],
+      "exact_model": "IC122055",
+      "part_number": null,
+      "current_campaign": {
+        "capture_status": "success",
+        "retrieved_at": "2026-10-13T05:13:23.694Z",
+        "final_uri": "https://www.kisaepower.com/products/ic122055/",
+        "source_digest": "ffcce6c1b8bd984fa3bfcc7cbe1270065c0eb84e00b55decdb628466f57537fd",
+        "byte_count": 190777,
+        "issues": [],
+        "private_capture_file": "p21.capture.json",
+        "extraction_status": "extracted"
+      }
+    },
+    {
+      "id": "p22",
+      "manufacturer": "MEAN WELL",
+      "model": "DDR-120B-12",
+      "exact_identity_note": "DDR-120B-12",
+      "identity_status": "model_proposed_ordering_code_unconfirmed",
+      "intended_use": "converter",
+      "required_assertions": [
+        "exact_identity_revision",
+        "direction_input_output",
+        "input_range",
+        "output_voltage_current_power",
+        "peak_duration_conditions",
+        "isolation_scope",
+        "lockout_recovery",
+        "thermal_derating",
+        "terminals_protection_mounting"
+      ],
+      "sources": [
+        {
+          "url": "https://www.meanwell.com/Upload/PDF/DDR-120/DDR-120-SPEC.PDF",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": "0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+          "rights": "private_research_only_no_public_redistribution_grant",
+          "retained": true,
+          "retrieved_at": "2026-10-13T05:05:21.553Z"
+        }
+      ],
+      "states": {
+        "investigated": true,
+        "acquired": true,
+        "retained": true,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Wave-1 exact named source acquisition and scoped extraction inspected; source availability/identity may remain held",
+      "hold_class": "source_qualification_and_intended_use_completeness",
+      "reviewer_actions": [
+        "Establish exact identity/revision and lawful retained evidence",
+        "Qualify each required assertion with model ownership and complete conditions",
+        "Review provisional draft; keep approval, promotion and verification separate"
+      ],
+      "representation_gaps": ["G6"],
+      "exact_model": "DDR-120B-12",
+      "part_number": null,
+      "current_campaign": {
+        "capture_status": "success",
+        "retrieved_at": "2026-10-13T05:05:21.553Z",
+        "final_uri": "https://www.meanwell.com/Upload/PDF/DDR-120/DDR-120-SPEC.PDF",
+        "source_digest": "0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+        "byte_count": 1604234,
+        "issues": [],
+        "private_capture_file": "p22.capture.json",
+        "extraction_status": "extracted"
+      }
+    },
+    {
+      "id": "p23",
+      "manufacturer": "MEAN WELL",
+      "model": "DDR-120C-12",
+      "exact_identity_note": "DDR-120C-12",
+      "identity_status": "model_proposed_ordering_code_unconfirmed",
+      "intended_use": "converter",
+      "required_assertions": [
+        "exact_identity_revision",
+        "direction_input_output",
+        "input_range",
+        "output_voltage_current_power",
+        "peak_duration_conditions",
+        "isolation_scope",
+        "lockout_recovery",
+        "thermal_derating",
+        "terminals_protection_mounting"
+      ],
+      "sources": [
+        {
+          "url": "https://www.meanwell.com/Upload/PDF/DDR-120/DDR-120-SPEC.PDF",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": "0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+          "rights": "private_research_only_no_public_redistribution_grant",
+          "retained": true,
+          "retrieved_at": "2026-10-13T05:05:21.762Z"
+        }
+      ],
+      "states": {
+        "investigated": true,
+        "acquired": true,
+        "retained": true,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Wave-1 exact named source acquisition and scoped extraction inspected; source availability/identity may remain held",
+      "hold_class": "source_qualification_and_intended_use_completeness",
+      "reviewer_actions": [
+        "Establish exact identity/revision and lawful retained evidence",
+        "Qualify each required assertion with model ownership and complete conditions",
+        "Review provisional draft; keep approval, promotion and verification separate"
+      ],
+      "representation_gaps": ["G6"],
+      "exact_model": "DDR-120C-12",
+      "part_number": null,
+      "current_campaign": {
+        "capture_status": "success",
+        "retrieved_at": "2026-10-13T05:05:21.762Z",
+        "final_uri": "https://www.meanwell.com/Upload/PDF/DDR-120/DDR-120-SPEC.PDF",
+        "source_digest": "0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+        "byte_count": 1604234,
+        "issues": [],
+        "private_capture_file": "p23.capture.json",
+        "extraction_status": "extracted"
+      }
+    },
+    {
+      "id": "p24",
+      "manufacturer": "Epoch Batteries",
+      "model": "24 V 100 Ah marine LiFePO4",
+      "exact_identity_note": "B24100A-C",
+      "identity_status": "model_proposed_ordering_code_unconfirmed",
+      "intended_use": "battery",
+      "required_assertions": [
+        "exact_identity_revision",
+        "nominal_v_ah_wh",
+        "charge_voltage_current",
+        "discharge_continuous_peak_duration",
+        "bms_cutoff_recovery",
+        "temperature_heater_policy",
+        "series_parallel_permission",
+        "terminals_fusing",
+        "installation_envelope"
+      ],
+      "sources": [
+        {
+          "url": "https://www.epochbatteries.com/products/24v-100ah-marine-lithium-battery",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": "14bdb4593f47477ab398b7da5153ee91f9390b89d366ba5b79ac4b7163ce4b53",
+          "rights": "private_research_only_no_public_redistribution_grant",
+          "retained": true,
+          "retrieved_at": "2026-10-13T05:13:24.875Z"
+        },
+        {
+          "url": "https://www.epochbatteries.com/resources",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": null,
+          "rights": "metadata_only_no_redistribution_grant",
+          "retained": false
+        }
+      ],
+      "states": {
+        "investigated": true,
+        "acquired": true,
+        "retained": true,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Wave-1 exact named source acquisition and scoped extraction inspected; source availability/identity may remain held",
+      "hold_class": "source_qualification_and_intended_use_completeness",
+      "reviewer_actions": [
+        "Establish exact identity/revision and lawful retained evidence",
+        "Qualify each required assertion with model ownership and complete conditions",
+        "Review provisional draft; keep approval, promotion and verification separate"
+      ],
+      "representation_gaps": ["G6"],
+      "exact_model": "B24100A-C",
+      "part_number": null,
+      "current_campaign": {
+        "capture_status": "success",
+        "retrieved_at": "2026-10-13T05:13:24.875Z",
+        "final_uri": "https://www.epochbatteries.com/products/24v-100ah-marine-lithium-battery",
+        "source_digest": "14bdb4593f47477ab398b7da5153ee91f9390b89d366ba5b79ac4b7163ce4b53",
+        "byte_count": 527459,
+        "issues": [],
+        "private_capture_file": "p24.capture.json",
+        "extraction_status": "extracted"
+      }
+    },
+    {
+      "id": "p25",
+      "manufacturer": "Newpowa",
+      "model": "NPA200S-12J",
+      "exact_identity_note": "NPA200S-12J",
+      "identity_status": "model_proposed_ordering_code_unconfirmed",
+      "intended_use": "solar",
+      "required_assertions": [
+        "exact_identity_revision",
+        "pmax_w",
+        "voc_v",
+        "vmp_v",
+        "isc_a",
+        "imp_a",
+        "reference_cell_temperature",
+        "reference_irradiance_spectrum",
+        "quantity_coefficients_domains",
+        "uncertainty",
+        "system_voltage_series_fuse",
+        "connectors_installation"
+      ],
+      "sources": [
+        {
+          "url": "https://www.newpowa.com/new-200w-12v-monocrystalline-solar-panel/",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": "f3a9c3cc318375e471e40985efce465930a22494f778bde619263d98345901a4",
+          "rights": "private_research_only_no_public_redistribution_grant",
+          "retained": true,
+          "retrieved_at": "2026-10-13T05:05:22.620Z"
+        }
+      ],
+      "states": {
+        "investigated": true,
+        "acquired": true,
+        "retained": true,
+        "interpreted": true,
+        "draft_prepared": true,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Wave-1 exact named source acquisition and scoped extraction inspected; source availability/identity may remain held",
+      "hold_class": "source_qualification_and_intended_use_completeness",
+      "reviewer_actions": [
+        "Establish exact identity/revision and lawful retained evidence",
+        "Qualify each required assertion with model ownership and complete conditions",
+        "Review provisional draft; keep approval, promotion and verification separate"
+      ],
+      "representation_gaps": ["G1", "G2"],
+      "exact_model": "NPA200S-12J",
+      "part_number": null,
+      "current_campaign": {
+        "capture_status": "success",
+        "retrieved_at": "2026-10-13T05:05:22.620Z",
+        "final_uri": "https://www.newpowa.com/new-200w-12v-monocrystalline-solar-panel/",
+        "source_digest": "f3a9c3cc318375e471e40985efce465930a22494f778bde619263d98345901a4",
+        "byte_count": 290957,
+        "issues": [],
+        "private_capture_file": "p25.capture.json",
+        "extraction_status": "extracted"
+      },
+      "preparation": {
+        "version": "engineering-preparation.v1",
+        "digest": "sha256:6456ebe986c3262257282ed2c4e1ff6f1cba86f2c2abd3dab18ad272af4436cf",
+        "typed_review_objects": 8,
+        "profile_path": "data/ingestion/engineering-wave1/proposals/p25.profile.json",
+        "unresolved": [
+          "Coefficient domain, Vmp coefficient, voltage/current uncertainty, series fuse and connector constraints unresolved",
+          "Human source qualification and product approval required",
+          "Reference cell temperature/irradiance/spectrum not established by this grammar",
+          "source_interpretation_review:wave1.p25.coefficient_pmax",
+          "source_interpretation_review:wave1.p25.coefficient_voc",
+          "source_interpretation_review:wave1.p25.imp_a",
+          "source_interpretation_review:wave1.p25.isc_a",
+          "source_interpretation_review:wave1.p25.max_system_v",
+          "source_interpretation_review:wave1.p25.pmax_w",
+          "source_interpretation_review:wave1.p25.vmp_v",
+          "source_interpretation_review:wave1.p25.voc_v"
+        ],
+        "authority": "agent_proposed_not_admitted"
+      },
+      "production_preparation": {
+        "pipeline_state": "review_ready",
+        "qualified_fact_count": 0,
+        "candidate_present": false,
+        "note": "Pipeline review_ready is queue availability, not intended-use completeness"
+      }
+    },
+    {
+      "id": "p26",
+      "manufacturer": "Newpowa",
+      "model": "NPA200S-24J",
+      "exact_identity_note": "NPA200S-24J",
+      "identity_status": "model_proposed_ordering_code_unconfirmed",
+      "intended_use": "solar",
+      "required_assertions": [
+        "exact_identity_revision",
+        "pmax_w",
+        "voc_v",
+        "vmp_v",
+        "isc_a",
+        "imp_a",
+        "reference_cell_temperature",
+        "reference_irradiance_spectrum",
+        "quantity_coefficients_domains",
+        "uncertainty",
+        "system_voltage_series_fuse",
+        "connectors_installation"
+      ],
+      "sources": [
+        {
+          "url": "https://www.newpowa.com/new-200w-24v-monocrystalline-solar-panel/",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": "af51c3f7cee58556071a295ba5ac837a52d13f1923f71b1ec483ffa793876e84",
+          "rights": "private_research_only_no_public_redistribution_grant",
+          "retained": true,
+          "retrieved_at": "2026-10-13T05:05:23.077Z"
+        }
+      ],
+      "states": {
+        "investigated": true,
+        "acquired": true,
+        "retained": true,
+        "interpreted": true,
+        "draft_prepared": true,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Wave-1 exact named source acquisition and scoped extraction inspected; source availability/identity may remain held",
+      "hold_class": "source_qualification_and_intended_use_completeness",
+      "reviewer_actions": [
+        "Establish exact identity/revision and lawful retained evidence",
+        "Qualify each required assertion with model ownership and complete conditions",
+        "Review provisional draft; keep approval, promotion and verification separate"
+      ],
+      "representation_gaps": ["G1", "G2"],
+      "exact_model": "NPA200S-24J",
+      "part_number": null,
+      "current_campaign": {
+        "capture_status": "success",
+        "retrieved_at": "2026-10-13T05:05:23.077Z",
+        "final_uri": "https://www.newpowa.com/new-200w-24v-monocrystalline-solar-panel/",
+        "source_digest": "af51c3f7cee58556071a295ba5ac837a52d13f1923f71b1ec483ffa793876e84",
+        "byte_count": 288887,
+        "issues": [],
+        "private_capture_file": "p26.capture.json",
+        "extraction_status": "extracted"
+      },
+      "preparation": {
+        "version": "engineering-preparation.v1",
+        "digest": "sha256:9787d396fcd442b142d31d31f2ad04ee9df690071004ca2847fc82f712fa3de0",
+        "typed_review_objects": 8,
+        "profile_path": "data/ingestion/engineering-wave1/proposals/p26.profile.json",
+        "unresolved": [
+          "Coefficient domain, Vmp coefficient, voltage/current uncertainty, series fuse and connector constraints unresolved",
+          "Human source qualification and product approval required",
+          "Reference cell temperature/irradiance/spectrum not established by this grammar",
+          "source_interpretation_review:wave1.p26.coefficient_pmax",
+          "source_interpretation_review:wave1.p26.coefficient_voc",
+          "source_interpretation_review:wave1.p26.imp_a",
+          "source_interpretation_review:wave1.p26.isc_a",
+          "source_interpretation_review:wave1.p26.max_system_v",
+          "source_interpretation_review:wave1.p26.pmax_w",
+          "source_interpretation_review:wave1.p26.vmp_v",
+          "source_interpretation_review:wave1.p26.voc_v"
+        ],
+        "authority": "agent_proposed_not_admitted"
+      },
+      "production_preparation": {
+        "pipeline_state": "review_ready",
+        "qualified_fact_count": 0,
+        "candidate_present": false,
+        "note": "Pipeline review_ready is queue availability, not intended-use completeness"
+      }
+    },
+    {
+      "id": "p27",
+      "manufacturer": "Battle Born Batteries",
+      "model": "100 Ah 12 V standard non-heated LiFePO4 battery",
+      "exact_identity_note": "BB10012 (not BB10012H or Smart)",
+      "identity_status": "model_proposed_ordering_code_unconfirmed",
+      "intended_use": "battery",
+      "required_assertions": [
+        "exact_identity_revision",
+        "nominal_v_ah_wh",
+        "charge_voltage_current",
+        "discharge_continuous_peak_duration",
+        "bms_cutoff_recovery",
+        "temperature_heater_policy",
+        "series_parallel_permission",
+        "terminals_fusing",
+        "installation_envelope"
+      ],
+      "sources": [
+        {
+          "url": "https://battlebornbatteries.com/products/100ah-12v-lifepo4-deep-cycle-battery?variant=52064917848345",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": "a3ac462b6af01eb401873d8086178baa97a18012b48d06a9dcb135aafaf2a244",
+          "rights": "private_research_only_no_public_redistribution_grant",
+          "retained": true,
+          "retrieved_at": "2026-10-13T05:13:25.540Z"
+        },
+        {
+          "url": "https://battlebornbatteries.com/wp-content/uploads/2022/10/100Ah-12V-Standard-Battery-Manual_Rev032_1.29.26.pdf",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": null,
+          "rights": "metadata_only_no_redistribution_grant",
+          "retained": false
+        }
+      ],
+      "states": {
+        "investigated": true,
+        "acquired": true,
+        "retained": true,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Wave-1 exact named source acquisition and scoped extraction inspected; source availability/identity may remain held",
+      "hold_class": "source_qualification_and_intended_use_completeness",
+      "reviewer_actions": [
+        "Establish exact identity/revision and lawful retained evidence",
+        "Qualify each required assertion with model ownership and complete conditions",
+        "Review provisional draft; keep approval, promotion and verification separate"
+      ],
+      "representation_gaps": ["G6"],
+      "exact_model": "BB10012",
+      "part_number": null,
+      "current_campaign": {
+        "capture_status": "success",
+        "retrieved_at": "2026-10-13T05:13:25.540Z",
+        "final_uri": "https://battlebornbatteries.com/products/100ah-12v-lifepo4-deep-cycle-battery?variant=52064917848345",
+        "source_digest": "a3ac462b6af01eb401873d8086178baa97a18012b48d06a9dcb135aafaf2a244",
+        "byte_count": 635891,
+        "issues": [],
+        "private_capture_file": "p27.capture.json",
+        "extraction_status": "extracted"
+      }
+    },
+    {
+      "id": "p28",
+      "manufacturer": "Victron Energy",
+      "model": "SmartSolar MPPT 75/15",
+      "exact_identity_note": "Distinct proposed model; source ownership/order code requires confirmation",
+      "identity_status": "proposed_horizon_identity_unconfirmed",
+      "intended_use": "mppt",
+      "required_assertions": [
+        "exact_identity_revision",
+        "tracker_terminal_membership",
+        "absolute_pv_voc",
+        "operating_start_restart_voltage",
+        "pv_isc_imp",
+        "battery_voltage_charge_current",
+        "conditional_pv_power_clipping",
+        "input_sharing",
+        "connectors_protection",
+        "thermal_mounting"
+      ],
+      "sources": [
+        {
+          "url": "https://www.victronenergy.com/solar-charge-controllers/smartsolar-mppt-75-10-75-15-100-15-100-20",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": null,
+          "rights": "metadata_only_no_redistribution_grant",
+          "retained": false
+        }
+      ],
+      "states": {
+        "investigated": false,
+        "acquired": false,
+        "retained": false,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Wave-1 proposed horizon; not counted as investigated until evidence inspected",
+      "hold_class": "uninvestigated_horizon",
+      "reviewer_actions": [
+        "Inspect exact model primary source; PWM siblings are not MPPT controllers",
+        "Freeze identity/conditions before extraction"
+      ],
+      "representation_gaps": ["intended_use_consumer_audit_pending"],
+      "exact_model": "SmartSolar MPPT 75/15",
+      "part_number": null
+    },
+    {
+      "id": "p29",
+      "manufacturer": "Victron Energy",
+      "model": "SmartSolar MPPT 100/30",
+      "exact_identity_note": "Distinct proposed model; source ownership/order code requires confirmation",
+      "identity_status": "proposed_horizon_identity_unconfirmed",
+      "intended_use": "mppt",
+      "required_assertions": [
+        "exact_identity_revision",
+        "tracker_terminal_membership",
+        "absolute_pv_voc",
+        "operating_start_restart_voltage",
+        "pv_isc_imp",
+        "battery_voltage_charge_current",
+        "conditional_pv_power_clipping",
+        "input_sharing",
+        "connectors_protection",
+        "thermal_mounting"
+      ],
+      "sources": [
+        {
+          "url": "https://www.victronenergy.com/solar-charge-controllers/smartsolar-mppt-100-30-100-50",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": null,
+          "rights": "metadata_only_no_redistribution_grant",
+          "retained": false
+        }
+      ],
+      "states": {
+        "investigated": false,
+        "acquired": false,
+        "retained": false,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Wave-1 proposed horizon; not counted as investigated until evidence inspected",
+      "hold_class": "uninvestigated_horizon",
+      "reviewer_actions": [
+        "Inspect exact model primary source; PWM siblings are not MPPT controllers",
+        "Freeze identity/conditions before extraction"
+      ],
+      "representation_gaps": ["intended_use_consumer_audit_pending"],
+      "exact_model": "SmartSolar MPPT 100/30",
+      "part_number": null
+    },
+    {
+      "id": "p30",
+      "manufacturer": "Victron Energy",
+      "model": "SmartSolar MPPT 100/50",
+      "exact_identity_note": "Distinct proposed model; source ownership/order code requires confirmation",
+      "identity_status": "proposed_horizon_identity_unconfirmed",
+      "intended_use": "mppt",
+      "required_assertions": [
+        "exact_identity_revision",
+        "tracker_terminal_membership",
+        "absolute_pv_voc",
+        "operating_start_restart_voltage",
+        "pv_isc_imp",
+        "battery_voltage_charge_current",
+        "conditional_pv_power_clipping",
+        "input_sharing",
+        "connectors_protection",
+        "thermal_mounting"
+      ],
+      "sources": [
+        {
+          "url": "https://www.victronenergy.com/solar-charge-controllers/smartsolar-mppt-100-30-100-50",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": null,
+          "rights": "metadata_only_no_redistribution_grant",
+          "retained": false
+        }
+      ],
+      "states": {
+        "investigated": false,
+        "acquired": false,
+        "retained": false,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Wave-1 proposed horizon; not counted as investigated until evidence inspected",
+      "hold_class": "uninvestigated_horizon",
+      "reviewer_actions": [
+        "Inspect exact model primary source; PWM siblings are not MPPT controllers",
+        "Freeze identity/conditions before extraction"
+      ],
+      "representation_gaps": ["intended_use_consumer_audit_pending"],
+      "exact_model": "SmartSolar MPPT 100/50",
+      "part_number": null
+    },
+    {
+      "id": "p31",
+      "manufacturer": "Victron Energy",
+      "model": "SmartSolar MPPT 150/35",
+      "exact_identity_note": "Distinct proposed model; source ownership/order code requires confirmation",
+      "identity_status": "proposed_horizon_identity_unconfirmed",
+      "intended_use": "mppt",
+      "required_assertions": [
+        "exact_identity_revision",
+        "tracker_terminal_membership",
+        "absolute_pv_voc",
+        "operating_start_restart_voltage",
+        "pv_isc_imp",
+        "battery_voltage_charge_current",
+        "conditional_pv_power_clipping",
+        "input_sharing",
+        "connectors_protection",
+        "thermal_mounting"
+      ],
+      "sources": [
+        {
+          "url": "https://www.victronenergy.com/media/pg/Manual_SmartSolar_MPPT_150-35__150-45/en/technical-specifications.html",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": null,
+          "rights": "metadata_only_no_redistribution_grant",
+          "retained": false
+        }
+      ],
+      "states": {
+        "investigated": true,
+        "acquired": false,
+        "retained": false,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Literal model token observed in retained family document; no values transferred",
+      "hold_class": "sibling_ownership_not_qualified",
+      "reviewer_actions": [
+        "Inspect exact model primary source; PWM siblings are not MPPT controllers",
+        "Freeze identity/conditions before extraction"
+      ],
+      "representation_gaps": ["intended_use_consumer_audit_pending"],
+      "exact_model": "SmartSolar MPPT 150/35",
+      "part_number": null,
+      "sibling_observations": {
+        "retained_owner": "p07",
+        "source_digest": "409443a2c0d1fb691471c8f3d1355bb69f679609031601965545e519057135ba",
+        "observations": [
+          {
+            "locator": {
+              "fragment": "heading-8",
+              "section": "9.1 . Specifications 150/35 and 150/45",
+              "path": "root/html[1]/body[1]/div[2]/div[1]/div[1]/div[1]/main[1]/article[1]/div[1]/section[1]/section[1]/div[1]/div[1]/div[1]/h3[1]"
+            },
+            "observed_literal": "150/35"
+          },
+          {
+            "locator": {
+              "fragment": "table-1",
+              "table": "table-1",
+              "section": "9.1 . Specifications 150/35 and 150/45",
+              "path": "root/html[1]/body[1]/div[2]/div[1]/div[1]/div[1]/main[1]/article[1]/div[1]/section[1]/section[1]/div[2]/table[1]"
+            },
+            "observed_literal": "150/35"
+          },
+          {
+            "locator": {
+              "fragment": "paragraph-1",
+              "section": "9.1 . Specifications 150/35 and 150/45",
+              "path": "root/html[1]/body[1]/div[2]/div[1]/div[1]/div[1]/main[1]/article[1]/div[1]/section[1]/section[1]/div[2]/table[1]/thead[1]/tr[1]/th[2]/p[1]"
+            },
+            "observed_literal": "150/35"
+          }
+        ]
+      }
+    },
+    {
+      "id": "p32",
+      "manufacturer": "Victron Energy",
+      "model": "SmartSolar MPPT 250/85-Tr VE.Can",
+      "exact_identity_note": "Distinct proposed model; source ownership/order code requires confirmation",
+      "identity_status": "proposed_horizon_identity_unconfirmed",
+      "intended_use": "mppt",
+      "required_assertions": [
+        "exact_identity_revision",
+        "tracker_terminal_membership",
+        "absolute_pv_voc",
+        "operating_start_restart_voltage",
+        "pv_isc_imp",
+        "battery_voltage_charge_current",
+        "conditional_pv_power_clipping",
+        "input_sharing",
+        "connectors_protection",
+        "thermal_mounting"
+      ],
+      "sources": [
+        {
+          "url": "https://www.victronenergy.com/media/pg/Manual_SmartSolar_MPPT_150-70_up_to_250-100_VE.Can/en/technical-specifications.html",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": null,
+          "rights": "metadata_only_no_redistribution_grant",
+          "retained": false
+        }
+      ],
+      "states": {
+        "investigated": true,
+        "acquired": false,
+        "retained": false,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Literal model token observed in retained family document; no values transferred",
+      "hold_class": "sibling_ownership_not_qualified",
+      "reviewer_actions": [
+        "Inspect exact model primary source; PWM siblings are not MPPT controllers",
+        "Freeze identity/conditions before extraction"
+      ],
+      "representation_gaps": ["intended_use_consumer_audit_pending"],
+      "exact_model": "SmartSolar MPPT 250/85-Tr VE.Can",
+      "part_number": null,
+      "sibling_observations": {
+        "retained_owner": "p08",
+        "source_digest": "37ef7205b98bb557c5cbf38f811ade7bb8eb60dd6f6ef209518197840c5f90f5",
+        "observations": [
+          {
+            "locator": {
+              "fragment": "heading-119",
+              "section": "9.2 . Specifications 250/70, 250/85 and 250/100",
+              "path": "root/html[1]/body[1]/div[2]/div[1]/div[1]/div[1]/main[1]/article[1]/div[1]/section[1]/section[2]/div[1]/div[1]/div[1]/h3[1]"
+            },
+            "observed_literal": "250/85"
+          },
+          {
+            "locator": {
+              "fragment": "table-3",
+              "table": "table-3",
+              "section": "9.2 . Specifications 250/70, 250/85 and 250/100",
+              "path": "root/html[1]/body[1]/div[2]/div[1]/div[1]/div[1]/main[1]/article[1]/div[1]/section[1]/section[2]/div[2]/table[1]"
+            },
+            "observed_literal": "250/85"
+          },
+          {
+            "locator": {
+              "fragment": "paragraph-110",
+              "section": "9.2 . Specifications 250/70, 250/85 and 250/100",
+              "path": "root/html[1]/body[1]/div[2]/div[1]/div[1]/div[1]/main[1]/article[1]/div[1]/section[1]/section[2]/div[2]/table[1]/thead[1]/tr[1]/th[3]/p[1]"
+            },
+            "observed_literal": "250/85"
+          }
+        ]
+      }
+    },
+    {
+      "id": "p33",
+      "manufacturer": "Victron Energy",
+      "model": "SmartSolar MPPT 250/100-MC4 VE.Can",
+      "exact_identity_note": "Distinct proposed model; source ownership/order code requires confirmation",
+      "identity_status": "proposed_horizon_identity_unconfirmed",
+      "intended_use": "mppt",
+      "required_assertions": [
+        "exact_identity_revision",
+        "tracker_terminal_membership",
+        "absolute_pv_voc",
+        "operating_start_restart_voltage",
+        "pv_isc_imp",
+        "battery_voltage_charge_current",
+        "conditional_pv_power_clipping",
+        "input_sharing",
+        "connectors_protection",
+        "thermal_mounting"
+      ],
+      "sources": [
+        {
+          "url": "https://www.victronenergy.com/media/pg/Manual_SmartSolar_MPPT_150-70_up_to_250-100_VE.Can/en/technical-specifications.html",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": null,
+          "rights": "metadata_only_no_redistribution_grant",
+          "retained": false
+        }
+      ],
+      "states": {
+        "investigated": true,
+        "acquired": false,
+        "retained": false,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Literal model token observed in retained family document; no values transferred",
+      "hold_class": "sibling_ownership_not_qualified",
+      "reviewer_actions": [
+        "Inspect exact model primary source; PWM siblings are not MPPT controllers",
+        "Freeze identity/conditions before extraction"
+      ],
+      "representation_gaps": ["intended_use_consumer_audit_pending"],
+      "exact_model": "SmartSolar MPPT 250/100-MC4 VE.Can",
+      "part_number": null,
+      "sibling_observations": {
+        "retained_owner": "p08",
+        "source_digest": "37ef7205b98bb557c5cbf38f811ade7bb8eb60dd6f6ef209518197840c5f90f5",
+        "observations": [
+          {
+            "locator": {
+              "fragment": "heading-119",
+              "section": "9.2 . Specifications 250/70, 250/85 and 250/100",
+              "path": "root/html[1]/body[1]/div[2]/div[1]/div[1]/div[1]/main[1]/article[1]/div[1]/section[1]/section[2]/div[1]/div[1]/div[1]/h3[1]"
+            },
+            "observed_literal": "250/100"
+          },
+          {
+            "locator": {
+              "fragment": "table-3",
+              "table": "table-3",
+              "section": "9.2 . Specifications 250/70, 250/85 and 250/100",
+              "path": "root/html[1]/body[1]/div[2]/div[1]/div[1]/div[1]/main[1]/article[1]/div[1]/section[1]/section[2]/div[2]/table[1]"
+            },
+            "observed_literal": "250/100"
+          },
+          {
+            "locator": {
+              "fragment": "paragraph-111",
+              "section": "9.2 . Specifications 250/70, 250/85 and 250/100",
+              "path": "root/html[1]/body[1]/div[2]/div[1]/div[1]/div[1]/main[1]/article[1]/div[1]/section[1]/section[2]/div[2]/table[1]/thead[1]/tr[1]/th[4]/p[1]"
+            },
+            "observed_literal": "250/100"
+          }
+        ]
+      }
+    },
+    {
+      "id": "p34",
+      "manufacturer": "Morningstar",
+      "model": "TS-MPPT-30",
+      "exact_identity_note": "Distinct proposed model; source ownership/order code requires confirmation",
+      "identity_status": "proposed_horizon_identity_unconfirmed",
+      "intended_use": "mppt",
+      "required_assertions": [
+        "exact_identity_revision",
+        "tracker_terminal_membership",
+        "absolute_pv_voc",
+        "operating_start_restart_voltage",
+        "pv_isc_imp",
+        "battery_voltage_charge_current",
+        "conditional_pv_power_clipping",
+        "input_sharing",
+        "connectors_protection",
+        "thermal_mounting"
+      ],
+      "sources": [
+        {
+          "url": "https://www.morningstarcorp.com/products/tristar-mppt/",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": null,
+          "rights": "metadata_only_no_redistribution_grant",
+          "retained": false
+        }
+      ],
+      "states": {
+        "investigated": true,
+        "acquired": false,
+        "retained": false,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Literal model token observed in retained family document; no values transferred",
+      "hold_class": "sibling_ownership_not_qualified",
+      "reviewer_actions": [
+        "Inspect exact model primary source; PWM siblings are not MPPT controllers",
+        "Freeze identity/conditions before extraction"
+      ],
+      "representation_gaps": ["intended_use_consumer_audit_pending"],
+      "exact_model": "TS-MPPT-30",
+      "part_number": null,
+      "sibling_observations": {
+        "retained_owner": "p18",
+        "source_digest": "1dc8b071c84de57e9cdc935052e2bfaf1a7ff6687f52035930ea85378ff19792",
+        "observations": [
+          {
+            "locator": {
+              "fragment": "paragraph-4",
+              "path": "root/html[1]/body[1]/div[2]/main[1]/div[2]/div[1]/div[1]/div[2]/p[4]"
+            },
+            "observed_literal": "TS-MPPT-30"
+          },
+          {
+            "locator": {
+              "fragment": "table-1",
+              "table": "table-1",
+              "section": "Specifications & Certifications",
+              "path": "root/html[1]/body[1]/div[2]/main[1]/div[2]/section[1]/div[1]/div[1]/table[1]"
+            },
+            "observed_literal": "TS-MPPT-30"
+          }
+        ]
+      }
+    },
+    {
+      "id": "p35",
+      "manufacturer": "Morningstar",
+      "model": "TS-MPPT-45",
+      "exact_identity_note": "Distinct proposed model; source ownership/order code requires confirmation",
+      "identity_status": "proposed_horizon_identity_unconfirmed",
+      "intended_use": "mppt",
+      "required_assertions": [
+        "exact_identity_revision",
+        "tracker_terminal_membership",
+        "absolute_pv_voc",
+        "operating_start_restart_voltage",
+        "pv_isc_imp",
+        "battery_voltage_charge_current",
+        "conditional_pv_power_clipping",
+        "input_sharing",
+        "connectors_protection",
+        "thermal_mounting"
+      ],
+      "sources": [
+        {
+          "url": "https://www.morningstarcorp.com/products/tristar-mppt/",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": null,
+          "rights": "metadata_only_no_redistribution_grant",
+          "retained": false
+        }
+      ],
+      "states": {
+        "investigated": true,
+        "acquired": false,
+        "retained": false,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Literal model token observed in retained family document; no values transferred",
+      "hold_class": "sibling_ownership_not_qualified",
+      "reviewer_actions": [
+        "Inspect exact model primary source; PWM siblings are not MPPT controllers",
+        "Freeze identity/conditions before extraction"
+      ],
+      "representation_gaps": ["intended_use_consumer_audit_pending"],
+      "exact_model": "TS-MPPT-45",
+      "part_number": null,
+      "sibling_observations": {
+        "retained_owner": "p18",
+        "source_digest": "1dc8b071c84de57e9cdc935052e2bfaf1a7ff6687f52035930ea85378ff19792",
+        "observations": [
+          {
+            "locator": {
+              "fragment": "paragraph-4",
+              "path": "root/html[1]/body[1]/div[2]/main[1]/div[2]/div[1]/div[1]/div[2]/p[4]"
+            },
+            "observed_literal": "TS-MPPT-45"
+          },
+          {
+            "locator": {
+              "fragment": "table-1",
+              "table": "table-1",
+              "section": "Specifications & Certifications",
+              "path": "root/html[1]/body[1]/div[2]/main[1]/div[2]/section[1]/div[1]/div[1]/table[1]"
+            },
+            "observed_literal": "TS-MPPT-45"
+          }
+        ]
+      }
+    },
+    {
+      "id": "p36",
+      "manufacturer": "Morningstar",
+      "model": "SS-10L-12V",
+      "exact_identity_note": "Distinct proposed model; source ownership/order code requires confirmation",
+      "identity_status": "proposed_horizon_identity_unconfirmed",
+      "intended_use": "pwm_controller",
+      "required_assertions": [
+        "exact_identity_revision",
+        "pwm_pv_voltage_current",
+        "battery_charge_load_limits",
+        "temperature_compensation",
+        "protection_installation"
+      ],
+      "sources": [
+        {
+          "url": "https://www.morningstarcorp.com/wp-content/uploads/datasheet-sunsaver-en.pdf",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": null,
+          "rights": "metadata_only_no_redistribution_grant",
+          "retained": false
+        }
+      ],
+      "states": {
+        "investigated": false,
+        "acquired": false,
+        "retained": false,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Wave-1 proposed horizon; not counted as investigated until evidence inspected",
+      "hold_class": "uninvestigated_horizon",
+      "reviewer_actions": [
+        "Inspect exact model primary source; PWM siblings are not MPPT controllers",
+        "Freeze identity/conditions before extraction"
+      ],
+      "representation_gaps": ["intended_use_consumer_audit_pending"],
+      "exact_model": "SS-10L-12V",
+      "part_number": null
+    },
+    {
+      "id": "p37",
+      "manufacturer": "Morningstar",
+      "model": "SS-10L-24V",
+      "exact_identity_note": "Distinct proposed model; source ownership/order code requires confirmation",
+      "identity_status": "proposed_horizon_identity_unconfirmed",
+      "intended_use": "pwm_controller",
+      "required_assertions": [
+        "exact_identity_revision",
+        "pwm_pv_voltage_current",
+        "battery_charge_load_limits",
+        "temperature_compensation",
+        "protection_installation"
+      ],
+      "sources": [
+        {
+          "url": "https://www.morningstarcorp.com/wp-content/uploads/datasheet-sunsaver-en.pdf",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": null,
+          "rights": "metadata_only_no_redistribution_grant",
+          "retained": false
+        }
+      ],
+      "states": {
+        "investigated": false,
+        "acquired": false,
+        "retained": false,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Wave-1 proposed horizon; not counted as investigated until evidence inspected",
+      "hold_class": "uninvestigated_horizon",
+      "reviewer_actions": [
+        "Inspect exact model primary source; PWM siblings are not MPPT controllers",
+        "Freeze identity/conditions before extraction"
+      ],
+      "representation_gaps": ["intended_use_consumer_audit_pending"],
+      "exact_model": "SS-10L-24V",
+      "part_number": null
+    },
+    {
+      "id": "p38",
+      "manufacturer": "MEAN WELL",
+      "model": "DDR-120B-24",
+      "exact_identity_note": "Distinct proposed model; source ownership/order code requires confirmation",
+      "identity_status": "proposed_horizon_identity_unconfirmed",
+      "intended_use": "converter",
+      "required_assertions": [
+        "exact_identity_revision",
+        "direction_input_output",
+        "input_range",
+        "output_voltage_current_power",
+        "peak_duration_conditions",
+        "isolation_scope",
+        "lockout_recovery",
+        "thermal_derating",
+        "terminals_protection_mounting"
+      ],
+      "sources": [
+        {
+          "url": "https://www.meanwell.com/Upload/PDF/DDR-120/DDR-120-SPEC.PDF",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": null,
+          "rights": "metadata_only_no_redistribution_grant",
+          "retained": false
+        }
+      ],
+      "states": {
+        "investigated": true,
+        "acquired": false,
+        "retained": false,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Literal model token observed in retained family document; no values transferred",
+      "hold_class": "sibling_ownership_not_qualified",
+      "reviewer_actions": [
+        "Inspect exact model primary source; PWM siblings are not MPPT controllers",
+        "Freeze identity/conditions before extraction"
+      ],
+      "representation_gaps": ["intended_use_consumer_audit_pending"],
+      "exact_model": "DDR-120B-24",
+      "part_number": null,
+      "sibling_observations": {
+        "retained_owner": "p22",
+        "source_digest": "0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+        "observations": [
+          {
+            "locator": {
+              "kind": "pdf",
+              "fragment": "pdf-page-2-item-279",
+              "path": "/pdf/page/2/text/279",
+              "page": 2,
+              "ordinal": 279
+            },
+            "observed_literal": "DDR-120B-24"
+          },
+          {
+            "locator": {
+              "kind": "pdf",
+              "fragment": "pdf-page-5-item-23",
+              "path": "/pdf/page/5/text/23",
+              "page": 5,
+              "ordinal": 23
+            },
+            "observed_literal": "DDR-120B-24"
+          },
+          {
+            "locator": {
+              "kind": "pdf",
+              "fragment": "pdf-page-6-item-48",
+              "path": "/pdf/page/6/text/48",
+              "page": 6,
+              "ordinal": 48
+            },
+            "observed_literal": "DDR-120B-24"
+          }
+        ]
+      }
+    },
+    {
+      "id": "p39",
+      "manufacturer": "MEAN WELL",
+      "model": "DDR-120C-24",
+      "exact_identity_note": "Distinct proposed model; source ownership/order code requires confirmation",
+      "identity_status": "proposed_horizon_identity_unconfirmed",
+      "intended_use": "converter",
+      "required_assertions": [
+        "exact_identity_revision",
+        "direction_input_output",
+        "input_range",
+        "output_voltage_current_power",
+        "peak_duration_conditions",
+        "isolation_scope",
+        "lockout_recovery",
+        "thermal_derating",
+        "terminals_protection_mounting"
+      ],
+      "sources": [
+        {
+          "url": "https://www.meanwell.com/Upload/PDF/DDR-120/DDR-120-SPEC.PDF",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": null,
+          "rights": "metadata_only_no_redistribution_grant",
+          "retained": false
+        }
+      ],
+      "states": {
+        "investigated": true,
+        "acquired": false,
+        "retained": false,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Literal model token observed in retained family document; no values transferred",
+      "hold_class": "sibling_ownership_not_qualified",
+      "reviewer_actions": [
+        "Inspect exact model primary source; PWM siblings are not MPPT controllers",
+        "Freeze identity/conditions before extraction"
+      ],
+      "representation_gaps": ["intended_use_consumer_audit_pending"],
+      "exact_model": "DDR-120C-24",
+      "part_number": null,
+      "sibling_observations": {
+        "retained_owner": "p22",
+        "source_digest": "0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+        "observations": [
+          {
+            "locator": {
+              "kind": "pdf",
+              "fragment": "pdf-page-3-item-175",
+              "path": "/pdf/page/3/text/175",
+              "page": 3,
+              "ordinal": 175
+            },
+            "observed_literal": "DDR-120C-24"
+          },
+          {
+            "locator": {
+              "kind": "pdf",
+              "fragment": "pdf-page-5-item-24",
+              "path": "/pdf/page/5/text/24",
+              "page": 5,
+              "ordinal": 24
+            },
+            "observed_literal": "DDR-120C-24"
+          },
+          {
+            "locator": {
+              "kind": "pdf",
+              "fragment": "pdf-page-6-item-234",
+              "path": "/pdf/page/6/text/234",
+              "page": 6,
+              "ordinal": 234
+            },
+            "observed_literal": "DDR-120C-24"
+          }
+        ]
+      }
+    },
+    {
+      "id": "p40",
+      "manufacturer": "MEAN WELL",
+      "model": "DDR-120B-48",
+      "exact_identity_note": "Distinct proposed model; source ownership/order code requires confirmation",
+      "identity_status": "proposed_horizon_identity_unconfirmed",
+      "intended_use": "converter",
+      "required_assertions": [
+        "exact_identity_revision",
+        "direction_input_output",
+        "input_range",
+        "output_voltage_current_power",
+        "peak_duration_conditions",
+        "isolation_scope",
+        "lockout_recovery",
+        "thermal_derating",
+        "terminals_protection_mounting"
+      ],
+      "sources": [
+        {
+          "url": "https://www.meanwell.com/Upload/PDF/DDR-120/DDR-120-SPEC.PDF",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": null,
+          "rights": "metadata_only_no_redistribution_grant",
+          "retained": false
+        }
+      ],
+      "states": {
+        "investigated": true,
+        "acquired": false,
+        "retained": false,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Literal model token observed in retained family document; no values transferred",
+      "hold_class": "sibling_ownership_not_qualified",
+      "reviewer_actions": [
+        "Inspect exact model primary source; PWM siblings are not MPPT controllers",
+        "Freeze identity/conditions before extraction"
+      ],
+      "representation_gaps": ["intended_use_consumer_audit_pending"],
+      "exact_model": "DDR-120B-48",
+      "part_number": null,
+      "sibling_observations": {
+        "retained_owner": "p22",
+        "source_digest": "0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+        "observations": [
+          {
+            "locator": {
+              "kind": "pdf",
+              "fragment": "pdf-page-2-item-300",
+              "path": "/pdf/page/2/text/300",
+              "page": 2,
+              "ordinal": 300
+            },
+            "observed_literal": "DDR-120B-48"
+          },
+          {
+            "locator": {
+              "kind": "pdf",
+              "fragment": "pdf-page-6-item-50",
+              "path": "/pdf/page/6/text/50",
+              "page": 6,
+              "ordinal": 50
+            },
+            "observed_literal": "DDR-120B-48"
+          },
+          {
+            "locator": {
+              "kind": "pdf",
+              "fragment": "pdf-page-7-item-41",
+              "path": "/pdf/page/7/text/41",
+              "page": 7,
+              "ordinal": 41
+            },
+            "observed_literal": "DDR-120B-48"
+          }
+        ]
+      }
+    },
+    {
+      "id": "p41",
+      "manufacturer": "MEAN WELL",
+      "model": "DDR-120C-48",
+      "exact_identity_note": "Distinct proposed model; source ownership/order code requires confirmation",
+      "identity_status": "proposed_horizon_identity_unconfirmed",
+      "intended_use": "converter",
+      "required_assertions": [
+        "exact_identity_revision",
+        "direction_input_output",
+        "input_range",
+        "output_voltage_current_power",
+        "peak_duration_conditions",
+        "isolation_scope",
+        "lockout_recovery",
+        "thermal_derating",
+        "terminals_protection_mounting"
+      ],
+      "sources": [
+        {
+          "url": "https://www.meanwell.com/Upload/PDF/DDR-120/DDR-120-SPEC.PDF",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": null,
+          "rights": "metadata_only_no_redistribution_grant",
+          "retained": false
+        }
+      ],
+      "states": {
+        "investigated": true,
+        "acquired": false,
+        "retained": false,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Literal model token observed in retained family document; no values transferred",
+      "hold_class": "sibling_ownership_not_qualified",
+      "reviewer_actions": [
+        "Inspect exact model primary source; PWM siblings are not MPPT controllers",
+        "Freeze identity/conditions before extraction"
+      ],
+      "representation_gaps": ["intended_use_consumer_audit_pending"],
+      "exact_model": "DDR-120C-48",
+      "part_number": null,
+      "sibling_observations": {
+        "retained_owner": "p22",
+        "source_digest": "0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+        "observations": [
+          {
+            "locator": {
+              "kind": "pdf",
+              "fragment": "pdf-page-3-item-177",
+              "path": "/pdf/page/3/text/177",
+              "page": 3,
+              "ordinal": 177
+            },
+            "observed_literal": "DDR-120C-48"
+          },
+          {
+            "locator": {
+              "kind": "pdf",
+              "fragment": "pdf-page-6-item-271",
+              "path": "/pdf/page/6/text/271",
+              "page": 6,
+              "ordinal": 271
+            },
+            "observed_literal": "DDR-120C-48"
+          },
+          {
+            "locator": {
+              "kind": "pdf",
+              "fragment": "pdf-page-7-item-28",
+              "path": "/pdf/page/7/text/28",
+              "page": 7,
+              "ordinal": 28
+            },
+            "observed_literal": "DDR-120C-48"
+          }
+        ]
+      }
+    },
+    {
+      "id": "p42",
+      "manufacturer": "Samlex America",
+      "model": "PST-2000-12",
+      "exact_identity_note": "Distinct proposed model; source ownership/order code requires confirmation",
+      "identity_status": "proposed_horizon_identity_unconfirmed",
+      "intended_use": "inverter",
+      "required_assertions": [
+        "exact_identity_revision",
+        "dc_input_window",
+        "ac_voltage_phase_hz",
+        "w_va_pf",
+        "surge_duration",
+        "idle_draw",
+        "thermal_derating",
+        "ground_neutral_modes",
+        "fusing_installation"
+      ],
+      "sources": [
+        {
+          "url": "https://samlexamerica.com/products/2000-watt-pure-sine-wave-inverter-pst-2000-12/",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": null,
+          "rights": "metadata_only_no_redistribution_grant",
+          "retained": false
+        }
+      ],
+      "states": {
+        "investigated": false,
+        "acquired": false,
+        "retained": false,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Wave-1 proposed horizon; not counted as investigated until evidence inspected",
+      "hold_class": "uninvestigated_horizon",
+      "reviewer_actions": [
+        "Inspect exact model primary source; PWM siblings are not MPPT controllers",
+        "Freeze identity/conditions before extraction"
+      ],
+      "representation_gaps": ["intended_use_consumer_audit_pending"],
+      "exact_model": "PST-2000-12",
+      "part_number": null
+    },
+    {
+      "id": "p43",
+      "manufacturer": "Samlex America",
+      "model": "PST-1000-24",
+      "exact_identity_note": "Distinct proposed model; source ownership/order code requires confirmation",
+      "identity_status": "proposed_horizon_identity_unconfirmed",
+      "intended_use": "inverter",
+      "required_assertions": [
+        "exact_identity_revision",
+        "dc_input_window",
+        "ac_voltage_phase_hz",
+        "w_va_pf",
+        "surge_duration",
+        "idle_draw",
+        "thermal_derating",
+        "ground_neutral_modes",
+        "fusing_installation"
+      ],
+      "sources": [
+        {
+          "url": "https://samlexamerica.com/products/1000-watt-pure-sine-wave-inverter-pst-1000-24/",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": null,
+          "rights": "metadata_only_no_redistribution_grant",
+          "retained": false
+        }
+      ],
+      "states": {
+        "investigated": false,
+        "acquired": false,
+        "retained": false,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Wave-1 proposed horizon; not counted as investigated until evidence inspected",
+      "hold_class": "uninvestigated_horizon",
+      "reviewer_actions": [
+        "Inspect exact model primary source; PWM siblings are not MPPT controllers",
+        "Freeze identity/conditions before extraction"
+      ],
+      "representation_gaps": ["intended_use_consumer_audit_pending"],
+      "exact_model": "PST-1000-24",
+      "part_number": null
+    },
+    {
+      "id": "p44",
+      "manufacturer": "Samlex America",
+      "model": "EVO-3012",
+      "exact_identity_note": "Distinct proposed model; source ownership/order code requires confirmation",
+      "identity_status": "proposed_horizon_identity_unconfirmed",
+      "intended_use": "multifunction",
+      "required_assertions": [
+        "exact_identity_revision",
+        "directional_ports_paths",
+        "battery_envelope",
+        "pv_tracker_limits",
+        "mode_specific_ac_conductors",
+        "w_va_pf_surge_duration",
+        "shared_capacity_exclusions",
+        "assembly_revision_counts",
+        "protocol_dependencies",
+        "ground_neutral_transfer",
+        "idle_thermal_installation"
+      ],
+      "sources": [
+        {
+          "url": "https://samlexamerica.com/wp-content/uploads/2021/11/Samlex-EVO-Features-Spec-Sheet-1121.pdf",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": null,
+          "rights": "metadata_only_no_redistribution_grant",
+          "retained": false
+        }
+      ],
+      "states": {
+        "investigated": false,
+        "acquired": false,
+        "retained": false,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Wave-1 proposed horizon; not counted as investigated until evidence inspected",
+      "hold_class": "uninvestigated_horizon",
+      "reviewer_actions": [
+        "Inspect exact model primary source; PWM siblings are not MPPT controllers",
+        "Freeze identity/conditions before extraction"
+      ],
+      "representation_gaps": ["intended_use_consumer_audit_pending"],
+      "exact_model": "EVO-3012",
+      "part_number": null
+    },
+    {
+      "id": "p45",
+      "manufacturer": "Samlex America",
+      "model": "EVO-4024",
+      "exact_identity_note": "Distinct proposed model; source ownership/order code requires confirmation",
+      "identity_status": "proposed_horizon_identity_unconfirmed",
+      "intended_use": "multifunction",
+      "required_assertions": [
+        "exact_identity_revision",
+        "directional_ports_paths",
+        "battery_envelope",
+        "pv_tracker_limits",
+        "mode_specific_ac_conductors",
+        "w_va_pf_surge_duration",
+        "shared_capacity_exclusions",
+        "assembly_revision_counts",
+        "protocol_dependencies",
+        "ground_neutral_transfer",
+        "idle_thermal_installation"
+      ],
+      "sources": [
+        {
+          "url": "https://samlexamerica.com/wp-content/uploads/2021/11/Samlex-EVO-Features-Spec-Sheet-1121.pdf",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": null,
+          "rights": "metadata_only_no_redistribution_grant",
+          "retained": false
+        }
+      ],
+      "states": {
+        "investigated": false,
+        "acquired": false,
+        "retained": false,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Wave-1 proposed horizon; not counted as investigated until evidence inspected",
+      "hold_class": "uninvestigated_horizon",
+      "reviewer_actions": [
+        "Inspect exact model primary source; PWM siblings are not MPPT controllers",
+        "Freeze identity/conditions before extraction"
+      ],
+      "representation_gaps": ["intended_use_consumer_audit_pending"],
+      "exact_model": "EVO-4024",
+      "part_number": null
+    },
+    {
+      "id": "p46",
+      "manufacturer": "Battle Born Batteries",
+      "model": "BB10012H",
+      "exact_identity_note": "Distinct proposed model; source ownership/order code requires confirmation",
+      "identity_status": "proposed_horizon_identity_unconfirmed",
+      "intended_use": "battery",
+      "required_assertions": [
+        "exact_identity_revision",
+        "nominal_v_ah_wh",
+        "charge_voltage_current",
+        "discharge_continuous_peak_duration",
+        "bms_cutoff_recovery",
+        "temperature_heater_policy",
+        "series_parallel_permission",
+        "terminals_fusing",
+        "installation_envelope"
+      ],
+      "sources": [
+        {
+          "url": "https://battlebornbatteries.com/",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": null,
+          "rights": "metadata_only_no_redistribution_grant",
+          "retained": false
+        }
+      ],
+      "states": {
+        "investigated": false,
+        "acquired": false,
+        "retained": false,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Wave-1 proposed horizon; not counted as investigated until evidence inspected",
+      "hold_class": "uninvestigated_horizon",
+      "reviewer_actions": [
+        "Inspect exact model primary source; PWM siblings are not MPPT controllers",
+        "Freeze identity/conditions before extraction"
+      ],
+      "representation_gaps": ["intended_use_consumer_audit_pending"],
+      "exact_model": "BB10012H",
+      "part_number": null
+    },
+    {
+      "id": "p47",
+      "manufacturer": "Blue Sea Systems",
+      "model": "6007",
+      "exact_identity_note": "Distinct proposed model; source ownership/order code requires confirmation",
+      "identity_status": "proposed_horizon_identity_unconfirmed",
+      "intended_use": "switch",
+      "required_assertions": [
+        "exact_identity_revision",
+        "coil_contact_domains",
+        "carry_continuous_peak_duration",
+        "switching_interruption_distinction",
+        "participants_states",
+        "control_thresholds",
+        "terminals_protection_mounting"
+      ],
+      "sources": [
+        {
+          "url": "https://www.bluesea.com/products/6007/m-Series_Mini_Selector_Battery_Switch",
+          "publisher_status": "proposed_primary",
+          "document_revision": null,
+          "source_digest": "f5a5683aabc38765f396a758f743e4f3024694c23249e30f54e140e18db213a6",
+          "rights": "private_research_only_no_public_redistribution_grant",
+          "retained": false,
+          "retrieved_at": "2026-10-13T05:13:25.671Z"
+        }
+      ],
+      "states": {
+        "investigated": true,
+        "acquired": false,
+        "retained": false,
+        "interpreted": false,
+        "draft_prepared": false,
+        "review_ready": false,
+        "human_reviewed": false,
+        "approved": false,
+        "promoted": false,
+        "engineering_verified": false,
+        "held": true
+      },
+      "investigation_basis": "Wave-1 exact named source acquisition and scoped extraction inspected; source availability/identity may remain held",
+      "hold_class": "source_acquisition_failure",
+      "reviewer_actions": [
+        "Inspect exact model primary source; PWM siblings are not MPPT controllers",
+        "Freeze identity/conditions before extraction"
+      ],
+      "representation_gaps": ["intended_use_consumer_audit_pending"],
+      "exact_model": "6007",
+      "part_number": null,
+      "current_campaign": {
+        "capture_status": "failed",
+        "retrieved_at": "2026-10-13T05:13:25.671Z",
+        "final_uri": "https://www.bluesea.com/products/6007/m-Series_Mini_Selector_Battery_Switch",
+        "source_digest": "f5a5683aabc38765f396a758f743e4f3024694c23249e30f54e140e18db213a6",
+        "byte_count": 4546,
+        "issues": [
+          {
+            "code": "http_status",
+            "message": "The source returned HTTP status 403."
+          }
+        ],
+        "private_capture_file": "p47.capture.json",
+        "extraction_status": null
+      }
+    }
+  ],
+  "notes": [
+    "47 distinct proposed model/module horizon; source/ordering identity remains explicit per record",
+    "Human review/approval/promotion/engineering verification populations are zero for this campaign, without making claims about historical corpus records",
+    "Source availability success is not semantic mapping or qualification success. No broad catalog absence claim.",
+    "No confirmed manufacturer document revision on newly prepared profiles; MEAN WELL PDF filename/page observes 2026-09-10, pending source revision review"
+  ],
+  "requirements_editorial_change": "Removed an unmeasured freeze timestamp; assertion names/counts unchanged. No expected numeric values exist in this inventory.",
+  "continuation": {
+    "version": "wave1-continuation.v1",
+    "source_adapter": "engineering-profile-adjudication.v1",
+    "installed_bridge": "installed-pv-binding.v1",
+    "focus_ids": ["p25", "p26", "p07"],
+    "held_out_ids": ["p26", "p08"],
+    "real_product_admissions": 0,
+    "readiness": "Real products remain held; controlled test decisions do not change cohort populations",
+    "consumer_document": "docs/ENGINEERING_CORPUS_WAVE1_CONTINUATION.md"
+  }
+}

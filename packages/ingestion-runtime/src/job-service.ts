@@ -5,9 +5,11 @@ import type {
   HumanAdjudicationEvent,
   SourceRatingQualifiers,
   HumanMappingIntent,
+  ProfileQuantity,
 } from '@expedition/ingestion';
 import {
   humanStatementFact,
+  PROFILE_ADJUDICATION_VERSION,
   previewHumanMapping,
   productionSemanticFieldDescriptors,
   genericSemanticRules,
@@ -16,6 +18,7 @@ import {
 } from '@expedition/ingestion';
 
 export type HumanDiscoveryRepresentation =
+  | { readonly kind: 'engineering_profile_fact'; readonly quantity?: ProfileQuantity }
   | { readonly kind: 'scalar' | 'source_observation' }
   | { readonly kind: 'source_rating'; readonly qualifiers: SourceRatingQualifiers };
 // Read-only discovery/preview can precede the reason field. This marker is
@@ -41,9 +44,19 @@ export function isHumanDiscoveryRepresentation(
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const v = value as HumanDiscoveryRepresentation;
   if (
-    !['scalar', 'source_rating', 'source_observation'].includes(v.kind) ||
+    !['scalar', 'source_rating', 'source_observation', 'engineering_profile_fact'].includes(
+      v.kind,
+    ) ||
     Object.keys(v).some(
-      (key) => !['kind', ...(v.kind === 'source_rating' ? ['qualifiers'] : [])].includes(key),
+      (key) =>
+        ![
+          'kind',
+          ...(v.kind === 'source_rating'
+            ? ['qualifiers']
+            : v.kind === 'engineering_profile_fact'
+              ? ['quantity']
+              : []),
+        ].includes(key),
     )
   )
     return false;
@@ -66,11 +79,13 @@ export function isHumanDiscoveryRepresentation(
         mapping: {
           ...v,
           target:
-            v.kind === 'scalar'
-              ? 'weight_kg'
-              : v.kind === 'source_rating'
-                ? 'electrical.output_current_a'
-                : 'dimensions_mm',
+            v.kind === 'engineering_profile_fact'
+              ? 'engineering_profile'
+              : v.kind === 'scalar'
+                ? 'weight_kg'
+                : v.kind === 'source_rating'
+                  ? 'electrical.output_current_a'
+                  : 'dimensions_mm',
         },
       },
     ],
@@ -1214,15 +1229,17 @@ export class IngestionJobService {
       const fact = event.facts[request.statement_index];
       if (!fact) throw new Error('Draft corrections have no engineering eligibility.');
       const fields =
-        mapping.kind === 'scalar'
-          ? productionSemanticFieldDescriptors().map((d) => d.canonical_field)
-          : mapping.kind === 'source_rating'
-            ? [...new Set(genericSemanticRules.map((r) => r.target))]
-            : [
-                'electrical.input_voltage_range_v',
-                'electrical.power_consumption_w',
-                'dimensions_mm',
-              ];
+        mapping.kind === 'engineering_profile_fact'
+          ? ['engineering_profile']
+          : mapping.kind === 'scalar'
+            ? productionSemanticFieldDescriptors().map((d) => d.canonical_field)
+            : mapping.kind === 'source_rating'
+              ? [...new Set(genericSemanticRules.map((r) => r.target))]
+              : [
+                  'electrical.input_voltage_range_v',
+                  'electrical.power_consumption_w',
+                  'dimensions_mm',
+                ];
       const targets = fields.flatMap((target) => {
         try {
           const intent = { ...mapping, target } as HumanMappingIntent;
@@ -1237,10 +1254,13 @@ export class IngestionJobService {
               value_shapes: ['number', 'object'] as const,
               dimension: resolveUnit(preview.normalized_unit)?.dimension ?? 'structured',
               unit: preview.normalized_unit,
-              allows_unit_conversion: true,
+              allows_unit_conversion: mapping.kind !== 'engineering_profile_fact',
               human_adjudication:
                 mapping.kind === 'scalar' ? ('source_fact' as const) : ('qualified_only' as const),
-              normalizer_version: 'human-adjudication.v1',
+              normalizer_version:
+                mapping.kind === 'engineering_profile_fact'
+                  ? PROFILE_ADJUDICATION_VERSION
+                  : 'human-adjudication.v1',
             },
           ];
         } catch {

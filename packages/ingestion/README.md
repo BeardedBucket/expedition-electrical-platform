@@ -1,5 +1,15 @@
 # Ingestion contracts
 
+Wave-1 engineering preparation adds private evidence-bound profile authoring and
+strict replay, separate from production semantic decisions and admission. See
+[the versioned contract](../../docs/ENGINEERING_CORPUS_WAVE1.md) and
+[the operator runbook](../../docs/ENGINEERING_CORPUS_WAVE1_RUNBOOK.md).
+Original units, exact ownership and unknown conditions remain explicit. The
+profile sidecar remains a proposal. The ordinary source editor now composes
+source-reviewed PV/controller members atomically into pending candidates; this
+does not import sidecar JSON or approve products. See
+[the durable continuation path](../../docs/ENGINEERING_CORPUS_WAVE1_CONTINUATION.md).
+
 This package defines the Phase 9B-2B representation boundary for product
 source, extracted fact, and candidate component artifacts.
 

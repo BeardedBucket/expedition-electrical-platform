@@ -1,5 +1,17 @@
 # Architecture
 
+## Wave-1 versioned engineering preparation
+
+Optional `engineering-profile.v1` facts and `engineering-envelope.v2` consumers
+add explicit PV/tracker, shared-capacity, AC-mode and assembly preparation.
+Source-bound private byte replay, selected-envelope replay and the browser
+proposal editor retain provisional authority; they do not approve products or
+extend the installed passport/selection assertion scope. Historical records and
+semantic versions are not migrated. See [the contract and consumer rationale](ENGINEERING_CORPUS_WAVE1.md)
+and [the operator runbook](ENGINEERING_CORPUS_WAVE1_RUNBOOK.md), including the
+durable atomic source-adjudication adapter and explicit installed PV gate. See
+[the continuation call paths and authority limits](ENGINEERING_CORPUS_WAVE1_CONTINUATION.md).
+
 ## Human source adjudication and integration validation
 
 Source correction is a provisional, append-only review event over immutable
