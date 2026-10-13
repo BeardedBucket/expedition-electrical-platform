@@ -1,0 +1,143 @@
+{
+  "schema_version": "engineering-envelope-input.v1",
+  "profiles": [
+    {
+      "schema_version": "engineering-profile.v1",
+      "component_id": "hub",
+      "model": "Synthetic hub",
+      "manufacturer_revision": "invented-r1",
+      "evidence": [
+        {
+          "id": "hub.e",
+          "source_url": "urn:project:synthetic",
+          "publisher": "Expedition test authors",
+          "model": "Synthetic hub",
+          "manufacturer_revision": "invented-r1",
+          "retrieved_at": "2026-01-01T00:00:00Z",
+          "locator": "invented complete fixture",
+          "source_digest": null,
+          "statement": "All values and permissions are invented controlled test assumptions.",
+          "conditions": [],
+          "origin": "synthetic",
+          "rights": "project_authored"
+        }
+      ],
+      "shared_capacity": [
+        {
+          "id": "total",
+          "mode": "inversion",
+          "path_ids": ["ac", "dc"],
+          "unit": "W",
+          "limit": 6000,
+          "evidence_ids": ["hub.e"],
+          "battery_count": 2,
+          "temperature_c": {
+            "min": 0,
+            "max": 40
+          },
+          "accounting": "boundary_demand_includes_losses",
+          "excluded_path_pairs": [["ac", "dc"]]
+        }
+      ],
+      "ac_modes": [
+        {
+          "id": "inversion",
+          "kind": "inversion",
+          "relationship": "split_phase",
+          "line_neutral_v": {
+            "value": 120,
+            "unit": "V",
+            "evidence_ids": ["hub.e"]
+          },
+          "line_line_v": {
+            "value": 240,
+            "unit": "V",
+            "evidence_ids": ["hub.e"]
+          },
+          "source_required": false,
+          "evidence_ids": ["hub.e"],
+          "leg_limits_a": {
+            "L1": {
+              "value": 25,
+              "unit": "A",
+              "evidence_ids": ["hub.e"]
+            },
+            "L2": {
+              "value": 25,
+              "unit": "A",
+              "evidence_ids": ["hub.e"]
+            }
+          },
+          "neutral_limit_a": {
+            "value": 25,
+            "unit": "A",
+            "evidence_ids": ["hub.e"]
+          },
+          "neutral_evidence_ids": ["hub.e"],
+          "grounding_evidence_ids": ["hub.e"]
+        }
+      ],
+      "assembly": [
+        {
+          "component_id": "battery",
+          "model": "Synthetic pack",
+          "compatible_revision": "kit-r1",
+          "relationship": "included",
+          "min_count": 2,
+          "max_count": 2,
+          "protocol": "invented-protocol.v1",
+          "evidence_ids": ["hub.e"]
+        },
+        {
+          "component_id": "screen",
+          "model": "Synthetic screen",
+          "compatible_revision": "kit-r1",
+          "relationship": "optional",
+          "min_count": 0,
+          "max_count": 1,
+          "protocol": "invented-protocol.v1",
+          "evidence_ids": ["hub.e"]
+        }
+      ],
+      "shared_capacity_inventory": [
+        {
+          "mode": "inversion",
+          "group_ids": ["total"],
+          "evidence_ids": ["hub.e"]
+        }
+      ]
+    }
+  ],
+  "operating": {
+    "component_id": "hub",
+    "mode": "inversion",
+    "battery_count": 2,
+    "temperature_c": 25,
+    "required_capacity_group_ids": ["total"],
+    "demands": [
+      {
+        "path_id": "ac",
+        "value": 5000,
+        "unit": "W"
+      }
+    ],
+    "ac_loads": [
+      {
+        "connection": "line_line",
+        "voltage_v": 240,
+        "relationship": "split_phase",
+        "current_a": 20
+      }
+    ],
+    "neutral_current_a": 0,
+    "installed_modules": [
+      {
+        "component_id": "battery",
+        "model": "Synthetic pack",
+        "revision": "kit-r1",
+        "count": 2,
+        "protocol": "invented-protocol.v1"
+      }
+    ]
+  }
+}

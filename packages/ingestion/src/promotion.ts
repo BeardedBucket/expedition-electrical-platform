@@ -234,7 +234,9 @@ const slug = (value: string): string =>
     .replace(/^-+|-+$/g, '');
 
 export const canonicalIdFor = (candidate: ProductCandidate): string => {
-  const identity = candidate.identity;
+  return canonicalIdForIdentity(candidate.identity);
+};
+export const canonicalIdForIdentity = (identity: ProductCandidate['identity']): string => {
   const key = identity.manufacturer_part_number ?? `${identity.manufacturer}-${identity.model}`;
   return `${slug(identity.manufacturer ?? 'component')}.${slug(key)}`;
 };

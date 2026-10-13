@@ -1,0 +1,777 @@
+{
+  "schema_version": "wave1-required-assertions.v1",
+  "frozen_at": null,
+  "purpose": "Independent intended-use denominator: names only, never production extractor input",
+  "products": [
+    {
+      "id": "p01",
+      "model": "RV5 Power Hub — US",
+      "intended_use": "multifunction",
+      "required_assertions": [
+        "exact_identity_revision",
+        "directional_ports_paths",
+        "battery_envelope",
+        "pv_tracker_limits",
+        "mode_specific_ac_conductors",
+        "w_va_pf_surge_duration",
+        "shared_capacity_exclusions",
+        "assembly_revision_counts",
+        "protocol_dependencies",
+        "ground_neutral_transfer",
+        "idle_thermal_installation"
+      ]
+    },
+    {
+      "id": "p02",
+      "model": "B4810 LiFePO4 battery",
+      "intended_use": "battery",
+      "required_assertions": [
+        "exact_identity_revision",
+        "nominal_v_ah_wh",
+        "charge_voltage_current",
+        "discharge_continuous_peak_duration",
+        "bms_cutoff_recovery",
+        "temperature_heater_policy",
+        "series_parallel_permission",
+        "terminals_fusing",
+        "installation_envelope"
+      ]
+    },
+    {
+      "id": "p03",
+      "model": "Epanel Smart Distribution Panel — US",
+      "intended_use": "distribution",
+      "required_assertions": [
+        "exact_identity_revision",
+        "bus_branch_voltage_current",
+        "protection_participants",
+        "included_required_fuses",
+        "ground_neutral_buses",
+        "aggregate_capacity",
+        "terminal_installation"
+      ]
+    },
+    {
+      "id": "p04",
+      "model": "Epad Central Control Screen",
+      "intended_use": "monitor",
+      "required_assertions": [
+        "exact_identity_revision",
+        "supply_consumption",
+        "measurement_participants",
+        "accuracy_denominator_conditions",
+        "shunt_a_mv_transfer",
+        "included_optional_accessories",
+        "protocol_pinout_termination",
+        "installation"
+      ]
+    },
+    {
+      "id": "p05",
+      "model": "PV100 FX single flexible module",
+      "intended_use": "solar",
+      "required_assertions": [
+        "exact_identity_revision",
+        "pmax_w",
+        "voc_v",
+        "vmp_v",
+        "isc_a",
+        "imp_a",
+        "reference_cell_temperature",
+        "reference_irradiance_spectrum",
+        "quantity_coefficients_domains",
+        "uncertainty",
+        "system_voltage_series_fuse",
+        "connectors_installation"
+      ]
+    },
+    {
+      "id": "p06",
+      "model": "Comvolt 6000",
+      "intended_use": "multifunction",
+      "required_assertions": [
+        "exact_identity_revision",
+        "directional_ports_paths",
+        "battery_envelope",
+        "pv_tracker_limits",
+        "mode_specific_ac_conductors",
+        "w_va_pf_surge_duration",
+        "shared_capacity_exclusions",
+        "assembly_revision_counts",
+        "protocol_dependencies",
+        "ground_neutral_transfer",
+        "idle_thermal_installation"
+      ]
+    },
+    {
+      "id": "p07",
+      "model": "SmartSolar MPPT 150/45",
+      "intended_use": "mppt",
+      "required_assertions": [
+        "exact_identity_revision",
+        "tracker_terminal_membership",
+        "absolute_pv_voc",
+        "operating_start_restart_voltage",
+        "pv_isc_imp",
+        "battery_voltage_charge_current",
+        "conditional_pv_power_clipping",
+        "input_sharing",
+        "connectors_protection",
+        "thermal_mounting"
+      ]
+    },
+    {
+      "id": "p08",
+      "model": "SmartSolar MPPT 250/100-Tr VE.Can",
+      "intended_use": "mppt",
+      "required_assertions": [
+        "exact_identity_revision",
+        "tracker_terminal_membership",
+        "absolute_pv_voc",
+        "operating_start_restart_voltage",
+        "pv_isc_imp",
+        "battery_voltage_charge_current",
+        "conditional_pv_power_clipping",
+        "input_sharing",
+        "connectors_protection",
+        "thermal_mounting"
+      ]
+    },
+    {
+      "id": "p09",
+      "model": "Orion XS 12/12-50A DC-DC battery charger",
+      "intended_use": "dccharger",
+      "required_assertions": [
+        "exact_identity_revision",
+        "input_ranges_direction",
+        "charge_output_envelope",
+        "source_priority_concurrency",
+        "pv_limits_if_asserted",
+        "engine_detection_control",
+        "thermal_derating",
+        "isolation_scope",
+        "fusing_installation"
+      ]
+    },
+    {
+      "id": "p10",
+      "model": "BMV-712 Smart",
+      "intended_use": "monitor",
+      "required_assertions": [
+        "exact_identity_revision",
+        "supply_consumption",
+        "measurement_participants",
+        "accuracy_denominator_conditions",
+        "shunt_a_mv_transfer",
+        "included_optional_accessories",
+        "protocol_pinout_termination",
+        "installation"
+      ]
+    },
+    {
+      "id": "p11",
+      "model": "MultiPlus-II 2x120V 12/3000/120-50",
+      "intended_use": "multifunction",
+      "required_assertions": [
+        "exact_identity_revision",
+        "directional_ports_paths",
+        "battery_envelope",
+        "pv_tracker_limits",
+        "mode_specific_ac_conductors",
+        "w_va_pf_surge_duration",
+        "shared_capacity_exclusions",
+        "assembly_revision_counts",
+        "protocol_dependencies",
+        "ground_neutral_transfer",
+        "idle_thermal_installation"
+      ]
+    },
+    {
+      "id": "p12",
+      "model": "m-Series Mini On-Off Battery Switch",
+      "intended_use": "switch",
+      "required_assertions": [
+        "exact_identity_revision",
+        "coil_contact_domains",
+        "carry_continuous_peak_duration",
+        "switching_interruption_distinction",
+        "participants_states",
+        "control_thresholds",
+        "terminals_protection_mounting"
+      ]
+    },
+    {
+      "id": "p13",
+      "model": "ST Blade Fuse Block 12 circuits with negative bus and cover",
+      "intended_use": "distribution",
+      "required_assertions": [
+        "exact_identity_revision",
+        "bus_branch_voltage_current",
+        "protection_participants",
+        "included_required_fuses",
+        "ground_neutral_buses",
+        "aggregate_capacity",
+        "terminal_installation"
+      ]
+    },
+    {
+      "id": "p14",
+      "model": "ML-ACR automatic charging relay with manual control",
+      "intended_use": "switch",
+      "required_assertions": [
+        "exact_identity_revision",
+        "coil_contact_domains",
+        "carry_continuous_peak_duration",
+        "switching_interruption_distinction",
+        "participants_states",
+        "control_thresholds",
+        "terminals_protection_mounting"
+      ]
+    },
+    {
+      "id": "p15",
+      "model": "EVO-2212",
+      "intended_use": "multifunction",
+      "required_assertions": [
+        "exact_identity_revision",
+        "directional_ports_paths",
+        "battery_envelope",
+        "pv_tracker_limits",
+        "mode_specific_ac_conductors",
+        "w_va_pf_surge_duration",
+        "shared_capacity_exclusions",
+        "assembly_revision_counts",
+        "protocol_dependencies",
+        "ground_neutral_transfer",
+        "idle_thermal_installation"
+      ]
+    },
+    {
+      "id": "p16",
+      "model": "PST-2000-24",
+      "intended_use": "inverter",
+      "required_assertions": [
+        "exact_identity_revision",
+        "dc_input_window",
+        "ac_voltage_phase_hz",
+        "w_va_pf",
+        "surge_duration",
+        "idle_draw",
+        "thermal_derating",
+        "ground_neutral_modes",
+        "fusing_installation"
+      ]
+    },
+    {
+      "id": "p17",
+      "model": "EVO-4248SP",
+      "intended_use": "multifunction",
+      "required_assertions": [
+        "exact_identity_revision",
+        "directional_ports_paths",
+        "battery_envelope",
+        "pv_tracker_limits",
+        "mode_specific_ac_conductors",
+        "w_va_pf_surge_duration",
+        "shared_capacity_exclusions",
+        "assembly_revision_counts",
+        "protocol_dependencies",
+        "ground_neutral_transfer",
+        "idle_thermal_installation"
+      ]
+    },
+    {
+      "id": "p18",
+      "model": "TriStar MPPT 60",
+      "intended_use": "mppt",
+      "required_assertions": [
+        "exact_identity_revision",
+        "tracker_terminal_membership",
+        "absolute_pv_voc",
+        "operating_start_restart_voltage",
+        "pv_isc_imp",
+        "battery_voltage_charge_current",
+        "conditional_pv_power_clipping",
+        "input_sharing",
+        "connectors_protection",
+        "thermal_mounting"
+      ]
+    },
+    {
+      "id": "p19",
+      "model": "SunSaver MPPT",
+      "intended_use": "mppt",
+      "required_assertions": [
+        "exact_identity_revision",
+        "tracker_terminal_membership",
+        "absolute_pv_voc",
+        "operating_start_restart_voltage",
+        "pv_isc_imp",
+        "battery_voltage_charge_current",
+        "conditional_pv_power_clipping",
+        "input_sharing",
+        "connectors_protection",
+        "thermal_mounting"
+      ]
+    },
+    {
+      "id": "p20",
+      "model": "DMT1250 DC-DC battery charger",
+      "intended_use": "dccharger",
+      "required_assertions": [
+        "exact_identity_revision",
+        "input_ranges_direction",
+        "charge_output_envelope",
+        "source_priority_concurrency",
+        "pv_limits_if_asserted",
+        "engine_detection_control",
+        "thermal_derating",
+        "isolation_scope",
+        "fusing_installation"
+      ]
+    },
+    {
+      "id": "p21",
+      "model": "IC122055 inverter/charger",
+      "intended_use": "multifunction",
+      "required_assertions": [
+        "exact_identity_revision",
+        "directional_ports_paths",
+        "battery_envelope",
+        "pv_tracker_limits",
+        "mode_specific_ac_conductors",
+        "w_va_pf_surge_duration",
+        "shared_capacity_exclusions",
+        "assembly_revision_counts",
+        "protocol_dependencies",
+        "ground_neutral_transfer",
+        "idle_thermal_installation"
+      ]
+    },
+    {
+      "id": "p22",
+      "model": "DDR-120B-12",
+      "intended_use": "converter",
+      "required_assertions": [
+        "exact_identity_revision",
+        "direction_input_output",
+        "input_range",
+        "output_voltage_current_power",
+        "peak_duration_conditions",
+        "isolation_scope",
+        "lockout_recovery",
+        "thermal_derating",
+        "terminals_protection_mounting"
+      ]
+    },
+    {
+      "id": "p23",
+      "model": "DDR-120C-12",
+      "intended_use": "converter",
+      "required_assertions": [
+        "exact_identity_revision",
+        "direction_input_output",
+        "input_range",
+        "output_voltage_current_power",
+        "peak_duration_conditions",
+        "isolation_scope",
+        "lockout_recovery",
+        "thermal_derating",
+        "terminals_protection_mounting"
+      ]
+    },
+    {
+      "id": "p24",
+      "model": "24 V 100 Ah marine LiFePO4",
+      "intended_use": "battery",
+      "required_assertions": [
+        "exact_identity_revision",
+        "nominal_v_ah_wh",
+        "charge_voltage_current",
+        "discharge_continuous_peak_duration",
+        "bms_cutoff_recovery",
+        "temperature_heater_policy",
+        "series_parallel_permission",
+        "terminals_fusing",
+        "installation_envelope"
+      ]
+    },
+    {
+      "id": "p25",
+      "model": "NPA200S-12J",
+      "intended_use": "solar",
+      "required_assertions": [
+        "exact_identity_revision",
+        "pmax_w",
+        "voc_v",
+        "vmp_v",
+        "isc_a",
+        "imp_a",
+        "reference_cell_temperature",
+        "reference_irradiance_spectrum",
+        "quantity_coefficients_domains",
+        "uncertainty",
+        "system_voltage_series_fuse",
+        "connectors_installation"
+      ]
+    },
+    {
+      "id": "p26",
+      "model": "NPA200S-24J",
+      "intended_use": "solar",
+      "required_assertions": [
+        "exact_identity_revision",
+        "pmax_w",
+        "voc_v",
+        "vmp_v",
+        "isc_a",
+        "imp_a",
+        "reference_cell_temperature",
+        "reference_irradiance_spectrum",
+        "quantity_coefficients_domains",
+        "uncertainty",
+        "system_voltage_series_fuse",
+        "connectors_installation"
+      ]
+    },
+    {
+      "id": "p27",
+      "model": "100 Ah 12 V standard non-heated LiFePO4 battery",
+      "intended_use": "battery",
+      "required_assertions": [
+        "exact_identity_revision",
+        "nominal_v_ah_wh",
+        "charge_voltage_current",
+        "discharge_continuous_peak_duration",
+        "bms_cutoff_recovery",
+        "temperature_heater_policy",
+        "series_parallel_permission",
+        "terminals_fusing",
+        "installation_envelope"
+      ]
+    },
+    {
+      "id": "p28",
+      "model": "SmartSolar MPPT 75/15",
+      "intended_use": "mppt",
+      "required_assertions": [
+        "exact_identity_revision",
+        "tracker_terminal_membership",
+        "absolute_pv_voc",
+        "operating_start_restart_voltage",
+        "pv_isc_imp",
+        "battery_voltage_charge_current",
+        "conditional_pv_power_clipping",
+        "input_sharing",
+        "connectors_protection",
+        "thermal_mounting"
+      ]
+    },
+    {
+      "id": "p29",
+      "model": "SmartSolar MPPT 100/30",
+      "intended_use": "mppt",
+      "required_assertions": [
+        "exact_identity_revision",
+        "tracker_terminal_membership",
+        "absolute_pv_voc",
+        "operating_start_restart_voltage",
+        "pv_isc_imp",
+        "battery_voltage_charge_current",
+        "conditional_pv_power_clipping",
+        "input_sharing",
+        "connectors_protection",
+        "thermal_mounting"
+      ]
+    },
+    {
+      "id": "p30",
+      "model": "SmartSolar MPPT 100/50",
+      "intended_use": "mppt",
+      "required_assertions": [
+        "exact_identity_revision",
+        "tracker_terminal_membership",
+        "absolute_pv_voc",
+        "operating_start_restart_voltage",
+        "pv_isc_imp",
+        "battery_voltage_charge_current",
+        "conditional_pv_power_clipping",
+        "input_sharing",
+        "connectors_protection",
+        "thermal_mounting"
+      ]
+    },
+    {
+      "id": "p31",
+      "model": "SmartSolar MPPT 150/35",
+      "intended_use": "mppt",
+      "required_assertions": [
+        "exact_identity_revision",
+        "tracker_terminal_membership",
+        "absolute_pv_voc",
+        "operating_start_restart_voltage",
+        "pv_isc_imp",
+        "battery_voltage_charge_current",
+        "conditional_pv_power_clipping",
+        "input_sharing",
+        "connectors_protection",
+        "thermal_mounting"
+      ]
+    },
+    {
+      "id": "p32",
+      "model": "SmartSolar MPPT 250/85-Tr VE.Can",
+      "intended_use": "mppt",
+      "required_assertions": [
+        "exact_identity_revision",
+        "tracker_terminal_membership",
+        "absolute_pv_voc",
+        "operating_start_restart_voltage",
+        "pv_isc_imp",
+        "battery_voltage_charge_current",
+        "conditional_pv_power_clipping",
+        "input_sharing",
+        "connectors_protection",
+        "thermal_mounting"
+      ]
+    },
+    {
+      "id": "p33",
+      "model": "SmartSolar MPPT 250/100-MC4 VE.Can",
+      "intended_use": "mppt",
+      "required_assertions": [
+        "exact_identity_revision",
+        "tracker_terminal_membership",
+        "absolute_pv_voc",
+        "operating_start_restart_voltage",
+        "pv_isc_imp",
+        "battery_voltage_charge_current",
+        "conditional_pv_power_clipping",
+        "input_sharing",
+        "connectors_protection",
+        "thermal_mounting"
+      ]
+    },
+    {
+      "id": "p34",
+      "model": "TS-MPPT-30",
+      "intended_use": "mppt",
+      "required_assertions": [
+        "exact_identity_revision",
+        "tracker_terminal_membership",
+        "absolute_pv_voc",
+        "operating_start_restart_voltage",
+        "pv_isc_imp",
+        "battery_voltage_charge_current",
+        "conditional_pv_power_clipping",
+        "input_sharing",
+        "connectors_protection",
+        "thermal_mounting"
+      ]
+    },
+    {
+      "id": "p35",
+      "model": "TS-MPPT-45",
+      "intended_use": "mppt",
+      "required_assertions": [
+        "exact_identity_revision",
+        "tracker_terminal_membership",
+        "absolute_pv_voc",
+        "operating_start_restart_voltage",
+        "pv_isc_imp",
+        "battery_voltage_charge_current",
+        "conditional_pv_power_clipping",
+        "input_sharing",
+        "connectors_protection",
+        "thermal_mounting"
+      ]
+    },
+    {
+      "id": "p36",
+      "model": "SS-10L-12V",
+      "intended_use": "pwm_controller",
+      "required_assertions": [
+        "exact_identity_revision",
+        "pwm_pv_voltage_current",
+        "battery_charge_load_limits",
+        "temperature_compensation",
+        "protection_installation"
+      ]
+    },
+    {
+      "id": "p37",
+      "model": "SS-10L-24V",
+      "intended_use": "pwm_controller",
+      "required_assertions": [
+        "exact_identity_revision",
+        "pwm_pv_voltage_current",
+        "battery_charge_load_limits",
+        "temperature_compensation",
+        "protection_installation"
+      ]
+    },
+    {
+      "id": "p38",
+      "model": "DDR-120B-24",
+      "intended_use": "converter",
+      "required_assertions": [
+        "exact_identity_revision",
+        "direction_input_output",
+        "input_range",
+        "output_voltage_current_power",
+        "peak_duration_conditions",
+        "isolation_scope",
+        "lockout_recovery",
+        "thermal_derating",
+        "terminals_protection_mounting"
+      ]
+    },
+    {
+      "id": "p39",
+      "model": "DDR-120C-24",
+      "intended_use": "converter",
+      "required_assertions": [
+        "exact_identity_revision",
+        "direction_input_output",
+        "input_range",
+        "output_voltage_current_power",
+        "peak_duration_conditions",
+        "isolation_scope",
+        "lockout_recovery",
+        "thermal_derating",
+        "terminals_protection_mounting"
+      ]
+    },
+    {
+      "id": "p40",
+      "model": "DDR-120B-48",
+      "intended_use": "converter",
+      "required_assertions": [
+        "exact_identity_revision",
+        "direction_input_output",
+        "input_range",
+        "output_voltage_current_power",
+        "peak_duration_conditions",
+        "isolation_scope",
+        "lockout_recovery",
+        "thermal_derating",
+        "terminals_protection_mounting"
+      ]
+    },
+    {
+      "id": "p41",
+      "model": "DDR-120C-48",
+      "intended_use": "converter",
+      "required_assertions": [
+        "exact_identity_revision",
+        "direction_input_output",
+        "input_range",
+        "output_voltage_current_power",
+        "peak_duration_conditions",
+        "isolation_scope",
+        "lockout_recovery",
+        "thermal_derating",
+        "terminals_protection_mounting"
+      ]
+    },
+    {
+      "id": "p42",
+      "model": "PST-2000-12",
+      "intended_use": "inverter",
+      "required_assertions": [
+        "exact_identity_revision",
+        "dc_input_window",
+        "ac_voltage_phase_hz",
+        "w_va_pf",
+        "surge_duration",
+        "idle_draw",
+        "thermal_derating",
+        "ground_neutral_modes",
+        "fusing_installation"
+      ]
+    },
+    {
+      "id": "p43",
+      "model": "PST-1000-24",
+      "intended_use": "inverter",
+      "required_assertions": [
+        "exact_identity_revision",
+        "dc_input_window",
+        "ac_voltage_phase_hz",
+        "w_va_pf",
+        "surge_duration",
+        "idle_draw",
+        "thermal_derating",
+        "ground_neutral_modes",
+        "fusing_installation"
+      ]
+    },
+    {
+      "id": "p44",
+      "model": "EVO-3012",
+      "intended_use": "multifunction",
+      "required_assertions": [
+        "exact_identity_revision",
+        "directional_ports_paths",
+        "battery_envelope",
+        "pv_tracker_limits",
+        "mode_specific_ac_conductors",
+        "w_va_pf_surge_duration",
+        "shared_capacity_exclusions",
+        "assembly_revision_counts",
+        "protocol_dependencies",
+        "ground_neutral_transfer",
+        "idle_thermal_installation"
+      ]
+    },
+    {
+      "id": "p45",
+      "model": "EVO-4024",
+      "intended_use": "multifunction",
+      "required_assertions": [
+        "exact_identity_revision",
+        "directional_ports_paths",
+        "battery_envelope",
+        "pv_tracker_limits",
+        "mode_specific_ac_conductors",
+        "w_va_pf_surge_duration",
+        "shared_capacity_exclusions",
+        "assembly_revision_counts",
+        "protocol_dependencies",
+        "ground_neutral_transfer",
+        "idle_thermal_installation"
+      ]
+    },
+    {
+      "id": "p46",
+      "model": "BB10012H",
+      "intended_use": "battery",
+      "required_assertions": [
+        "exact_identity_revision",
+        "nominal_v_ah_wh",
+        "charge_voltage_current",
+        "discharge_continuous_peak_duration",
+        "bms_cutoff_recovery",
+        "temperature_heater_policy",
+        "series_parallel_permission",
+        "terminals_fusing",
+        "installation_envelope"
+      ]
+    },
+    {
+      "id": "p47",
+      "model": "6007",
+      "intended_use": "switch",
+      "required_assertions": [
+        "exact_identity_revision",
+        "coil_contact_domains",
+        "carry_continuous_peak_duration",
+        "switching_interruption_distinction",
+        "participants_states",
+        "control_thresholds",
+        "terminals_protection_mounting"
+      ]
+    }
+  ],
+  "freeze_stage": "Assertion names frozen before first capture; exact freeze timestamp was not recorded"
+}

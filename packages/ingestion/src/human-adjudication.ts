@@ -15,6 +15,7 @@ import {
 import { convertUnit, parseExactUnitValue, resolveUnit } from './units.js';
 import { genericSemanticRules, type SourceRatingQualifiers } from './semantic-rules.js';
 import { isCanonicalQualifiedValue, parseSourceObservations } from './qualified-values.js';
+import { profileMemberValue, type ProfileQuantity } from './engineering-profile-adjudication.js';
 
 export const HUMAN_ADJUDICATION_VERSION = 'human-adjudication.v1';
 export interface HumanCitation {
@@ -25,6 +26,11 @@ export interface HumanCitation {
   readonly quote: string;
 }
 export type HumanMappingIntent =
+  | {
+      readonly kind: 'engineering_profile_fact';
+      readonly target: 'engineering_profile';
+      readonly quantity: ProfileQuantity;
+    }
   | { readonly kind: 'scalar'; readonly target: string }
   | {
       readonly kind: 'source_rating';
@@ -569,6 +575,12 @@ export function previewHumanMapping(
     ],
   };
   const target = intent.target;
+  if (intent.kind === 'engineering_profile_fact')
+    return {
+      target,
+      normalized_value: profileMemberValue(intent.quantity, s.value, s.unit, s.wording),
+      normalized_unit: 'structured',
+    };
   // A manual label can repair parser terminology, but it cannot establish a
   // different physical quantity or rating basis merely because units match.
   if (/nominal_voltage/.test(target) && !/\bnominal\b/i.test(s.wording))

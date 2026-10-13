@@ -1,0 +1,180 @@
+{
+  "schema_version": "engineering-profile.v1",
+  "component_id": "wave1.p25",
+  "model": "NPA200S-12J",
+  "manufacturer_revision": null,
+  "evidence": [
+    {
+      "id": "wave1.p25.pmax_w",
+      "source_url": "https://www.newpowa.com/new-200w-12v-monocrystalline-solar-panel/",
+      "publisher": "Newpowa",
+      "model": "NPA200S-12J",
+      "manufacturer_revision": null,
+      "retrieved_at": "2026-10-13T05:05:22.620Z",
+      "locator": "utf8-bytes:201353-201460",
+      "source_digest": "f3a9c3cc318375e471e40985efce465930a22494f778bde619263d98345901a4",
+      "statement": "Maximum Power (Pmax) 200W",
+      "conditions": [
+        "Exact Product Code in same native container; full surrounding source awaits human context review"
+      ],
+      "origin": "source_stated",
+      "rights": "metadata_and_limited_facts_only"
+    },
+    {
+      "id": "wave1.p25.vmp_v",
+      "source_url": "https://www.newpowa.com/new-200w-12v-monocrystalline-solar-panel/",
+      "publisher": "Newpowa",
+      "model": "NPA200S-12J",
+      "manufacturer_revision": null,
+      "retrieved_at": "2026-10-13T05:05:22.620Z",
+      "locator": "utf8-bytes:201477-201587",
+      "source_digest": "f3a9c3cc318375e471e40985efce465930a22494f778bde619263d98345901a4",
+      "statement": "Voltage at Pmax (Vmp) 20.74V",
+      "conditions": [
+        "Exact Product Code in same native container; full surrounding source awaits human context review"
+      ],
+      "origin": "source_stated",
+      "rights": "metadata_and_limited_facts_only"
+    },
+    {
+      "id": "wave1.p25.imp_a",
+      "source_url": "https://www.newpowa.com/new-200w-12v-monocrystalline-solar-panel/",
+      "publisher": "Newpowa",
+      "model": "NPA200S-12J",
+      "manufacturer_revision": null,
+      "retrieved_at": "2026-10-13T05:05:22.620Z",
+      "locator": "utf8-bytes:201604-201713",
+      "source_digest": "f3a9c3cc318375e471e40985efce465930a22494f778bde619263d98345901a4",
+      "statement": "Current at Pmax (Imp) 9.68A",
+      "conditions": [
+        "Exact Product Code in same native container; full surrounding source awaits human context review"
+      ],
+      "origin": "source_stated",
+      "rights": "metadata_and_limited_facts_only"
+    },
+    {
+      "id": "wave1.p25.voc_v",
+      "source_url": "https://www.newpowa.com/new-200w-12v-monocrystalline-solar-panel/",
+      "publisher": "Newpowa",
+      "model": "NPA200S-12J",
+      "manufacturer_revision": null,
+      "retrieved_at": "2026-10-13T05:05:22.620Z",
+      "locator": "utf8-bytes:201730-201845",
+      "source_digest": "f3a9c3cc318375e471e40985efce465930a22494f778bde619263d98345901a4",
+      "statement": "Open-Circuit Voltage (Voc) 24.34V",
+      "conditions": [
+        "Exact Product Code in same native container; full surrounding source awaits human context review"
+      ],
+      "origin": "source_stated",
+      "rights": "metadata_and_limited_facts_only"
+    },
+    {
+      "id": "wave1.p25.isc_a",
+      "source_url": "https://www.newpowa.com/new-200w-12v-monocrystalline-solar-panel/",
+      "publisher": "Newpowa",
+      "model": "NPA200S-12J",
+      "manufacturer_revision": null,
+      "retrieved_at": "2026-10-13T05:05:22.620Z",
+      "locator": "utf8-bytes:201862-201978",
+      "source_digest": "f3a9c3cc318375e471e40985efce465930a22494f778bde619263d98345901a4",
+      "statement": "Short-Circuit Current (Isc) 10.31A",
+      "conditions": [
+        "Exact Product Code in same native container; full surrounding source awaits human context review"
+      ],
+      "origin": "source_stated",
+      "rights": "metadata_and_limited_facts_only"
+    },
+    {
+      "id": "wave1.p25.max_system_v",
+      "source_url": "https://www.newpowa.com/new-200w-12v-monocrystalline-solar-panel/",
+      "publisher": "Newpowa",
+      "model": "NPA200S-12J",
+      "manufacturer_revision": null,
+      "retrieved_at": "2026-10-13T05:05:22.620Z",
+      "locator": "utf8-bytes:202311-202420",
+      "source_digest": "f3a9c3cc318375e471e40985efce465930a22494f778bde619263d98345901a4",
+      "statement": "Max System Voltage 1000V DC",
+      "conditions": [
+        "Exact Product Code in same native container; full surrounding source awaits human context review"
+      ],
+      "origin": "source_stated",
+      "rights": "metadata_and_limited_facts_only"
+    },
+    {
+      "id": "wave1.p25.coefficient_pmax",
+      "source_url": "https://www.newpowa.com/new-200w-12v-monocrystalline-solar-panel/",
+      "publisher": "Newpowa",
+      "model": "NPA200S-12J",
+      "manufacturer_revision": null,
+      "retrieved_at": "2026-10-13T05:05:22.620Z",
+      "locator": "utf8-bytes:202823-202935",
+      "source_digest": "f3a9c3cc318375e471e40985efce465930a22494f778bde619263d98345901a4",
+      "statement": "Temp. Coeff. of Power -0.38%/K",
+      "conditions": [
+        "Exact Product Code in same native container; full surrounding source awaits human context review"
+      ],
+      "origin": "source_stated",
+      "rights": "metadata_and_limited_facts_only"
+    },
+    {
+      "id": "wave1.p25.coefficient_voc",
+      "source_url": "https://www.newpowa.com/new-200w-12v-monocrystalline-solar-panel/",
+      "publisher": "Newpowa",
+      "model": "NPA200S-12J",
+      "manufacturer_revision": null,
+      "retrieved_at": "2026-10-13T05:05:22.620Z",
+      "locator": "utf8-bytes:202952-203062",
+      "source_digest": "f3a9c3cc318375e471e40985efce465930a22494f778bde619263d98345901a4",
+      "statement": "Temp. Coeff. of Voc -0.36%/K",
+      "conditions": [
+        "Exact Product Code in same native container; full surrounding source awaits human context review"
+      ],
+      "origin": "source_stated",
+      "rights": "metadata_and_limited_facts_only"
+    }
+  ],
+  "pv": {
+    "pmax_w": {
+      "value": 200,
+      "unit": "W",
+      "evidence_ids": ["wave1.p25.pmax_w"]
+    },
+    "vmp_v": {
+      "value": 20.74,
+      "unit": "V",
+      "evidence_ids": ["wave1.p25.vmp_v"]
+    },
+    "imp_a": {
+      "value": 9.68,
+      "unit": "A",
+      "evidence_ids": ["wave1.p25.imp_a"]
+    },
+    "voc_v": {
+      "value": 24.34,
+      "unit": "V",
+      "evidence_ids": ["wave1.p25.voc_v"]
+    },
+    "isc_a": {
+      "value": 10.31,
+      "unit": "A",
+      "evidence_ids": ["wave1.p25.isc_a"]
+    },
+    "max_system_v": {
+      "value": 1000,
+      "unit": "V",
+      "evidence_ids": ["wave1.p25.max_system_v"]
+    },
+    "coefficients": {
+      "pmax": {
+        "value": -0.38,
+        "unit": "percent/K",
+        "evidence_ids": ["wave1.p25.coefficient_pmax"]
+      },
+      "voc": {
+        "value": -0.36,
+        "unit": "percent/K",
+        "evidence_ids": ["wave1.p25.coefficient_voc"]
+      }
+    }
+  }
+}

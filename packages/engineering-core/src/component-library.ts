@@ -2,6 +2,7 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import { parse as parseYaml } from 'yaml';
 import componentSchema from '../../../data/schemas/component.schema.json' with { type: 'json' };
+import { engineeringProfileErrors, type EngineeringProfile } from './engineering-profile.js';
 import {
   validateOrientationConstraint,
   type BodyEnvelopeMm,
@@ -490,6 +491,7 @@ export interface ComponentLibraryAdvisoryReference extends Record<string, unknow
 }
 
 export interface ComponentLibraryRecord {
+  readonly engineering_profile?: EngineeringProfile;
   /** Explicit reviewed negative assertions, independent of an incomplete positive list. */
   readonly unsupported_capabilities?: readonly CapabilityType[];
   /** Published manufacturer revision only; never a project digest, retrieval date or ingestion revision. */
@@ -1821,6 +1823,17 @@ export const validateComponentLibraryRecord = (
 
   const semanticErrors = [...validateEngineeringConstraints(input)];
   const record = input as ComponentLibraryRecord;
+  if (record.engineering_profile) {
+    semanticErrors.push(...engineeringProfileErrors(record.engineering_profile));
+    if (
+      record.engineering_profile.component_id !== record.id ||
+      record.engineering_profile.model !== record.model ||
+      record.engineering_profile.manufacturer_revision !== (record.manufacturer_revision ?? null)
+    )
+      semanticErrors.push(
+        'engineering_profile: owner/model/revision must match the canonical record',
+      );
+  }
   for (const capability of record.capabilities ?? []) {
     for (const portId of capability.port_ids ?? []) {
       if (!record.ports?.some((port) => port.id === portId))

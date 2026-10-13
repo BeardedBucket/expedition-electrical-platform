@@ -3,41 +3,72 @@
   "$id": "urn:expedition-electrical-platform:schema:human-adjudication:v1",
   "$ref": "#/$defs/intent",
   "$defs": {
-    "text": { "type": "string", "minLength": 1, "pattern": "\\S" },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
     "citation": {
       "type": "object",
       "additionalProperties": false,
       "required": ["document_id", "block_id", "quote"],
       "properties": {
-        "document_id": { "$ref": "#/$defs/text" },
-        "block_id": { "$ref": "#/$defs/text" },
-        "cell_id": { "$ref": "#/$defs/text" },
-        "quote": { "$ref": "#/$defs/text" }
+        "document_id": {
+          "$ref": "#/$defs/text"
+        },
+        "block_id": {
+          "$ref": "#/$defs/text"
+        },
+        "cell_id": {
+          "$ref": "#/$defs/text"
+        },
+        "quote": {
+          "$ref": "#/$defs/text"
+        }
       }
     },
     "qualifiers": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "product_role": { "const": "battery" },
-        "electrical_domain": { "enum": ["ac", "dc"] },
-        "direction": { "enum": ["input", "output"] },
+        "product_role": {
+          "const": "battery"
+        },
+        "electrical_domain": {
+          "enum": ["ac", "dc"]
+        },
+        "direction": {
+          "enum": ["input", "output"]
+        },
         "rating_basis": {
           "enum": ["maximum", "rated", "rated_maximum", "continuous", "nominal", "peak", "surge"]
         },
-        "battery_voltage_v": { "type": "number", "exclusiveMinimum": 0 },
-        "measurement_basis": { "const": "rms" },
+        "battery_voltage_v": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "measurement_basis": {
+          "const": "rms"
+        },
         "comparison": {
           "enum": ["less_than", "less_than_or_equal", "greater_than", "greater_than_or_equal"]
         },
         "source_conditions": {
           "type": "array",
-          "items": { "$ref": "#/$defs/text" },
+          "items": {
+            "$ref": "#/$defs/text"
+          },
           "uniqueItems": true
         },
-        "duration": { "$ref": "#/$defs/text" },
-        "temperature_context": { "$ref": "#/$defs/text" },
-        "revision_context": { "$ref": "#/$defs/text" }
+        "duration": {
+          "$ref": "#/$defs/text"
+        },
+        "temperature_context": {
+          "$ref": "#/$defs/text"
+        },
+        "revision_context": {
+          "$ref": "#/$defs/text"
+        }
       }
     },
     "mapping": {
@@ -46,14 +77,23 @@
           "type": "object",
           "additionalProperties": false,
           "required": ["kind", "target"],
-          "properties": { "kind": { "const": "scalar" }, "target": { "$ref": "#/$defs/text" } }
+          "properties": {
+            "kind": {
+              "const": "scalar"
+            },
+            "target": {
+              "$ref": "#/$defs/text"
+            }
+          }
         },
         {
           "type": "object",
           "additionalProperties": false,
           "required": ["kind", "target", "qualifiers"],
           "properties": {
-            "kind": { "const": "source_rating" },
+            "kind": {
+              "const": "source_rating"
+            },
             "target": {
               "enum": [
                 "dimensions_mm.x",
@@ -85,7 +125,9 @@
                 "battery.float_voltage_range_v"
               ]
             },
-            "qualifiers": { "$ref": "#/$defs/qualifiers" }
+            "qualifiers": {
+              "$ref": "#/$defs/qualifiers"
+            }
           }
         },
         {
@@ -93,12 +135,39 @@
           "additionalProperties": false,
           "required": ["kind", "target"],
           "properties": {
-            "kind": { "const": "source_observation" },
+            "kind": {
+              "const": "source_observation"
+            },
             "target": {
               "enum": [
                 "electrical.input_voltage_range_v",
                 "electrical.power_consumption_w",
                 "dimensions_mm"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "target", "quantity"],
+          "properties": {
+            "kind": {
+              "const": "engineering_profile_fact"
+            },
+            "target": {
+              "const": "engineering_profile"
+            },
+            "quantity": {
+              "enum": [
+                "voc_v",
+                "vmp_v",
+                "isc_a",
+                "imp_a",
+                "pmax_w",
+                "max_system_v",
+                "pv_absolute_voc_v",
+                "pv_max_isc_a"
               ]
             }
           }
@@ -110,11 +179,24 @@
       "additionalProperties": false,
       "required": ["label", "value", "wording", "citations", "applicability"],
       "properties": {
-        "label": { "$ref": "#/$defs/text" },
-        "value": { "$ref": "#/$defs/text" },
-        "unit": { "$ref": "#/$defs/text" },
-        "wording": { "$ref": "#/$defs/text" },
-        "citations": { "type": "array", "items": { "$ref": "#/$defs/citation" } },
+        "label": {
+          "$ref": "#/$defs/text"
+        },
+        "value": {
+          "$ref": "#/$defs/text"
+        },
+        "unit": {
+          "$ref": "#/$defs/text"
+        },
+        "wording": {
+          "$ref": "#/$defs/text"
+        },
+        "citations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/citation"
+          }
+        },
         "applicability": {
           "type": "object",
           "additionalProperties": false,
@@ -130,14 +212,30 @@
                 "unresolved"
               ]
             },
-            "citation": { "$ref": "#/$defs/citation" }
+            "citation": {
+              "$ref": "#/$defs/citation"
+            }
           }
         },
-        "conditions": { "type": "array", "items": { "$ref": "#/$defs/text" }, "uniqueItems": true },
-        "duration": { "$ref": "#/$defs/text" },
-        "temperature": { "$ref": "#/$defs/text" },
-        "revision": { "$ref": "#/$defs/text" },
-        "mapping": { "$ref": "#/$defs/mapping" }
+        "conditions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/text"
+          },
+          "uniqueItems": true
+        },
+        "duration": {
+          "$ref": "#/$defs/text"
+        },
+        "temperature": {
+          "$ref": "#/$defs/text"
+        },
+        "revision": {
+          "$ref": "#/$defs/text"
+        },
+        "mapping": {
+          "$ref": "#/$defs/mapping"
+        }
       }
     },
     "intent": {
@@ -153,18 +251,38 @@
         "rationale"
       ],
       "properties": {
-        "version": { "const": "human-adjudication.v1" },
-        "group_id": { "$ref": "#/$defs/text" },
-        "previous_event_id": { "$ref": "#/$defs/text" },
+        "version": {
+          "const": "human-adjudication.v1"
+        },
+        "group_id": {
+          "$ref": "#/$defs/text"
+        },
+        "previous_event_id": {
+          "$ref": "#/$defs/text"
+        },
         "replaces_fact_ids": {
           "type": "array",
-          "items": { "$ref": "#/$defs/text" },
+          "items": {
+            "$ref": "#/$defs/text"
+          },
           "uniqueItems": true
         },
-        "action": { "enum": ["correct", "split", "add", "group", "incomplete"] },
-        "disposition": { "enum": ["ready", "draft"] },
-        "statements": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/statement" } },
-        "rationale": { "$ref": "#/$defs/text" }
+        "action": {
+          "enum": ["correct", "split", "add", "group", "incomplete"]
+        },
+        "disposition": {
+          "enum": ["ready", "draft"]
+        },
+        "statements": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/statement"
+          }
+        },
+        "rationale": {
+          "$ref": "#/$defs/text"
+        }
       }
     },
     "proof": {
@@ -172,13 +290,22 @@
       "additionalProperties": false,
       "required": ["version", "event_id", "statement_index", "intake", "statement", "documents"],
       "properties": {
-        "version": { "const": "human-adjudication.v1" },
-        "event_id": { "$ref": "#/$defs/text" },
-        "statement_index": { "type": "integer", "minimum": 0 },
+        "version": {
+          "const": "human-adjudication.v1"
+        },
+        "event_id": {
+          "$ref": "#/$defs/text"
+        },
+        "statement_index": {
+          "type": "integer",
+          "minimum": 0
+        },
         "intake": {
           "$ref": "https://expedition-electrical-platform.dev/schemas/production-ingestion.schema.json#/$defs/productIntake"
         },
-        "statement": { "$ref": "#/$defs/statement" },
+        "statement": {
+          "$ref": "#/$defs/statement"
+        },
         "documents": {
           "type": "array",
           "minItems": 1,

@@ -1,6 +1,7 @@
 import { buildProductCandidate } from './candidate-builder.js';
 import type {
   ProductCandidate,
+  JsonValue,
   ProductDerivation,
   ProductFact,
   ProductSource,
@@ -35,6 +36,8 @@ import { replaySemanticAssertion, recognizeSemanticAssertion } from './semantic-
 import type { QualifiedFactWholeIntakeReconciliationResult } from './reconciliation.js';
 import { isQualificationProvenance } from './qualified-context.js';
 import { previewHumanMapping } from './human-adjudication.js';
+import { composeAdjudicatedProfile } from './engineering-profile-adjudication.js';
+import { canonicalIdForIdentity } from './promotion.js';
 
 export interface ProductionCandidateBridgeInput {
   readonly intake: ProductIntake;
@@ -682,11 +685,66 @@ export const buildProductionProductCandidate = (
     projected.push(proposal.id);
   }
   const orderedSources = [...sources.values()].sort((a, b) => a.id.localeCompare(b.id));
-  const candidateSources = platformDerivedSource
+  let candidateSources = platformDerivedSource
     ? [...orderedSources, platformDerivedSource].sort((a, b) => a.id.localeCompare(b.id))
     : orderedSources;
   projectedFacts.sort((a, b) => a.id.localeCompare(b.id));
   normalizedFacts.sort((a, b) => a.fact.id.localeCompare(b.fact.id));
+  const profileFacts = projectedFacts.filter((f) => f.field === 'engineering_profile');
+  if (profileFacts.length) {
+    try {
+      const requiredMembers = qualifiedFacts.filter(
+        (f) => f.human_source?.statement.mapping?.kind === 'engineering_profile_fact',
+      );
+      if (requiredMembers.some((f) => !profileFacts.some((p) => p.human_source?.id === f.id)))
+        throw new Error(
+          'Atomic profile withheld: a source member lacks complete current semantic review',
+        );
+      const identity = {
+        manufacturer: input.intake.manufacturer,
+        model: input.intake.product_model,
+        ...(input.intake.manufacturer_part_number
+          ? { manufacturer_part_number: input.intake.manufacturer_part_number }
+          : {}),
+      };
+      const profile = composeAdjudicatedProfile(
+        input.intake,
+        canonicalIdForIdentity(identity),
+        profileFacts,
+        candidateSources,
+      );
+      // Structural composition is not a manufacturer derivation. Each atomic
+      // support fact retains its independent source proof; validation reconstructs
+      // the complete profile from ALL contributing facts, never one selected leaf.
+      for (const f of profileFacts)
+        (f as { normalized_value: JsonValue }).normalized_value = profile as unknown as JsonValue;
+      for (const f of normalizedFacts.filter((f) => f.canonical_field === 'engineering_profile'))
+        (f as { normalized_value: JsonValue }).normalized_value = profile as unknown as JsonValue;
+    } catch (error) {
+      const removed = new Set(profileFacts.map((f) => f.id));
+      for (const [id, ids] of Object.entries(proposalFactIds))
+        if (ids.some((f) => removed.has(f))) {
+          delete proposalFactIds[id];
+          const pi = projected.indexOf(id);
+          if (pi >= 0) projected.splice(pi, 1);
+          nonProjected.push({
+            proposal_id: id,
+            reason: error instanceof Error ? error.message : 'Profile composition withheld',
+          });
+        }
+      for (const f of profileFacts) {
+        const index = projectedFacts.indexOf(f);
+        projectedFacts.splice(index, 1);
+        const ni = normalizedFacts.findIndex((n) => n.fact.id === f.id);
+        if (ni >= 0) normalizedFacts.splice(ni, 1);
+      }
+      // Ordinary review requires an exact proposal/fact/source partition even
+      // when the atomic field is withheld. Original captures/proofs stay owned
+      // by the preparation; unused sources are not orphan candidate evidence.
+      const usedSources = new Set(projectedFacts.map((f) => f.source_id));
+      candidateSources = candidateSources.filter((s) => usedSources.has(s.id));
+    }
+  }
   let candidate = projectedFacts.length
     ? buildProductCandidate({
         id: `production-candidate.${artifactDigest(input.intake).slice(7, 31)}`,

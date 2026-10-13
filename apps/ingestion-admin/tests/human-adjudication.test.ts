@@ -17,6 +17,8 @@ import {
   reviewPackageSnapshot,
   validateHumanAdjudicationIntent,
   sourceSupportsQualifiedValue,
+  validateProductCandidate,
+  suggestEngineeringProfileSources,
   replayHumanSourceFacts,
   type HumanAdjudicationIntent,
   type HumanSourceStatement,
@@ -32,6 +34,9 @@ import {
 } from '@expedition/ingestion-runtime';
 import { createOperatorApi } from '../server/api.js';
 import { jobDetail } from '../server/operator-views.js';
+import { evaluateInstalledPv } from '../../../packages/engineering-core/src/installed-pv-bridge.js';
+import { completeInstalledSystemFixture } from '../../../packages/engineering-core/tests/fixtures/whole-system.js';
+import type { ComponentLibraryRecord } from '../../../packages/engineering-core/src/component-library.js';
 import { input, profile } from './fixtures.js';
 import {
   genuineObservations,
@@ -210,6 +215,257 @@ const proof = (p: ReviewReadyProductionIngest, s: HumanSourceStatement) =>
   });
 
 describe('source-backed human adjudication', () => {
+  it('durably composes an atomic PV profile through source decisions without admission', async () => {
+    const claims = [
+      ['Voc', '24.34', 'V', 'voc_v'],
+      ['Vmp', '20.74', 'V', 'vmp_v'],
+      ['Isc', '10.31', 'A', 'isc_a'],
+    ] as const;
+    const html = claims.map(([q, v, u]) => `<p>Example Model ${q} ${v} ${u}</p>`).join('');
+    const f = await fixture('', html);
+    expect(suggestEngineeringProfileSources(f.p.intake, f.p.document_extractions)).toHaveLength(3);
+    expect(jobDetail(f.job).human_adjudication?.profile_suggestions).toHaveLength(3);
+    let p = f.p;
+    for (const [q, v, u, quantity] of claims) {
+      const s = {
+        ...statement(p, `Example Model ${q} ${v} ${u}`, v, u),
+        label: q,
+        mapping: {
+          kind: 'engineering_profile_fact' as const,
+          target: 'engineering_profile' as const,
+          quantity,
+        },
+      };
+      const req = request(p, { ...intent(s), group_id: `profile.${quantity}` });
+      const discovery = await f.service.humanProperties(f.id, {
+        ...req,
+        statement_index: 0,
+        representation: { kind: s.mapping.kind, quantity },
+      });
+      expect(discovery.targets.map((t) => t.canonical_field)).toContain('engineering_profile');
+      expect(discovery.targets[0]).toMatchObject({
+        allows_unit_conversion: false,
+        normalizer_version: 'engineering-profile-adjudication.v1',
+      });
+      const preview = await f.service.previewHumanAdjudication(f.id, req);
+      expect(preview.assertions[0]?.normalized_value).toEqual({ value: Number(v), unit: u });
+      if (quantity === 'voc_v') {
+        const server = createOperatorApi(f.service);
+        await new Promise<void>((done) => server.listen(0, '127.0.0.1', done));
+        try {
+          const address = server.address();
+          if (!address || typeof address === 'string') throw new Error('No isolated profile API');
+          const post = (route: string) =>
+            fetch(`http://127.0.0.1:${address.port}/api/ingestion/jobs/${f.id}/review/${route}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(req),
+            });
+          const response = await post('human-preview');
+          expect(response.status).toBe(200);
+          expect((await response.json()).assertions[0].normalized_value).toEqual({
+            value: Number(v),
+            unit: u,
+          });
+          expect((await post('human-adjudication')).status).toBe(200);
+        } finally {
+          server.closeAllConnections();
+          await new Promise<void>((done) => server.close(() => done()));
+        }
+      } else await f.service.recordHumanAdjudication(f.id, req);
+      const restarted = await new IngestionJobService({
+        store: new FileIngestionJobStore(join(f.root, 'jobs')),
+      }).getJob(f.id);
+      if (restarted.preparation?.status !== 'review_ready')
+        throw new Error('Missing durable typed profile');
+      p = restarted.preparation;
+      expect(restarted.approval).toBeUndefined();
+      expect(restarted.final_result).toBeUndefined();
+      await expect(f.service.recordHumanAdjudication(f.id, req)).rejects.toThrow();
+    }
+    const candidate = p.bridge.candidate!;
+    expect(candidate, JSON.stringify(p.bridge.non_projected)).toBeDefined();
+    const ep = candidate.component_data.engineering_profile as {
+      pv: Record<string, { value: number }>;
+      manufacturer_revision: null;
+    };
+    expect(ep.pv.voc_v!.value).toBe(24.34);
+    expect(ep.pv.isc_a!.value).toBe(10.31);
+    expect(ep.manufacturer_revision).toBeNull();
+    expect(candidate.field_evidence.engineering_profile).toHaveLength(3);
+    expect(candidate.review_status).toBe('pending');
+    const changed = JSON.parse(JSON.stringify(candidate));
+    changed.component_data.engineering_profile.pv.voc_v.value = 150;
+    expect(validateProductCandidate(changed, p.bridge.sources, p.bridge.facts).ok).toBe(false);
+    const competing = {
+      ...statement(p, 'Example Model Vmp 20.74 V', '20.74', 'V'),
+      label: 'Voc',
+      mapping: {
+        kind: 'engineering_profile_fact' as const,
+        target: 'engineering_profile' as const,
+        quantity: 'voc_v' as const,
+      },
+    };
+    await expect(
+      f.service.previewHumanAdjudication(f.id, request(p, intent(competing))),
+    ).rejects.toThrow('quantity');
+    const controllerClaims = [
+      ['Maximum PV open circuit voltage', '150', 'V', 'pv_absolute_voc_v'],
+      ['Maximum PV short circuit current', '45', 'A', 'pv_max_isc_a'],
+    ] as const;
+    const cf = await fixture(
+      '',
+      controllerClaims.map(([q, v, u]) => `<p>Example Controller ${q} ${v} ${u}</p>`).join(''),
+      { ...input, product_model: 'Example Controller', manufacturer_part_number: 'EX-C' },
+    );
+    let cp = cf.p;
+    expect(
+      suggestEngineeringProfileSources(cp.intake, cp.document_extractions).map(
+        (s) => s.statement.mapping,
+      ),
+    ).toEqual(
+      controllerClaims.map(([, , , quantity]) => ({
+        kind: 'engineering_profile_fact',
+        target: 'engineering_profile',
+        quantity,
+      })),
+    );
+    const cropped = {
+      ...statement(cp, 'Example Controller Maximum PV open circuit voltage 150 V', '150', 'V'),
+      label: 'Voc',
+      wording: 'open circuit voltage 150 V',
+      mapping: {
+        kind: 'engineering_profile_fact' as const,
+        target: 'engineering_profile' as const,
+        quantity: 'voc_v' as const,
+      },
+    };
+    await expect(
+      cf.service.previewHumanAdjudication(cf.id, request(cp, intent(cropped))),
+    ).rejects.toThrow('module reference');
+    for (const [q, v, u, quantity] of controllerClaims) {
+      const s = {
+        ...statement(cp, `Example Controller ${q} ${v} ${u}`, v, u),
+        label: q,
+        mapping: {
+          kind: 'engineering_profile_fact' as const,
+          target: 'engineering_profile' as const,
+          quantity,
+        },
+      };
+      await cf.service.recordHumanAdjudication(
+        cf.id,
+        request(cp, { ...intent(s), group_id: `profile.${quantity}` }),
+      );
+      const j = await new IngestionJobService({
+        store: new FileIngestionJobStore(join(cf.root, 'jobs')),
+      }).getJob(cf.id);
+      if (j.preparation?.status !== 'review_ready') throw new Error('Missing controller candidate');
+      cp = j.preparation;
+      expect(j.approval).toBeUndefined();
+      expect(j.final_result).toBeUndefined();
+    }
+    const cc = cp.bridge.candidate!;
+    expect(cc, JSON.stringify(cp.bridge.non_projected)).toBeDefined();
+    const record = (c: typeof candidate): ComponentLibraryRecord =>
+      ({
+        id: (c.component_data.engineering_profile as { component_id: string }).component_id,
+        manufacturer: c.identity.manufacturer,
+        model: c.identity.model,
+        verification_status: 'unverified',
+        ...c.component_data,
+      }) as ComponentLibraryRecord;
+    const mr = record(candidate),
+      cr = record(cc),
+      base = completeInstalledSystemFixture();
+    const installed = {
+      ...base.input,
+      architecture: {
+        ...base.input.architecture,
+        installation: {
+          ...base.input.architecture.installation,
+          component_instances: [
+            ...(base.input.architecture.installation.component_instances ?? []),
+            { id: 'profile.module', component_id: mr.id, status: 'selected' as const },
+            { id: 'profile.controller', component_id: cr.id, status: 'selected' as const },
+          ],
+        },
+        power_topology: {
+          ...base.input.architecture.power_topology,
+          domains: [
+            ...base.input.architecture.power_topology.domains,
+            { id: 'profile.pv', kind: 'pv_dc' as const },
+          ],
+          bindings: [
+            ...base.input.architecture.power_topology.bindings,
+            {
+              id: 'profile.out',
+              instance_id: 'profile.module',
+              port_id: 'unresolved-output',
+              domain_id: 'profile.pv',
+            },
+            {
+              id: 'profile.in',
+              instance_id: 'profile.controller',
+              port_id: 'unresolved-input',
+              domain_id: 'profile.pv',
+            },
+          ],
+        },
+      },
+    };
+    const evaluated = evaluateInstalledPv(installed, [...base.catalog, mr, cr], {
+      version: 'installed-pv-scenario.v2',
+      controller_instance_id: 'profile.controller',
+      module_instances: { s0: [{ instance_id: 'profile.module', port_id: 'unresolved-output' }] },
+      pv: {
+        controller_id: cr.id,
+        strings: [
+          {
+            id: 's0',
+            module_id: mr.id,
+            series_count: 1,
+            tracker_id: 'pv_input_unassigned',
+            terminal_id: 'unresolved-input',
+          },
+        ],
+      },
+    });
+    expect(evaluated.binding.status).toBe('UNRESOLVED');
+    expect(evaluated.binding.envelope).toBeNull();
+    expect(evaluated.binding.reason_codes).toContain('module_port_identity_unknown:profile.module');
+    expect(
+      evaluated.passport.decisions.find((d) => d.id === 'inherited:installed_pv')?.status,
+    ).toBe('unresolved');
+  });
+  it('withholds the whole profile when competing source members have incomplete semantic review', async () => {
+    const lines = ['Example Model Voc 24 V', 'Example Model Voc 25 V', 'Example Model Vmp 20 V'];
+    const f = await fixture('', lines.map((t) => `<p>${t}</p>`).join(''));
+    let p = f.p;
+    for (const [i, line] of lines.entries()) {
+      const quantity = i === 2 ? 'vmp_v' : 'voc_v',
+        v = i === 0 ? '24' : i === 1 ? '25' : '20';
+      const s = {
+        ...statement(p, line, v, 'V'),
+        label: i === 2 ? 'Vmp' : 'Voc',
+        mapping: {
+          kind: 'engineering_profile_fact' as const,
+          target: 'engineering_profile' as const,
+          quantity,
+        },
+      };
+      const j = await f.service.recordHumanAdjudication(
+        f.id,
+        request(p, { ...intent(s), group_id: `competing.${i}` }),
+      );
+      if (j.preparation?.status !== 'review_ready') throw new Error('Missing current review');
+      p = j.preparation;
+    }
+    expect(p.bridge.candidate?.component_data.engineering_profile).toBeUndefined();
+    expect(p.bridge.non_projected.some((d) => d.reason.includes('Atomic profile withheld'))).toBe(
+      true,
+    );
+  });
   it('integrates HTTP correction, qualified candidates and repeated durable review without approval', async () => {
     const f = await fixture();
     const originalEvidence = artifactDigest({
@@ -1497,6 +1753,35 @@ function observationContractTests(cases: readonly ObservationCase[]) {
     };
     return { path, bytes, observation, intake, document };
   }
+  it('measures the reusable profile source qualification attempt on unchanged retained observations', async () => {
+    const rows = [];
+    for (const spec of cases) {
+      const f = await frozen(spec),
+        start = performance.now();
+      const suggestions = suggestEngineeringProfileSources(f.intake, [f.document]);
+      rows.push({
+        key: spec.key,
+        genuine: spec.genuine,
+        observation_sha256: spec.hash,
+        suggestions: suggestions.length,
+        new_durable_usable_assertions: 0,
+        elapsed_ms: Number((performance.now() - start).toFixed(3)),
+      });
+      expect(suggestions).toEqual([]);
+    }
+    console.log(
+      'PROFILE_RECOVERY_ATTEMPT ' +
+        JSON.stringify({
+          version: 'engineering-profile-adjudication.v1',
+          sample: 'three unchanged page-2 source observations',
+          historical_denominators: { eligible: 254, page2: 77 },
+          rows,
+          authority: 'no human decision or product admission',
+          interpretation:
+            'No gain; this source-context policy cannot recover flattened model tables or unsupported quantities.',
+        }),
+    );
+  });
   it('supply range becomes a valid qualified representation after human source repair', async () => {
     const spec = cases[0];
     const f = await frozen(spec);

@@ -1,0 +1,240 @@
+{
+  "schema_version": "engineering-envelope-input.v1",
+  "profiles": [
+    {
+      "schema_version": "engineering-profile.v1",
+      "component_id": "module",
+      "model": "Synthetic module",
+      "manufacturer_revision": "invented-r1",
+      "evidence": [
+        {
+          "id": "module.e",
+          "source_url": "urn:project:synthetic",
+          "publisher": "Expedition test authors",
+          "model": "Synthetic module",
+          "manufacturer_revision": "invented-r1",
+          "retrieved_at": "2026-01-01T00:00:00Z",
+          "locator": "invented complete fixture",
+          "source_digest": null,
+          "statement": "All values and permissions are invented controlled test assumptions.",
+          "conditions": [],
+          "origin": "synthetic",
+          "rights": "project_authored"
+        }
+      ],
+      "pv": {
+        "voc_v": {
+          "value": 24.34,
+          "unit": "V",
+          "evidence_ids": ["module.e"]
+        },
+        "vmp_v": {
+          "value": 20.74,
+          "unit": "V",
+          "evidence_ids": ["module.e"]
+        },
+        "isc_a": {
+          "value": 10.31,
+          "unit": "A",
+          "evidence_ids": ["module.e"]
+        },
+        "imp_a": {
+          "value": 9.68,
+          "unit": "A",
+          "evidence_ids": ["module.e"]
+        },
+        "pmax_w": {
+          "value": 200,
+          "unit": "W",
+          "evidence_ids": ["module.e"]
+        },
+        "reference_cell_c": {
+          "value": 25,
+          "unit": "degC",
+          "evidence_ids": ["module.e"]
+        },
+        "irradiance_w_m2": {
+          "value": 1000,
+          "unit": "W/m2",
+          "evidence_ids": ["module.e"]
+        },
+        "spectrum": {
+          "value": "synthetic spectrum",
+          "evidence_ids": ["module.e"]
+        },
+        "coefficients": {
+          "voc": {
+            "value": -0.36,
+            "unit": "percent/K",
+            "cell_domain_c": {
+              "min": -40,
+              "max": 85
+            },
+            "evidence_ids": ["module.e"]
+          },
+          "vmp": {
+            "value": -0.004,
+            "unit": "fraction/K",
+            "cell_domain_c": {
+              "min": -40,
+              "max": 85
+            },
+            "evidence_ids": ["module.e"]
+          }
+        },
+        "uncertainty_fraction": {
+          "voc": {
+            "value": 0,
+            "unit": "fraction",
+            "evidence_ids": ["module.e"]
+          },
+          "vmp": {
+            "value": 0,
+            "unit": "fraction",
+            "evidence_ids": ["module.e"]
+          },
+          "pmax": {
+            "value": 0,
+            "unit": "fraction",
+            "evidence_ids": ["module.e"]
+          }
+        },
+        "max_system_v": {
+          "value": 1000,
+          "unit": "V",
+          "evidence_ids": ["module.e"]
+        }
+      }
+    },
+    {
+      "schema_version": "engineering-profile.v1",
+      "component_id": "controller",
+      "model": "Synthetic controller",
+      "manufacturer_revision": "invented-r1",
+      "evidence": [
+        {
+          "id": "controller.e",
+          "source_url": "urn:project:synthetic",
+          "publisher": "Expedition test authors",
+          "model": "Synthetic controller",
+          "manufacturer_revision": "invented-r1",
+          "retrieved_at": "2026-01-01T00:00:00Z",
+          "locator": "invented complete fixture",
+          "source_digest": null,
+          "statement": "All values and permissions are invented controlled test assumptions. Synthetic assumption: operating maximum voltage applies to Vmp envelope.",
+          "conditions": [],
+          "origin": "synthetic",
+          "rights": "project_authored"
+        }
+      ],
+      "trackers": [
+        {
+          "id": "tracker",
+          "grouping_status": "source_supported",
+          "terminal_ids": ["input"],
+          "evidence_ids": ["controller.e"],
+          "input_sharing": "permitted",
+          "absolute_voc_v": {
+            "value": 150,
+            "unit": "V",
+            "evidence_ids": ["controller.e"]
+          },
+          "operating_max_v": {
+            "value": 150,
+            "unit": "V",
+            "evidence_ids": ["controller.e"]
+          },
+          "operating_min_v": {
+            "value": 0,
+            "unit": "V",
+            "evidence_ids": ["controller.e"]
+          },
+          "start_headroom_v": {
+            "value": 5,
+            "unit": "V",
+            "evidence_ids": ["controller.e"]
+          },
+          "run_headroom_v": {
+            "value": 1,
+            "unit": "V",
+            "evidence_ids": ["controller.e"]
+          },
+          "restart_headroom_v": {
+            "value": 5,
+            "unit": "V",
+            "evidence_ids": ["controller.e"]
+          },
+          "max_isc_a": {
+            "value": 45,
+            "unit": "A",
+            "evidence_ids": ["controller.e"]
+          },
+          "max_imp_a": {
+            "value": 45,
+            "unit": "A",
+            "evidence_ids": ["controller.e"]
+          },
+          "terminal_limits": [
+            {
+              "id": "input",
+              "max_isc_a": {
+                "value": 45,
+                "unit": "A",
+                "evidence_ids": ["controller.e"]
+              },
+              "max_imp_a": {
+                "value": 45,
+                "unit": "A",
+                "evidence_ids": ["controller.e"]
+              }
+            }
+          ],
+          "power_limits": [
+            {
+              "battery_nominal_v": {
+                "value": 12,
+                "unit": "V",
+                "evidence_ids": ["controller.e"]
+              },
+              "max_pmax_w": {
+                "value": 650,
+                "unit": "W",
+                "evidence_ids": ["controller.e"]
+              },
+              "clipping": "permitted",
+              "evidence_ids": ["controller.e"]
+            }
+          ],
+          "operating_max_basis": "vmp_envelope"
+        }
+      ]
+    }
+  ],
+  "pv": {
+    "controller_id": "controller",
+    "strings": [
+      {
+        "id": "s0",
+        "module_id": "module",
+        "series_count": 1,
+        "tracker_id": "tracker",
+        "terminal_id": "input"
+      }
+    ],
+    "cell_min_c": -10,
+    "cell_max_c": 25,
+    "start_cell_c": 25,
+    "restart_cell_c": 25,
+    "irradiance_w_m2": 1000,
+    "spectrum": "synthetic spectrum",
+    "battery_max_v": 15.5,
+    "battery_nominal_v": 12,
+    "current_upper_factors": {
+      "isc": 1,
+      "imp": 1,
+      "rationale": "Controlled synthetic reference-current upper bound; no real irradiance claim"
+    },
+    "cell_temperature_rationale": "Controlled synthetic cell temperatures, not assumed ambient weather",
+    "protection_and_connector_evidence_ids": ["controller.e"]
+  }
+}

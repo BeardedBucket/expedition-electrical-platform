@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { lazy, Suspense, useEffect, useState, type FormEvent } from 'react';
 import { ProductReview, SourceLink } from './ProductReview.js';
 import {
   api,
@@ -8,6 +8,11 @@ import {
   type OperatorJobSummary,
 } from './api.js';
 import { BatchCreate, BatchList, BatchPage } from './BatchWorkflow.js';
+// Optional profile exploration carries AJV and engineering schemas. Load it only
+// on its explicit route so the ordinary source-review workspace stays lightweight.
+const EngineeringPreparation = lazy(() =>
+  import('./EngineeringPreparation.js').then((m) => ({ default: m.EngineeringPreparation })),
+);
 
 const display = (value: unknown): string =>
   value === undefined
@@ -971,11 +976,16 @@ export default function App({ client = api }: { client?: OperatorApi }) {
           </a>
           <a href="#/jobs">Recent jobs</a>
           <a href="#/batches">Batches</a>
+          <a href="#/engineering-preparation">Engineering profiles</a>
         </nav>
       </header>
       <main>
         {error && <p role="alert">{error}</p>}
-        {id ? (
+        {route === '#/engineering-preparation' ? (
+          <Suspense fallback={<p role="status">Loading engineering preparation…</p>}>
+            <EngineeringPreparation />
+          </Suspense>
+        ) : id ? (
           <JobPage key={id} id={id} client={client} />
         ) : route === '#/batches/new' ? (
           <BatchCreate client={client} />

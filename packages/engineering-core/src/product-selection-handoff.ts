@@ -1,4 +1,5 @@
 import type { ComponentLibraryRecord } from './component-library.js';
+import { bindInstalledPv, type InstalledPvScenario } from './installed-pv-bridge.js';
 import type {
   WholeSystemEvaluationInput,
   InstalledSystemRequirements,
@@ -55,6 +56,16 @@ export const bindProductSelection = (
   selection: ProductSelectionResult,
   choices: readonly SelectedRoleBinding[],
   options: {
+    readonly installed_pv?: InstalledPvScenario;
+    /** Solar source models are installation evidence, not new Phase 4 roles.
+     * Each explicit module port is associated with an existing source endpoint;
+     * no missing port, source capacity or manufacturer permission is inferred. */
+    readonly pv_modules?: readonly {
+      instance_id: string;
+      record: ComponentLibraryRecord;
+      port_id: string;
+      source_endpoint_id: string;
+    }[];
     readonly evaluation_hours?: number;
     readonly device_states?: InstalledSystemRequirements['load_states'];
     /** Later exact-evaluation timing for requirement-owned endpoints. Existing
@@ -67,6 +78,7 @@ export const bindProductSelection = (
   input: WholeSystemEvaluationInput;
   catalog: readonly ComponentLibraryRecord[];
   selection_digest: string;
+  pv_binding?: ReturnType<typeof bindInstalledPv>;
 } => {
   const result = parseProductSelection(serializePassportValue(selection));
   const candidate = result.input.generation.candidates.find(
@@ -166,7 +178,7 @@ export const bindProductSelection = (
     };
   });
   const byRole = new Map(selected.map((s) => [s.role.role.id, s]));
-  const input: WholeSystemEvaluationInput = {
+  let input: WholeSystemEvaluationInput = {
     assumptions,
     architecture: {
       installation: {
@@ -248,15 +260,95 @@ export const bindProductSelection = (
   };
   // Fresh ownership prevents edits to handoff schedules or bindings from mutating
   // the portable selection artifact. Canonical records stay real, exact snapshots.
+  const catalog = [...result.input.corpus];
+  if (options.pv_modules?.length) {
+    if (!options.installed_pv)
+      throw new Error('PV module materialization requires an explicit PV scenario');
+    const modules = options.pv_modules;
+    if (options.installed_pv.version !== 'installed-pv-scenario.v2')
+      throw new Error('Unsupported physical PV inventory version');
+    const inventory = Object.values(options.installed_pv.module_instances).flatMap((v) => v ?? []);
+    if (new Set(inventory.map((m) => m.instance_id)).size !== inventory.length)
+      throw new Error('Duplicate physical PV module ownership');
+    if (
+      modules.some(
+        (m) => !inventory.some((p) => p.instance_id === m.instance_id && p.port_id === m.port_id),
+      )
+    )
+      throw new Error('Unrelated PV module or mismatched physical port inventory');
+    if (
+      new Set(modules.map((m) => m.instance_id)).size !== modules.length ||
+      modules.some((m) =>
+        input.architecture.installation.component_instances?.some((i) => i.id === m.instance_id),
+      )
+    )
+      throw new Error('Duplicate PV module instance');
+    const pvBindings = modules.map((m) => {
+      const endpoint = candidate.topology.domains.find((e) => e.id === m.source_endpoint_id);
+      if (
+        !endpoint ||
+        endpoint.kind !== 'pv_dc' ||
+        !result.input.generation.input.requirements.charging_sources.some(
+          (s) => s.kind === 'solar' && `domain.source.${s.id}` === endpoint.id,
+        )
+      )
+        throw new Error('PV module must bind an existing solar source endpoint');
+      const ports = m.record.ports?.filter((p) => p.id === m.port_id) ?? [];
+      const port = ports[0];
+      if (ports.length !== 1 || !port || port.domain !== 'dc' || port.direction !== 'output')
+        throw new Error('Exact declared DC output port required for PV source');
+      const existing = catalog.find((r) => r.id === m.record.id);
+      if (existing && serializePassportValue(existing) !== serializePassportValue(m.record))
+        throw new Error('Conflicting PV record snapshots');
+      if (!existing) catalog.push(m.record);
+      return {
+        id: `pv-module.${m.instance_id}`,
+        instance_id: m.instance_id,
+        port_id: m.port_id,
+        domain_id: endpoint.id,
+      };
+    });
+    input = {
+      ...input,
+      architecture: {
+        ...input.architecture,
+        installation: {
+          ...input.architecture.installation,
+          component_instances: [
+            ...(input.architecture.installation.component_instances ?? []),
+            ...modules.map((m) => ({
+              id: m.instance_id,
+              component_id: m.record.id,
+              status: 'selected' as const,
+            })),
+          ],
+        },
+        power_topology: {
+          ...input.architecture.power_topology,
+          bindings: [...input.architecture.power_topology.bindings, ...pvBindings],
+          // A source-domain association does not prove a wire. In particular,
+          // wiring every series piece directly to the endpoint would fabricate
+          // parallel connectivity. Keep the inherited graph; circuit proof is
+          // explicitly unresolved in the PV bridge until a consumer models it.
+          edges: input.architecture.power_topology.edges,
+        },
+      },
+    };
+  }
+  const pvBinding = options.installed_pv
+    ? bindInstalledPv(input, catalog, options.installed_pv)
+    : undefined;
   return JSON.parse(
     serializePassportValue({
-      input,
-      catalog: result.input.corpus,
+      input: pvBinding?.bound_input ?? input,
+      catalog,
+      ...(pvBinding ? { pv_binding: pvBinding } : {}),
       selection_digest: result.result_digest,
     }),
   ) as {
     input: WholeSystemEvaluationInput;
     catalog: readonly ComponentLibraryRecord[];
     selection_digest: string;
+    pv_binding?: ReturnType<typeof bindInstalledPv>;
   };
 };

@@ -1,5 +1,17 @@
 # Local ingestion admin
 
+The optional Engineering profiles route previews versioned provisional PV,
+tracker, shared-capacity, AC-mode and assembly facts, source evidence and explicit
+installed scenarios. Edits clear stale previews; validation grants no source or
+product approval and does not save durable human decisions. See the
+[Wave-1 operator runbook](../../docs/ENGINEERING_CORPUS_WAVE1_RUNBOOK.md) for private
+byte replay, current integration gaps and the separate human lifecycle STOP.
+
+Ordinary source corrections additionally offer explicit PV/controller quantities,
+source-context suggestions and atomic pending profile projection. They reuse the
+existing durable preview/save/CAS/history workflow; the separate JSON route has
+no durable authority. See [the source-to-Phase 3/5 continuation](../../docs/ENGINEERING_CORPUS_WAVE1_CONTINUATION.md).
+
 Semantic cards expose automatic retained-evidence policy/rule/source identities
 and retain source context text/typing in evidence locators. This classification
 has no engineering projection; bare evidence-only observations still require

@@ -1,4 +1,5 @@
 /** Node backend entry point. Kept out of the browser index and ingestion runtime. */
+export * from './installed-pv-bridge.js';
 export * from './installed-power-topology.js';
 export * from './engineering-passport-contracts.js';
 export {
