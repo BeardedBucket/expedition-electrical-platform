@@ -1,0 +1,7 @@
+{
+  "fixture_kind": "project_authored",
+  "license": "CC-BY-SA-4.0",
+  "version": "project-observation.v1",
+  "page": 2,
+  "text": "Review Monitor R1\nSupply voltage range 7.25 - 68 VDC\nAccuracy of current measurement ± 0.6 %\nAccuracy is specified with a 250 A shunt.\n"
+}

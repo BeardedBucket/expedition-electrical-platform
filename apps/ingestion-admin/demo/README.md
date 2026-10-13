@@ -45,6 +45,8 @@ Observed browser status: the final isolated build was rendered at all six listed
 
 ## Authentic frozen-source reference lab
 
+Regression portability: normal human-adjudication tests use versioned, explicitly project-authored observation fixtures. Authentic-source backend and lab checks run only through `npm run test:genuine-observations` with an explicit artifact directory. See [the artifact/rights contract](../tests/fixtures/observations/README.md). Self-contained loader refusal tests do not require the experimental TEMP benchmark. The optional browser build below remains a separately invoked local reference lab.
+
 Run `node apps/ingestion-admin/demo/build.mjs --frozen` from the repository. Then run `node apps/ingestion-admin/demo/serve.mjs "<exact TEMP directory printed by build>"` and open the loopback URL it prints. Stop that terminal with Ctrl+C when finished. The ordinary build without `--frozen` still contains the original 15 invented scenarios.
 
 The optional build reads only `artifact-manifest.json` and three exact JSON text observations in `$env:TEMP/expedition-document-extraction-benchmark/outputs/pdfplumber-text/`. It checks their frozen SHA-256 identities, source metadata and page. BMV-712 Smart, Morningstar SS-10L-12V and Samlex EVO-2212 retain original extracted text rows and headings. No oracle/adjudication output, external PDF, capture or preparation path is followed. Manufacturer text is injected into a fresh TEMP browser bundle, never copied into repository fixtures. The PDF digest is metadata retained in the observation; the external PDF was not reopened or rehashed.

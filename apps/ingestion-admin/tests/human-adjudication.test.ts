@@ -34,6 +34,12 @@ import { createOperatorApi } from '../server/api.js';
 import { jobDetail } from '../server/operator-views.js';
 import { input, profile } from './fixtures.js';
 import {
+  genuineObservations,
+  loadObservation,
+  projectObservations,
+  type ObservationCase,
+} from './fixtures/observation-fixtures.js';
+import {
   createHumanSourceEvent,
   rebuildHumanPreparation,
 } from '../../../packages/ingestion-runtime/src/human-review.js';
@@ -1444,37 +1450,18 @@ describe('controlled corpus-scale storage and replay', () => {
   }, 30000); // Controlled replay samples may exceed Vitest's five-second UI default.
 });
 
-describe('authorized frozen manufacturer observations — genuine text, controlled retained envelope', () => {
-  // These files are explicitly authorized observations. No external PDF path,
-  // benchmark oracle, original preparation store or canonical destination is read.
-  const names = ['victron-bmv-712', 'morningstar-sunsaver-10l', 'samlex-evo-2212'] as const;
-  const frozenHashes = {
-    'victron-bmv-712': 'b09ef2001d990e09edea6d2f4655c09870b2c6f98be9cdcb951f88a7339adcde',
-    'morningstar-sunsaver-10l': '0a4060d282abcba7bc988b5bb438215d8164916ef4f3117692f7d57b535b7b70',
-    'samlex-evo-2212': 'c438b4815d3dcc982cee83ea09de98ad161a5c40e4d835b1fd5fd4844a55fda3',
-  };
-  async function frozen(name: (typeof names)[number]) {
-    const path = join(
-      tmpdir(),
-      'expedition-document-extraction-benchmark',
-      'outputs',
-      'pdfplumber-text',
-      `${name}.json`,
-    );
-    const bytes = await readFile(path);
-    expect(createHash('sha256').update(bytes).digest('hex')).toBe(frozenHashes[name]);
-    const observation = JSON.parse(bytes.toString());
+function observationContractTests(cases: readonly ObservationCase[]) {
+  // Both datasets exercise the same contracts. CI's invented fixtures are never
+  // labeled manufacturer evidence; the explicit private gate retains exact
+  // genuine bytes/digests and never follows embedded PDF/capture/baseline paths.
+  async function frozen(spec: ObservationCase) {
+    const { path, bytes, observation } = await loadObservation(spec);
     const intake: ProductIntake = {
       schema_version: '1.0',
       artifact_kind: 'product_intake',
       id: 'controlled.frozen',
-      manufacturer: 'Frozen manufacturer observation',
-      product_model:
-        name === 'victron-bmv-712'
-          ? 'BMV-712 Smart'
-          : name === 'morningstar-sunsaver-10l'
-            ? 'SS-10L-12V'
-            : 'EVO-2212',
+      manufacturer: spec.genuine ? 'Frozen manufacturer observation' : 'Project-authored fixture',
+      product_model: spec.model,
       official_product_uri: 'https://example.test/controlled-frozen-envelope',
     };
     const digest = `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
@@ -1497,8 +1484,8 @@ describe('authorized frozen manufacturer observations — genuine text, controll
       status: 'extracted',
       capability_state: 'automatic_extraction_available',
       remediation_state: 'none_required',
-      extractor: 'frozen-pdfplumber-observation',
-      extractor_version: observation.version ?? 'retained',
+      extractor: spec.genuine ? 'frozen-pdfplumber-observation' : 'project-authored-observation',
+      extractor_version: observation.version,
       blocks: [
         {
           id: 'frozen.page-text',
@@ -1510,9 +1497,10 @@ describe('authorized frozen manufacturer observations — genuine text, controll
     };
     return { path, bytes, observation, intake, document };
   }
-  it('BMV supply range becomes a valid qualified representation after human source repair', async () => {
-    const f = await frozen(names[0]);
-    const wording = 'Supply voltage range 6.5 - 70 VDC';
+  it('supply range becomes a valid qualified representation after human source repair', async () => {
+    const spec = cases[0];
+    const f = await frozen(spec);
+    const wording = spec.range!.wording;
     expect(f.observation.text).toContain(wording);
     const citation = {
       document_id: f.document.id,
@@ -1521,7 +1509,7 @@ describe('authorized frozen manufacturer observations — genuine text, controll
     };
     const s: HumanSourceStatement = {
       label: 'Supply voltage range',
-      value: '6.5 - 70 VDC',
+      value: spec.range!.value,
       unit: 'VDC',
       wording,
       citations: [citation],
@@ -1538,37 +1526,38 @@ describe('authorized frozen manufacturer observations — genuine text, controll
     });
     const p = previewHumanMapping(fact, s.mapping!);
     expect(p.qualified_value).toMatchObject({
-      value: { min: 6.5, max: 70 },
+      value: { min: spec.range!.min, max: spec.range!.max },
       qualifiers: { electrical_domain: 'dc' },
     });
     expect(await readFile(f.path)).toEqual(f.bytes);
   });
-  it('BMV genuine frozen wording uses real backend eligibility, candidate reconstruction and durable restart', async () => {
-    const frozenSource = await frozen(names[0]);
+  it('retained wording uses real backend eligibility, candidate reconstruction and durable restart', async () => {
+    const spec = cases[0];
+    const frozenSource = await frozen(spec);
     const escape = (text: string) =>
       text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const textLines: string[] = frozenSource.observation.text.split('\n');
-    // A controlled HTML envelope retains genuine frozen wording. It tests the
-    // real acquisition/review/store contracts, not original PDF layout or
-    // manufacturer-host authentication. No invented table coordinates enter it.
+    // A controlled HTML envelope retains the selected dataset's exact wording.
+    // It tests acquisition/review/store contracts, not original PDF layout or
+    // publisher authentication. No table coordinates are invented.
     const html = `<html><body><h1>${escape(textLines[0])}</h1>${textLines
       .slice(1)
       .map((line) => `<p>${escape(line)}</p>`)
       .join('')}</body></html>`;
     const f = await fixture('', html, {
-      manufacturer: 'Frozen manufacturer observation',
-      product_model: 'BMV-712 Smart',
+      manufacturer: frozenSource.intake.manufacturer,
+      product_model: spec.model,
       official_product_uri: input.official_product_uri,
     });
     expect(f.p.qualified_facts).toHaveLength(0);
     const d = f.p.document_extractions.find((d) =>
-      d.blocks.some((b) => b.content === 'Supply voltage range 6.5 - 70 VDC'),
+      d.blocks.some((b) => b.content === spec.range!.wording),
     )!;
-    const b = d.blocks.find((b) => b.content === 'Supply voltage range 6.5 - 70 VDC')!;
+    const b = d.blocks.find((b) => b.content === spec.range!.wording)!;
     const heading = d.blocks.find((b) => b.kind === 'heading' && b.content === textLines[0])!;
     const s: HumanSourceStatement = {
       label: 'Supply voltage range',
-      value: '6.5 - 70 VDC',
+      value: spec.range!.value,
       unit: 'VDC',
       wording: b.content!,
       citations: [{ document_id: d.id, block_id: b.id, quote: b.content! }],
@@ -1588,7 +1577,7 @@ describe('authorized frozen manufacturer observations — genuine text, controll
       expect.arrayContaining([
         expect.objectContaining({
           target: 'electrical.input_voltage_range_v',
-          value: { min: 6.5, max: 70 },
+          value: { min: spec.range!.min, max: spec.range!.max },
         }),
       ]),
     );
@@ -1599,8 +1588,9 @@ describe('authorized frozen manufacturer observations — genuine text, controll
     expect(saved.final_result).toBeUndefined();
     expect(await readFile(frozenSource.path)).toEqual(frozenSource.bytes);
   });
-  it('genuine BMV measurement precision cannot become an electrical current rating', async () => {
-    const f = await frozen(names[0]);
+  it('measurement precision cannot become an electrical current rating', async () => {
+    const spec = cases[0];
+    const f = await frozen(spec);
     const citation = {
       document_id: f.document.id,
       block_id: f.document.blocks[0].id,
@@ -1608,9 +1598,9 @@ describe('authorized frozen manufacturer observations — genuine text, controll
     };
     const s: HumanSourceStatement = {
       label: 'Current measurement accuracy',
-      value: '± 0.4 %',
+      value: spec.precision!.value,
       unit: '%',
-      wording: 'Accuracy of current measurement ± 0.4 %',
+      wording: spec.precision!.wording,
       citations: [citation],
       applicability: { relationship: 'text_heading', citation },
       mapping: {
@@ -1629,10 +1619,10 @@ describe('authorized frozen manufacturer observations — genuine text, controll
     });
     expect(() => previewHumanMapping(fact, s.mapping!)).toThrow(/units/);
   });
-  it.each(names)(
-    'preserves %s frozen identity and refuses invented precision/current mappings',
-    async (name) => {
-      const f = await frozen(name);
+  it.each(cases)(
+    'preserves $key observation identity and refuses invented precision/current mappings',
+    async (spec) => {
+      const f = await frozen(spec);
       const citation = {
         document_id: f.document.id,
         block_id: f.document.blocks[0].id,
@@ -1658,8 +1648,45 @@ describe('authorized frozen manufacturer observations — genuine text, controll
       expect(await readFile(f.path)).toEqual(f.bytes);
     },
   );
-  it('Morningstar shared text cannot establish a reliable model column', async () => {
-    const f = await frozen(names[1]);
+  if (!cases[0].genuine) {
+    it('project-authored time-limited current retains its source duration and temperature', async () => {
+      const f = await frozen(cases[2]);
+      const citation = {
+        document_id: f.document.id,
+        block_id: f.document.blocks[0].id,
+        quote: f.observation.text,
+      };
+      const s: HumanSourceStatement = {
+        label: 'Output current',
+        value: '120 A',
+        unit: 'A',
+        wording: 'Output current 120 A for 4 seconds at 23°C',
+        duration: '4 seconds',
+        temperature: '23°C',
+        citations: [citation],
+        applicability: { relationship: 'text_heading', citation },
+        mapping: {
+          kind: 'source_rating',
+          target: 'electrical.output_current_a',
+          qualifiers: { direction: 'output', duration: '4 seconds', temperature_context: '23°C' },
+        },
+      };
+      const fact = humanStatementFact({
+        version: 'human-adjudication.v1',
+        event_id: 'project.qualified',
+        statement_index: 0,
+        intake: f.intake,
+        statement: s,
+        documents: [f.document],
+      });
+      expect(previewHumanMapping(fact, s.mapping!).qualified_value).toMatchObject({
+        value: 120,
+        qualifiers: { direction: 'output', duration: '4 seconds', temperature_context: '23°C' },
+      });
+    });
+  }
+  it('shared text cannot establish a reliable model column', async () => {
+    const f = await frozen(cases[1]);
     const citation = {
       document_id: f.document.id,
       block_id: f.document.blocks[0].id,
@@ -1683,4 +1710,13 @@ describe('authorized frozen manufacturer observations — genuine text, controll
       }),
     ).toThrow(/column|model/);
   });
+}
+
+describe('project-authored observation contracts — mandatory portable CI', () => {
+  observationContractTests(projectObservations);
 });
+if (process.env.EXPEDITION_RUN_GENUINE_OBSERVATIONS === '1') {
+  describe('genuine frozen manufacturer observations — explicit private integration gate', () => {
+    observationContractTests(genuineObservations);
+  });
+}

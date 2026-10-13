@@ -19,6 +19,7 @@
     "format:check": "prettier --check \"package.json\" \"tsconfig.json\" \".prettierrc.json\" \"eslint.config.js\" \"vitest.config.ts\" \".github/workflows/**/*.yml\" \"scripts/**/*.mjs\" \"data/rules/**/*.json\" \"data/engineering/**/*.json\" \"data/schemas/**/*.json\" \"apps/**/*.{json,ts,tsx,css,html}\" \"packages/**/*.{json,ts}\"",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:genuine-observations": "vitest run --config vitest.genuine-observations.config.ts",
     "test:watch": "vitest",
     "validate:data": "node scripts/validate-data.mjs"
   },
