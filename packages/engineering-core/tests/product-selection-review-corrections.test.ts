@@ -12,7 +12,12 @@ import {
   serializeEngineeringPassport,
   replayEngineeringPassport,
 } from '../src/engineering-passport.js';
-import { batteryProduct, converterProduct, selectionRequest } from './fixtures/selection.js';
+import {
+  batteryProduct,
+  converterProduct,
+  verifiedSelectionRequest,
+} from './fixtures/selection.js';
+import { verifySyntheticRecord } from './fixtures/verification.js';
 
 const exactWitness = { interfaces: { dc: 'in', output: 'out' }, paths: { supply: 'convert' } };
 const pathProduct = (portIds?: readonly string[]): ComponentLibraryRecord => ({
@@ -29,7 +34,8 @@ describe('capability participant authority', () => {
       const product = pathProduct(ids);
       expect(validateComponentLibraryRecord(product).ok).toBe(true);
       expect(
-        evaluateProductSelection(selectionRequest([product])).roles[0]!.candidates[0]!.status,
+        evaluateProductSelection(verifiedSelectionRequest([product])).roles[0]!.candidates[0]!
+          .status,
       ).toBe('ELIGIBLE');
       expect(product.capabilities![0]!.port_ids).toEqual(ids);
     },
@@ -37,7 +43,7 @@ describe('capability participant authority', () => {
   it.each([['in'], ['out'], []])('rejects excluded path endpoints: %s', (...ids) => {
     const product = pathProduct(ids);
     expect(validateComponentLibraryRecord(product).ok).toBe(false);
-    const input = selectionRequest([product]);
+    const input = verifiedSelectionRequest([product]);
     expect(() => evaluateProductSelection(input)).toThrow(
       /participants contradict|fewer than 1 items/,
     );
@@ -46,7 +52,7 @@ describe('capability participant authority', () => {
     const binding = evaluateProductWitness(
       architecture,
       architecture.required_roles[0]!,
-      product,
+      verifySyntheticRecord(product),
       exactWitness,
     );
     expect(binding.status).toBe('BLOCKED');
@@ -59,9 +65,9 @@ describe('capability participant authority', () => {
       ...batteryProduct(),
       capabilities: [{ id: 'store', type: 'energy_storage' as const }],
     };
-    const role = evaluateProductSelection(selectionRequest([product], false, true)).roles.find(
-      (r) => r.role.function === 'storage',
-    )!;
+    const role = evaluateProductSelection(
+      verifiedSelectionRequest([product], false, true),
+    ).roles.find((r) => r.role.function === 'storage')!;
     expect(role.candidates.every((c) => c.status !== 'ELIGIBLE')).toBe(true);
     expect(
       role.candidates
@@ -95,11 +101,15 @@ describe('capability participant authority', () => {
       expect(validation.errors).toContain(
         'power_paths.convert: participants contradict capabilities.convert.port_ids.',
       );
-    const input = selectionRequest([product]);
+    const input = verifiedSelectionRequest([product]);
     const architecture = input.generation.candidates[0]!;
     expect(
-      evaluateProductWitness(architecture, architecture.required_roles[0]!, product, exactWitness)
-        .status,
+      evaluateProductWitness(
+        architecture,
+        architecture.required_roles[0]!,
+        verifySyntheticRecord(product),
+        exactWitness,
+      ).status,
     ).toBe('BLOCKED');
   });
 });
@@ -129,7 +139,9 @@ const alternatives = (unknownPower: boolean): ComponentLibraryRecord => ({
   ],
 });
 const selectOutput = (unknownPower: boolean, output: string) => {
-  const selection = evaluateProductSelection(selectionRequest([alternatives(unknownPower)]));
+  const selection = evaluateProductSelection(
+    verifiedSelectionRequest([alternatives(unknownPower)]),
+  );
   const role = selection.roles[0]!;
   const product = role.candidates[0]!;
   const binding = product.bindings.find(
@@ -173,7 +185,7 @@ describe('selected witness provenance', () => {
     expect(evaluateInstalledSystem(input, catalog).result.status).toBe('blocked');
   });
   it('retains a required upstream dependency even when all selected gates are YES', () => {
-    const selection = evaluateProductSelection(selectionRequest(undefined, true));
+    const selection = evaluateProductSelection(verifiedSelectionRequest(undefined, true));
     const role = selection.roles[0]!;
     const binding = role.candidates[0]!.bindings.find((b) =>
       b.gates.every((g) => g.truth === 'YES'),
@@ -192,7 +204,7 @@ describe('selected witness provenance', () => {
   it('includes only selected non-YES assembly gates', () => {
     const { allowed_parallel_count: _permission, ...battery } = batteryProduct().battery!;
     const selection = evaluateProductSelection(
-      selectionRequest([converterProduct(), { ...batteryProduct(), battery }], false, true),
+      verifiedSelectionRequest([converterProduct(), { ...batteryProduct(), battery }], false, true),
     );
     const choices = selection.roles.map((r) => {
       const product = r.candidates.find((c) =>
@@ -218,7 +230,7 @@ describe('selected witness provenance', () => {
 });
 
 const requirementHandoff = () => {
-  const original = selectionRequest();
+  const original = verifiedSelectionRequest();
   const assumptions = [
     {
       id: 'genuine',
@@ -345,7 +357,7 @@ describe('direct requirement provenance', () => {
 
 describe('unambiguous assembly intent admission', () => {
   const setup = () => {
-    const input = selectionRequest([batteryProduct()], false, true);
+    const input = verifiedSelectionRequest([batteryProduct()], false, true);
     const role = input.generation.candidates[0]!.required_roles.find(
       (r) => r.function === 'storage',
     )!;
@@ -406,7 +418,7 @@ describe('unambiguous assembly intent admission', () => {
     const second = { ...batteryProduct(), id: 'fixture.battery2' };
     const result = evaluateProductSelection({
       ...input,
-      corpus: [...input.corpus, second],
+      corpus: [...input.corpus, verifySyntheticRecord(second)],
       assemblies: [assembly, { ...assembly, component_id: second.id }],
     });
     expect(

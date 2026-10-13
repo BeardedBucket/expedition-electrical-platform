@@ -180,9 +180,10 @@ describe('Checkpoint D document extraction', () => {
       { source_acquisition: acquisition },
     );
     expect(artifact.status).toBe('extracted');
-    expect(artifact.blocks).toHaveLength(1);
-    expect(artifact.blocks[0].locator).toMatchObject({ kind: 'pdf', page: 1, ordinal: 1 });
-    expect(artifact.blocks[0].source_location).toEqual(artifact.blocks[0].locator);
+    const raw = artifact.blocks.filter((block) => block.kind === 'text_block');
+    expect(raw).toHaveLength(1);
+    expect(raw[0].locator).toMatchObject({ kind: 'pdf', page: 1, ordinal: 1 });
+    expect(raw[0].source_location).toEqual(raw[0].locator);
     expect(validateDocumentExtraction(artifact)).toEqual([]);
     expect(validateProductionArtifactSchema(artifact)).toEqual([]);
   });

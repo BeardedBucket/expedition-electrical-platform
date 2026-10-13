@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, open, readdir, readFile, rm } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { deserializeJob, serializeJob } from './codec.js';
+import { rebuildHumanPreparation } from './human-review.js';
 import type { IngestionJob } from './job-service.js';
 import { replaceJobRecord } from './file-replacement.js';
 import { isPreparationRecoveryEligible } from './preparation-recovery.js';
@@ -15,6 +16,10 @@ import {
   validateProductionApproval,
   approvalMatchesReviewPackage,
   type ReviewedSemanticDecision,
+  validateHumanAdjudicationIntent,
+  replayHumanSourceFacts,
+  type HumanAdjudicationEvent,
+  type ReviewReadyProductionIngest,
 } from '@expedition/ingestion';
 
 export interface IngestionJobStore {
@@ -64,6 +69,45 @@ const states = new Set([
   'finalized',
   'finalization_failed',
 ]);
+/** Recovery archives are audit evidence too. Apply the same source/intent/replay
+ * checks to active and archived streams; archival never legitimizes a malformed
+ * proof or attaches an earlier capture's corrections to a new preparation. */
+const validHumanHistory = (
+  original: ReviewReadyProductionIngest,
+  events: readonly HumanAdjudicationEvent[],
+  effective: ReviewReadyProductionIngest,
+): boolean => {
+  if (
+    !events.length ||
+    events.some(
+      (e) =>
+        !validateHumanAdjudicationIntent(e.intent) ||
+        e.facts.some(
+          (f) =>
+            !f.human_source ||
+            artifactDigest(f.human_source.intake) !== artifactDigest(original.intake) ||
+            f.human_source.documents.some(
+              (d) =>
+                !original.document_extractions.some(
+                  (retained) => artifactDigest(retained) === artifactDigest(d),
+                ),
+            ),
+        ),
+    )
+  )
+    return false;
+  replayHumanSourceFacts(original.qualified_facts, events);
+  const replay = rebuildHumanPreparation(
+    original,
+    events,
+    effective.bridge.reviewed_semantic_decisions,
+  );
+  return (
+    artifactDigest(replay.qualified_facts) === artifactDigest(effective.qualified_facts) &&
+    artifactDigest(replay.bridge) === artifactDigest(effective.bridge) &&
+    artifactDigest(replay.review_package) === artifactDigest(effective.review_package)
+  );
+};
 const validJob = (value: unknown, id: string): value is IngestionJob => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const job = value as Partial<IngestionJob>;
@@ -88,6 +132,16 @@ const validJob = (value: unknown, id: string): value is IngestionJob => {
     )
       return false;
     for (const [index, recovery] of (job.preparation_recovery_history ?? []).entries()) {
+      if (
+        recovery.human_adjudication_original &&
+        (!recovery.human_adjudications ||
+          !validHumanHistory(
+            recovery.human_adjudication_original,
+            recovery.human_adjudications,
+            recovery.preparation,
+          ))
+      )
+        return false;
       if (
         !recovery ||
         typeof recovery.requested_at !== 'string' ||
@@ -232,6 +286,16 @@ const validJob = (value: unknown, id: string): value is IngestionJob => {
       assertAcceptedSourceResolution(job.intake, active);
     }
     if (job.preparation) {
+      if (job.human_adjudications?.length) {
+        const original = job.human_adjudication_original;
+        if (
+          !original ||
+          job.preparation.status !== 'review_ready' ||
+          artifactDigest(original.intake) !== artifactDigest(job.intake)
+        )
+          return false;
+        if (!validHumanHistory(original, job.human_adjudications, job.preparation)) return false;
+      }
       if (artifactDigest(job.preparation.intake) !== artifactDigest(job.intake)) return false;
       if (
         (job.active_source_resolution ?? job.accepted_source_resolution)?.digest !==
@@ -464,6 +528,50 @@ export class FileIngestionJobStore implements IngestionJobStore {
       if (previous.job.state === 'review_rejected' && job.state !== 'review_rejected')
         throw new Error('Rejected product reviews are terminal.');
       const previousDecisions = reviewedSemanticDecisionHistory(previous.job);
+      const oldHuman = [
+        ...(previous.job.preparation_recovery_history ?? []).flatMap(
+          (e) => e.human_adjudications ?? [],
+        ),
+        ...(previous.job.human_adjudications ?? []),
+      ];
+      const newHuman = [
+        ...(job.preparation_recovery_history ?? []).flatMap((e) => e.human_adjudications ?? []),
+        ...(job.human_adjudications ?? []),
+      ];
+      if (
+        oldHuman.length > newHuman.length ||
+        oldHuman.some((e, index) => artifactDigest(e) !== artifactDigest(newHuman[index]))
+      )
+        throw new Error('Human source adjudication history is immutable and append-only.');
+      const archivedHuman = job.preparation_recovery_history?.at(-1);
+      const archivingHuman =
+        (job.preparation_recovery_history?.length ?? 0) ===
+          (previous.job.preparation_recovery_history?.length ?? 0) + 1 &&
+        serializeJob(archivedHuman?.human_adjudication_original) ===
+          serializeJob(previous.job.human_adjudication_original) &&
+        serializeJob(archivedHuman?.human_adjudications) ===
+          serializeJob(previous.job.human_adjudications);
+      if (
+        previous.job.human_adjudication_original &&
+        serializeJob(previous.job.human_adjudication_original) !==
+          serializeJob(job.human_adjudication_original) &&
+        !archivingHuman
+      )
+        throw new Error('Original automated preparation is immutable.');
+      if (
+        !previous.job.human_adjudication_original &&
+        job.human_adjudication_original &&
+        serializeJob(job.human_adjudication_original) !== serializeJob(previous.job.preparation)
+      )
+        throw new Error('Human correction must preserve the original automated preparation.');
+      if (
+        newHuman.length > oldHuman.length &&
+        (previous.job.state !== 'review_ready' ||
+          previous.job.approval ||
+          previous.job.final_result ||
+          previous.job.finalization_request)
+      )
+        throw new Error('Human source corrections cannot inherit approval or finalized authority.');
       const nextDecisions = reviewedSemanticDecisionHistory(job);
       if (
         previousDecisions.length > nextDecisions.length ||

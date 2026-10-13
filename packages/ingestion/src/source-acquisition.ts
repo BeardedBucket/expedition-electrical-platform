@@ -1,4 +1,6 @@
 import { parse } from 'parse5';
+import { createHash } from 'node:crypto';
+import { DEFAULT_DOCUMENT_EXTRACTION_LIMITS } from './document-extraction.js';
 import type { DefaultTreeAdapterTypes } from 'parse5';
 import {
   artifactDigest,
@@ -137,6 +139,128 @@ const walk = (node: ParentNode, visit: (element: Element) => void): void => {
     visit(child);
     walk(child, visit);
   }
+};
+
+/** Publisher is a source assertion, not a guessed manufacturer or hostname.
+ * A unique top-level JSON-LD Organization must explicitly name this publishing
+ * host. Byte-backed decoding and the shared HTML input ceiling prevent metadata
+ * extraction from evading ordinary parsing bounds. Duplicate/malformed records
+ * abstain; the later officiality gate still controls whether facts can project.
+ */
+const sourceDeclaredPublisher = (
+  capture: ProductionSourceCaptureResult,
+): ProductionSourceCaptureResult => {
+  const source = capture.source;
+  if (
+    capture.artifact.source_provenance?.publisher ||
+    capture.disposition !== 'authoritative' ||
+    !source?.media_type?.includes('html') ||
+    source.body.bytes.length > DEFAULT_DOCUMENT_EXTRACTION_LIMITS.max_input_bytes ||
+    `sha256:${createHash('sha256').update(source.body.bytes).digest('hex')}` !==
+      capture.artifact.content_digest
+  )
+    return capture;
+  const organizations: { name: string; url: string; locator: string }[] = [];
+  const siteNames: { value: string; locator: string }[] = [];
+  const siteUrls: { value: string; locator: string }[] = [];
+  let malformed = false;
+  let ordinal = 0;
+  walk(parse(new TextDecoder().decode(source.body.bytes)), (node) => {
+    if (
+      node.tagName === 'meta' &&
+      node.parentNode &&
+      'tagName' in node.parentNode &&
+      node.parentNode.tagName === 'head'
+    ) {
+      const property = attr(node, 'property'),
+        value = attr(node, 'content');
+      if (property === 'og:site_name' && value?.trim())
+        siteNames.push({ value: value.trim(), locator: 'head/meta[property="og:site_name"]' });
+      if (property === 'og:url' && value?.trim())
+        siteUrls.push({ value: value.trim(), locator: 'head/meta[property="og:url"]' });
+    }
+    if (node.tagName !== 'script' || attr(node, 'type') !== 'application/ld+json') return;
+    ordinal += 1;
+    try {
+      const raw: unknown = JSON.parse(textOf(node));
+      const isObject = (v: unknown): v is Record<string, unknown> =>
+        !!v && typeof v === 'object' && !Array.isArray(v);
+      const records = Array.isArray(raw)
+        ? raw
+        : isObject(raw) && Array.isArray(raw['@graph'])
+          ? raw['@graph']
+          : [raw];
+      records.forEach((record, index) => {
+        if (!isObject(record) || record['@type'] !== 'Organization') return;
+        if (
+          typeof record.name !== 'string' ||
+          !record.name.trim() ||
+          typeof record.url !== 'string'
+        ) {
+          malformed = true;
+          return;
+        }
+        const url = new URL(record.url);
+        if (
+          !['https:', 'http:'].includes(url.protocol) ||
+          url.hostname !== new URL(source.final_uri).hostname
+        )
+          return;
+        organizations.push({
+          name: record.name,
+          url: record.url,
+          locator: `json-ld-script[${ordinal}]/record[${index + 1}]`,
+        });
+      });
+    } catch {
+      malformed = true;
+    }
+  });
+  if (!malformed && !organizations.length && siteNames.length === 1 && siteUrls.length === 1) {
+    try {
+      if (new URL(siteUrls[0].value).href === new URL(source.final_uri).href) {
+        // Open Graph's site_name explicitly supplies the publishing site's display
+        // label (https://ogp.me/#optional). This is not a legal company identity or
+        // manufacturer claim. Require the unique canonical URL to name this exact
+        // captured page, and preserve both observations and their content digest.
+        return {
+          ...capture,
+          artifact: {
+            ...capture.artifact,
+            source_provenance: {
+              ...capture.artifact.source_provenance,
+              publisher: siteNames[0].value,
+              publisher_basis: 'source_declared_site_name',
+              publisher_label_scope: 'publishing_site_display_name',
+              publisher_observation: {
+                name: siteNames[0].value,
+                locator: siteNames[0].locator,
+                canonical_uri: siteUrls[0].value,
+                uri_locator: siteUrls[0].locator,
+                content_digest: capture.artifact.content_digest!,
+              },
+            },
+          },
+        };
+      }
+    } catch {
+      /* Malformed canonical URL leaves publisher unknown. */
+    }
+  }
+  if (malformed || organizations.length !== 1) return capture;
+  const publisher = organizations[0];
+  return {
+    ...capture,
+    artifact: {
+      ...capture.artifact,
+      source_provenance: {
+        ...capture.artifact.source_provenance,
+        publisher: publisher.name,
+        publisher_basis: 'source_declared_organization',
+        publisher_observation: { ...publisher, content_digest: capture.artifact.content_digest! },
+      },
+    },
+  };
 };
 
 const manualDocumentContextFor = (anchor: Element): string => {
@@ -719,10 +843,12 @@ export const acquireOfficialSources = async (
       ...(profile ? { publisher: profile.publisher } : {}),
     },
   };
-  const seed = await captureSourceForProduction(request.adapter, seedRequest, {
-    snapshot_store: policy.snapshot_store,
-    now: policy.now,
-  });
+  const seed = sourceDeclaredPublisher(
+    await captureSourceForProduction(request.adapter, seedRequest, {
+      snapshot_store: policy.snapshot_store,
+      now: policy.now,
+    }),
+  );
   const seedObservedBytes = seed.bytes_observed ?? seed.source?.body.bytes.byteLength ?? 0;
   const seedFinalOfficiality =
     seed.source && candidateOfficiality(seed.source.final_uri, domain) === 'official'
@@ -920,29 +1046,64 @@ export const acquireOfficialSources = async (
       }
       capturedCount += 1;
       candidate = { ...candidate, selection_status: 'selected' };
-      const capture = await captureSourceForProduction(
-        request.adapter,
-        {
-          capture_id: `${id}.capture`,
-          uri: link.normalized_uri,
-          retention_status: policy.retention_status ?? 'not_retained',
-          max_bytes: maxCandidateBytes,
-          expected_content: [
-            ...(policy.expected_content ?? []),
-            ...(request.expected_content ?? []),
-          ],
-          source_provenance: {
-            acquisition_stage: 'source_acquisition',
-            candidate_id: id,
-            source_role: classified.role,
-            ...(profile ? { publisher: profile.publisher } : {}),
+      let capture = sourceDeclaredPublisher(
+        await captureSourceForProduction(
+          request.adapter,
+          {
+            capture_id: `${id}.capture`,
+            uri: link.normalized_uri,
+            retention_status: policy.retention_status ?? 'not_retained',
+            max_bytes: maxCandidateBytes,
+            expected_content: [
+              ...(policy.expected_content ?? []),
+              ...(request.expected_content ?? []),
+            ],
+            source_provenance: {
+              acquisition_stage: 'source_acquisition',
+              candidate_id: id,
+              source_role: classified.role,
+              ...(profile ? { publisher: profile.publisher } : {}),
+            },
           },
-        },
-        { snapshot_store: policy.snapshot_store, now: policy.now },
+          { snapshot_store: policy.snapshot_store, now: policy.now },
+        ),
       );
       const finalOfficiality = capture.source
         ? candidateOfficiality(capture.source.final_uri, domain)
         : 'official';
+      // A direct official seed anchor can attest the publisher of a same-origin
+      // document even when that PDF contains no machine-readable publisher tag.
+      // This is source attribution, never model applicability. Redirected origins,
+      // maintainer hints, indirect links and guessed intake manufacturers do not
+      // inherit publisher metadata. Preserve the seed digest and anchor locator.
+      const seedPublisher = seed.artifact.source_provenance?.publisher;
+      if (
+        !capture.artifact.source_provenance?.publisher &&
+        typeof seedPublisher === 'string' &&
+        seed.artifact.source_provenance?.publisher_basis === 'source_declared_organization' &&
+        depth === 0 &&
+        parentCaptureId === seed.artifact.id &&
+        link.method === 'seed_page_anchor' &&
+        capture.disposition === 'authoritative' &&
+        finalOfficiality === 'official' &&
+        capture.source &&
+        new URL(capture.source.requested_uri).origin === new URL(seedSource.final_uri).origin &&
+        new URL(capture.source.final_uri).origin === new URL(seedSource.final_uri).origin
+      ) {
+        capture = {
+          ...capture,
+          artifact: {
+            ...capture.artifact,
+            source_provenance: {
+              ...capture.artifact.source_provenance,
+              publisher: seedPublisher,
+              publisher_basis: 'same_origin_official_seed_anchor',
+              publisher_seed_capture_digest: artifactDigest(seed.artifact),
+              publisher_anchor_locator: link.locator ?? '',
+            },
+          },
+        };
+      }
       const observedRole =
         candidate.role === 'unknown' && capture.source
           ? roleFromText(link.normalized_uri, link.source_label ?? '', capture.source.media_type)

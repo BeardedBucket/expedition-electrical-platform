@@ -8,6 +8,7 @@ import { capabilityAllowsPathParticipants } from './component-library.js';
 import type { ExaminedProductEvidence } from './engineering-passport-contracts.js';
 import { includesValue, maximum } from './installed-system-context.js';
 import { passportDigest } from './portable-json.js';
+import { hasCurrentCanonicalVerification } from './canonical-verification.js';
 import type {
   CandidateBindingEvaluation,
   GateTruth,
@@ -48,7 +49,7 @@ export const examineSelectionFact = (
       verification_status: record.verification_status,
       origin: derivation === undefined ? 'canonical_assertion' : 'product_derivation',
       engineering_use:
-        record.verification_status === 'verified'
+        record.verification_status === 'verified' && hasCurrentCanonicalVerification(record)
           ? { state: 'accepted_input' }
           : { state: 'withheld', reason: 'record_not_verified' },
       source_refs: record.source_refs ?? [],
@@ -122,7 +123,8 @@ export const evaluateProductWitness = (
   assembly?: StorageAssemblyIntent,
 ): CandidateBindingEvaluation => {
   const calculations: SelectionCalculation[] = [];
-  const accepted = record.verification_status === 'verified';
+  const accepted =
+    record.verification_status === 'verified' && hasCurrentCanonicalVerification(record);
   const fact = (path: string, value: unknown, unit?: string) =>
     examineSelectionFact(record, path, value, unit);
   const result = (

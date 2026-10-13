@@ -10,7 +10,7 @@ import {
   type SelectionOptionSource,
   type RecommendationContext,
 } from '../src/recommendation.js';
-import { converterProduct, selectionRequest } from './fixtures/selection.js';
+import { converterProduct, verifiedSelectionRequest } from './fixtures/selection.js';
 import {
   observationSource,
   recommendationRequest,
@@ -20,6 +20,7 @@ import {
 import { serializePassportValue } from '../src/portable-json.js';
 import type { AdvisoryRecord, EvidenceRecord } from '../src/advisory.js';
 import type { ComponentLibraryRecord } from '../src/component-library.js';
+import { verifySyntheticRecord } from './fixtures/verification.js';
 
 const systemFact = (r: ReturnType<typeof evaluateRecommendation>, kind: string) =>
   r.options[0]!.facts.find((f) => f.kind === kind && f.subject.kind === 'system')!;
@@ -104,7 +105,7 @@ const acSources = (): SelectionOptionSource[] => {
       schema_version: '1.0.0',
       generation,
       candidate_id: c.id,
-      corpus: [p],
+      corpus: [verifySyntheticRecord(p)],
       fixed_existing: [],
       assemblies: [],
     }),
@@ -195,7 +196,7 @@ describe('complete option construction and upstream isolation', () => {
   it('null interface/path identities are deferred without fabrication', () => {
     const base = converterProduct();
     const p = { ...base, ports: [], power_paths: [] };
-    const selection = evaluateProductSelection(selectionRequest([p]));
+    const selection = evaluateProductSelection(verifiedSelectionRequest([p]));
     const r = evaluateRecommendation(recommendationRequest([{ selection, handoff: {} }]));
     expect(r.options).toEqual([]);
     expect(r.deferred.some((d) => d.reasons.includes('exact_witness_identity_missing'))).toBe(true);
@@ -331,10 +332,12 @@ describe('complete option construction and upstream isolation', () => {
       // Separate architecture supplies two independent physical instances; fixed
       // intents let each use an intentionally distinct model without preference pruning.
       const source = acSources().find((s) => s.selection.roles.length === 2)!;
-      const q = { ...p, id: 'fixture.other', weight_kg: mode === 'weight_missing' ? null : 5 };
+      const { engineering_verification_history: _oldAuthority, ...draft } = p;
+      // Construct a new test record, then explicitly bind its changed content.
+      const q = { ...draft, id: 'fixture.other', weight_kg: mode === 'weight_missing' ? null : 5 };
       const selection = evaluateProductSelection({
         ...source.selection.input,
-        corpus: [p, q],
+        corpus: [p, q].map(verifySyntheticRecord),
         fixed_existing: source.selection.roles.map((r, i) => ({
           role_id: r.role.id,
           component_id: i ? q.id : p.id,
@@ -380,15 +383,16 @@ describe('complete option construction and upstream isolation', () => {
   it('system optional monitoring can come from a different selected device', () => {
     const source = acSources().find((s) => s.selection.roles.length === 2)!;
     const p = source.selection.input.corpus[0]!;
+    const { engineering_verification_history: _oldAuthority, ...draft } = p;
     const q = {
-      ...p,
+      ...draft,
       id: 'fixture.monitor',
       capabilities: [...p.capabilities!, { id: 'monitor', type: 'monitoring' as const }],
     };
-    const a = { ...p, unsupported_capabilities: ['monitoring' as const] };
+    const a = { ...draft, unsupported_capabilities: ['monitoring' as const] };
     const selection = evaluateProductSelection({
       ...source.selection.input,
-      corpus: [a, q],
+      corpus: [a, q].map(verifySyntheticRecord),
       fixed_existing: source.selection.roles.map((r, i) => ({
         role_id: r.role.id,
         component_id: i ? q.id : a.id,

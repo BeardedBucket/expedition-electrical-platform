@@ -31,7 +31,10 @@ import {
 } from './reviewed-semantic.js';
 import { parseExactUnitValue, resolveUnit } from './units.js';
 import { reviewedSemanticContext } from './semantic-context.js';
+import { replaySemanticAssertion, recognizeSemanticAssertion } from './semantic-rules.js';
 import type { QualifiedFactWholeIntakeReconciliationResult } from './reconciliation.js';
+import { isQualificationProvenance } from './qualified-context.js';
+import { previewHumanMapping } from './human-adjudication.js';
 
 export interface ProductionCandidateBridgeInput {
   readonly intake: ProductIntake;
@@ -209,6 +212,10 @@ export const buildProductionProductCandidate = (
     const effectiveDisposition = useHumanMapping ? 'mapped' : proposal.disposition;
     const disposition =
       reviewed?.state && reviewed.state !== 'automatic' ? reviewed.state : proposal.disposition;
+    if (reviewed && reviewed.state !== 'automatic' && !useHumanMapping) {
+      nonProjected.push({ proposal_id: proposal.id, reason: `disposition: ${disposition}` });
+      continue;
+    }
     if (proposal.disposition !== 'mapped' || proposal.proposed_value === undefined) {
       if (!useHumanMapping) {
         nonProjected.push({
@@ -244,7 +251,155 @@ export const buildProductionProductCandidate = (
     }[] = [];
     let reason: string | undefined;
     for (const fact of proposalFacts as QualifiedFactArtifact[]) {
+      // Frozen artifacts retain their historical interpretation, but replay is
+      // not permission to discard now-identifiable source conditions or promote
+      // a maximum as continuous. Abstain explicitly; never rewrite old evidence.
+      if (!useHumanMapping && !proposal.semantic_assertions && !proposal.qualified_value) {
+        if (
+          fact.evidence?.some(
+            (e) =>
+              (e.role === 'context' || e.role === 'qualifier') &&
+              !isQualificationProvenance(e, fact),
+          )
+        ) {
+          reason = 'legacy scalar replay cannot discard semantic or untyped context evidence';
+          break;
+        }
+        const assertion = recognizeSemanticAssertion(fact, input.facts);
+        if (
+          assertion &&
+          (assertion.review_required_reasons.includes('qualifier_context_unresolved') ||
+            assertion.qualifiers.source_conditions?.length ||
+            assertion.qualifiers.duration !== undefined ||
+            assertion.qualifiers.temperature_context !== undefined ||
+            assertion.qualifiers.revision_context !== undefined ||
+            assertion.qualifiers.comparison !== undefined ||
+            (proposal.target.includes('continuous') &&
+              ['maximum', 'rated_maximum', 'peak', 'surge'].includes(
+                assertion.qualifiers.rating_basis ?? '',
+              )))
+        ) {
+          reason =
+            'legacy scalar replay would discard source qualifiers or reinterpret a non-continuous rating';
+          break;
+        }
+      }
+      if (!useHumanMapping && proposal.semantic_assertions) {
+        const stored = proposal.semantic_assertions.find(
+          (s) => s.source_fact_id === fact.id && s.source_fact_digest === artifactDigest(fact),
+        );
+        const a = stored && replaySemanticAssertion(fact, input.facts, stored);
+        if (
+          !a ||
+          a.review_required_reasons.length ||
+          !proposal.semantic_assertions.some(
+            (s) => deterministicSerialize(s) === deterministicSerialize(a),
+          )
+        ) {
+          reason = 'generic semantic rule or source assertion changed';
+          break;
+        }
+        const sourceResult = projectSource(fact, input);
+        if (!sourceResult.source) {
+          reason = sourceResult.reason;
+          break;
+        }
+        const contextFacts = input.facts.filter(
+          (p) =>
+            p.source_capture.digest === fact.source_capture.digest &&
+            p.metadata.applicability.kind === fact.metadata.applicability.kind &&
+            p.metadata.applicability.value === fact.metadata.applicability.value &&
+            [
+              'power type - ac dc',
+              'product type',
+              'product role',
+              'dimension scope',
+              'physical scope',
+            ].includes(p.metadata.source_label?.trim().toLowerCase() ?? ''),
+        );
+        const projectedFact: ProductFact = {
+          schema_version: '1.0',
+          id: `production-fact.${artifactDigest({ fact: artifactDigest(fact), proposal: proposal.id }).slice(7, 31)}`,
+          source_id: sourceResult.source.id,
+          field: a.target,
+          raw_label: fact.metadata.source_label!,
+          raw_value: fact.metadata.raw_value,
+          ...(fact.metadata.source_unit ? { raw_unit: fact.metadata.source_unit } : {}),
+          normalized_value: a.normalized_value!,
+          normalized_unit: a.normalized_unit,
+          ...(proposal.qualified_value ? { qualified_value: proposal.qualified_value } : {}),
+          semantic_source: { fact, context_facts: contextFacts, assertion: a },
+          normalization: {
+            method: 'semantic_normalization',
+            method_version: a.rule.interpreter,
+            normalized_unit: a.normalized_unit,
+          },
+          extraction_method: 'other',
+          fact_state: 'provisional',
+          review_required: true,
+        };
+        staged.push({
+          source: sourceResult.source,
+          fact: projectedFact,
+          normalized: {
+            fact: projectedFact,
+            source: sourceResult.source,
+            canonical_field: a.target,
+            normalized_value: a.normalized_value!,
+            normalized_unit: a.normalized_unit,
+            dimension: a.rule.definition.dimension,
+            source_authority: sourceResult.source.authority,
+            target_kind: 'canonical',
+          },
+        });
+        continue;
+      }
       const reviewedContext = reviewedSemanticContext(fact, input.facts, input.source_acquisitions);
+      if (useHumanMapping && reviewed.human_mapping) {
+        const preview = previewHumanMapping(fact, reviewed.human_mapping);
+        const sourceResult = projectSource(fact, input);
+        if (!sourceResult.source) {
+          reason = sourceResult.reason;
+          break;
+        }
+        const humanFact: ProductFact = {
+          schema_version: '1.0',
+          id: `production-fact.${artifactDigest({ fact, decision: reviewed.decision_ref }).slice(7, 31)}`,
+          source_id: sourceResult.source.id,
+          field: preview.target,
+          raw_label: fact.metadata.source_label!,
+          raw_value: fact.metadata.raw_value,
+          ...(fact.metadata.source_unit ? { raw_unit: fact.metadata.source_unit } : {}),
+          normalized_value: preview.normalized_value,
+          normalized_unit: preview.normalized_unit,
+          ...(preview.qualified_value ? { qualified_value: preview.qualified_value } : {}),
+          human_source: fact,
+          extraction_method: 'manual',
+          fact_state: 'provisional',
+          review_required: true,
+          normalization: {
+            method: 'semantic_normalization',
+            method_version: 'human-adjudication.v1',
+            normalized_unit: preview.normalized_unit,
+          },
+          transformation_notes: `Evidence-bound human decision ${reviewed.decision_ref?.reference}`,
+        };
+        staged.push({
+          source: sourceResult.source,
+          fact: humanFact,
+          normalized: {
+            fact: humanFact,
+            source: sourceResult.source,
+            canonical_field: preview.target,
+            normalized_value: preview.normalized_value,
+            normalized_unit: preview.normalized_unit,
+            dimension: resolveUnit(preview.normalized_unit)?.dimension ?? 'structured',
+            source_authority: sourceResult.source.authority,
+            target_kind: 'canonical',
+          },
+        });
+        continue;
+      }
       const mapping = useHumanMapping
         ? undefined
         : fact.metadata.source_label

@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { isReadOnlyEvidenceUri } from './evidence-uri.js';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { parse } from 'parse5';
@@ -653,6 +654,32 @@ export const captureSourceForProduction = async (
   } = {},
 ): Promise<ProductionSourceCaptureResult> => {
   const now = options.now ?? (() => new Date().toISOString());
+  // Enforce document eligibility before any adapter I/O. The HTTP adapter also
+  // checks each redirect, but custom/recorded adapters share this entry boundary.
+  // This is independent of officiality: an official shopping action is still
+  // ineligible as a source document and must not consume a network request.
+  if (!isReadOnlyEvidenceUri(request.uri)) {
+    const reasons: SourceCaptureReason[] = [
+      { code: 'invalid_uri', message: 'Action URIs are not read-only evidence.' },
+    ];
+    const retention =
+      request.retention_status === 'retained' ? 'unknown' : request.retention_status;
+    return {
+      disposition: 'failed',
+      reasons,
+      artifact: toArtifact(
+        request,
+        'failed',
+        retention,
+        reasons,
+        [],
+        undefined,
+        undefined,
+        'invalid',
+        now,
+      ),
+    };
+  }
   const transport = await adapter.capture(request);
   const transportReasons = transport.issues.map(toReason);
 

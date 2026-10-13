@@ -190,18 +190,22 @@ export const buildProductionReviewPackage = (
     const qualifiedSupport = new Map<string, string[]>();
     for (const proposal of proposals) {
       if (!projectedIds.has(proposal.id)) continue;
-      const support = proposal.qualified_value ? qualifiedSupport : fieldSupport;
       const interpretation = interpretationByProposal.get(proposal.id);
+      const qualified =
+        interpretation?.state === 'human_mapped'
+          ? interpretation.qualified_value
+          : proposal.qualified_value;
+      const support = qualified ? qualifiedSupport : fieldSupport;
       const target =
         interpretation?.state === 'human_mapped' ? interpretation.target! : proposal.target;
-      const key = proposal.qualified_value?.id ?? target;
+      const key = qualified?.id ?? target;
       if (
-        proposal.qualified_value &&
+        qualified &&
         !same(
           (bridge.candidate.component_data.qualified_values as unknown[] | undefined)?.find(
             (entry) => (entry as { id?: string }).id === key,
           ),
-          proposal.qualified_value,
+          qualified,
         )
       )
         fail();

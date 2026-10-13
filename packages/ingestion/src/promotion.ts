@@ -338,6 +338,16 @@ const sourceRefsFor = (
             }
           : {}),
         fact_ids: sourceFactIds.filter((factId) => candidate.fact_ids.includes(factId)),
+        // Exact rule/source lineage accompanies each selected generic assertion;
+        // an ID alone would be insufficient to reproduce its normalization.
+        ...(sourceFactIds.some((id) => factsById.get(id)?.semantic_source)
+          ? {
+              semantic_assertion_evidence: sourceFactIds.flatMap((id) => {
+                const lineage = factsById.get(id)?.semantic_source;
+                return lineage ? [{ fact_id: id, ...lineage }] : [];
+              }) as unknown as JsonValue,
+            }
+          : {}),
       };
     });
 

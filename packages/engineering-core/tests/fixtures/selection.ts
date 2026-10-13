@@ -4,6 +4,7 @@ import {
 } from '../../src/architecture-generation.js';
 import type { ComponentLibraryRecord } from '../../src/component-library.js';
 import type { ProductSelectionInput } from '../../src/product-selection.js';
+import { verifySyntheticRecord } from './verification.js';
 
 /** Project-authored semantic fixtures, never production facts or runtime witness products. */
 export const converterProduct = (): ComponentLibraryRecord => ({
@@ -92,4 +93,14 @@ export const selectionRequest = (
     fixed_existing: [],
     assemblies: [],
   };
+};
+
+/** Explicit synthetic authority at the test's completed corpus boundary.
+ * Authority-negative tests use selectionRequest directly; stale history is
+ * preserved by verifySyntheticRecord, never reverified for convenience. */
+export const verifiedSelectionRequest = (
+  ...args: Parameters<typeof selectionRequest>
+): ProductSelectionInput => {
+  const request = selectionRequest(...args);
+  return { ...request, corpus: request.corpus.map(verifySyntheticRecord) };
 };

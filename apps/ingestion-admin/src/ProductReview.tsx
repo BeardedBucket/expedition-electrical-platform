@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import type { ProductionPromotionDecisions } from '@expedition/ingestion';
 import type { HumanReviewInput, OperatorApi, OperatorJobDetail } from './api.js';
 import { OperatorApiError } from './api.js';
+import { EngineeringVerification } from './EngineeringVerification.js';
 import { SemanticAdjudication } from './SemanticAdjudication.js';
+import { ReviewHelp } from './ReviewHelp.js';
 import { ReviewValue, SourceLink } from './ReviewValue.js';
 export { ReviewValue, SourceLink } from './ReviewValue.js';
 
@@ -165,7 +167,7 @@ export function ProductReview({
     }
   }
   return (
-    <section>
+    <section className="product-review">
       <h2>Human product review</h2>
       <p>
         Compare each proposed field and qualified assertion with the authoritative source. Extracted
@@ -173,9 +175,8 @@ export function ProductReview({
       </p>
       {job.candidate && !job.candidate.present && (
         <p>
-          No promotable candidate was produced. Retained evidence may be valid but not yet
-          representable. Defer pauses review for later continuation; Reject is a terminal
-          non-promotion decision.
+          No promotable candidate was produced. Review the retained evidence below; product approval
+          remains unavailable.
         </p>
       )}
       {review?.truncated && (
@@ -187,15 +188,28 @@ export function ProductReview({
       <fieldset disabled={!editable || busy || !!pending}>
         {editable && (
           <>
-            <label>
-              Reviewer label
-              <input
-                value={reviewer}
-                maxLength={200}
-                onChange={(e) => setReviewer(e.target.value)}
-              />
-            </label>
-            <p>This is an operator-entered label, not a verified or authenticated identity.</p>
+            <div className="review-identity">
+              <div>
+                <strong>
+                  {job.intake?.product_model ?? job.summary.product_model ?? 'Product review'}
+                </strong>
+                <span>
+                  {job.intake?.manufacturer ?? 'Manufacturer unknown'} · Current product/job
+                </span>
+              </div>
+              <label className="reviewer-label">
+                Reviewer label
+                <input
+                  id="reviewer-label"
+                  value={reviewer}
+                  maxLength={200}
+                  onChange={(e) => setReviewer(e.target.value)}
+                />
+              </label>
+              <ReviewHelp topic="Reviewer label">
+                This is an operator-entered label, not a verified or authenticated identity.
+              </ReviewHelp>
+            </div>
           </>
         )}
         <SemanticAdjudication
@@ -477,7 +491,8 @@ export function ProductReview({
           </details>
         )}
         {editable && (
-          <>
+          <div className="product-review-actions">
+            <h3>Product review actions</h3>
             {job.candidate?.present && (
               <>
                 <label>
@@ -544,7 +559,7 @@ export function ProductReview({
               Defer pauses this job without promotion and permits explicit resume. Reject is a
               terminal non-promotion decision.
             </p>
-          </>
+          </div>
         )}
       </fieldset>
       {(!!job.review_package?.unresolved_items?.length ||
@@ -692,6 +707,9 @@ export function ProductReview({
           . Inspect local service diagnostics. The runtime does not support retry or recovery for
           this job.
         </p>
+      )}
+      {job.summary.state === 'finalized' && job.finalization?.write_status === 'written' && (
+        <EngineeringVerification key={job.summary.id} jobId={job.summary.id} />
       )}
     </section>
   );

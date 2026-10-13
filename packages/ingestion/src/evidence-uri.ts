@@ -22,10 +22,21 @@ export const isReadOnlyEvidenceUri = (uri: string): boolean => {
       'remove',
       'save',
       'submit',
+      'add',
+      'update',
+      'empty',
+      'clear',
+      'addtocart',
       'backlink',
       'index',
     ]);
-    const segments = decodeURIComponent(url.pathname).toLowerCase().split('/').filter(Boolean);
+    // Commerce endpoints frequently keep a script extension (cart.php). Match
+    // the complete endpoint stem; 'cartesian' and technical .php URLs are valid.
+    const segments = decodeURIComponent(url.pathname)
+      .toLowerCase()
+      .split('/')
+      .filter(Boolean)
+      .map((segment) => segment.replace(/\.(?:php|aspx?)$/, ''));
     if (
       segments.some(
         (s) =>
@@ -39,7 +50,7 @@ export const isReadOnlyEvidenceUri = (uri: string): boolean => {
       if (['add-to-cart', 'remove-item', 'buy', 'purchase', 'checkout', 'message'].includes(name))
         return false;
       if (
-        ['do', 'action', 'task'].includes(name) &&
+        ['do', 'action', 'task', 'wc-ajax'].includes(name) &&
         (denied.has(value.toLowerCase()) ||
           /^(?:add|remove)[-_](?:to[-_])?cart$/i.test(value) ||
           // Wiki extensions namespace their action after __. A namespaced

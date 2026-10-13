@@ -4,6 +4,8 @@ import addFormats from 'ajv-formats';
 import candidateSchema from '../../../data/schemas/product-candidate.schema.json' with { type: 'json' };
 import factSchema from '../../../data/schemas/product-fact.schema.json' with { type: 'json' };
 import sourceSchema from '../../../data/schemas/product-source.schema.json' with { type: 'json' };
+import productionSchema from '../../../data/schemas/production-ingestion.schema.json' with { type: 'json' };
+import humanSchema from '../../../data/schemas/human-adjudication.schema.json' with { type: 'json' };
 import {
   isCanonicalQualifiedValue,
   sourceSupportsQualifiedValue,
@@ -38,6 +40,7 @@ type Validator = ((_value: unknown) => boolean) & {
   errors?: Array<{ instancePath?: string; message?: string; keyword?: string }>;
 };
 const AjvCtor = Ajv2020 as unknown as new (options?: Record<string, unknown>) => {
+  addSchema: (_schema: unknown) => void;
   compile: (_value: unknown) => Validator;
 };
 const ajv = new AjvCtor({ allErrors: true, strict: false, strictNumbers: true });
@@ -45,6 +48,8 @@ const registerFormats = addFormats as unknown as (instance: {
   addFormat?: (...args: unknown[]) => void;
 }) => void;
 registerFormats(ajv as unknown as { addFormat?: (...args: unknown[]) => void });
+ajv.addSchema(productionSchema);
+ajv.addSchema(humanSchema);
 const sourceValidator = ajv.compile(sourceSchema);
 const factValidator = ajv.compile(factSchema);
 const candidateValidator = ajv.compile(candidateSchema);

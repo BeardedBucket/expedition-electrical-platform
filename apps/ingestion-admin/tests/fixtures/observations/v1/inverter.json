@@ -1,0 +1,7 @@
+{
+  "fixture_kind": "project_authored",
+  "license": "CC-BY-SA-4.0",
+  "version": "project-observation.v1",
+  "page": 2,
+  "text": "Review Inverter IC-21\nOutput current 120 A for 4 seconds at 23°C\nThis time-limited value does not assert continuous output current.\n"
+}

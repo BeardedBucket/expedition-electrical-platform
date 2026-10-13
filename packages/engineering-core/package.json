@@ -6,6 +6,10 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
+    "./canonical-verification": {
+      "types": "./dist/canonical-verification.d.ts",
+      "import": "./dist/canonical-verification.js"
+    },
     "./engineering-passport": {
       "types": "./dist/engineering-passport.d.ts",
       "import": "./dist/engineering-passport.js"

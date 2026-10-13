@@ -3,6 +3,8 @@ import componentSchema from '../../../data/schemas/component.schema.json' with {
 import type { CanonicalQualifiedValue, JsonObject, JsonValue, ProductFact } from './contracts.js';
 import { deterministicSerialize } from './production-contracts.js';
 import { resolveUnit } from './units.js';
+import { replaySemanticAssertion, assertionQualifiedValue } from './semantic-rules.js';
+import { previewHumanMapping } from './human-adjudication.js';
 
 const Ajv = Ajv2020 as unknown as new (options: object) => {
   compile(schema: unknown): (value: unknown) => boolean;
@@ -15,6 +17,15 @@ const validate = new Ajv({ strict: false }).compile({
 export const isCanonicalQualifiedValue = (value: unknown): value is CanonicalQualifiedValue => {
   if (!validate(value)) return false;
   const assertion = value as CanonicalQualifiedValue;
+  if ('kind' in assertion.qualifiers && assertion.qualifiers.kind === 'source_rating')
+    return typeof assertion.value === 'number'
+      ? Number.isFinite(assertion.value)
+      : typeof assertion.value === 'object' &&
+          'min' in assertion.value &&
+          'max' in assertion.value &&
+          Number.isFinite(assertion.value.min) &&
+          Number.isFinite(assertion.value.max) &&
+          assertion.value.min <= assertion.value.max;
   if (assertion.target === 'electrical.power_consumption_w')
     return (
       Number.isFinite(assertion.value) &&
@@ -101,20 +112,66 @@ export const parseSourceObservations = (
 };
 
 export const sourceSupportsQualifiedValue = (
-  fact: Pick<ProductFact, 'raw_label' | 'raw_value' | 'raw_unit'>,
+  fact: Pick<
+    ProductFact,
+    'raw_label' | 'raw_value' | 'raw_unit' | 'semantic_source' | 'human_source'
+  >,
   assertion: CanonicalQualifiedValue,
-): boolean =>
-  parseSourceObservations(
-    assertion.target,
-    fact.raw_label,
-    String(fact.raw_value),
-    fact.raw_unit,
-  )?.some(
-    (observation) =>
-      deterministicSerialize(observation.value) === deterministicSerialize(assertion.value) &&
-      deterministicSerialize(observation.qualifiers) ===
-        deterministicSerialize(assertion.qualifiers),
-  ) === true;
+): boolean => {
+  if (fact.human_source) {
+    try {
+      const source = fact.human_source;
+      const intent = source.human_source?.statement.mapping;
+      if (
+        !intent ||
+        source.metadata.source_label !== fact.raw_label ||
+        source.metadata.source_unit !== fact.raw_unit ||
+        deterministicSerialize(source.metadata.raw_value) !== deterministicSerialize(fact.raw_value)
+      )
+        return false;
+      const preview = previewHumanMapping(source, intent);
+      return deterministicSerialize(preview.qualified_value) === deterministicSerialize(assertion);
+    } catch {
+      return false;
+    }
+  }
+  if ('kind' in assertion.qualifiers && assertion.qualifiers.kind === 'source_rating') {
+    const source = fact.semantic_source;
+    if (
+      !source ||
+      source.fact.metadata.source_label !== fact.raw_label ||
+      deterministicSerialize(source.fact.metadata.raw_value) !==
+        deterministicSerialize(fact.raw_value) ||
+      source.fact.metadata.source_unit !== fact.raw_unit
+    )
+      return false;
+    const a = replaySemanticAssertion(source.fact, source.context_facts, source.assertion);
+    if (
+      !a ||
+      a.review_required_reasons.length ||
+      deterministicSerialize(a) !== deterministicSerialize(source.assertion)
+    )
+      return false;
+    const expected = assertionQualifiedValue(a, [source.fact.id]);
+    return (
+      deterministicSerialize({ ...expected, id: assertion.id }) ===
+      deterministicSerialize(assertion)
+    );
+  }
+  return (
+    parseSourceObservations(
+      assertion.target,
+      fact.raw_label,
+      String(fact.raw_value),
+      fact.raw_unit,
+    )?.some(
+      (observation) =>
+        deterministicSerialize(observation.value) === deterministicSerialize(assertion.value) &&
+        deterministicSerialize(observation.qualifiers) ===
+          deterministicSerialize(assertion.qualifiers),
+    ) === true
+  );
+};
 
 // Source-unit identity and electrical domain are checked independently.
 const voltageUnit = (text: string): { unit: string; domain?: 'ac' | 'dc' } | undefined => {

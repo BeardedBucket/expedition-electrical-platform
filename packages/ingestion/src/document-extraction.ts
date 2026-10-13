@@ -6,6 +6,8 @@ import {
   positionedPdfSpecifications,
   type PositionedPdfItem,
 } from './pdf-positioned-specifications.js';
+import { pdfVectorStructure } from './pdf-vector-structure.js';
+import { pdfSourceLayout, type PdfLayoutItem } from './pdf-layout-structure.js';
 import type {
   CapturedSource,
   DiagnosticCode,
@@ -126,6 +128,8 @@ export const extractPdfDocument = async (
       ];
       const blocks: ExtractedBlock[] = [];
       const positionedPages: PositionedPdfItem[][] = [];
+      const vectorPages: ExtractedBlock[] = [];
+      const layoutPages: ExtractedBlock[] = [];
       const pageLimit = Math.min(pdf.numPages, limits.max_pages);
       if (pdf.numPages > limits.max_pages) {
         diagnostics.push(
@@ -141,6 +145,12 @@ export const extractPdfDocument = async (
       let retainedTextCodeUnits = 0;
       for (let pageNumber = 1; pageNumber <= pageLimit; pageNumber += 1) {
         const positionedItems: PositionedPdfItem[] = [];
+        const layoutItems: PdfLayoutItem[] = [];
+        const fontStyles: Record<string, { ascent: number; descent: number }> = {};
+        // PDF.js font names include a process-wide document counter. Preserve
+        // distinct source fonts and their metrics through page-local encounter
+        // identities so repeated extraction produces identical evidence digests.
+        const layoutFonts = new Map<string, string>();
         let geometryComplete = true;
         positionedPages.push(positionedItems);
         const page = await pdf.getPage(pageNumber);
@@ -155,6 +165,7 @@ export const extractPdfDocument = async (
                 complete = true;
                 break;
               }
+              Object.assign(fontStyles, chunk.value.styles);
               for (const item of chunk.value.items) {
                 ordinal += 1;
                 if (!('str' in item)) continue;
@@ -218,6 +229,16 @@ export const extractPdfDocument = async (
                     item.height > 0,
                   location: locator,
                 });
+                const style = fontStyles[item.fontName];
+                if (!layoutFonts.has(item.fontName))
+                  layoutFonts.set(item.fontName, `page-font-${layoutFonts.size + 1}`);
+                if (style && Number.isFinite(style.ascent) && Number.isFinite(style.descent))
+                  layoutItems.push({
+                    ...positionedItems.at(-1)!,
+                    font: layoutFonts.get(item.fontName)!,
+                    ascent: style.ascent,
+                    descent: style.descent,
+                  });
               }
             }
           } finally {
@@ -227,6 +248,44 @@ export const extractPdfDocument = async (
                 await reader.cancel(new Error('PDF extraction stopped before stream end.'));
             } finally {
               reader.releaseLock();
+            }
+          }
+          if (
+            geometryComplete &&
+            complete &&
+            !textLimitReached &&
+            !itemLimitReached &&
+            !totalTextLimitReached
+          ) {
+            // Operator decoding belongs to extraction. Qualification receives the
+            // retained geometry and source item links, never a fresh PDF parse.
+            try {
+              const operators = await page.getOperatorList();
+              const structure = pdfVectorStructure(
+                positionedItems,
+                operators,
+                pdfjs.OPS,
+                limits.max_table_cells,
+              );
+              if (structure && structure.text.length <= limits.max_text_length)
+                vectorPages.push(structure);
+              if (layoutItems.length === positionedItems.length) {
+                const layout = pdfSourceLayout(
+                  layoutItems,
+                  structure ? JSON.parse(structure.text).rules : [],
+                );
+                if (layout && layout.text.length <= limits.max_text_length)
+                  layoutPages.push(layout);
+              }
+            } catch {
+              // Supplemental graphics failure does not destroy an already complete
+              // text stream. No vector ownership is asserted for this page.
+              diagnostics.push(
+                toDiagnostic(
+                  'table_extraction_unsupported',
+                  `PDF page ${pageNumber} graphics supplement could not be decoded; ordinary text remains retained without vector ownership.`,
+                ),
+              );
             }
           }
         } finally {
@@ -267,10 +326,22 @@ export const extractPdfDocument = async (
         const tables = positionedPages
           .map(positionedPdfSpecifications)
           .filter((table): table is ExtractedBlock => table !== undefined);
-        const cellCount = tables.reduce((sum, table) => sum + (table.cells?.length ?? 0), 0);
+        tables.push(...vectorPages, ...layoutPages);
+        const vectorRecords = [...vectorPages, ...layoutPages].reduce((sum, block) => {
+          const structure = JSON.parse(block.text) as {
+            items: readonly unknown[];
+            rules: readonly unknown[];
+          };
+          return sum + structure.items.length + structure.rules.length;
+        }, 0);
+        // Each duplicated geometry item and vector rule consumes a metadata item,
+        // just as an HTML/PDF cell does. The JSON text consumes the text budget too.
+        const cellCount =
+          vectorRecords + tables.reduce((sum, table) => sum + (table.cells?.length ?? 0), 0);
         const extraText = tables.reduce(
           (sum, table) =>
             sum +
+            table.text.length +
             (table.cells ?? []).reduce(
               (total, cell) => total + cell.label.length + cell.value.length,
               0,
@@ -286,7 +357,7 @@ export const extractPdfDocument = async (
           if (tables.length)
             diagnostics[0] = toDiagnostic(
               'table_extraction_unsupported',
-              'General PDF tables remain unsupported; only separately scoped positioned specification rows were recovered. Unpaired text and drawings remain unqualified.',
+              'General PDF layouts remain unsupported; retained vector grids, source-layout hypotheses and positioned rows require separate ownership qualification. Unassigned text and ambiguous layouts remain unqualified.',
             );
         } else if (tables.length)
           diagnostics.push(

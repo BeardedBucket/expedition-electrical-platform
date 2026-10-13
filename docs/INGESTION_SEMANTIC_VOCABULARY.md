@@ -192,6 +192,28 @@ parent field evidence binding, since their min and max are one atomic assertion.
 The atomic review rule is scoped to production bridge candidates; persisted
 direct-ingestion pilot reports keep their existing validation semantics.
 
+## Generic source ratings and rule governance
+
+The archived v7/v2 production bridge introduced 24 generic numeric grammars with explicit
+unit/domain/role guards and condition-preserving `source_rating` qualified values.
+It compares semantic concepts independently of source-native F keys and never
+converts a maximum rating into a continuous rating. Rule ID, revision, complete
+descriptor, digest, interpreter revision, and source lineage bind every assertion.
+The reviewed scalar mapper is v2 and rejects condition loss; compatible
+unconditional v1 decisions and frozen v6 bridge artifacts retain legacy replay.
+Code review owns new rules; product approval cannot install interpretation rules.
+See [the vocabulary audit and governance contract](INGESTION_ARCHITECTURE_REPAIR.md)
+for exact supported concepts, abstention, genuine representation gaps, and
+remaining structured topology/protocol boundaries.
+
+Current bridge v8/interpreter v3 has 28 rules, with producer-owned typed context
+and five exact automatic retention rules. Old untyped context stays unresolved;
+historical v2 descriptors remain frozen. Automatic retention preserves complete
+evidence and establishes no engineering target or authority. Bare evidence-only
+observations still require human disposition. See
+[the context/workload contract](INGESTION_CONTEXT_WORKLOAD.md) for all seven
+added/changed engineering grammars and the exact retention/completion policy.
+
 ## Current boundaries
 
 Resistance lacks a measurement definition (for example AC impedance versus DC

@@ -205,9 +205,12 @@ describe('manufacturer acquisition profiles', () => {
 
   it('returns explicit ambiguous matches and enforces official source domains', () => {
     const ambiguousHtml = fixture.replace(
-      ']}}}</script>',
-      ',{"sku":"SCC075015060R","title":"Duplicate raw record"}]}}}</script>',
+      /("products"\s*:\s*\[)/,
+      '$1{"sku":"SCC075015060R","title":"Duplicate raw record"},',
     );
+    // Duplicate identity is the intended fault, independently of source JSON
+    // whitespace. Guard against a no-op injection masking that refusal test.
+    expect(ambiguousHtml).not.toBe(fixture);
     const ambiguous = acquireManufacturerRecord({
       ...request('SCC075015060R'),
       captured_source: captured({

@@ -3,6 +3,7 @@ import type {
   ReviewedSemanticInterpretationEntry,
   SemanticProposal,
 } from './production-contracts.js';
+import { automaticEvidenceClassificationValid } from './retained-evidence-rules.js';
 
 export interface SemanticReviewDispositionRequirement {
   readonly proposal_id: string;
@@ -23,18 +24,30 @@ const HUMAN_DISPOSITION_STATES: ReadonlySet<ReviewedSemanticInterpretationEntry[
  * canonical facts. The interpretation is replayed from durable decision history upstream.
  */
 export const evaluateSemanticReviewCompletion = (
-  proposals: readonly Pick<SemanticProposal, 'id' | 'derivation' | 'disposition'>[],
+  proposals: readonly Pick<
+    SemanticProposal,
+    | 'id'
+    | 'derivation'
+    | 'disposition'
+    | 'fact_refs'
+    | 'evidence_classification'
+    | 'proposed_value'
+    | 'qualified_value'
+    | 'semantic_assertions'
+  >[],
   interpretation: ReviewedSemanticInterpretation,
 ): SemanticReviewCompletion => {
   const entriesByProposal = new Map(
     interpretation.entries.map((entry) => [entry.proposal_id, entry]),
   );
-  // Derived and already mapped proposals follow their own deterministic contracts; only a
-  // current referenced human event can disposition an automatically unresolved proposal.
+  // Only exact reviewed automatic evidence proof closes retained observations.
+  // A bare evidence_only/unsupported/source_label string still requires a human.
   const required_dispositions = proposals
     .filter((proposal) => !proposal.derivation && proposal.disposition !== 'mapped')
     .filter((proposal) => {
       const entry = entriesByProposal.get(proposal.id);
+      if (entry?.state === 'automatic' && automaticEvidenceClassificationValid(proposal))
+        return false;
       return (
         !entry ||
         !entry.decision_ref ||

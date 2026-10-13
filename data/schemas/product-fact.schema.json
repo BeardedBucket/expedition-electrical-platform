@@ -15,6 +15,9 @@
     "fact_state"
   ],
   "properties": {
+    "human_source": {
+      "$ref": "https://expedition-electrical-platform.dev/schemas/production-ingestion.schema.json#/$defs/qualifiedFact"
+    },
     "schema_version": {
       "type": "string",
       "minLength": 1
@@ -117,15 +120,51 @@
         "assumptions"
       ],
       "properties": {
-        "status": { "const": "derived" },
-        "rule_version": { "type": "string", "minLength": 1 },
-        "formula": { "type": "string", "minLength": 1 },
-        "input_targets": { "type": "array", "items": { "type": "string" } },
-        "input_qualified_fact_ids": { "type": "array", "items": { "type": "string" } },
-        "input_fact_ids": { "type": "array", "items": { "type": "string" } },
-        "input_units": { "type": "array", "items": { "type": "string" } },
-        "output_unit": { "type": "string", "minLength": 1 },
-        "assumptions": { "type": "array", "items": { "type": "string" } }
+        "status": {
+          "const": "derived"
+        },
+        "rule_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "formula": {
+          "type": "string",
+          "minLength": 1
+        },
+        "input_targets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "input_qualified_fact_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "input_fact_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "input_units": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "output_unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "assumptions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       },
       "additionalProperties": false
     },
@@ -189,6 +228,26 @@
     },
     "qualified_value": {
       "$ref": "#/$defs/canonicalQualifiedValue"
+    },
+    "semantic_source": {
+      "type": "object",
+      "required": ["fact", "context_facts", "assertion"],
+      "properties": {
+        "fact": {
+          "$ref": "#/$defs/qualifiedFact"
+        },
+        "context_facts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/qualifiedFact"
+          }
+        },
+        "assertion": {
+          "$ref": "#/$defs/semanticAssertion"
+        }
+      },
+      "additionalProperties": false,
+      "description": "Immutable source facts and rule assertion required to replay generic normalization. Context is evidence, not installation applicability or verified authority."
     }
   },
   "$defs": {
@@ -312,10 +371,16 @@
               "not": {
                 "required": ["operating_state", "display"],
                 "properties": {
-                  "operating_state": { "const": "off" },
+                  "operating_state": {
+                    "const": "off"
+                  },
                   "display": {
                     "required": ["state"],
-                    "properties": { "state": { "const": "on" } }
+                    "properties": {
+                      "state": {
+                        "const": "on"
+                      }
+                    }
                   }
                 }
               },
@@ -367,8 +432,691 @@
             }
           },
           "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["id", "target", "value", "qualifiers"],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._-]+$"
+            },
+            "target": {
+              "enum": [
+                "electrical.output_current_a",
+                "electrical.input_current_a",
+                "electrical.charge_current_a",
+                "electrical.discharge_current_a",
+                "electrical.output_voltage_v",
+                "electrical.input_voltage_v",
+                "electrical.operating_power_w",
+                "electrical.output_power_w",
+                "electrical.peak_power_w",
+                "electrical.apparent_power_va",
+                "electrical.frequency_hz",
+                "electrical.pv_open_circuit_voltage_v",
+                "electrical.idle_current_a",
+                "electrical.standby_current_a",
+                "electrical.conditioned_consumption_w",
+                "efficiency_fraction",
+                "weight_kg",
+                "electrical.nominal_voltage_v",
+                "electrical.continuous_power_w",
+                "electrical.rated_power_w",
+                "battery.nominal_capacity_ah",
+                "battery.nominal_energy_wh",
+                "battery.charging_voltage_range_v",
+                "battery.float_voltage_range_v",
+                "dimensions_mm.x",
+                "dimensions_mm.y",
+                "dimensions_mm.z"
+              ]
+            },
+            "value": {
+              "oneOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "object",
+                  "required": ["min", "max"],
+                  "properties": {
+                    "min": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "max": {
+                      "type": "number",
+                      "minimum": 0
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "qualifiers": {
+              "type": "object",
+              "required": ["kind"],
+              "properties": {
+                "kind": {
+                  "const": "source_rating"
+                },
+                "electrical_domain": {
+                  "enum": ["ac", "dc"]
+                },
+                "direction": {
+                  "enum": ["input", "output"]
+                },
+                "rating_basis": {
+                  "enum": [
+                    "maximum",
+                    "rated",
+                    "rated_maximum",
+                    "continuous",
+                    "nominal",
+                    "peak",
+                    "surge"
+                  ]
+                },
+                "battery_voltage_v": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "measurement_basis": {
+                  "const": "rms"
+                },
+                "comparison": {
+                  "enum": [
+                    "less_than",
+                    "less_than_or_equal",
+                    "greater_than",
+                    "greater_than_or_equal"
+                  ]
+                },
+                "source_conditions": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "minItems": 1,
+                  "uniqueItems": true
+                },
+                "duration": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "temperature_context": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "revision_context": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "product_role": {
+                  "const": "battery"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "target": {
+                    "const": "efficiency_fraction"
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "value": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "target": {
+                    "not": {
+                      "enum": [
+                        "electrical.input_voltage_v",
+                        "electrical.output_voltage_v",
+                        "battery.charging_voltage_range_v",
+                        "battery.float_voltage_range_v"
+                      ]
+                    }
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "value": {
+                    "type": "number",
+                    "minimum": 0
+                  }
+                }
+              }
+            }
+          ],
+          "additionalProperties": false
         }
       ]
+    },
+    "qualifiedFact": {
+      "type": "object",
+      "required": ["schema_version", "artifact_kind", "id", "source_capture", "metadata"],
+      "properties": {
+        "schema_version": {
+          "$ref": "#/$defs/version"
+        },
+        "artifact_kind": {
+          "const": "qualified_fact"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_capture": {
+          "$ref": "#/$defs/sourceRef"
+        },
+        "source_acquisition": {
+          "$ref": "#/$defs/sourceAcquisitionRef"
+        },
+        "document_extraction": {
+          "$ref": "#/$defs/artifactRef"
+        },
+        "acquisition_candidate_id": {
+          "type": "string"
+        },
+        "metadata": {
+          "type": "object",
+          "required": ["source_wording", "raw_value", "applicability"],
+          "properties": {
+            "source_wording": {
+              "type": "string",
+              "minLength": 1
+            },
+            "source_label": {
+              "type": "string",
+              "minLength": 1
+            },
+            "raw_value": {},
+            "source_unit": {
+              "type": "string"
+            },
+            "conditions": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "duration": {
+              "type": "string"
+            },
+            "temperature_context": {
+              "type": "string"
+            },
+            "applicability": {
+              "$ref": "#/$defs/applicability"
+            },
+            "revision_context": {
+              "type": "string"
+            },
+            "derived_value": {},
+            "derivation": {
+              "type": "string"
+            },
+            "alternative_interpretations": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "raw_identifier": {
+              "type": "string"
+            },
+            "normalized_identifier": {
+              "type": "string"
+            },
+            "normalization_method": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/qualifiedEvidence"
+          }
+        },
+        "qualifier": {
+          "type": "string"
+        },
+        "qualifier_version": {
+          "type": "string"
+        },
+        "qualification_state": {
+          "enum": ["exact", "structurally_supported", "ambiguous", "unresolved", "rejected"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "version": {
+      "const": "1.0"
+    },
+    "sourceRef": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/artifactRef"
+        },
+        {
+          "properties": {
+            "kind": {
+              "enum": ["source_capture", "source_revision", "product_source"]
+            }
+          }
+        }
+      ]
+    },
+    "artifactRef": {
+      "type": "object",
+      "required": ["kind", "reference_schema_version", "digest", "digest_algorithm"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "product_intake",
+            "source_resolution",
+            "source_acquisition",
+            "source_capture",
+            "source_revision",
+            "document_extraction",
+            "qualified_fact",
+            "semantic_proposal",
+            "product_candidate",
+            "product_source",
+            "product_fact",
+            "reviewed_semantic_decision",
+            "review_package",
+            "approval",
+            "ingestion_job",
+            "product_run"
+          ]
+        },
+        "heading_level": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 6
+        },
+        "reference_schema_version": {
+          "$ref": "#/$defs/version"
+        },
+        "referenced_artifact_schema_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "digest_algorithm": {
+          "const": "sha256"
+        },
+        "reference": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "sourceAcquisitionRef": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/artifactRef"
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "source_acquisition"
+            }
+          }
+        }
+      ]
+    },
+    "applicability": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "exact_product",
+            "exact_mpn_or_sku",
+            "named_variant",
+            "family",
+            "document_global",
+            "explicitly_multiple_products",
+            "unresolved",
+            "exact_sku",
+            "model",
+            "variant",
+            "hardware_revision",
+            "not_applicable"
+          ]
+        },
+        "value": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "qualifiedEvidence": {
+      "type": "object",
+      "required": ["role"],
+      "properties": {
+        "role": {
+          "enum": ["value", "label", "subject", "applicability", "qualifier", "context"]
+        },
+        "source_reference": {
+          "$ref": "#/$defs/artifactRef"
+        },
+        "block_id": {
+          "type": "string"
+        },
+        "cell_id": {
+          "type": "string"
+        },
+        "locator": {
+          "$ref": "#/$defs/documentLocation"
+        },
+        "text": {
+          "type": "string"
+        },
+        "note": {
+          "type": "string"
+        },
+        "context": {
+          "type": "object",
+          "required": ["policy_version", "kind", "producer", "producer_revision"],
+          "properties": {
+            "policy_version": {
+              "const": "qualified-context.v1"
+            },
+            "kind": {
+              "enum": ["source_semantic", "qualification_provenance", "unresolved"]
+            },
+            "producer": {
+              "enum": [
+                "profile-qualified-evidence",
+                "document-qualification",
+                "model-column-qualification"
+              ]
+            },
+            "producer_revision": {
+              "const": 2
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "required": ["context"]
+          },
+          "then": {
+            "properties": {
+              "role": {
+                "enum": ["qualifier", "context"]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "documentLocation": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": {
+          "enum": ["html", "pdf", "generic"]
+        },
+        "path": {
+          "type": "string"
+        },
+        "fragment": {
+          "type": "string"
+        },
+        "section": {
+          "type": "string"
+        },
+        "page": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "ordinal": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "row": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "table": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "semanticAssertion": {
+      "type": "object",
+      "required": [
+        "concept",
+        "target",
+        "rule",
+        "source_fact_id",
+        "source_fact_digest",
+        "normalized_unit",
+        "qualifiers",
+        "review_required_reasons",
+        "projection"
+      ],
+      "properties": {
+        "concept": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rule": {
+          "type": "object",
+          "required": ["id", "revision", "digest", "interpreter", "definition"],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "revision": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "digest": {
+              "$ref": "#/$defs/digest"
+            },
+            "interpreter": {
+              "type": "string",
+              "minLength": 1
+            },
+            "definition": {
+              "type": "object",
+              "required": [
+                "id",
+                "revision",
+                "label_pattern",
+                "concept",
+                "target",
+                "dimension",
+                "unit",
+                "projection",
+                "rationale"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "revision": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "label_pattern": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "concept": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "target": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "dimension": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "unit": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "projection": {
+                  "enum": ["scalar", "qualified"]
+                },
+                "required_domain": {
+                  "enum": ["ac", "dc"]
+                },
+                "required_role": {
+                  "const": "battery"
+                },
+                "direction": {
+                  "enum": ["input", "output"]
+                },
+                "rationale": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "required_physical_scope": {
+                  "const": "physical_body"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "source_fact_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_fact_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "normalized_value": {},
+        "normalized_unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "qualifiers": {
+          "type": "object",
+          "required": [],
+          "properties": {
+            "electrical_domain": {
+              "enum": ["ac", "dc"]
+            },
+            "direction": {
+              "enum": ["input", "output"]
+            },
+            "rating_basis": {
+              "enum": [
+                "maximum",
+                "rated",
+                "rated_maximum",
+                "continuous",
+                "nominal",
+                "peak",
+                "surge"
+              ]
+            },
+            "battery_voltage_v": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "measurement_basis": {
+              "const": "rms"
+            },
+            "comparison": {
+              "enum": ["less_than", "less_than_or_equal", "greater_than", "greater_than_or_equal"]
+            },
+            "source_conditions": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 1,
+              "uniqueItems": true
+            },
+            "duration": {
+              "type": "string",
+              "minLength": 1
+            },
+            "temperature_context": {
+              "type": "string",
+              "minLength": 1
+            },
+            "revision_context": {
+              "type": "string",
+              "minLength": 1
+            },
+            "product_role": {
+              "const": "battery"
+            }
+          },
+          "additionalProperties": false
+        },
+        "review_required_reasons": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "projection": {
+          "enum": ["scalar", "qualified"]
+        }
+      },
+      "additionalProperties": false
     }
   }
 }

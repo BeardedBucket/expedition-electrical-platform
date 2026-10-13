@@ -113,7 +113,10 @@ export const classifyCapturePriority = (
     category = 'support_product';
     order = 5;
   } else if (
-    /\b(?:specifications?|specs?)\b/.test(wording) ||
+    // "Technical data" names the same ordinary specification-document class.
+    // This only schedules a capture; it grants no officiality, model scope or
+    // engineering authority. Capture/discovery/byte budgets remain unchanged.
+    /\b(?:specifications?|specs?|technical data)\b/.test(wording) ||
     input.role === 'specification_sheet'
   ) {
     category = 'technical_specification';

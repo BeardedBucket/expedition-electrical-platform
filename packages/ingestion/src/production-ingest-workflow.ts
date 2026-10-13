@@ -31,6 +31,7 @@ import {
 } from './production-candidate-bridge.js';
 import { buildProductionReviewPackage } from './production-review-package.js';
 import { prepareProfileQualifiedEvidence } from './profile-qualified-evidence.js';
+import { qualifyHtmlProduct } from './html-product-qualification.js';
 
 export interface ProductionIngestWorkflowRequest {
   readonly intake: ProductIntake;
@@ -150,6 +151,18 @@ export const prepareProductionIngestReview = async (
     });
     qualifications.push(qualification);
     qualified_facts.push(...qualification.facts);
+    const sourceOwned = qualifyHtmlProduct({
+      source: item.capture.source,
+      capture: item.capture.artifact,
+      acquisition: acquisition.artifact,
+      document: extraction,
+      intake: request.intake,
+    });
+    if (sourceOwned) {
+      document_extractions.push(sourceOwned.document);
+      qualifications.push(sourceOwned.qualification);
+      qualified_facts.push(...sourceOwned.qualification.facts);
+    }
     const profile =
       request.profile ??
       request.profiles?.find(

@@ -15,6 +15,8 @@ import {
   qualifiedValueCollectionValid,
 } from './qualified-values.js';
 import { deterministicSerialize } from './production-contracts.js';
+import { canonicalEngineeringDigest } from '@expedition/engineering-core/canonical-verification';
+import { withCanonicalRecordLock } from './canonical-record-lock.js';
 
 export type CanonicalAmendmentStatus = 'proposed' | 'blocked' | 'invalid' | 'dry_run' | 'written';
 
@@ -1571,6 +1573,15 @@ export const proposeCanonicalAmendment = ({
   }
   issues.push(...schemaIssues(proposal));
 
+  // Routine amendments cannot grant authority to new assertions. Retain old
+  // events for audit, but require a distinct explicit verification of this
+  // new content, including for legacy verified records without workflow events.
+  if (
+    canonicalEngineeringDigest(proposal) !== canonicalEngineeringDigest(current) &&
+    current.verification_status === 'verified'
+  )
+    proposal.verification_status = 'unverified';
+
   if (issues.length > 0) {
     const blocking = issues.some((item) => item.code !== 'amendment_invalid_component');
     return {
@@ -1607,7 +1618,7 @@ export const proposedAmendedCanonicalComponent = (
   request: CanonicalAmendmentRequest,
 ): CanonicalAmendmentResult => proposeCanonicalAmendment(request);
 
-export const writeCanonicalAmendment = async (
+const writeCanonicalAmendmentUnlocked = async (
   request: CanonicalAmendmentRequest,
 ): Promise<CanonicalAmendmentResult> => {
   const proposalResult = proposeCanonicalAmendment(request);
@@ -1785,6 +1796,23 @@ export const writeCanonicalAmendment = async (
     };
   }
   return { ...diskProposal, status: 'written', path: targetPath, serialized, issues: [] };
+};
+
+export const writeCanonicalAmendment = async (
+  request: CanonicalAmendmentRequest,
+): Promise<CanonicalAmendmentResult> => {
+  // Injected filesystems are isolated adapter/test ownership; production default
+  // writes share the verification lock. Dry runs perform no authority transition.
+  if (!request.write || request.filesystem) return writeCanonicalAmendmentUnlocked(request);
+  const proposal = proposeCanonicalAmendment(request);
+  if (proposal.status !== 'proposed') return proposal;
+  const id = String(proposal.proposal?.id ?? '');
+  const safe = safeCanonicalPath(
+    request.destinationRoot ?? process.cwd(),
+    request.filename ?? `${id}.yaml`,
+  );
+  if (!safe.path || safe.issue) return writeCanonicalAmendmentUnlocked(request);
+  return withCanonicalRecordLock(safe.path, () => writeCanonicalAmendmentUnlocked(request));
 };
 
 export const applyCanonicalAmendment = writeCanonicalAmendment;

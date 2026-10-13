@@ -6,6 +6,7 @@ import { evaluateProductSelection } from '../../src/product-selection.js';
 import type { RecommendationInput, SelectionOptionSource } from '../../src/recommendation.js';
 import { batteryProduct } from './selection.js';
 import type { ComponentLibraryRecord } from '../../src/component-library.js';
+import { verifySyntheticRecord } from './verification.js';
 
 /** Synthetic project-authored fixtures; no production facts, price or review repairs. */
 export const tradeoffProduct = (id = 'fixture.a'): ComponentLibraryRecord => ({
@@ -48,7 +49,7 @@ export const recommendationSource = (
     schema_version: '1.0.0',
     generation,
     candidate_id: candidate.id,
-    corpus,
+    corpus: corpus.map(verifySyntheticRecord),
     fixed_existing: fixed
       ? [{ role_id: candidate.required_roles[0]!.id, component_id: corpus[0]!.id }]
       : [],

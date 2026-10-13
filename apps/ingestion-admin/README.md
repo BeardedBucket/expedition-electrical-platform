@@ -1,5 +1,11 @@
 # Local ingestion admin
 
+Semantic cards expose automatic retained-evidence policy/rule/source identities
+and retain source context text/typing in evidence locators. This classification
+has no engineering projection; bare evidence-only observations still require
+human disposition. See
+[context and workload ownership](../../docs/INGESTION_CONTEXT_WORKLOAD.md).
+
 ## Resumable Defer checkpoint
 
 **Defer = pause**, not terminal closure or rejection of valid evidence. A new
@@ -52,7 +58,7 @@ Environment variables are explicit; no secrets are required. Set them in the ter
 | --------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------- |
 | `INGESTION_REPOSITORY_ROOT` | Repository root relative to npm's workspace cwd (`../..`) | Locate versioned manufacturer profiles                              |
 | `INGESTION_JOB_ROOT`        | `<repository>/.local-ingestion/jobs`                      | Durable local jobs, ignored by Git                                  |
-| `INGESTION_BATCH_ROOT`      | `<repository>/.local-ingestion/batches`                   | Durable batch membership; must be separate from the job root         |
+| `INGESTION_BATCH_ROOT`      | `<repository>/.local-ingestion/batches`                   | Durable batch membership; must be separate from the job root        |
 | `INGESTION_CANONICAL_ROOT`  | `<repository>/data/components`                            | Destination for a separately confirmed canonical finalization write |
 | `INGESTION_API_HOST`        | `127.0.0.1`                                               | API bind address; keep local                                        |
 | `INGESTION_API_PORT`        | `4318`                                                    | API port; also set in the Vite terminal when overridden             |
@@ -71,24 +77,24 @@ The `INGESTION_ADMIN_ORIGIN` setting defaults to `http://127.0.0.1:5174`. It is 
 
 ## HTTP boundary
 
-| Route                                                       | Input                                                                                                                                                | Response                                                                          |
-| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `POST /api/ingestion/jobs`                                  | JSON with required `manufacturer`, `product_model` and at least one of `manufacturer_part_number`, `official_product_uri` (supplied values nonempty) | 201 operator detail DTO, state `created` or `source_resolution_required`          |
-| `POST /api/ingestion/jobs/:id/prepare`                      | No body                                                                                                                                              | 200 operator detail DTO after preparation completes, including persisted failures |
-| `GET /api/ingestion/jobs/:id`                               | UUID job ID                                                                                                                                          | 200 operator detail DTO                                                           |
-| `GET /api/ingestion/jobs`                                   | None                                                                                                                                                 | `{ jobs: OperatorJobSummary[] }`, latest updated first; ID ascending breaks ties  |
-| `POST /api/ingestion/batches`                               | Non-empty array of 1–50 ordinary product-intake identity records                                                                                     | 201 `{ summary, job_ids }`                                                        |
-| `GET /api/ingestion/batches`                                | None                                                                                                                                                 | `{ batches: BatchSummary[] }`                                                     |
-| `GET /api/ingestion/batches/:id`                            | UUID batch ID                                                                                                                                        | 200 `{ summary, job_ids }`                                                        |
-| `POST /api/ingestion/batches/:id/prepare`                   | No body                                                                                                                                              | 200 refreshed `{ summary, job_ids }`                                              |
-| `POST /api/ingestion/jobs/:id/review/approve`               | Explicit reviewer label and selected promotion decisions                                                                                             | 200 operator detail DTO after human approval                                      |
-| `POST /api/ingestion/jobs/:id/review/reject`                | Explicit reviewer label                                                                                                                              | 200 operator detail DTO after rejection                                           |
-| `POST /api/ingestion/jobs/:id/review/defer`                 | Reviewer label, nonempty reviewed_decisions rationale, expected_lifecycle_snapshot, optional defer_reason                                              | 200 DTO in paused review_deferred state |
-| `POST /api/ingestion/jobs/:id/review/resume`                | expected_lifecycle_snapshot and actor_label only                                                                                                      | 200 DTO for same preserved review_ready child |
-| `POST /api/ingestion/jobs/:id/finalize`                     | Explicit `{ write: true }` after approval                                                                                                            | 200 operator detail DTO with promotion and canonical write result                 |
-| `POST /api/ingestion/jobs/:id/source-resolution/candidates` | Proposed official product URL                                                                                                                        | Captured source resolution attempt                                                |
-| `POST /api/ingestion/jobs/:id/source-resolution/accept`     | Explicit attempt ID                                                                                                                                  | Accepted source identity, with product evidence still unreviewed                  |
-| `POST /api/ingestion/jobs/:id/source-resolution/reject`     | Explicit attempt ID                                                                                                                                  | Rejected source identity attempt                                                  |
+| Route                                                       | Input                                                                                                                                                | Response                                                                                   |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `POST /api/ingestion/jobs`                                  | JSON with required `manufacturer`, `product_model` and at least one of `manufacturer_part_number`, `official_product_uri` (supplied values nonempty) | 201 operator detail DTO, state `created` or `source_resolution_required`                   |
+| `POST /api/ingestion/jobs/:id/prepare`                      | No body                                                                                                                                              | 200 operator detail DTO after preparation completes, including persisted failures          |
+| `GET /api/ingestion/jobs/:id`                               | UUID job ID                                                                                                                                          | 200 operator detail DTO                                                                    |
+| `GET /api/ingestion/jobs`                                   | None                                                                                                                                                 | `{ jobs: OperatorJobSummary[] }`, latest updated first; ID ascending breaks ties           |
+| `POST /api/ingestion/batches`                               | Non-empty array of 1–50 ordinary product-intake identity records                                                                                     | 201 `{ summary, job_ids }`                                                                 |
+| `GET /api/ingestion/batches`                                | None                                                                                                                                                 | `{ batches: BatchSummary[] }`                                                              |
+| `GET /api/ingestion/batches/:id`                            | UUID batch ID                                                                                                                                        | 200 `{ summary, job_ids }`                                                                 |
+| `POST /api/ingestion/batches/:id/prepare`                   | No body                                                                                                                                              | 200 refreshed `{ summary, job_ids }`                                                       |
+| `POST /api/ingestion/jobs/:id/review/approve`               | Explicit reviewer label and selected promotion decisions                                                                                             | 200 operator detail DTO after human approval                                               |
+| `POST /api/ingestion/jobs/:id/review/reject`                | Explicit reviewer label                                                                                                                              | 200 operator detail DTO after rejection                                                    |
+| `POST /api/ingestion/jobs/:id/review/defer`                 | Reviewer label, nonempty reviewed_decisions rationale, expected_lifecycle_snapshot, optional defer_reason                                            | 200 DTO in paused review_deferred state                                                    |
+| `POST /api/ingestion/jobs/:id/review/resume`                | expected_lifecycle_snapshot and actor_label only                                                                                                     | 200 DTO for same preserved review_ready child                                              |
+| `POST /api/ingestion/jobs/:id/finalize`                     | Explicit `{ write: true }` after approval                                                                                                            | 200 operator detail DTO with promotion and canonical write result                          |
+| `POST /api/ingestion/jobs/:id/source-resolution/candidates` | Proposed official product URL                                                                                                                        | Captured source resolution attempt                                                         |
+| `POST /api/ingestion/jobs/:id/source-resolution/accept`     | Explicit attempt ID                                                                                                                                  | Accepted source identity, with product evidence still unreviewed                           |
+| `POST /api/ingestion/jobs/:id/source-resolution/reject`     | Explicit attempt ID                                                                                                                                  | Rejected source identity attempt                                                           |
 | `POST /api/ingestion/jobs/:id/source-resolution/reopen`     | Empty JSON object; eligible only after accepted-source acquisition failure                                                                           | Same job reopens source selection; prior decision and failed preparation remain in history |
 
 The server constructs a versioned `ProductIntake` with `intake.<random UUID>` as a convenience intake ID. It does not derive canonical product identity from this ID. Existing runtime intake validation remains authoritative; source URI and officiality handling stay in acquisition/capture.
@@ -171,6 +177,35 @@ A batch is only an orchestration/grouping layer: its children remain the authori
 6. Finalization is a separate, explicit, one-shot action. The API accepts only `write: true`; the browser cannot choose the destination. The guarded writer checks the canonical ID/filename, path containment, catalog identity and filename collisions, component schema, and exclusive create. It never overwrites. A collision, blocked promotion, or invalid proposal is still a terminal finalization result; there is no dry-run/retry route through the job lifecycle.
 7. Validate and load the resulting component. For the normal repository catalog, `npm.cmd run validate:data` validates the complete repository data tree. For an isolated destination, use the writer's `schema_valid` result and load the exact created file with `loadComponentLibraryFile(filePath)` from `@expedition/engineering-core`; `loadCanonicalCatalog(destinationRoot)` is a parse-only catalog reader, not a substitute for schema validation.
 
+### Separate engineering verification
+
+After a finalized job records a successful approved promotion and canonical
+write, open its **Engineering verification** panel and load the exact canonical
+record. Inspect content and unknowns, enter an operator label, acknowledge intent,
+then verify. No preparation, semantic completion, approval, or finalization
+automatically performs this action. The label is unauthenticated audit text under
+the existing trusted-local, loopback-only policy; the app provides no hosted
+authorization subsystem.
+
+`GET /api/ingestion/jobs/:id/engineering-verification` loads the exact absolute
+destination recorded by the successful durable canonical write, after validating
+its configured root, component identity and physical containment. A changed root
+containing a same-ID file is rejected. It returns the content/snapshot digests.
+`POST` to that endpoint accepts only
+`expected_snapshot` and `operator_label`; path, timestamp, content, status, and
+origin are server-owned. Wrong state or stale/invalid content yields 409. Reload
+and review after an error; do not replay intent against changed content.
+
+Verification and canonical amendments share the record's `.authority.lock`.
+There is no automatic expiry or stealing. Inspect the record and stop all writers
+before recovering an orphan lock. An error during cleanup can follow a completed
+replacement, so reload before any new action. Amendments invalidate existing
+verification while retaining history; a later explicit verification binds the new
+record. A status-only `verified` record has no current workflow authority: loading
+withholds it and Phase 5 refuses it. Verification does not assert that missing
+engineering fields exist.
+See [the architecture and authority policy](../../docs/INGESTION_ARCHITECTURE_REPAIR.md).
+
 ### Batch workflow
 
 Create a batch from ordinary intake records in **Batches**, inspect its ordered child IDs, then use **Prepare** once to prepare children still in `created`. Read the child state for each outcome; the coarse batch state is a summary and mixed child states remain distinct. Open each child and perform its own source resolution, semantic review, approval/rejection/deferral, and finalization through the single-job workflow above. The batch has no semantic, approval, finalization, canonical-write, or retry authority. Batch metadata and child jobs persist separately; after restart, reload the batch to reconstruct its summary from the current child records. See [batch backend contract](../../docs/BATCH_INGEST_BACKEND.md) and [batch API](../../docs/BATCH_INGEST_ADMIN_API.md).
@@ -179,15 +214,15 @@ Create a batch from ordinary intake records in **Batches**, inspect its ordered 
 
 Do not collapse failures from different stages into a single “bad product” result:
 
-| Observation | Meaning and operator response |
-| --- | --- |
-| Capture failed or was non-authoritative | Inspect the requested/final URI, HTTP status, redirect/officiality evidence, and capture diagnostics. A transport failure is not an extraction or semantic failure. |
-| Extraction unsupported/partial/failed | Inspect media type and extraction diagnostics. PDF text extraction does not imply table/layout qualification; unsupported structure is not a product specification. |
-| No or sparse QualifiedFacts | Treat this as acquisition/extraction/qualification or identity/applicability evidence, not as a semantic adjudication success. Do not manufacture facts to continue. |
-| Reconciliation conflict or unresolved applicability | Inspect the exact source facts and applicability. Conflicting evidence stays visible; do not choose a winner automatically. |
-| Unsupported/unresolved semantic proposal | Use the human semantic workflow only when the retained assertion and provenance support a meaningful disposition. A `schema_gap` is not evidence that the product has a particular value. |
-| HTTP 409 stale review | Reload the job, inspect the current evidence and review snapshot, and reconfirm intent. Never replay a previous payload against a changed snapshot. |
-| `preparation_failed` / `finalization_failed` | Read the durable job and API request diagnostics. Do not reset or retry the job automatically. Finalization may have written a file before an interruption or error. |
+| Observation                                         | Meaning and operator response                                                                                                                                                             |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Capture failed or was non-authoritative             | Inspect the requested/final URI, HTTP status, redirect/officiality evidence, and capture diagnostics. A transport failure is not an extraction or semantic failure.                       |
+| Extraction unsupported/partial/failed               | Inspect media type and extraction diagnostics. PDF text extraction does not imply table/layout qualification; unsupported structure is not a product specification.                       |
+| No or sparse QualifiedFacts                         | Treat this as acquisition/extraction/qualification or identity/applicability evidence, not as a semantic adjudication success. Do not manufacture facts to continue.                      |
+| Reconciliation conflict or unresolved applicability | Inspect the exact source facts and applicability. Conflicting evidence stays visible; do not choose a winner automatically.                                                               |
+| Unsupported/unresolved semantic proposal            | Use the human semantic workflow only when the retained assertion and provenance support a meaningful disposition. A `schema_gap` is not evidence that the product has a particular value. |
+| HTTP 409 stale review                               | Reload the job, inspect the current evidence and review snapshot, and reconfirm intent. Never replay a previous payload against a changed snapshot.                                       |
+| `preparation_failed` / `finalization_failed`        | Read the durable job and API request diagnostics. Do not reset or retry the job automatically. Finalization may have written a file before an interruption or error.                      |
 
 Each file-store save uses an exclusive per-job `.<job-id>.lock` around the durable compare-and-swap and replacement. The lock has no expiry and is never stolen automatically. If a process crashes while holding it, first verify that every writer for this job store is stopped. Inspect the job record and, for a finalization, the recorded request and configured destination. Only after verifying the writer is dead may an operator manually remove that exact orphan lock so a later conditional save can proceed. Never remove a live writer's lock, delete a durable job to clear an error, or retry `preparing`/`finalizing` by editing JSON or calling private runtime methods. The API has no reset/retry endpoint for interrupted `preparing` or `finalizing` operations. The explicit source-selection, reviewed-preparation archival, and deferred-review resume endpoints described above are separate, eligibility-checked child transitions, not interrupted-operation recovery.
 

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { buildLegacyProductionSemanticProposals } from '../src/production-semantic-bridge.js';
 import {
   artifactReference,
   buildProductionProductCandidate,
@@ -71,12 +72,15 @@ const run = (
   facts: readonly QualifiedFactArtifact[],
   acquisitions: readonly SourceAcquisitionArtifact[],
   captures: readonly SourceCaptureArtifact[],
+  legacy = false,
 ) => {
   const reconciliation = reconcileQualifiedFactsForWholeIntake({
     facts,
     source_acquisitions: acquisitions,
   });
-  const proposals = buildProductionSemanticProposals({
+  const proposals = (
+    legacy ? buildLegacyProductionSemanticProposals : buildProductionSemanticProposals
+  )({
     facts,
     source_acquisitions: acquisitions,
     reconciliation,
@@ -183,7 +187,7 @@ describe('production candidate bridge', () => {
       fact(source, acquired, 'nominal voltage', '24'),
       fact(source, acquired, 'nominal voltage', '25'),
     ];
-    const result = run(facts, [acquired], [source]);
+    const result = run(facts, [acquired], [source], true);
     expect(result.candidate).toBeUndefined();
     expect(result.non_projected.map((item) => item.reason).sort()).toEqual([
       'disposition: conflicting',
