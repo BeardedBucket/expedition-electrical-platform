@@ -1,5 +1,16 @@
 # Architecture
 
+Wave2 direct source authoring and current conditional diagnostics are documented
+in [WAVE2_DIRECT_PRODUCT_AUTHORING.md](WAVE2_DIRECT_PRODUCT_AUTHORING.md).
+
+## Wave 2 durable real-source review and bounded operating consumers
+
+Native source-owned rows now enter ordinary durable jobs and the existing human
+correction editor. Optional versioned battery operating and instrumentation
+contracts feed additive Phase 3/5 mandatory gates, with separate provisional
+authority, unknown denominator/location and BMS/calibration holds. Historical
+artifacts are not migrated. See [Wave 2 ownership, replay and limits](REAL_PRODUCT_READINESS_WAVE2.md).
+
 ## Wave-1 versioned engineering preparation
 
 Optional `engineering-profile.v1` facts and `engineering-envelope.v2` consumers

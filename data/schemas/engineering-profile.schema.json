@@ -80,7 +80,10 @@
             "additionalProperties": false,
             "properties": {
               "version": {
-                "const": "engineering-profile-adjudication.v1"
+                "enum": [
+                  "engineering-profile-adjudication.v1",
+                  "engineering-profile-adjudication.v2"
+                ]
               },
               "event_id": {
                 "type": "string",
@@ -94,6 +97,10 @@
                 "type": ["string", "null"]
               },
               "source_unit": {
+                "type": "string",
+                "minLength": 1
+              },
+              "quantity": {
                 "type": "string",
                 "minLength": 1
               }
@@ -1364,6 +1371,759 @@
           "evidence_ids"
         ]
       }
+    },
+    "battery_operating": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "const": "battery-operating.v1"
+        },
+        "charge_range": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "min_c": {
+              "type": "number"
+            },
+            "max_c": {
+              "type": "number"
+            },
+            "unit": {
+              "const": "degC"
+            },
+            "measurement_point": {
+              "enum": ["battery_cell", "ambient", "unknown"]
+            },
+            "prerequisite": {
+              "enum": ["after_heating", "none", "unknown"]
+            },
+            "evidence_ids": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "required": [
+            "min_c",
+            "max_c",
+            "unit",
+            "measurement_point",
+            "prerequisite",
+            "evidence_ids"
+          ]
+        },
+        "discharge_range": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "min_c": {
+              "type": "number"
+            },
+            "max_c": {
+              "type": "number"
+            },
+            "unit": {
+              "const": "degC"
+            },
+            "measurement_point": {
+              "enum": ["battery_cell", "ambient", "unknown"]
+            },
+            "prerequisite": {
+              "enum": ["after_heating", "none", "unknown"]
+            },
+            "evidence_ids": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "required": [
+            "min_c",
+            "max_c",
+            "unit",
+            "measurement_point",
+            "prerequisite",
+            "evidence_ids"
+          ]
+        },
+        "series_permission": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "max_count": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "requires_matched_bank": {
+              "type": ["boolean", "null"]
+            },
+            "unmodeled_conditions": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "evidence_ids": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "required": ["max_count", "requires_matched_bank", "evidence_ids"]
+        },
+        "parallel_permission": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "max_count": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "requires_matched_bank": {
+              "type": ["boolean", "null"]
+            },
+            "unmodeled_conditions": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "evidence_ids": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "required": ["max_count", "requires_matched_bank", "evidence_ids"]
+        },
+        "bms_cutoffs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "operation": {
+                "enum": ["charge", "discharge"]
+              },
+              "threshold_c": {
+                "type": "number"
+              },
+              "recovery_c": {
+                "type": "number"
+              },
+              "measurement_point": {
+                "enum": ["battery_cell", "ambient", "unknown"]
+              },
+              "evidence_ids": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "required": ["operation", "threshold_c", "measurement_point", "evidence_ids"]
+          }
+        }
+      },
+      "required": ["version"]
+    },
+    "instrumentation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "const": "instrumentation.v1"
+        },
+        "accuracy": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "quantity": {
+                "enum": ["current", "voltage"]
+              },
+              "electrical_domain": {
+                "enum": ["dc", "ac", "unknown"]
+              },
+              "domain_evidence_ids": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "percent": {
+                "type": "number",
+                "minimum": 0
+              },
+              "basis": {
+                "enum": ["reading", "full_scale", "unknown"]
+              },
+              "required_shunt_a": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "required_shunt_drop_mv": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "range": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "min": {
+                    "type": "number"
+                  },
+                  "max": {
+                    "type": "number"
+                  }
+                },
+                "required": ["min", "max"]
+              },
+              "temperature_c": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "min": {
+                    "type": "number"
+                  },
+                  "max": {
+                    "type": "number"
+                  }
+                },
+                "required": ["min", "max"]
+              },
+              "evidence_ids": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "required": ["quantity", "electrical_domain", "percent", "basis", "evidence_ids"]
+          }
+        },
+        "shunt": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "nominal_current_a": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "nominal_drop_mv": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "electrical_domain": {
+              "enum": ["dc", "ac", "unknown"]
+            },
+            "domain_evidence_ids": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "max_measurement_current_a": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "value": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "unit": {
+                  "const": "A"
+                },
+                "evidence_ids": {
+                  "type": "array",
+                  "minItems": 1,
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              },
+              "required": ["value", "unit", "evidence_ids"]
+            },
+            "evidence_ids": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "required": ["nominal_current_a", "nominal_drop_mv", "electrical_domain", "evidence_ids"]
+        }
+      },
+      "required": ["version"]
+    },
+    "source_specification": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "const": "source-grounded-draft.v1"
+        },
+        "authority": {
+          "const": "codex_prepared_unreviewed"
+        },
+        "product": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "manufacturer": {
+              "type": "string",
+              "minLength": 1
+            },
+            "model": {
+              "type": "string",
+              "minLength": 1
+            },
+            "manufacturer_part_number": {
+              "type": ["string", "null"]
+            },
+            "hardware_revision": {
+              "type": ["string", "null"]
+            }
+          },
+          "required": [
+            "id",
+            "manufacturer",
+            "model",
+            "manufacturer_part_number",
+            "hardware_revision"
+          ],
+          "additionalProperties": false
+        },
+        "intended_use": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sources": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "url": {
+                "type": "string",
+                "minLength": 1
+              },
+              "publisher": {
+                "type": "string",
+                "minLength": 1
+              },
+              "retrieved_at": {
+                "type": "string",
+                "minLength": 1
+              },
+              "content_digest": {
+                "type": "string",
+                "pattern": "^sha256:[a-f0-9]{64}$"
+              },
+              "document_revision": {
+                "type": ["string", "null"]
+              },
+              "model": {
+                "type": "string",
+                "minLength": 1
+              },
+              "identity_locator": {
+                "type": "string",
+                "minLength": 1
+              },
+              "rights": {
+                "const": "metadata_and_limited_facts_only"
+              },
+              "redistribution_grant": {
+                "const": "not_established"
+              }
+            },
+            "required": [
+              "id",
+              "url",
+              "publisher",
+              "retrieved_at",
+              "content_digest",
+              "document_revision",
+              "model",
+              "identity_locator",
+              "rights",
+              "redistribution_grant"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "facts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "quantity": {
+                "type": "string",
+                "minLength": 1
+              },
+              "basis": {
+                "enum": [
+                  "nominal",
+                  "absolute",
+                  "operating",
+                  "continuous",
+                  "peak",
+                  "typical",
+                  "recommended",
+                  "measurement",
+                  "body",
+                  "installation",
+                  "descriptive",
+                  "protection"
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "minLength": 1
+              },
+              "direction": {
+                "enum": ["input", "output", "bidirectional", "none", "unknown"]
+              },
+              "electrical_domain": {
+                "enum": ["dc", "ac", "none", "unknown"]
+              },
+              "original": {
+                "type": "object",
+                "properties": {
+                  "value": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "unit": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "presentation": {
+                    "enum": ["source_literal", "source_value_reconstruction", "authored_summary"]
+                  }
+                },
+                "required": ["value", "unit", "presentation"],
+                "additionalProperties": false
+              },
+              "normalized": {
+                "type": "object",
+                "properties": {
+                  "value": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "min": {
+                            "type": "number"
+                          },
+                          "max": {
+                            "type": "number"
+                          }
+                        },
+                        "required": ["min", "max"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "x": {
+                            "type": "number"
+                          },
+                          "y": {
+                            "type": "number"
+                          },
+                          "z": {
+                            "type": "number"
+                          }
+                        },
+                        "required": ["x", "y", "z"],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "unit": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": ["value", "unit"],
+                "additionalProperties": false
+              },
+              "normalization": {
+                "enum": [
+                  "identity",
+                  "symmetric_range",
+                  "cm_to_mm",
+                  "kvdc_to_vdc",
+                  "in_to_mm",
+                  "lb_to_kg",
+                  "kwh_to_wh",
+                  "ma_to_a",
+                  "percent_to_fraction",
+                  "minutes_to_seconds"
+                ]
+              },
+              "source_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "locator": {
+                "type": "string",
+                "minLength": 1
+              },
+              "context_digest": {
+                "type": "string",
+                "pattern": "^sha256:[a-f0-9]{64}$"
+              },
+              "conditions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "value": {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "min": {
+                              "type": "number"
+                            },
+                            "max": {
+                              "type": "number"
+                            }
+                          },
+                          "required": ["min", "max"],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "x": {
+                              "type": "number"
+                            },
+                            "y": {
+                              "type": "number"
+                            },
+                            "z": {
+                              "type": "number"
+                            }
+                          },
+                          "required": ["x", "y", "z"],
+                          "additionalProperties": false
+                        }
+                      ]
+                    },
+                    "unit": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": ["key", "value", "unit"],
+                  "additionalProperties": false
+                }
+              },
+              "unresolved_conditions": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "disposition": {
+                "enum": ["typed_consumer", "retained_source_fact", "evidence_ambiguity"]
+              }
+            },
+            "required": [
+              "id",
+              "quantity",
+              "basis",
+              "mode",
+              "direction",
+              "electrical_domain",
+              "original",
+              "normalized",
+              "normalization",
+              "source_id",
+              "locator",
+              "context_digest",
+              "conditions",
+              "unresolved_conditions",
+              "disposition"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "holds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "ports": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1
+              },
+              "domain": {
+                "enum": ["dc", "ac"]
+              },
+              "direction": {
+                "enum": ["input", "output", "bidirectional"]
+              },
+              "voltage_v": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "min": {
+                        "type": "number"
+                      },
+                      "max": {
+                        "type": "number"
+                      }
+                    },
+                    "required": ["min", "max"],
+                    "additionalProperties": false
+                  }
+                ]
+              },
+              "source_fact_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "required": ["id", "label", "domain", "direction", "voltage_v", "source_fact_ids"],
+            "additionalProperties": false
+          }
+        },
+        "power_paths": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "from_port": {
+                "type": "string",
+                "minLength": 1
+              },
+              "to_port": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_fact_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "required": ["id", "from_port", "to_port", "source_fact_ids"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["version", "authority", "product", "intended_use", "sources", "facts", "holds"],
+      "additionalProperties": false
     }
   },
   "required": ["schema_version", "component_id", "model", "manufacturer_revision", "evidence"]

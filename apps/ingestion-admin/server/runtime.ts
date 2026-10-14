@@ -51,7 +51,14 @@ export async function createProductionOperatorService(
     store: new FileIngestionBatchStore(config.batchRoot),
     jobService,
   });
-  return Object.assign(batchService, { jobService });
+  return Object.assign(batchService, {
+    jobService,
+    // The production API receives the batch facade. Source browsing delegates
+    // to its ordinary job service so registered byte ownership is identical to
+    // direct CLI imports; no URL fetch or canonical lookup is introduced here.
+    authoredSourceBytes: (...args: Parameters<IngestionJobService['authoredSourceBytes']>) =>
+      jobService.authoredSourceBytes(...args),
+  });
 }
 
 export async function loadReviewedProfiles(profileRoot: string) {

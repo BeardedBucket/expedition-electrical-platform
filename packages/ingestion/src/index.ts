@@ -50,3 +50,5 @@ export * from './pv-reference-preparation.js';
 export * from './native-model-grid.js';
 export * from './tracker-reference-preparation.js';
 export * from './engineering-profile-adjudication.js';
+export * from './source-grounded-authoring.js';
+export * from './authored-component-projection.js';

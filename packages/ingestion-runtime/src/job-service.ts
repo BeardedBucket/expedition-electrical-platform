@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { validateAuthoredDraftProposal, type AuthoredDraftImport } from '@expedition/ingestion';
 import { createHumanSourceEvent, rebuildHumanPreparation } from './human-review.js';
 import type {
   HumanAdjudicationIntent,
@@ -9,7 +10,7 @@ import type {
 } from '@expedition/ingestion';
 import {
   humanStatementFact,
-  PROFILE_ADJUDICATION_VERSION,
+  profileAdjudicationVersion,
   previewHumanMapping,
   productionSemanticFieldDescriptors,
   genericSemanticRules,
@@ -165,6 +166,8 @@ export interface FinalizationRequest {
 }
 
 export interface IngestionJob {
+  /** Append-only unreviewed proposals; never source decisions or candidate authority. */
+  readonly authored_draft_imports?: readonly AuthoredDraftImport[];
   /** Never replaced by the effective review overlay. */
   readonly human_adjudication_original?: ReviewReadyProductionIngest;
   readonly human_adjudications?: readonly HumanAdjudicationEvent[];
@@ -325,6 +328,146 @@ export const isSourceSelectionRecoveryEligible = (job: IngestionJob): boolean =>
 };
 
 export class IngestionJobService {
+  async authoredSourceBytes(id: string, proposalDigest: string, sourceId: string) {
+    const job = await this.dependencies.store.load(id);
+    const entry = job.authored_draft_imports?.find((i) => i.proposal_digest === proposalDigest);
+    const source = entry?.proposal.draft.sources.find((s) => s.id === sourceId);
+    const capture =
+      source &&
+      entry?.supporting_preparations
+        .flatMap((p) => [
+          p.acquisition.seed_capture,
+          ...p.acquisition.candidates.flatMap((c) => (c.capture ? [c.capture] : [])),
+        ])
+        .find(
+          (c) =>
+            c.artifact.content_digest === source.content_digest &&
+            c.artifact.final_uri === source.url,
+        );
+    if (!source || !capture?.source) throw Error('Exact retained authored source unavailable');
+    // Owned bytes from sealed private snapshots; never fetch a live URL or open
+    // a browser-selected path. Local review access grants no redistribution right.
+    return {
+      source,
+      media_type: capture.source.media_type,
+      bytes: new Uint8Array(capture.source.body.bytes),
+    };
+  }
+  /** Source preparation and authoring snapshots are distinct. Any source review
+   * or recovery invalidates the active proposal binding, preserving old history.
+   * Caller must reload the exact job version; store CAS owns cross-process safety. */
+  async previewAuthoredDraft(
+    id: string,
+    expectedJobVersion: string,
+    proposal: unknown,
+    supportingJobs: readonly { id: string; version: string }[] = [],
+  ) {
+    proposal = deserializeJob(serializeJob(proposal));
+    supportingJobs = deserializeJob(serializeJob(supportingJobs)) as {
+      id: string;
+      version: string;
+    }[];
+    const { job, version } = await this.readVersionedJob(id);
+    if (version !== expectedJobVersion)
+      throw new JobStoreConflictError('Authored proposal snapshot is stale');
+    if (
+      !job.preparation ||
+      !['review_ready', 'preparation_failed'].includes(job.state) ||
+      job.approval ||
+      job.finalization_request
+    )
+      throw Error('Authoring requires an unapproved retained preparation');
+    if (
+      new Set(supportingJobs.map((s) => s.id)).size !== supportingJobs.length ||
+      supportingJobs.some((s) => s.id === id)
+    )
+      throw Error('Ambiguous supporting source jobs');
+    const supporting: ProductionIngestWorkflowResult[] = [];
+    for (const source of supportingJobs) {
+      const loaded = await this.dependencies.store.loadVersioned(source.id);
+      if (loaded.version !== source.version)
+        throw new JobStoreConflictError('Supporting source job changed');
+      if (
+        !loaded.job.preparation ||
+        loaded.job.approval ||
+        loaded.job.finalization_request ||
+        !['review_ready', 'preparation_failed'].includes(loaded.job.state)
+      )
+        throw Error('Supporting job must retain unapproved source preparation');
+      supporting.push(loaded.job.preparation);
+    }
+    const validated = validateAuthoredDraftProposal(proposal, job.preparation, supporting);
+    return {
+      version: 'authored-draft-preview.v1' as const,
+      expected_job_version: version,
+      preparation_digest: artifactDigest(job.preparation),
+      proposal_digest: artifactDigest(validated),
+      proposal: validated,
+      authority: 'codex_prepared_unreviewed' as const,
+      supporting_preparations: deserializeJob(
+        serializeJob([job.preparation, ...supporting]),
+      ) as ProductionIngestWorkflowResult[],
+    };
+  }
+  async importAuthoredDraft(
+    id: string,
+    expectedJobVersion: string,
+    proposal: unknown,
+    supportingJobs: readonly { id: string; version: string }[] = [],
+  ) {
+    // Submission owns copies before its first await. Caller edits cannot change
+    // the saved draft, its idempotency identity, or supporting source selection.
+    proposal = deserializeJob(serializeJob(proposal));
+    supportingJobs = deserializeJob(serializeJob(supportingJobs)) as {
+      id: string;
+      version: string;
+    }[];
+    return this.exclusiveSemanticDecision(id, async () => {
+      const initial = await this.readVersionedJob(id);
+      // Exact retry after a successful atomic write is idempotent only while its
+      // source preparation is still current. Stale different edits remain 409.
+      if (
+        initial.job.authored_draft_imports?.some(
+          (i) =>
+            i.base_job_version === expectedJobVersion &&
+            i.proposal_digest === artifactDigest(proposal) &&
+            i.preparation_digest === artifactDigest(initial.job.preparation),
+        ) &&
+        !initial.job.approval &&
+        !initial.job.finalization_request &&
+        ['review_ready', 'preparation_failed'].includes(initial.job.state)
+      )
+        return initial.job;
+      const preview = await this.previewAuthoredDraft(
+        id,
+        expectedJobVersion,
+        proposal,
+        supportingJobs,
+      );
+      const { job, version } = await this.readVersionedJob(id);
+      if (version !== expectedJobVersion)
+        throw new JobStoreConflictError('Authored proposal snapshot is stale');
+      if (job.authored_draft_imports?.some((i) => i.proposal_digest === preview.proposal_digest))
+        return job;
+      const entry: AuthoredDraftImport = {
+        version: 'authored-draft-import.v1',
+        proposal: preview.proposal,
+        proposal_digest: preview.proposal_digest,
+        preparation_digest: preview.preparation_digest,
+        base_job_version: expectedJobVersion,
+        recorded_at: this.timestamp(),
+        authority: 'codex_prepared_unreviewed',
+        supporting_preparations: preview.supporting_preparations,
+      };
+      const updated = {
+        ...job,
+        updated_at: this.timestamp(),
+        authored_draft_imports: [...(job.authored_draft_imports ?? []), entry],
+      };
+      await this.dependencies.store.save(updated, version);
+      return updated;
+    });
+  }
   private verificationOrigin(job: IngestionJob) {
     if (job.state !== 'finalized' || !job.approval || !job.final_result)
       throw new Error(
@@ -831,6 +974,16 @@ export class IngestionJobService {
           job.preparation.bridge,
         );
       if (approval.decision === 'approved') {
+        // Imports are review attachments, not ordinary adjudicated candidate
+        // support. Never approve an older automatic candidate as though it
+        // included these new meanings. Human source/candidate integration is a
+        // distinct explicit action; no imported proposal grants that authority.
+        if (
+          job.authored_draft_imports?.some(
+            (i) => i.preparation_digest === artifactDigest(job.preparation),
+          )
+        )
+          throw new SemanticReviewIncompleteError(['unreviewed_authored_draft_proposal']);
         // Evaluate the review artifacts loaded with this CAS version; the caller cannot assert
         // completion, and no transition is saved unless these current bindings pass.
         const completion = evaluateSemanticReviewCompletion(
@@ -1259,7 +1412,7 @@ export class IngestionJobService {
                 mapping.kind === 'scalar' ? ('source_fact' as const) : ('qualified_only' as const),
               normalizer_version:
                 mapping.kind === 'engineering_profile_fact'
-                  ? PROFILE_ADJUDICATION_VERSION
+                  ? profileAdjudicationVersion(mapping.quantity)
                   : 'human-adjudication.v1',
             },
           ];

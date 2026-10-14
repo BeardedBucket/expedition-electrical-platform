@@ -1,0 +1,1029 @@
+{
+  "version": "source-grounded-draft.v1",
+  "authority": "codex_prepared_unreviewed",
+  "product": {
+    "id": "draft.p07",
+    "manufacturer": "Victron Energy",
+    "model": "SmartSolar MPPT 150/45",
+    "manufacturer_part_number": null,
+    "hardware_revision": null
+  },
+  "intended_use": "PV-to-battery charging at explicit 12/24/48 V domains with absolute input, source current, startup and installed cooling/protection constraints",
+  "sources": [
+    {
+      "id": "p07",
+      "url": "https://www.victronenergy.com/media/pg/Manual_SmartSolar_MPPT_150-35__150-45/en/technical-specifications.html",
+      "publisher": "Victron Energy",
+      "retrieved_at": "2026-10-13T05:05:16.698Z",
+      "content_digest": "sha256:409443a2c0d1fb691471c8f3d1355bb69f679609031601965545e519057135ba",
+      "document_revision": null,
+      "model": "SmartSolar MPPT 150/45",
+      "identity_locator": "Manual SmartSolar family URL/title and Specifications MPPT 150/45 column",
+      "rights": "metadata_and_limited_facts_only",
+      "redistribution_grant": "not_established"
+    },
+    {
+      "id": "p07-installation",
+      "url": "https://www.victronenergy.com/media/pg/Manual_SmartSolar_MPPT_150-35__150-45/en/installation.html",
+      "publisher": "Victron Energy",
+      "retrieved_at": "2026-10-14T05:07:04.680Z",
+      "content_digest": "sha256:b939d56100dded4ef993e15ed1e8eefc7b40696f05a02c3a5b9fd3b2e405024d",
+      "document_revision": null,
+      "model": "SmartSolar MPPT 150/45",
+      "identity_locator": "Same manual, installation 4.2 MPPT 150/45 fuse row",
+      "rights": "metadata_and_limited_facts_only",
+      "redistribution_grant": "not_established"
+    }
+  ],
+  "facts": [
+    {
+      "id": "draft.p07.charge_current.0",
+      "quantity": "charge_current",
+      "basis": "continuous",
+      "mode": "charge",
+      "direction": "output",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "45",
+        "unit": "A",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 45,
+        "unit": "A"
+      },
+      "normalization": "identity",
+      "source_id": "p07",
+      "locator": "HTML 9.1 table / MPPT 150/45 column / Maximum battery current",
+      "context_digest": "sha256:409443a2c0d1fb691471c8f3d1355bb69f679609031601965545e519057135ba",
+      "conditions": [
+        {
+          "key": "ambient_temperature_c",
+          "value": {
+            "min": -30,
+            "max": 40
+          },
+          "unit": "degC"
+        },
+        {
+          "key": "altitude_m",
+          "value": {
+            "min": 0,
+            "max": 2000
+          },
+          "unit": "m"
+        }
+      ],
+      "unresolved_conditions": [],
+      "disposition": "typed_consumer"
+    },
+    {
+      "id": "draft.p07.max_input_voc.1",
+      "quantity": "max_input_voc",
+      "basis": "absolute",
+      "mode": "pv_input",
+      "direction": "input",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "150",
+        "unit": "V",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 150,
+        "unit": "V"
+      },
+      "normalization": "identity",
+      "source_id": "p07",
+      "locator": "HTML 9.1 table / MPPT 150/45 column / Maximum PV open circuit voltage",
+      "context_digest": "sha256:409443a2c0d1fb691471c8f3d1355bb69f679609031601965545e519057135ba",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "typed_consumer"
+    },
+    {
+      "id": "draft.p07.max_input_isc.2",
+      "quantity": "max_input_isc",
+      "basis": "absolute",
+      "mode": "pv_input",
+      "direction": "input",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "45",
+        "unit": "A",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 45,
+        "unit": "A"
+      },
+      "normalization": "identity",
+      "source_id": "p07",
+      "locator": "HTML 9.1 table / MPPT 150/45 column / Max PV short circuit current; note 2",
+      "context_digest": "sha256:409443a2c0d1fb691471c8f3d1355bb69f679609031601965545e519057135ba",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "typed_consumer"
+    },
+    {
+      "id": "draft.p07.nominal_pv_power.3",
+      "quantity": "nominal_pv_power",
+      "basis": "nominal",
+      "mode": "charge",
+      "direction": "input",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "650",
+        "unit": "W",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 650,
+        "unit": "W"
+      },
+      "normalization": "identity",
+      "source_id": "p07",
+      "locator": "HTML 9.1 table / MPPT 150/45 column / Nominal PV power 12V; note 1a,b",
+      "context_digest": "sha256:409443a2c0d1fb691471c8f3d1355bb69f679609031601965545e519057135ba",
+      "conditions": [
+        {
+          "key": "battery_voltage_v",
+          "value": 12,
+          "unit": "V"
+        }
+      ],
+      "unresolved_conditions": [
+        "Controller limits input power above nominal; not an absolute array power prohibition"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p07.nominal_pv_power.4",
+      "quantity": "nominal_pv_power",
+      "basis": "nominal",
+      "mode": "charge",
+      "direction": "input",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "1300",
+        "unit": "W",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 1300,
+        "unit": "W"
+      },
+      "normalization": "identity",
+      "source_id": "p07",
+      "locator": "HTML 9.1 table / MPPT 150/45 column / Nominal PV power 24V; note 1a,b",
+      "context_digest": "sha256:409443a2c0d1fb691471c8f3d1355bb69f679609031601965545e519057135ba",
+      "conditions": [
+        {
+          "key": "battery_voltage_v",
+          "value": 24,
+          "unit": "V"
+        }
+      ],
+      "unresolved_conditions": [
+        "Controller limits input power above nominal; not an absolute array power prohibition"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p07.nominal_pv_power.5",
+      "quantity": "nominal_pv_power",
+      "basis": "nominal",
+      "mode": "charge",
+      "direction": "input",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "1950",
+        "unit": "W",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 1950,
+        "unit": "W"
+      },
+      "normalization": "identity",
+      "source_id": "p07",
+      "locator": "HTML 9.1 table / MPPT 150/45 column / Nominal PV power 36V; note 1a,b",
+      "context_digest": "sha256:409443a2c0d1fb691471c8f3d1355bb69f679609031601965545e519057135ba",
+      "conditions": [
+        {
+          "key": "battery_voltage_v",
+          "value": 36,
+          "unit": "V"
+        }
+      ],
+      "unresolved_conditions": [
+        "Controller limits input power above nominal; not an absolute array power prohibition"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p07.nominal_pv_power.6",
+      "quantity": "nominal_pv_power",
+      "basis": "nominal",
+      "mode": "charge",
+      "direction": "input",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "2600",
+        "unit": "W",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 2600,
+        "unit": "W"
+      },
+      "normalization": "identity",
+      "source_id": "p07",
+      "locator": "HTML 9.1 table / MPPT 150/45 column / Nominal PV power 48V; note 1a,b",
+      "context_digest": "sha256:409443a2c0d1fb691471c8f3d1355bb69f679609031601965545e519057135ba",
+      "conditions": [
+        {
+          "key": "battery_voltage_v",
+          "value": 48,
+          "unit": "V"
+        }
+      ],
+      "unresolved_conditions": [
+        "Controller limits input power above nominal; not an absolute array power prohibition"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p07.battery_voltage_selection.7",
+      "quantity": "battery_voltage_selection",
+      "basis": "descriptive",
+      "mode": "charge",
+      "direction": "output",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "12/24/48 automatic; 36 manual",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "12/24/48 automatic; 36 manual",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p07",
+      "locator": "HTML 9.1 table / MPPT 150/45 column / Battery voltage",
+      "context_digest": "sha256:409443a2c0d1fb691471c8f3d1355bb69f679609031601965545e519057135ba",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p07.supply_current.8",
+      "quantity": "supply_current",
+      "basis": "typical",
+      "mode": "self_consumption",
+      "direction": "input",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "20",
+        "unit": "mA",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 20,
+        "unit": "mA"
+      },
+      "normalization": "identity",
+      "source_id": "p07",
+      "locator": "HTML 9.1 table / MPPT 150/45 column / Self-consumption",
+      "context_digest": "sha256:409443a2c0d1fb691471c8f3d1355bb69f679609031601965545e519057135ba",
+      "conditions": [
+        {
+          "key": "supply_voltage_v",
+          "value": 12,
+          "unit": "V"
+        }
+      ],
+      "unresolved_conditions": ["Operating state/maximum bound not specified in row"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p07.supply_current.9",
+      "quantity": "supply_current",
+      "basis": "typical",
+      "mode": "self_consumption",
+      "direction": "input",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "15",
+        "unit": "mA",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 15,
+        "unit": "mA"
+      },
+      "normalization": "identity",
+      "source_id": "p07",
+      "locator": "HTML 9.1 table / MPPT 150/45 column / Self-consumption",
+      "context_digest": "sha256:409443a2c0d1fb691471c8f3d1355bb69f679609031601965545e519057135ba",
+      "conditions": [
+        {
+          "key": "supply_voltage_v",
+          "value": 24,
+          "unit": "V"
+        }
+      ],
+      "unresolved_conditions": ["Operating state/maximum bound not specified in row"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p07.supply_current.10",
+      "quantity": "supply_current",
+      "basis": "typical",
+      "mode": "self_consumption",
+      "direction": "input",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "10",
+        "unit": "mA",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 10,
+        "unit": "mA"
+      },
+      "normalization": "identity",
+      "source_id": "p07",
+      "locator": "HTML 9.1 table / MPPT 150/45 column / Self-consumption",
+      "context_digest": "sha256:409443a2c0d1fb691471c8f3d1355bb69f679609031601965545e519057135ba",
+      "conditions": [
+        {
+          "key": "supply_voltage_v",
+          "value": 48,
+          "unit": "V"
+        }
+      ],
+      "unresolved_conditions": ["Operating state/maximum bound not specified in row"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p07.peak_efficiency.11",
+      "quantity": "peak_efficiency",
+      "basis": "typical",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "98",
+        "unit": "%",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 98,
+        "unit": "%"
+      },
+      "normalization": "identity",
+      "source_id": "p07",
+      "locator": "HTML 9.1 table / MPPT 150/45 column / Peak efficiency",
+      "context_digest": "sha256:409443a2c0d1fb691471c8f3d1355bb69f679609031601965545e519057135ba",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p07.startup_delta_v.12",
+      "quantity": "startup_delta_v",
+      "basis": "operating",
+      "mode": "startup",
+      "direction": "input",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "5",
+        "unit": "V",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 5,
+        "unit": "V"
+      },
+      "normalization": "identity",
+      "source_id": "p07",
+      "locator": "HTML 9.1 note 1b",
+      "context_digest": "sha256:409443a2c0d1fb691471c8f3d1355bb69f679609031601965545e519057135ba",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "typed_consumer"
+    },
+    {
+      "id": "draft.p07.running_delta_v.13",
+      "quantity": "running_delta_v",
+      "basis": "operating",
+      "mode": "running",
+      "direction": "input",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "1",
+        "unit": "V",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 1,
+        "unit": "V"
+      },
+      "normalization": "identity",
+      "source_id": "p07",
+      "locator": "HTML 9.1 note 1b",
+      "context_digest": "sha256:409443a2c0d1fb691471c8f3d1355bb69f679609031601965545e519057135ba",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "typed_consumer"
+    },
+    {
+      "id": "draft.p07.charge_setting_source_typography.14",
+      "quantity": "charge_setting_source_typography",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "multiple adjustable defaults",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "multiple adjustable defaults",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p07",
+      "locator": "HTML 9.1 table / MPPT 150/45 column / Charge voltage absorption",
+      "context_digest": "sha256:409443a2c0d1fb691471c8f3d1355bb69f679609031601965545e519057135ba",
+      "conditions": [],
+      "unresolved_conditions": [
+        "Captured table includes malformed/misaligned defaults; do not silently repair numbers from siblings or generic convention"
+      ],
+      "disposition": "evidence_ambiguity"
+    },
+    {
+      "id": "draft.p07.charge_setting_source_typography.15",
+      "quantity": "charge_setting_source_typography",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "multiple adjustable defaults",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "multiple adjustable defaults",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p07",
+      "locator": "HTML 9.1 table / MPPT 150/45 column / Charge voltage float",
+      "context_digest": "sha256:409443a2c0d1fb691471c8f3d1355bb69f679609031601965545e519057135ba",
+      "conditions": [],
+      "unresolved_conditions": [
+        "Captured table includes malformed/misaligned defaults; do not silently repair numbers from siblings or generic convention"
+      ],
+      "disposition": "evidence_ambiguity"
+    },
+    {
+      "id": "draft.p07.charge_algorithm.16",
+      "quantity": "charge_algorithm",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "adaptive multistage or user configured",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "adaptive multistage or user configured",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p07",
+      "locator": "HTML 9.1 table / MPPT 150/45 column / Charge algorithm",
+      "context_digest": "sha256:409443a2c0d1fb691471c8f3d1355bb69f679609031601965545e519057135ba",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p07.equalization_default.17",
+      "quantity": "equalization_default",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "disabled",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "disabled",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p07",
+      "locator": "HTML 9.1 note 3",
+      "context_digest": "sha256:409443a2c0d1fb691471c8f3d1355bb69f679609031601965545e519057135ba",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p07.temperature_compensation.18",
+      "quantity": "temperature_compensation",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "-16/-32/-64 mV per degC",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "-16/-32/-64 mV per degC",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p07",
+      "locator": "HTML 9.1 table / MPPT 150/45 column / Temperature compensation",
+      "context_digest": "sha256:409443a2c0d1fb691471c8f3d1355bb69f679609031601965545e519057135ba",
+      "conditions": [],
+      "unresolved_conditions": [
+        "Voltage-mode association requires review; these are not PV coefficients"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p07.ambient_temperature_range.19",
+      "quantity": "ambient_temperature_range",
+      "basis": "operating",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "{\"min\":-30,\"max\":60}",
+        "unit": "degC",
+        "presentation": "source_value_reconstruction"
+      },
+      "normalized": {
+        "value": {
+          "min": -30,
+          "max": 60
+        },
+        "unit": "degC"
+      },
+      "normalization": "identity",
+      "source_id": "p07",
+      "locator": "HTML 9.1 table / MPPT 150/45 column / Operating temperature",
+      "context_digest": "sha256:409443a2c0d1fb691471c8f3d1355bb69f679609031601965545e519057135ba",
+      "conditions": [],
+      "unresolved_conditions": ["Above 40 degC full output not established"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p07.humidity_max.20",
+      "quantity": "humidity_max",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "95",
+        "unit": "%",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 95,
+        "unit": "%"
+      },
+      "normalization": "identity",
+      "source_id": "p07",
+      "locator": "HTML 9.1 table / MPPT 150/45 column / Humidity",
+      "context_digest": "sha256:409443a2c0d1fb691471c8f3d1355bb69f679609031601965545e519057135ba",
+      "conditions": [
+        {
+          "key": "condensation",
+          "value": false,
+          "unit": "text"
+        }
+      ],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p07.altitude_max.21",
+      "quantity": "altitude_max",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "5000",
+        "unit": "m",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 5000,
+        "unit": "m"
+      },
+      "normalization": "identity",
+      "source_id": "p07",
+      "locator": "HTML 9.1 table / MPPT 150/45 column / Maximum altitude",
+      "context_digest": "sha256:409443a2c0d1fb691471c8f3d1355bb69f679609031601965545e519057135ba",
+      "conditions": [],
+      "unresolved_conditions": ["Full output only up to2000m"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p07.environment.22",
+      "quantity": "environment",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "indoor type1 / PD2",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "indoor type1 / PD2",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p07",
+      "locator": "HTML 9.1 table / MPPT 150/45 column / Environment",
+      "context_digest": "sha256:409443a2c0d1fb691471c8f3d1355bb69f679609031601965545e519057135ba",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p07.communication.23",
+      "quantity": "communication",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "VE.Direct and Bluetooth",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "VE.Direct and Bluetooth",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p07",
+      "locator": "HTML 9.1 table / MPPT 150/45 column / Data communication",
+      "context_digest": "sha256:409443a2c0d1fb691471c8f3d1355bb69f679609031601965545e519057135ba",
+      "conditions": [],
+      "unresolved_conditions": ["Presence is not matching protocol/revision/topology"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p07.terminal_cable_capacity.24",
+      "quantity": "terminal_cable_capacity",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "16",
+        "unit": "mm2",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 16,
+        "unit": "mm2"
+      },
+      "normalization": "identity",
+      "source_id": "p07",
+      "locator": "HTML 9.1 table / MPPT 150/45 column / Power terminals",
+      "context_digest": "sha256:409443a2c0d1fb691471c8f3d1355bb69f679609031601965545e519057135ba",
+      "conditions": [],
+      "unresolved_conditions": [
+        "AWG6 also listed; cable capacity is not terminal ID/tracker membership or approved wire ampacity"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p07.enclosure_protection.25",
+      "quantity": "enclosure_protection",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "IP43 electronics; IP22 connection area",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "IP43 electronics; IP22 connection area",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p07",
+      "locator": "HTML 9.1 table / MPPT 150/45 column / Protection category",
+      "context_digest": "sha256:409443a2c0d1fb691471c8f3d1355bb69f679609031601965545e519057135ba",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p07.mass.26",
+      "quantity": "mass",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "1.25",
+        "unit": "kg",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 1.25,
+        "unit": "kg"
+      },
+      "normalization": "identity",
+      "source_id": "p07",
+      "locator": "HTML 9.1 table / MPPT 150/45 column / Weight",
+      "context_digest": "sha256:409443a2c0d1fb691471c8f3d1355bb69f679609031601965545e519057135ba",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p07.body_size.27",
+      "quantity": "body_size",
+      "basis": "body",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "{\"x\":186,\"y\":130,\"z\":70}",
+        "unit": "mm",
+        "presentation": "source_value_reconstruction"
+      },
+      "normalized": {
+        "value": {
+          "x": 186,
+          "y": 130,
+          "z": 70
+        },
+        "unit": "mm"
+      },
+      "normalization": "identity",
+      "source_id": "p07",
+      "locator": "HTML 9.1 table / MPPT 150/45 column / Dimensions HxWxD",
+      "context_digest": "sha256:409443a2c0d1fb691471c8f3d1355bb69f679609031601965545e519057135ba",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p07.protection_functions.28",
+      "quantity": "protection_functions",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "PV reverse polarity; output short; overtemperature",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "PV reverse polarity; output short; overtemperature",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p07",
+      "locator": "HTML 9.1 table / MPPT 150/45 column / Protection",
+      "context_digest": "sha256:409443a2c0d1fb691471c8f3d1355bb69f679609031601965545e519057135ba",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p07.clearance_above.29",
+      "quantity": "clearance_above",
+      "basis": "installation",
+      "mode": "mounting",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "10",
+        "unit": "cm",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 100,
+        "unit": "mm"
+      },
+      "normalization": "cm_to_mm",
+      "source_id": "p07-installation",
+      "locator": "HTML 4.1 Mounting",
+      "context_digest": "sha256:b939d56100dded4ef993e15ed1e8eefc7b40696f05a02c3a5b9fd3b2e405024d",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "typed_consumer"
+    },
+    {
+      "id": "draft.p07.clearance_below.30",
+      "quantity": "clearance_below",
+      "basis": "installation",
+      "mode": "mounting",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "10",
+        "unit": "cm",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 100,
+        "unit": "mm"
+      },
+      "normalization": "cm_to_mm",
+      "source_id": "p07-installation",
+      "locator": "HTML 4.1 Mounting",
+      "context_digest": "sha256:b939d56100dded4ef993e15ed1e8eefc7b40696f05a02c3a5b9fd3b2e405024d",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "typed_consumer"
+    },
+    {
+      "id": "draft.p07.orientation.31",
+      "quantity": "orientation",
+      "basis": "installation",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "vertical, terminals down, non-flammable substrate",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "vertical, terminals down, non-flammable substrate",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p07-installation",
+      "locator": "HTML 4.1 Mounting",
+      "context_digest": "sha256:b939d56100dded4ef993e15ed1e8eefc7b40696f05a02c3a5b9fd3b2e405024d",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p07.battery_distance_max.32",
+      "quantity": "battery_distance_max",
+      "basis": "installation",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "3",
+        "unit": "m",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 3,
+        "unit": "m"
+      },
+      "normalization": "identity",
+      "source_id": "p07-installation",
+      "locator": "HTML 4.1 Mounting",
+      "context_digest": "sha256:b939d56100dded4ef993e15ed1e8eefc7b40696f05a02c3a5b9fd3b2e405024d",
+      "conditions": [],
+      "unresolved_conditions": ["Not directly above battery"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p07.battery_fuse_range.33",
+      "quantity": "battery_fuse_range",
+      "basis": "installation",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "{\"min\":50,\"max\":63}",
+        "unit": "A",
+        "presentation": "source_value_reconstruction"
+      },
+      "normalized": {
+        "value": {
+          "min": 50,
+          "max": 63
+        },
+        "unit": "A"
+      },
+      "normalization": "identity",
+      "source_id": "p07-installation",
+      "locator": "HTML 4.2 Battery / MPPT 150/45 row",
+      "context_digest": "sha256:b939d56100dded4ef993e15ed1e8eefc7b40696f05a02c3a5b9fd3b2e405024d",
+      "conditions": [],
+      "unresolved_conditions": [
+        "Device fuse guidance is separate from wire ampacity and interrupt/DC fault suitability"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p07.pv_battery_isolation.34",
+      "quantity": "pv_battery_isolation",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "false",
+        "unit": "boolean",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": false,
+        "unit": "boolean"
+      },
+      "normalization": "identity",
+      "source_id": "p07-installation",
+      "locator": "HTML Installation warning",
+      "context_digest": "sha256:b939d56100dded4ef993e15ed1e8eefc7b40696f05a02c3a5b9fd3b2e405024d",
+      "conditions": [],
+      "unresolved_conditions": ["No installed shock-protection certification"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p07.optimizer_permission.35",
+      "quantity": "optimizer_permission",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "false",
+        "unit": "boolean",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": false,
+        "unit": "boolean"
+      },
+      "normalization": "identity",
+      "source_id": "p07-installation",
+      "locator": "HTML 4.3 PV array Important",
+      "context_digest": "sha256:b939d56100dded4ef993e15ed1e8eefc7b40696f05a02c3a5b9fd3b2e405024d",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p07.grounding_and_disconnect_constraints.36",
+      "quantity": "grounding_and_disconnect_constraints",
+      "basis": "installation",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "manufacturer installation chapter required",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "manufacturer installation chapter required",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p07-installation",
+      "locator": "HTML 4.4 Grounding",
+      "context_digest": "sha256:b939d56100dded4ef993e15ed1e8eefc7b40696f05a02c3a5b9fd3b2e405024d",
+      "conditions": [],
+      "unresolved_conditions": [
+        "Exact scheme, protection, disconnect and standards-specific system requirements need installed proofs"
+      ],
+      "disposition": "retained_source_fact"
+    }
+  ],
+  "holds": [
+    "Exact installed hardware revision not established; capture/document revision is distinct",
+    "All authored source meanings require independent human review; no source decision or product authority",
+    "Retail MPN/connector variant and hardware revision unknown; independent tracker/terminal grouping unproven",
+    "PV operating upper-voltage basis/hot Vmp not established; no arbitrary STC, derating, wiring or port inference"
+  ]
+}

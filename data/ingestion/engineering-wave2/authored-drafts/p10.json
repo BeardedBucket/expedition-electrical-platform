@@ -1,0 +1,960 @@
+{
+  "version": "source-grounded-draft.v1",
+  "authority": "codex_prepared_unreviewed",
+  "product": {
+    "id": "draft.p10",
+    "manufacturer": "Victron Energy",
+    "model": "BMV-712 Smart",
+    "manufacturer_part_number": null,
+    "hardware_revision": null
+  },
+  "intended_use": "DC battery monitoring with supply, reference shunt, resolution/accuracy separation and explicit installed shunt/calibration path",
+  "sources": [
+    {
+      "id": "p10",
+      "url": "https://www.victronenergy.com/upload/documents/Datasheet-BMV-712-Smart-EN.pdf",
+      "publisher": "Victron Energy",
+      "retrieved_at": "2026-10-13T05:05:17.236Z",
+      "content_digest": "sha256:571accecb558bf454f11981ba6fc2e5cc138b9dbebe1c0e121f1a0d3b942de98",
+      "document_revision": null,
+      "model": "BMV-712 Smart",
+      "identity_locator": "PDF p2 Battery Monitor BMV-712 Smart header",
+      "rights": "metadata_and_limited_facts_only",
+      "redistribution_grant": "not_established"
+    },
+    {
+      "id": "p10-technical",
+      "url": "https://www.victronenergy.com/media/pg/BMV-712_Smart/en/technical-data.html",
+      "publisher": "Victron Energy",
+      "retrieved_at": "2026-10-13T22:21:26.208Z",
+      "content_digest": "sha256:b54067be9e343c1fdfd7f2b0e23929057f4a042e44fbc5e14610884806f5e3cc",
+      "document_revision": null,
+      "model": "BMV-712 Smart",
+      "identity_locator": "HTML11.1 Battery monitor BMV-712 Smart header",
+      "rights": "metadata_and_limited_facts_only",
+      "redistribution_grant": "not_established"
+    },
+    {
+      "id": "p10-installation",
+      "url": "https://www.victronenergy.com/media/pg/BMV-712_Smart/en/installation.html",
+      "publisher": "Victron Energy",
+      "retrieved_at": "2026-10-14T05:19:36.926Z",
+      "content_digest": "sha256:184d9bc79a46bcdd310b46766cd7bfde8853ebe4b0aaaca06e7163a09c0bbe8b",
+      "document_revision": null,
+      "model": "BMV-712 Smart",
+      "identity_locator": "Manual BMV-712 Smart /3 Installation",
+      "rights": "metadata_and_limited_facts_only",
+      "redistribution_grant": "not_established"
+    }
+  ],
+  "facts": [
+    {
+      "id": "draft.p10.input_voltage_range.0",
+      "quantity": "input_voltage_range",
+      "basis": "operating",
+      "mode": "supply",
+      "direction": "input",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "{\"min\":6.5,\"max\":70}",
+        "unit": "V",
+        "presentation": "source_value_reconstruction"
+      },
+      "normalized": {
+        "value": {
+          "min": 6.5,
+          "max": 70
+        },
+        "unit": "V"
+      },
+      "normalization": "identity",
+      "source_id": "p10-technical",
+      "locator": "HTML11.1 BMV-712 Smart / Supply voltage range",
+      "context_digest": "sha256:b54067be9e343c1fdfd7f2b0e23929057f4a042e44fbc5e14610884806f5e3cc",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "typed_consumer"
+    },
+    {
+      "id": "draft.p10.supply_current_less_than.1",
+      "quantity": "supply_current_less_than",
+      "basis": "typical",
+      "mode": "supply",
+      "direction": "input",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "1",
+        "unit": "mA",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 1,
+        "unit": "mA"
+      },
+      "normalization": "identity",
+      "source_id": "p10-technical",
+      "locator": "HTML11.1 BMV-712 Smart / Current draw backlight off",
+      "context_digest": "sha256:b54067be9e343c1fdfd7f2b0e23929057f4a042e44fbc5e14610884806f5e3cc",
+      "conditions": [
+        {
+          "key": "backlight",
+          "value": "off",
+          "unit": "text"
+        }
+      ],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p10.auxiliary_voltage_range.2",
+      "quantity": "auxiliary_voltage_range",
+      "basis": "measurement",
+      "mode": "auxiliary",
+      "direction": "input",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "{\"min\":6.5,\"max\":70}",
+        "unit": "V",
+        "presentation": "source_value_reconstruction"
+      },
+      "normalized": {
+        "value": {
+          "min": 6.5,
+          "max": 70
+        },
+        "unit": "V"
+      },
+      "normalization": "identity",
+      "source_id": "p10-technical",
+      "locator": "HTML11.1 BMV-712 Smart / Auxiliary battery voltage range",
+      "context_digest": "sha256:b54067be9e343c1fdfd7f2b0e23929057f4a042e44fbc5e14610884806f5e3cc",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p10.capacity_setting_range.3",
+      "quantity": "capacity_setting_range",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "{\"min\":1,\"max\":9999}",
+        "unit": "Ah",
+        "presentation": "source_value_reconstruction"
+      },
+      "normalized": {
+        "value": {
+          "min": 1,
+          "max": 9999
+        },
+        "unit": "Ah"
+      },
+      "normalization": "identity",
+      "source_id": "p10-technical",
+      "locator": "HTML11.1 BMV-712 Smart / Battery capacity",
+      "context_digest": "sha256:b54067be9e343c1fdfd7f2b0e23929057f4a042e44fbc5e14610884806f5e3cc",
+      "conditions": [],
+      "unresolved_conditions": ["Setting is not actual installed bank capacity"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p10.ambient_temperature_range.4",
+      "quantity": "ambient_temperature_range",
+      "basis": "operating",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "{\"min\":-40,\"max\":50}",
+        "unit": "degC",
+        "presentation": "source_value_reconstruction"
+      },
+      "normalized": {
+        "value": {
+          "min": -40,
+          "max": 50
+        },
+        "unit": "degC"
+      },
+      "normalization": "identity",
+      "source_id": "p10-technical",
+      "locator": "HTML11.1 BMV-712 Smart / Operating temperature range",
+      "context_digest": "sha256:b54067be9e343c1fdfd7f2b0e23929057f4a042e44fbc5e14610884806f5e3cc",
+      "conditions": [],
+      "unresolved_conditions": [
+        "Published120F differs from50C; Celsius retained, discrepancy not silently rounded"
+      ],
+      "disposition": "evidence_ambiguity"
+    },
+    {
+      "id": "draft.p10.temperature_measurement_range.5",
+      "quantity": "temperature_measurement_range",
+      "basis": "measurement",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "{\"min\":-20,\"max\":50}",
+        "unit": "degC",
+        "presentation": "source_value_reconstruction"
+      },
+      "normalized": {
+        "value": {
+          "min": -20,
+          "max": 50
+        },
+        "unit": "degC"
+      },
+      "normalization": "identity",
+      "source_id": "p10-technical",
+      "locator": "HTML11.1 BMV-712 Smart / Temperature measurement range",
+      "context_digest": "sha256:b54067be9e343c1fdfd7f2b0e23929057f4a042e44fbc5e14610884806f5e3cc",
+      "conditions": [],
+      "unresolved_conditions": [
+        "Optional sensor; published Fahrenheit endpoint discrepancy retained"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p10.current_resolution.6",
+      "quantity": "current_resolution",
+      "basis": "measurement",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "0.01",
+        "unit": "A",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 0.01,
+        "unit": "A"
+      },
+      "normalization": "identity",
+      "source_id": "p10-technical",
+      "locator": "HTML11.1 BMV-712 Smart / RESOLUTION & ACCURACY with500A shunt /current_resolution",
+      "context_digest": "sha256:b54067be9e343c1fdfd7f2b0e23929057f4a042e44fbc5e14610884806f5e3cc",
+      "conditions": [
+        {
+          "key": "shunt_nominal_a",
+          "value": 500,
+          "unit": "A"
+        }
+      ],
+      "unresolved_conditions": ["Resolution is not accuracy; optional sensor for temperature"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p10.voltage_resolution.7",
+      "quantity": "voltage_resolution",
+      "basis": "measurement",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "0.01",
+        "unit": "V",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 0.01,
+        "unit": "V"
+      },
+      "normalization": "identity",
+      "source_id": "p10-technical",
+      "locator": "HTML11.1 BMV-712 Smart / RESOLUTION & ACCURACY with500A shunt /voltage_resolution",
+      "context_digest": "sha256:b54067be9e343c1fdfd7f2b0e23929057f4a042e44fbc5e14610884806f5e3cc",
+      "conditions": [
+        {
+          "key": "shunt_nominal_a",
+          "value": 500,
+          "unit": "A"
+        }
+      ],
+      "unresolved_conditions": ["Resolution is not accuracy; optional sensor for temperature"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p10.amp_hour_resolution.8",
+      "quantity": "amp_hour_resolution",
+      "basis": "measurement",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "0.1",
+        "unit": "Ah",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 0.1,
+        "unit": "Ah"
+      },
+      "normalization": "identity",
+      "source_id": "p10-technical",
+      "locator": "HTML11.1 BMV-712 Smart / RESOLUTION & ACCURACY with500A shunt /amp_hour_resolution",
+      "context_digest": "sha256:b54067be9e343c1fdfd7f2b0e23929057f4a042e44fbc5e14610884806f5e3cc",
+      "conditions": [
+        {
+          "key": "shunt_nominal_a",
+          "value": 500,
+          "unit": "A"
+        }
+      ],
+      "unresolved_conditions": ["Resolution is not accuracy; optional sensor for temperature"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p10.soc_resolution.9",
+      "quantity": "soc_resolution",
+      "basis": "measurement",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "0.1",
+        "unit": "%",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 0.1,
+        "unit": "%"
+      },
+      "normalization": "identity",
+      "source_id": "p10-technical",
+      "locator": "HTML11.1 BMV-712 Smart / RESOLUTION & ACCURACY with500A shunt /soc_resolution",
+      "context_digest": "sha256:b54067be9e343c1fdfd7f2b0e23929057f4a042e44fbc5e14610884806f5e3cc",
+      "conditions": [
+        {
+          "key": "shunt_nominal_a",
+          "value": 500,
+          "unit": "A"
+        }
+      ],
+      "unresolved_conditions": ["Resolution is not accuracy; optional sensor for temperature"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p10.time_to_go_resolution.10",
+      "quantity": "time_to_go_resolution",
+      "basis": "measurement",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "1",
+        "unit": "min",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 1,
+        "unit": "min"
+      },
+      "normalization": "identity",
+      "source_id": "p10-technical",
+      "locator": "HTML11.1 BMV-712 Smart / RESOLUTION & ACCURACY with500A shunt /time_to_go_resolution",
+      "context_digest": "sha256:b54067be9e343c1fdfd7f2b0e23929057f4a042e44fbc5e14610884806f5e3cc",
+      "conditions": [
+        {
+          "key": "shunt_nominal_a",
+          "value": 500,
+          "unit": "A"
+        }
+      ],
+      "unresolved_conditions": ["Resolution is not accuracy; optional sensor for temperature"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p10.temperature_resolution.11",
+      "quantity": "temperature_resolution_or_accuracy",
+      "basis": "measurement",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "±1 °C/°F",
+        "unit": "text",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": "±1 °C/°F",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p10-technical",
+      "locator": "HTML11.1 BMV-712 Smart / RESOLUTION & ACCURACY with500A shunt /temperature_resolution",
+      "context_digest": "sha256:b54067be9e343c1fdfd7f2b0e23929057f4a042e44fbc5e14610884806f5e3cc",
+      "conditions": [
+        {
+          "key": "shunt_nominal_a",
+          "value": 500,
+          "unit": "A"
+        }
+      ],
+      "unresolved_conditions": [
+        "Resolution is not accuracy; optional sensor for temperature",
+        "Combined resolution/accuracy heading does not independently disambiguate this temperature row; Celsius/Fahrenheit ±1 claims are not affine equivalents"
+      ],
+      "disposition": "evidence_ambiguity"
+    },
+    {
+      "id": "draft.p10.current_accuracy_percent.12",
+      "quantity": "current_accuracy_percent",
+      "basis": "measurement",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "0.4",
+        "unit": "%",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 0.4,
+        "unit": "%"
+      },
+      "normalization": "identity",
+      "source_id": "p10-technical",
+      "locator": "HTML11.1 BMV-712 Smart / RESOLUTION & ACCURACY with500A shunt /current_accuracy_percent",
+      "context_digest": "sha256:b54067be9e343c1fdfd7f2b0e23929057f4a042e44fbc5e14610884806f5e3cc",
+      "conditions": [
+        {
+          "key": "shunt_nominal_a",
+          "value": 500,
+          "unit": "A"
+        }
+      ],
+      "unresolved_conditions": [
+        "Percentage denominator, range, calibration/temperature proof unknown; no definite accuracy result",
+        "Accuracy heading specifies500A but does not explicitly bind the millivolt transfer; included50mV accessory remains separate"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p10.voltage_accuracy_percent.13",
+      "quantity": "voltage_accuracy_percent",
+      "basis": "measurement",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "0.3",
+        "unit": "%",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 0.3,
+        "unit": "%"
+      },
+      "normalization": "identity",
+      "source_id": "p10-technical",
+      "locator": "HTML11.1 BMV-712 Smart / RESOLUTION & ACCURACY with500A shunt /voltage_accuracy_percent",
+      "context_digest": "sha256:b54067be9e343c1fdfd7f2b0e23929057f4a042e44fbc5e14610884806f5e3cc",
+      "conditions": [
+        {
+          "key": "shunt_nominal_a",
+          "value": 500,
+          "unit": "A"
+        }
+      ],
+      "unresolved_conditions": [
+        "Percentage denominator, range, calibration/temperature proof unknown; no definite accuracy result",
+        "Accuracy heading specifies500A but does not explicitly bind the millivolt transfer; included50mV accessory remains separate"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p10.reference_shunt_current.14",
+      "quantity": "reference_shunt_current",
+      "basis": "nominal",
+      "mode": "reference_shunt",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "500",
+        "unit": "A",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 500,
+        "unit": "A"
+      },
+      "normalization": "identity",
+      "source_id": "p10-technical",
+      "locator": "HTML11.1 BMV-712 Smart / Shunt included",
+      "context_digest": "sha256:b54067be9e343c1fdfd7f2b0e23929057f4a042e44fbc5e14610884806f5e3cc",
+      "conditions": [],
+      "unresolved_conditions": [
+        "Nominal transfer is not independently sourced measurement maximum, circuit ampacity or battery limit"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p10.reference_shunt_drop.15",
+      "quantity": "reference_shunt_drop",
+      "basis": "nominal",
+      "mode": "reference_shunt",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "50",
+        "unit": "mV",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 50,
+        "unit": "mV"
+      },
+      "normalization": "identity",
+      "source_id": "p10-technical",
+      "locator": "HTML11.1 BMV-712 Smart / Shunt included",
+      "context_digest": "sha256:b54067be9e343c1fdfd7f2b0e23929057f4a042e44fbc5e14610884806f5e3cc",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p10.alternative_shunts.16",
+      "quantity": "alternative_shunts",
+      "basis": "nominal",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "1000/2000/6000A at50mV",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "1000/2000/6000A at50mV",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p10",
+      "locator": "PDF p2 optional shunts",
+      "context_digest": "sha256:571accecb558bf454f11981ba6fc2e5cc138b9dbebe1c0e121f1a0d3b942de98",
+      "conditions": [],
+      "unresolved_conditions": ["Installed shunt/settings/calibration independently required"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p10.auxiliary_modes.17",
+      "quantity": "auxiliary_modes",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "second-battery voltage / optional temperature / midpoint",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "second-battery voltage / optional temperature / midpoint",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p10-technical",
+      "locator": "HTML11.1 BMV-712 Smart / Measures second battery, temperature or midpoint",
+      "context_digest": "sha256:b54067be9e343c1fdfd7f2b0e23929057f4a042e44fbc5e14610884806f5e3cc",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p10.communication.18",
+      "quantity": "communication",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "VE.Direct and built-in Bluetooth",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "VE.Direct and built-in Bluetooth",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p10-technical",
+      "locator": "HTML11.1 BMV-712 Smart / VE.Direct",
+      "context_digest": "sha256:b54067be9e343c1fdfd7f2b0e23929057f4a042e44fbc5e14610884806f5e3cc",
+      "conditions": [],
+      "unresolved_conditions": ["Presence is not endpoint/version compatibility"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p10.relay_voltage_max.19",
+      "quantity": "relay_voltage_max",
+      "basis": "absolute",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "60",
+        "unit": "V",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 60,
+        "unit": "V"
+      },
+      "normalization": "identity",
+      "source_id": "p10-technical",
+      "locator": "HTML11.1 BMV-712 Smart / Bistable relay",
+      "context_digest": "sha256:b54067be9e343c1fdfd7f2b0e23929057f4a042e44fbc5e14610884806f5e3cc",
+      "conditions": [],
+      "unresolved_conditions": ["Switching/load category and fault behavior unproven"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p10.relay_current_max.20",
+      "quantity": "relay_current_max",
+      "basis": "absolute",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "1",
+        "unit": "A",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 1,
+        "unit": "A"
+      },
+      "normalization": "identity",
+      "source_id": "p10-technical",
+      "locator": "HTML11.1 BMV-712 Smart / Bistable relay",
+      "context_digest": "sha256:b54067be9e343c1fdfd7f2b0e23929057f4a042e44fbc5e14610884806f5e3cc",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p10.relay_default.21",
+      "quantity": "relay_default",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "normally open; programmable inversion",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "normally open; programmable inversion",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p10-technical",
+      "locator": "HTML11.1 BMV-712 Smart / Bistable relay",
+      "context_digest": "sha256:b54067be9e343c1fdfd7f2b0e23929057f4a042e44fbc5e14610884806f5e3cc",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p10.mounting.22",
+      "quantity": "mounting",
+      "basis": "installation",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "flush mount",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "flush mount",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p10-technical",
+      "locator": "HTML11.1 BMV-712 Smart / Installation",
+      "context_digest": "sha256:b54067be9e343c1fdfd7f2b0e23929057f4a042e44fbc5e14610884806f5e3cc",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p10.front_diameter.23",
+      "quantity": "front_diameter",
+      "basis": "body",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "63",
+        "unit": "mm",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 63,
+        "unit": "mm"
+      },
+      "normalization": "identity",
+      "source_id": "p10-technical",
+      "locator": "HTML11.1 BMV-712 Smart / Head front diameter",
+      "context_digest": "sha256:b54067be9e343c1fdfd7f2b0e23929057f4a042e44fbc5e14610884806f5e3cc",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p10.bezel_size.24",
+      "quantity": "bezel_size",
+      "basis": "body",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "69 x69mm",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "69 x69mm",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p10-technical",
+      "locator": "HTML11.1 BMV-712 Smart / Front bezel",
+      "context_digest": "sha256:b54067be9e343c1fdfd7f2b0e23929057f4a042e44fbc5e14610884806f5e3cc",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p10.body_diameter_depth.25",
+      "quantity": "body_diameter_depth",
+      "basis": "body",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "52 x31mm",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "52 x31mm",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p10-technical",
+      "locator": "HTML11.1 BMV-712 Smart / Body diameter depth",
+      "context_digest": "sha256:b54067be9e343c1fdfd7f2b0e23929057f4a042e44fbc5e14610884806f5e3cc",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p10.shunt_terminal_bolt.26",
+      "quantity": "shunt_terminal_bolt",
+      "basis": "body",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "M10",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "M10",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p10-technical",
+      "locator": "HTML11.1 BMV-712 Smart / Shunt bolts",
+      "context_digest": "sha256:b54067be9e343c1fdfd7f2b0e23929057f4a042e44fbc5e14610884806f5e3cc",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p10.head_protection.27",
+      "quantity": "head_protection",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "IP55; not outdoor",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "IP55; not outdoor",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p10-technical",
+      "locator": "HTML11.1 BMV-712 Smart / Protection category",
+      "context_digest": "sha256:b54067be9e343c1fdfd7f2b0e23929057f4a042e44fbc5e14610884806f5e3cc",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p10.temperature_sensor.28",
+      "quantity": "temperature_sensor",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "optional ASS000100000",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "optional ASS000100000",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p10-technical",
+      "locator": "HTML11.1 BMV-712 Smart / Temperature sensor",
+      "context_digest": "sha256:b54067be9e343c1fdfd7f2b0e23929057f4a042e44fbc5e14610884806f5e3cc",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p10.included_cables.29",
+      "quantity": "included_cables",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "10m six-core RJ12; fused battery-positive cables",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "10m six-core RJ12; fused battery-positive cables",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p10-technical",
+      "locator": "HTML11.1 BMV-712 Smart / Included cables",
+      "context_digest": "sha256:b54067be9e343c1fdfd7f2b0e23929057f4a042e44fbc5e14610884806f5e3cc",
+      "conditions": [],
+      "unresolved_conditions": [
+        "PDF2m cable versus installation two1.5m cables; package version must be reconciled"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p10.shunt_protection.30",
+      "quantity": "shunt_protection",
+      "basis": "installation",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "IP21; dry location",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "IP21; dry location",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p10-installation",
+      "locator": "HTML3.2 Mounting shunt",
+      "context_digest": "sha256:184d9bc79a46bcdd310b46766cd7bfde8853ebe4b0aaaca06e7163a09c0bbe8b",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p10.shunt_mount_holes.31",
+      "quantity": "shunt_mount_holes",
+      "basis": "body",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "two5.5mm holes",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "two5.5mm holes",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p10-installation",
+      "locator": "HTML3.2 Mounting shunt",
+      "context_digest": "sha256:184d9bc79a46bcdd310b46766cd7bfde8853ebe4b0aaaca06e7163a09c0bbe8b",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p10.measurement_path.32",
+      "quantity": "measurement_path",
+      "basis": "installation",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "battery negative through shunt; loads/chargers on system side",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "battery negative through shunt; loads/chargers on system side",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p10-installation",
+      "locator": "HTML3.5 Basic electrical connections",
+      "context_digest": "sha256:184d9bc79a46bcdd310b46766cd7bfde8853ebe4b0aaaca06e7163a09c0bbe8b",
+      "conditions": [],
+      "unresolved_conditions": ["Actual routing/connection witnesses required"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p10.shunt_configuration.33",
+      "quantity": "shunt_configuration",
+      "basis": "installation",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "configure current/millivolt settings and zero-current calibration",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "configure current/millivolt settings and zero-current calibration",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p10-installation",
+      "locator": "HTML3.8 Alternative shunts",
+      "context_digest": "sha256:184d9bc79a46bcdd310b46766cd7bfde8853ebe4b0aaaca06e7163a09c0bbe8b",
+      "conditions": [],
+      "unresolved_conditions": ["Configuration is not measured calibration proof"],
+      "disposition": "retained_source_fact"
+    }
+  ],
+  "holds": [
+    "Exact installed hardware revision not established; capture/document revision is distinct",
+    "All authored source meanings require independent human review; no source decision or product authority",
+    "No separately supported current maximum or accuracy denominator from examined technical sources; do not infer a maximum from included shunt",
+    "Accessory revision, installed transfer/settings, current path, calibration and protocols need human/installation evidence"
+  ]
+}

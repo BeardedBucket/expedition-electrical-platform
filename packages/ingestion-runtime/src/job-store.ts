@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { validateAuthoredImports } from '@expedition/ingestion';
 import { mkdir, open, readdir, readFile, rm } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { deserializeJob, serializeJob } from './codec.js';
@@ -126,6 +127,12 @@ const validJob = (value: unknown, id: string): value is IngestionJob => {
   const attempts = job.source_resolution_attempts ?? [];
   if (!Array.isArray(attempts)) return false;
   try {
+    validateAuthoredImports(job.authored_draft_imports ?? [], [
+      ...(job.preparation ? [job.preparation] : []),
+      ...(job.human_adjudication_original ? [job.human_adjudication_original] : []),
+      ...(job.preparation_recovery_history ?? []).map((h) => h.preparation),
+      ...(job.source_resolution_recovery_history ?? []).map((h) => h.preparation),
+    ]);
     if (
       job.preparation_recovery_history !== undefined &&
       !Array.isArray(job.preparation_recovery_history)
@@ -466,6 +473,25 @@ export class FileIngestionJobStore implements IngestionJobStore {
           `Ingestion job ${job.id} changed since it was loaded; reload before updating.`,
         );
       const oldEvents = previous.job.product_review_history ?? [];
+      const oldDrafts = previous.job.authored_draft_imports ?? [];
+      const drafts = job.authored_draft_imports ?? [];
+      if (
+        oldDrafts.length > drafts.length ||
+        oldDrafts.some((d, i) => serializeJob(d) !== serializeJob(drafts[i]))
+      )
+        throw Error('Authored proposal history is immutable and append-only');
+      if (
+        drafts.length > oldDrafts.length &&
+        (drafts.length !== oldDrafts.length + 1 ||
+          job.approval ||
+          !['review_ready', 'preparation_failed'].includes(job.state) ||
+          serializeJob({
+            ...previous.job,
+            updated_at: undefined,
+            authored_draft_imports: undefined,
+          }) !== serializeJob({ ...job, updated_at: undefined, authored_draft_imports: undefined }))
+      )
+        throw Error('Authoring cannot mutate review or product authority');
       const events = job.product_review_history ?? [];
       if (
         oldEvents.length > events.length ||

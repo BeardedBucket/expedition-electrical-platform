@@ -167,7 +167,14 @@
                 "pmax_w",
                 "max_system_v",
                 "pv_absolute_voc_v",
-                "pv_max_isc_a"
+                "pv_max_isc_a",
+                "battery_cell_charge_range_c",
+                "battery_discharge_range_c",
+                "battery_series_max_count",
+                "battery_parallel_max_count",
+                "instrument_current_accuracy_percent",
+                "instrument_voltage_accuracy_percent",
+                "instrument_shunt_rating"
               ]
             }
           }
@@ -209,6 +216,7 @@
                 "table_column",
                 "table_row",
                 "shared_statement",
+                "source_record",
                 "unresolved"
               ]
             },

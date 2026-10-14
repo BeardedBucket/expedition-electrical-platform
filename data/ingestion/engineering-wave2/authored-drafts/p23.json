@@ -1,0 +1,1772 @@
+{
+  "version": "source-grounded-draft.v1",
+  "authority": "codex_prepared_unreviewed",
+  "product": {
+    "id": "draft.p23",
+    "manufacturer": "MEAN WELL",
+    "model": "DDR-120C-12",
+    "manufacturer_part_number": null,
+    "hardware_revision": null
+  },
+  "intended_use": "Directionally convert an explicit 48 V DC source to an explicit 12 V / 50 W load within documented input, output and environmental conditions",
+  "sources": [
+    {
+      "id": "p23",
+      "url": "https://www.meanwell.com/Upload/PDF/DDR-120/DDR-120-SPEC.PDF",
+      "publisher": "MEAN WELL",
+      "retrieved_at": "2026-10-13T05:05:21.762Z",
+      "content_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "document_revision": "DDR-120-SPEC 2026-09-10",
+      "model": "DDR-120C-12",
+      "identity_locator": "PDF p3 MODEL exact DDR-120C-12 column and input family row",
+      "rights": "metadata_and_limited_facts_only",
+      "redistribution_grant": "not_established"
+    },
+    {
+      "id": "meanwell-manual",
+      "url": "https://www.meanwell.com/Upload/PDF/DDR-120,240,480_EN.pdf",
+      "publisher": "MEAN WELL",
+      "retrieved_at": "2026-10-14T05:19:53.283Z",
+      "content_digest": "sha256:5684ffc8bc607e398343990a31bbf84b26a3bb9d370554d514a8a53410f46582",
+      "document_revision": "2026.01.12",
+      "model": "DDR-120C-12",
+      "identity_locator": "PDF p1 exact DDR-120C-12 row; DDR-120 family-specific instructions",
+      "rights": "metadata_and_limited_facts_only",
+      "redistribution_grant": "not_established"
+    }
+  ],
+  "facts": [
+    {
+      "id": "draft.p23.input_voltage_range.0",
+      "quantity": "input_voltage_range",
+      "basis": "operating",
+      "mode": "dc_conversion",
+      "direction": "input",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "{\"min\":33.6,\"max\":67.2}",
+        "unit": "V",
+        "presentation": "source_value_reconstruction"
+      },
+      "normalized": {
+        "value": {
+          "min": 33.6,
+          "max": 67.2
+        },
+        "unit": "V"
+      },
+      "normalization": "identity",
+      "source_id": "p23",
+      "locator": "PDF p3 exact DDR-120C-12 column / INPUT VOLTAGE RANGE Note4",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "typed_consumer"
+    },
+    {
+      "id": "draft.p23.output_voltage_range.1",
+      "quantity": "output_voltage_range",
+      "basis": "operating",
+      "mode": "dc_conversion",
+      "direction": "output",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "{\"min\":9,\"max\":14}",
+        "unit": "V",
+        "presentation": "source_value_reconstruction"
+      },
+      "normalized": {
+        "value": {
+          "min": 9,
+          "max": 14
+        },
+        "unit": "V"
+      },
+      "normalization": "identity",
+      "source_id": "p23",
+      "locator": "PDF p3 exact DDR-120C-12 column / OUTPUT VOLTAGE ADJ. RANGE",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "typed_consumer"
+    },
+    {
+      "id": "draft.p23.output_voltage_nominal.2",
+      "quantity": "output_voltage_nominal",
+      "basis": "nominal",
+      "mode": "dc_conversion",
+      "direction": "output",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "12",
+        "unit": "V",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 12,
+        "unit": "V"
+      },
+      "normalization": "identity",
+      "source_id": "p23",
+      "locator": "PDF p3 exact DDR-120C-12 column / DC VOLTAGE",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.output_power.3",
+      "quantity": "output_power",
+      "basis": "continuous",
+      "mode": "dc_conversion",
+      "direction": "output",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "120",
+        "unit": "W",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 120,
+        "unit": "W"
+      },
+      "normalization": "identity",
+      "source_id": "p23",
+      "locator": "PDF p3 exact DDR-120C-12 column / RATED POWER and p4 derating curves",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [
+        {
+          "key": "input_voltage_v",
+          "value": {
+            "min": 43.2,
+            "max": 67.2
+          },
+          "unit": "V"
+        },
+        {
+          "key": "ambient_temperature_c",
+          "value": {
+            "min": -40,
+            "max": 50
+          },
+          "unit": "degC"
+        },
+        {
+          "key": "orientation",
+          "value": "vertical",
+          "unit": "text"
+        },
+        {
+          "key": "altitude_m",
+          "value": {
+            "min": 0,
+            "max": 2000
+          },
+          "unit": "m"
+        }
+      ],
+      "unresolved_conditions": [],
+      "disposition": "typed_consumer"
+    },
+    {
+      "id": "draft.p23.output_current.4",
+      "quantity": "output_current",
+      "basis": "continuous",
+      "mode": "dc_conversion",
+      "direction": "output",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "10",
+        "unit": "A",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 10,
+        "unit": "A"
+      },
+      "normalization": "identity",
+      "source_id": "p23",
+      "locator": "PDF p3 exact DDR-120C-12 column / RATED CURRENT",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [
+        {
+          "key": "input_voltage_v",
+          "value": 48,
+          "unit": "V"
+        },
+        {
+          "key": "ambient_temperature_c",
+          "value": 25,
+          "unit": "degC"
+        }
+      ],
+      "unresolved_conditions": [
+        "Output setpoint, derating, orientation and altitude also constrain full load"
+      ],
+      "disposition": "typed_consumer"
+    },
+    {
+      "id": "draft.p23.output_current_range.5",
+      "quantity": "output_current_range",
+      "basis": "operating",
+      "mode": "all",
+      "direction": "output",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "{\"min\":0,\"max\":10}",
+        "unit": "A",
+        "presentation": "source_value_reconstruction"
+      },
+      "normalized": {
+        "value": {
+          "min": 0,
+          "max": 10
+        },
+        "unit": "A"
+      },
+      "normalization": "identity",
+      "source_id": "p23",
+      "locator": "PDF p3 exact DDR-120C-12 column / CURRENT RANGE",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.output_current_peak.6",
+      "quantity": "output_current_peak",
+      "basis": "peak",
+      "mode": "dc_conversion",
+      "direction": "output",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "15",
+        "unit": "A",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 15,
+        "unit": "A"
+      },
+      "normalization": "identity",
+      "source_id": "p23",
+      "locator": "PDF p3 exact DDR-120C-12 column / PEAK CURRENT",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [
+        {
+          "key": "duration_s",
+          "value": {
+            "min": 0,
+            "max": 3
+          },
+          "unit": "s"
+        }
+      ],
+      "unresolved_conditions": ["Peak duty/recovery and thermal applicability must be proven"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.output_power.7",
+      "quantity": "output_power",
+      "basis": "peak",
+      "mode": "dc_conversion_peak",
+      "direction": "output",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "180",
+        "unit": "W",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 180,
+        "unit": "W"
+      },
+      "normalization": "identity",
+      "source_id": "p23",
+      "locator": "PDF p3 exact DDR-120C-12 column / PEAK POWER Note5",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [
+        {
+          "key": "duration_s",
+          "value": {
+            "min": 0,
+            "max": 3
+          },
+          "unit": "s"
+        }
+      ],
+      "unresolved_conditions": [
+        "Peak loading duty pattern and complete derating applicability unresolved"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.output_ripple_max.8",
+      "quantity": "output_ripple_max",
+      "basis": "absolute",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "50",
+        "unit": "mVpp",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 50,
+        "unit": "mVpp"
+      },
+      "normalization": "identity",
+      "source_id": "p23",
+      "locator": "PDF p3 exact DDR-120C-12 column / RIPPLE NOISE Note2",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [
+        {
+          "key": "bandwidth_mhz",
+          "value": 20,
+          "unit": "MHz"
+        }
+      ],
+      "unresolved_conditions": [
+        "Source measurement fixture:12-inch twisted pair and parallel capacitors; not arbitrary installation noise"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.output_voltage_tolerance.9",
+      "quantity": "output_voltage_tolerance",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "1",
+        "unit": "%",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 1,
+        "unit": "%"
+      },
+      "normalization": "identity",
+      "source_id": "p23",
+      "locator": "PDF p3 exact DDR-120C-12 column / VOLTAGE TOLERANCE Note3",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [
+        {
+          "key": "input_voltage_v",
+          "value": 48,
+          "unit": "V"
+        },
+        {
+          "key": "ambient_temperature_c",
+          "value": 25,
+          "unit": "degC"
+        }
+      ],
+      "unresolved_conditions": [
+        "Setup and line/load regulation included; no arbitrary tolerance margin"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.line_regulation.10",
+      "quantity": "line_regulation",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "0.5",
+        "unit": "%",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 0.5,
+        "unit": "%"
+      },
+      "normalization": "identity",
+      "source_id": "p23",
+      "locator": "PDF p3 exact DDR-120C-12 column / LINE REGULATION",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.load_regulation.11",
+      "quantity": "load_regulation",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "1",
+        "unit": "%",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 1,
+        "unit": "%"
+      },
+      "normalization": "identity",
+      "source_id": "p23",
+      "locator": "PDF p3 exact DDR-120C-12 column / LOAD REGULATION",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.setup_time.12",
+      "quantity": "setup_time",
+      "basis": "typical",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "500",
+        "unit": "ms",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 500,
+        "unit": "ms"
+      },
+      "normalization": "identity",
+      "source_id": "p23",
+      "locator": "PDF p3 exact DDR-120C-12 column / SETUP RISE TIME",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [
+        {
+          "key": "input_voltage_v",
+          "value": 48,
+          "unit": "V"
+        },
+        {
+          "key": "ambient_temperature_c",
+          "value": 25,
+          "unit": "degC"
+        }
+      ],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.rise_time.13",
+      "quantity": "rise_time",
+      "basis": "typical",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "60",
+        "unit": "ms",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 60,
+        "unit": "ms"
+      },
+      "normalization": "identity",
+      "source_id": "p23",
+      "locator": "PDF p3 exact DDR-120C-12 column / SETUP RISE TIME",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [
+        {
+          "key": "input_voltage_v",
+          "value": 48,
+          "unit": "V"
+        },
+        {
+          "key": "ambient_temperature_c",
+          "value": 25,
+          "unit": "degC"
+        }
+      ],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.efficiency.14",
+      "quantity": "efficiency",
+      "basis": "typical",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "89.5",
+        "unit": "%",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 89.5,
+        "unit": "%"
+      },
+      "normalization": "identity",
+      "source_id": "p23",
+      "locator": "PDF p3 exact DDR-120C-12 column / EFFICIENCY",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [
+        {
+          "key": "input_voltage_v",
+          "value": 48,
+          "unit": "V"
+        },
+        {
+          "key": "ambient_temperature_c",
+          "value": 25,
+          "unit": "degC"
+        }
+      ],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.input_current_typical.15",
+      "quantity": "input_current_typical",
+      "basis": "typical",
+      "mode": "all",
+      "direction": "input",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "2.8",
+        "unit": "A",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 2.8,
+        "unit": "A"
+      },
+      "normalization": "identity",
+      "source_id": "p23",
+      "locator": "PDF p3 exact DDR-120C-12 column / INPUT DC CURRENT",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [
+        {
+          "key": "input_voltage_v",
+          "value": 48,
+          "unit": "V"
+        },
+        {
+          "key": "ambient_temperature_c",
+          "value": 25,
+          "unit": "degC"
+        }
+      ],
+      "unresolved_conditions": [],
+      "disposition": "typed_consumer"
+    },
+    {
+      "id": "draft.p23.inrush_current.16",
+      "quantity": "inrush_current",
+      "basis": "typical",
+      "mode": "all",
+      "direction": "input",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "5",
+        "unit": "A",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 5,
+        "unit": "A"
+      },
+      "normalization": "identity",
+      "source_id": "p23",
+      "locator": "PDF p3 exact DDR-120C-12 column / INRUSH CURRENT",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [
+        {
+          "key": "input_voltage_v",
+          "value": 48,
+          "unit": "V"
+        },
+        {
+          "key": "ambient_temperature_c",
+          "value": 25,
+          "unit": "degC"
+        }
+      ],
+      "unresolved_conditions": [],
+      "disposition": "typed_consumer"
+    },
+    {
+      "id": "draft.p23.input_turn_on.17",
+      "quantity": "input_turn_on",
+      "basis": "protection",
+      "mode": "turn_on",
+      "direction": "input",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "33.6",
+        "unit": "V",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 33.6,
+        "unit": "V"
+      },
+      "normalization": "identity",
+      "source_id": "p23",
+      "locator": "PDF p3 exact DDR-120C-12 column / UNDER VOLTAGE LOCKOUT",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.input_turn_off.18",
+      "quantity": "input_turn_off",
+      "basis": "protection",
+      "mode": "turn_off",
+      "direction": "input",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "33",
+        "unit": "V",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 33,
+        "unit": "V"
+      },
+      "normalization": "identity",
+      "source_id": "p23",
+      "locator": "PDF p3 exact DDR-120C-12 column / UNDER VOLTAGE LOCKOUT",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.overvoltage_shutdown_range.19",
+      "quantity": "overvoltage_shutdown_range",
+      "basis": "protection",
+      "mode": "all",
+      "direction": "output",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "{\"min\":14.4,\"max\":16.8}",
+        "unit": "V",
+        "presentation": "source_value_reconstruction"
+      },
+      "normalized": {
+        "value": {
+          "min": 14.4,
+          "max": 16.8
+        },
+        "unit": "V"
+      },
+      "normalization": "identity",
+      "source_id": "p23",
+      "locator": "PDF p3 exact DDR-120C-12 column / OVER VOLTAGE",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [],
+      "unresolved_conditions": ["Re-power to recover; not user equipment protection coordination"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.overload_behavior.20",
+      "quantity": "overload_behavior",
+      "basis": "protection",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "constant-current105–135% after peak interval; auto recovery",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "constant-current105–135% after peak interval; auto recovery",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p23",
+      "locator": "PDF p3 exact DDR-120C-12 column / OVERLOAD",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [],
+      "unresolved_conditions": ["Does not extend3s design peak allowance"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.reverse_polarity_protection.21",
+      "quantity": "reverse_polarity_protection",
+      "basis": "protection",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "MOSFET series input protection; auto recovery",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "MOSFET series input protection; auto recovery",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p23",
+      "locator": "PDF p3 exact DDR-120C-12 column / REVERSE POLARITY",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.ambient_temperature_range.22",
+      "quantity": "ambient_temperature_range",
+      "basis": "operating",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "{\"min\":-40,\"max\":70}",
+        "unit": "degC",
+        "presentation": "source_value_reconstruction"
+      },
+      "normalized": {
+        "value": {
+          "min": -40,
+          "max": 70
+        },
+        "unit": "degC"
+      },
+      "normalization": "identity",
+      "source_id": "p23",
+      "locator": "PDF p3 exact DDR-120C-12 column / WORKING TEMP",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [],
+      "unresolved_conditions": ["p4 derating; not full-output permission across temperature range"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.humidity_range.23",
+      "quantity": "humidity_range",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "{\"min\":5,\"max\":95}",
+        "unit": "%",
+        "presentation": "source_value_reconstruction"
+      },
+      "normalized": {
+        "value": {
+          "min": 5,
+          "max": 95
+        },
+        "unit": "%"
+      },
+      "normalization": "identity",
+      "source_id": "p23",
+      "locator": "PDF p3 exact DDR-120C-12 column / WORKING HUMIDITY",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [
+        {
+          "key": "condensation",
+          "value": false,
+          "unit": "text"
+        }
+      ],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.storage_temperature.24",
+      "quantity": "storage_temperature",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "{\"min\":-40,\"max\":85}",
+        "unit": "degC",
+        "presentation": "source_value_reconstruction"
+      },
+      "normalized": {
+        "value": {
+          "min": -40,
+          "max": 85
+        },
+        "unit": "degC"
+      },
+      "normalization": "identity",
+      "source_id": "p23",
+      "locator": "PDF p3 exact DDR-120C-12 column / STORAGE TEMP HUMIDITY",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.output_temperature_coefficient.25",
+      "quantity": "output_temperature_coefficient",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "{\"min\":-0.03,\"max\":0.03}",
+        "unit": "%/degC",
+        "presentation": "source_value_reconstruction"
+      },
+      "normalized": {
+        "value": {
+          "min": -0.03,
+          "max": 0.03
+        },
+        "unit": "%/degC"
+      },
+      "normalization": "identity",
+      "source_id": "p23",
+      "locator": "PDF p3 exact DDR-120C-12 column / TEMP COEFFICIENT",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [
+        {
+          "key": "ambient_temperature_c",
+          "value": {
+            "min": 0,
+            "max": 55
+          },
+          "unit": "degC"
+        }
+      ],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.altitude_max.26",
+      "quantity": "altitude_max",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "5000",
+        "unit": "m",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 5000,
+        "unit": "m"
+      },
+      "normalization": "identity",
+      "source_id": "p23",
+      "locator": "PDF p3 exact DDR-120C-12 column / OPERATING ALTITUDE Note7",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [],
+      "unresolved_conditions": [
+        "Ambient derating3.5 degC/1000m above2000m for fanless model; no output curve substitution"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.isolation_test_voltage_io.27",
+      "quantity": "isolation_test_voltage_io",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "4",
+        "unit": "KVdc",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 4000,
+        "unit": "Vdc"
+      },
+      "normalization": "kvdc_to_vdc",
+      "source_id": "p23",
+      "locator": "PDF p3 exact DDR-120C-12 column / WITHSTAND VOLTAGE",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [],
+      "unresolved_conditions": [
+        "Withstand test is not working voltage, insulation coordination or clearance"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.isolation_test_voltage_fg.28",
+      "quantity": "isolation_test_voltage_fg",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "2.5",
+        "unit": "KVdc",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 2500,
+        "unit": "Vdc"
+      },
+      "normalization": "kvdc_to_vdc",
+      "source_id": "p23",
+      "locator": "PDF p3 exact DDR-120C-12 column / WITHSTAND VOLTAGE",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.isolation_resistance_min.29",
+      "quantity": "isolation_resistance_min",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "100",
+        "unit": "MOhm",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 100,
+        "unit": "MOhm"
+      },
+      "normalization": "identity",
+      "source_id": "p23",
+      "locator": "PDF p3 exact DDR-120C-12 column / ISOLATION RESISTANCE",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [
+        {
+          "key": "test_voltage_v",
+          "value": 500,
+          "unit": "V"
+        },
+        {
+          "key": "ambient_temperature_c",
+          "value": 25,
+          "unit": "degC"
+        },
+        {
+          "key": "humidity_percent",
+          "value": 70,
+          "unit": "%"
+        }
+      ],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.body_size.30",
+      "quantity": "body_size",
+      "basis": "body",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "{\"x\":32,\"y\":125.2,\"z\":102}",
+        "unit": "mm",
+        "presentation": "source_value_reconstruction"
+      },
+      "normalized": {
+        "value": {
+          "x": 32,
+          "y": 125.2,
+          "z": 102
+        },
+        "unit": "mm"
+      },
+      "normalization": "identity",
+      "source_id": "p23",
+      "locator": "PDF p3 exact DDR-120C-12 column / DIMENSION W H D",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.mass.31",
+      "quantity": "mass",
+      "basis": "body",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "510",
+        "unit": "g",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 510,
+        "unit": "g"
+      },
+      "normalization": "identity",
+      "source_id": "p23",
+      "locator": "PDF p3 exact DDR-120C-12 column / PACKING individual mass",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.body_dimension_tolerance.32",
+      "quantity": "body_dimension_tolerance",
+      "basis": "body",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "1",
+        "unit": "mm",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 1,
+        "unit": "mm"
+      },
+      "normalization": "identity",
+      "source_id": "p23",
+      "locator": "PDF p9 Mechanical / tolerance",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.input_terminal_assignments.33",
+      "quantity": "input_terminal_assignments",
+      "basis": "installation",
+      "mode": "all",
+      "direction": "input",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "TB1 1=FG;2=-Vin;3=+Vin",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "TB1 1=FG;2=-Vin;3=+Vin",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p23",
+      "locator": "PDF p9 Terminal TB1",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.output_terminal_assignments.34",
+      "quantity": "output_terminal_assignments",
+      "basis": "installation",
+      "mode": "all",
+      "direction": "output",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "TB2 1,2=-Vo;3,4=+Vo",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "TB2 1,2=-Vo;3,4=+Vo",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p23",
+      "locator": "PDF p9 Terminal TB2",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.mounting.35",
+      "quantity": "mounting",
+      "basis": "installation",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "TS35/7.5 or TS35/15",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "TS35/7.5 or TS35/15",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p23",
+      "locator": "PDF p9 DIN rail",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.cooling.36",
+      "quantity": "cooling",
+      "basis": "installation",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "free-air convection",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "free-air convection",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p23",
+      "locator": "PDF p1 cooling feature",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.low_input_derating_reference.37",
+      "quantity": "low_input_derating_reference",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "{\"min\":33.6,\"max\":43.2}",
+        "unit": "V",
+        "presentation": "source_value_reconstruction"
+      },
+      "normalized": {
+        "value": {
+          "min": 33.6,
+          "max": 43.2
+        },
+        "unit": "V"
+      },
+      "normalization": "identity",
+      "source_id": "p23",
+      "locator": "PDF p4 Output derating versus Vin",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [],
+      "unresolved_conditions": [
+        "No arbitrary output interpolation; chart steps to full load at 43.2V"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.peak_loading_pattern.38",
+      "quantity": "peak_loading_pattern",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "3s at150%; preceding100s at100% or10s at40%",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "3s at150%; preceding100s at100% or10s at40%",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p23",
+      "locator": "PDF p4 Peak loading patterns",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [],
+      "unresolved_conditions": ["Duty model unsupported; no180W continuous rating"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.input_transient.39",
+      "quantity": "input_transient",
+      "basis": "protection",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "normal input -30%/+40% withstand for1s",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "normal input -30%/+40% withstand for1s",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p23",
+      "locator": "PDF p5 Input Range and Transient Ability",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [
+        {
+          "key": "nominal_input_v",
+          "value": 48,
+          "unit": "V"
+        }
+      ],
+      "unresolved_conditions": ["Transient withstand is not continuous range"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.performance_curves.40",
+      "quantity": "performance_curves",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "model-specific hold-up and efficiency/load/input plots",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "model-specific hold-up and efficiency/load/input plots",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p23",
+      "locator": "PDF p6/7 Hold-up and efficiency curves",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [],
+      "unresolved_conditions": ["No curve digitization/interpolation claimed"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.compliance_claims.41",
+      "quantity": "compliance_claims",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "manufacturer component test/listing claims; source locators retained",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "manufacturer component test/listing claims; source locators retained",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p23",
+      "locator": "PDF p3 exact DDR-120C-12 column / Safety EMC and p8 test claims",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [],
+      "unresolved_conditions": [
+        "Not installed EMC/safety/standards proof; no standards table imported"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.rated_input_current.42",
+      "quantity": "rated_input_current",
+      "basis": "nominal",
+      "mode": "dc_conversion",
+      "direction": "input",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "4.5",
+        "unit": "A",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 4.5,
+        "unit": "A"
+      },
+      "normalization": "identity",
+      "source_id": "meanwell-manual",
+      "locator": "PDF p1 exact DDR-120C-12 INPUT",
+      "context_digest": "sha256:5684ffc8bc607e398343990a31bbf84b26a3bb9d370554d514a8a53410f46582",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.output_current.43",
+      "quantity": "output_current",
+      "basis": "continuous",
+      "mode": "dc_conversion",
+      "direction": "output",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "9",
+        "unit": "A",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 9,
+        "unit": "A"
+      },
+      "normalization": "identity",
+      "source_id": "meanwell-manual",
+      "locator": "PDF p1 exact DDR-120C-12 OUTPUT / Vin qualifier",
+      "context_digest": "sha256:5684ffc8bc607e398343990a31bbf84b26a3bb9d370554d514a8a53410f46582",
+      "conditions": [
+        {
+          "key": "input_voltage_v",
+          "value": {
+            "min": 33.6,
+            "max": 43.2
+          },
+          "unit": "V"
+        },
+        {
+          "key": "output_voltage_v",
+          "value": 12,
+          "unit": "V"
+        },
+        {
+          "key": "ambient_temperature_c",
+          "value": 25,
+          "unit": "degC"
+        },
+        {
+          "key": "orientation",
+          "value": "vertical",
+          "unit": "text"
+        }
+      ],
+      "unresolved_conditions": [],
+      "disposition": "typed_consumer"
+    },
+    {
+      "id": "draft.p23.output_current.44",
+      "quantity": "output_current",
+      "basis": "continuous",
+      "mode": "dc_conversion",
+      "direction": "output",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "10",
+        "unit": "A",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 10,
+        "unit": "A"
+      },
+      "normalization": "identity",
+      "source_id": "meanwell-manual",
+      "locator": "PDF p1 exact DDR-120C-12 OUTPUT / Vin qualifier",
+      "context_digest": "sha256:5684ffc8bc607e398343990a31bbf84b26a3bb9d370554d514a8a53410f46582",
+      "conditions": [
+        {
+          "key": "input_voltage_v",
+          "value": {
+            "min": 43.2,
+            "max": 67.2
+          },
+          "unit": "V"
+        },
+        {
+          "key": "output_voltage_v",
+          "value": 12,
+          "unit": "V"
+        },
+        {
+          "key": "ambient_temperature_c",
+          "value": 25,
+          "unit": "degC"
+        },
+        {
+          "key": "orientation",
+          "value": "vertical",
+          "unit": "text"
+        }
+      ],
+      "unresolved_conditions": [],
+      "disposition": "typed_consumer"
+    },
+    {
+      "id": "draft.p23.installed_ambient_max.45",
+      "quantity": "installed_ambient_max",
+      "basis": "installation",
+      "mode": "mounting",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "55",
+        "unit": "degC",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 55,
+        "unit": "degC"
+      },
+      "normalization": "identity",
+      "source_id": "meanwell-manual",
+      "locator": "PDF p4 Warning7 DDR-120",
+      "context_digest": "sha256:5684ffc8bc607e398343990a31bbf84b26a3bb9d370554d514a8a53410f46582",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "typed_consumer"
+    },
+    {
+      "id": "draft.p23.clearance_left.46",
+      "quantity": "clearance_left",
+      "basis": "installation",
+      "mode": "mounting",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "5",
+        "unit": "mm",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 5,
+        "unit": "mm"
+      },
+      "normalization": "identity",
+      "source_id": "meanwell-manual",
+      "locator": "PDF p2 Installation1",
+      "context_digest": "sha256:5684ffc8bc607e398343990a31bbf84b26a3bb9d370554d514a8a53410f46582",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "typed_consumer"
+    },
+    {
+      "id": "draft.p23.clearance_right.47",
+      "quantity": "clearance_right",
+      "basis": "installation",
+      "mode": "mounting",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "5",
+        "unit": "mm",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 5,
+        "unit": "mm"
+      },
+      "normalization": "identity",
+      "source_id": "meanwell-manual",
+      "locator": "PDF p2 Installation1",
+      "context_digest": "sha256:5684ffc8bc607e398343990a31bbf84b26a3bb9d370554d514a8a53410f46582",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "typed_consumer"
+    },
+    {
+      "id": "draft.p23.clearance_above.48",
+      "quantity": "clearance_above",
+      "basis": "installation",
+      "mode": "mounting",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "40",
+        "unit": "mm",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 40,
+        "unit": "mm"
+      },
+      "normalization": "identity",
+      "source_id": "meanwell-manual",
+      "locator": "PDF p2 Installation1",
+      "context_digest": "sha256:5684ffc8bc607e398343990a31bbf84b26a3bb9d370554d514a8a53410f46582",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "typed_consumer"
+    },
+    {
+      "id": "draft.p23.clearance_below.49",
+      "quantity": "clearance_below",
+      "basis": "installation",
+      "mode": "mounting",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "20",
+        "unit": "mm",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 20,
+        "unit": "mm"
+      },
+      "normalization": "identity",
+      "source_id": "meanwell-manual",
+      "locator": "PDF p2 Installation1",
+      "context_digest": "sha256:5684ffc8bc607e398343990a31bbf84b26a3bb9d370554d514a8a53410f46582",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "typed_consumer"
+    },
+    {
+      "id": "draft.p23.mounting_orientation.50",
+      "quantity": "mounting_orientation",
+      "basis": "installation",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "vertical; input down/output up; horizontal/upside-down/tabletop prohibited",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "vertical; input down/output up; horizontal/upside-down/tabletop prohibited",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "meanwell-manual",
+      "locator": "PDF p2 Installation2 and p3 Installation9",
+      "context_digest": "sha256:5684ffc8bc607e398343990a31bbf84b26a3bb9d370554d514a8a53410f46582",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.terminal_torque.51",
+      "quantity": "terminal_torque",
+      "basis": "installation",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "6.9",
+        "unit": "kgf-cm",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 6.9,
+        "unit": "kgf-cm"
+      },
+      "normalization": "identity",
+      "source_id": "meanwell-manual",
+      "locator": "PDF p3 Installation7 DDR-120 row",
+      "context_digest": "sha256:5684ffc8bc607e398343990a31bbf84b26a3bb9d370554d514a8a53410f46582",
+      "conditions": [],
+      "unresolved_conditions": [
+        "Source also rounds to6lb-in; do not assume exact equality of rounded conversions"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.wire_strip_length.52",
+      "quantity": "wire_strip_length",
+      "basis": "installation",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "5",
+        "unit": "mm",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 5,
+        "unit": "mm"
+      },
+      "normalization": "identity",
+      "source_id": "meanwell-manual",
+      "locator": "PDF p3 Installation5",
+      "context_digest": "sha256:5684ffc8bc607e398343990a31bbf84b26a3bb9d370554d514a8a53410f46582",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.wire_temperature_rating_min.53",
+      "quantity": "wire_temperature_rating_min",
+      "basis": "installation",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "80",
+        "unit": "degC",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 80,
+        "unit": "degC"
+      },
+      "normalization": "identity",
+      "source_id": "meanwell-manual",
+      "locator": "PDF p3 Installation4",
+      "context_digest": "sha256:5684ffc8bc607e398343990a31bbf84b26a3bb9d370554d514a8a53410f46582",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.wire_material.54",
+      "quantity": "wire_material",
+      "basis": "installation",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "copper; all strands in terminal; use each multiple-output contact",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "copper; all strands in terminal; use each multiple-output contact",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "meanwell-manual",
+      "locator": "PDF p3 Installation3",
+      "context_digest": "sha256:5684ffc8bc607e398343990a31bbf84b26a3bb9d370554d514a8a53410f46582",
+      "conditions": [],
+      "unresolved_conditions": [
+        "Manual SDR-75 terminal-area note is foreign model and is not imported for DDR-120"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.source_fuse_guidance.55",
+      "quantity": "source_fuse_guidance",
+      "basis": "installation",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "T8A/L250V x1",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "T8A/L250V x1",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "meanwell-manual",
+      "locator": "PDF p3 Installation8 exact DDR-120C row",
+      "context_digest": "sha256:5684ffc8bc607e398343990a31bbf84b26a3bb9d370554d514a8a53410f46582",
+      "conditions": [],
+      "unresolved_conditions": [
+        "Internal replacement guidance, not installed branch fault/ampacity design"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.fg_connection.56",
+      "quantity": "fg_connection",
+      "basis": "installation",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "FG must connect to protective earth",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "FG must connect to protective earth",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "meanwell-manual",
+      "locator": "PDF p4 Warning8",
+      "context_digest": "sha256:5684ffc8bc607e398343990a31bbf84b26a3bb9d370554d514a8a53410f46582",
+      "conditions": [],
+      "unresolved_conditions": [
+        "Isolated I/O does not permit borrowing unrelated DC/AC grounding defaults"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.primary_secondary_tie_permission.57",
+      "quantity": "primary_secondary_tie_permission",
+      "basis": "installation",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "false",
+        "unit": "boolean",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": false,
+        "unit": "boolean"
+      },
+      "normalization": "identity",
+      "source_id": "meanwell-manual",
+      "locator": "PDF p4 Warning2",
+      "context_digest": "sha256:5684ffc8bc607e398343990a31bbf84b26a3bb9d370554d514a8a53410f46582",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p23.internal_power_direction.58",
+      "quantity": "internal_power_direction",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "TB1 DC input to isolated conversion to TB2 DC output",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "TB1 DC input to isolated conversion to TB2 DC output",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p23",
+      "locator": "PDF p4 block diagram I/P -> switching/rectifiers -> +Vo/-Vo",
+      "context_digest": "sha256:0d9b59264c0c5cbae8101d60b858e9169814921c71c067b450c312b670180327",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    }
+  ],
+  "holds": [
+    "Exact installed hardware revision not established; capture/document revision is distinct",
+    "All authored source meanings require independent human review; no source decision or product authority",
+    "Independent model-column/footnote review pending; body evidence is not installed wiring/protection proof",
+    "Ventilation/altitude/derating/duty and exact physical terminal installation required before installed eligibility",
+    "January2026 installation manual maximum55C is distinct from September2026 datasheet derated range up to70C; retain both and obtain human source-revision reconciliation"
+  ],
+  "ports": [
+    {
+      "id": "TB1",
+      "label": "TB1:2(-Vin),3(+Vin); FG separate",
+      "domain": "dc",
+      "direction": "input",
+      "voltage_v": {
+        "min": 33.6,
+        "max": 67.2
+      },
+      "source_fact_ids": [
+        "draft.p23.input_terminal_assignments.33",
+        "draft.p23.input_voltage_range.0"
+      ]
+    },
+    {
+      "id": "TB2",
+      "label": "TB2:1,2(-Vo),3,4(+Vo)",
+      "domain": "dc",
+      "direction": "output",
+      "voltage_v": {
+        "min": 9,
+        "max": 14
+      },
+      "source_fact_ids": [
+        "draft.p23.output_terminal_assignments.34",
+        "draft.p23.output_voltage_range.1"
+      ]
+    }
+  ],
+  "power_paths": [
+    {
+      "id": "source.tb1-to-tb2",
+      "from_port": "TB1",
+      "to_port": "TB2",
+      "source_fact_ids": ["draft.p23.internal_power_direction.58"]
+    }
+  ]
+}

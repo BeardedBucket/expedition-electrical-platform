@@ -1,4 +1,9 @@
 import { readFileSync, writeFileSync } from 'node:fs';
+const sourceDraft = JSON.parse(
+  readFileSync('data/schemas/source-grounded-draft.schema.json', 'utf8'),
+);
+delete sourceDraft.$id;
+delete sourceDraft.$schema;
 
 // One definition generates both the portable profile and its inline canonical
 // copy. Inline inclusion keeps historical standalone AJV consumers portable;
@@ -175,11 +180,17 @@ const profile = obj(
           rights: { enum: ['metadata_and_limited_facts_only', 'project_authored'] },
           human_interpretation: obj(
             {
-              version: { const: 'engineering-profile-adjudication.v1' },
+              version: {
+                enum: [
+                  'engineering-profile-adjudication.v1',
+                  'engineering-profile-adjudication.v2',
+                ],
+              },
               event_id: text,
               fact_id: text,
               source_document_revision: { type: ['string', 'null'] },
               source_unit: text,
+              quantity: text,
             },
             ['version', 'event_id', 'fact_id', 'source_document_revision', 'source_unit'],
           ),
@@ -213,6 +224,91 @@ const profile = obj(
     },
     ac_modes: { type: 'array', items: acMode },
     assembly: { type: 'array', items: assembly },
+    battery_operating: obj(
+      {
+        version: { const: 'battery-operating.v1' },
+        ...Object.fromEntries(
+          ['charge_range', 'discharge_range'].map((key) => [
+            key,
+            obj(
+              {
+                min_c: { type: 'number' },
+                max_c: { type: 'number' },
+                unit: { const: 'degC' },
+                measurement_point: { enum: ['battery_cell', 'ambient', 'unknown'] },
+                prerequisite: { enum: ['after_heating', 'none', 'unknown'] },
+                ...evidence,
+              },
+              ['min_c', 'max_c', 'unit', 'measurement_point', 'prerequisite', 'evidence_ids'],
+            ),
+          ]),
+        ),
+        ...Object.fromEntries(
+          ['series_permission', 'parallel_permission'].map((key) => [
+            key,
+            obj(
+              {
+                max_count: { ...positive, maximum: Number.MAX_SAFE_INTEGER },
+                requires_matched_bank: { type: ['boolean', 'null'] },
+                unmodeled_conditions: ids,
+                ...evidence,
+              },
+              ['max_count', 'requires_matched_bank', 'evidence_ids'],
+            ),
+          ]),
+        ),
+        bms_cutoffs: {
+          type: 'array',
+          items: obj(
+            {
+              operation: { enum: ['charge', 'discharge'] },
+              threshold_c: { type: 'number' },
+              recovery_c: { type: 'number' },
+              measurement_point: { enum: ['battery_cell', 'ambient', 'unknown'] },
+              ...evidence,
+            },
+            ['operation', 'threshold_c', 'measurement_point', 'evidence_ids'],
+          ),
+        },
+      },
+      ['version'],
+    ),
+    instrumentation: obj(
+      {
+        version: { const: 'instrumentation.v1' },
+        accuracy: {
+          type: 'array',
+          items: obj(
+            {
+              quantity: { enum: ['current', 'voltage'] },
+              electrical_domain: { enum: ['dc', 'ac', 'unknown'] },
+              domain_evidence_ids: ids,
+              percent: { type: 'number', minimum: 0 },
+              basis: { enum: ['reading', 'full_scale', 'unknown'] },
+              required_shunt_a: { type: 'number', exclusiveMinimum: 0 },
+              required_shunt_drop_mv: { type: 'number', exclusiveMinimum: 0 },
+              range,
+              temperature_c: range,
+              ...evidence,
+            },
+            ['quantity', 'electrical_domain', 'percent', 'basis', 'evidence_ids'],
+          ),
+        },
+        shunt: obj(
+          {
+            nominal_current_a: { type: 'number', exclusiveMinimum: 0 },
+            nominal_drop_mv: { type: 'number', exclusiveMinimum: 0 },
+            electrical_domain: { enum: ['dc', 'ac', 'unknown'] },
+            domain_evidence_ids: ids,
+            max_measurement_current_a: fact('A', 0),
+            ...evidence,
+          },
+          ['nominal_current_a', 'nominal_drop_mv', 'electrical_domain', 'evidence_ids'],
+        ),
+      },
+      ['version'],
+    ),
+    source_specification: sourceDraft,
   },
   ['schema_version', 'component_id', 'model', 'manufacturer_revision', 'evidence'],
 );
@@ -227,7 +323,7 @@ const componentText = readFileSync(componentPath, 'utf8').replaceAll('\r\n', '\n
 const canonicalProfile = {
   ...profile,
   description:
-    'Versioned source facts for explicit PV, shared-capacity, AC-mode and assembly consumers. Missing members remain unknown. Presence grants no review or verification authority. Historical records are not migrated.',
+    'Versioned source facts for PV, capacity, AC, assembly, battery, instrumentation and unreviewed source-specification consumers. Missing members remain unknown. Presence grants no review or verification authority. Historical records are not migrated.',
 };
 // Preserve every unrelated canonical schema byte. This owned property is last
 // in the root properties object; do not broadly reformat historical contracts.
@@ -241,7 +337,15 @@ const prefix = componentText
   .replace(/,$/, '');
 const { format, resolveConfig } = await import('prettier');
 const options = { ...(await resolveConfig(componentPath)), parser: 'json' };
-const formatted = (await format(JSON.stringify(canonicalProfile, null, 2), options)).trimEnd();
+// This owned property is nested four columns deeper in the canonical document.
+// Adjust only its formatter width so standalone and inline copies both satisfy
+// repository formatting without rewriting unrelated canonical schema bytes.
+const formatted = (
+  await format(JSON.stringify(canonicalProfile, null, 2), {
+    ...options,
+    printWidth: (options.printWidth ?? 80) - 4,
+  })
+).trimEnd();
 const inline = formatted
   .split('\n')
   .map((line, i) => (i ? '    ' + line : line))

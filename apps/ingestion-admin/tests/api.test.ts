@@ -64,6 +64,27 @@ const post = (url: string, body?: unknown) =>
   });
 
 describe('operator HTTP API and durable DTO boundary', () => {
+  it('downloads only registered authored bytes with inert content and rejects mutation', async () => {
+    const service = fixtureService(await root());
+    const source = vi.fn().mockResolvedValue({
+      bytes: new TextEncoder().encode('<script>synthetic</script>'),
+      media_type: 'text/html',
+    });
+    service.authoredSourceBytes = source;
+    const url = await start(service);
+    const created = await service.createJob(intake);
+    const path = `${url}/${created.id}/authored-source/sha256%3Atest/source.test`;
+    const response = await fetch(path);
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toBe('application/octet-stream');
+    expect(response.headers.get('content-disposition')).toContain('attachment');
+    expect(response.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(await response.text()).toBe('<script>synthetic</script>');
+    expect(source).toHaveBeenCalledWith(created.id, 'sha256:test', 'source.test');
+    expect((await post(path, {})).status).toBe(405);
+    expect(source).toHaveBeenCalledTimes(1);
+  });
   it('starts and serves all job routes while suggestion loading fails, then retries independently', async () => {
     const service = fixtureService(await root());
     const internal = new Error(
@@ -757,6 +778,13 @@ describe('operator HTTP API and durable DTO boundary', () => {
     expect(config.batchRoot).toBe(customBatchRoot);
     const service = await createProductionOperatorService(config);
     expect(service).toHaveProperty('jobService');
+    const retained = vi
+      .spyOn(service.jobService, 'authoredSourceBytes')
+      .mockResolvedValue({ bytes: new Uint8Array([1, 2]), media_type: 'application/pdf' });
+    expect(
+      await service.authoredSourceBytes('synthetic.job', 'synthetic.digest', 'synthetic.source'),
+    ).toEqual({ bytes: new Uint8Array([1, 2]), media_type: 'application/pdf' });
+    expect(retained).toHaveBeenCalledWith('synthetic.job', 'synthetic.digest', 'synthetic.source');
     const latest = await service.createJob(intake);
     expect(latest.state).toBe('created');
     expect(service.jobService).toBeDefined();

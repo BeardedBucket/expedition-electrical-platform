@@ -1,0 +1,1613 @@
+{
+  "version": "source-grounded-draft.v1",
+  "authority": "codex_prepared_unreviewed",
+  "product": {
+    "id": "draft.p15",
+    "manufacturer": "Samlex America",
+    "model": "EVO-2212",
+    "manufacturer_part_number": null,
+    "hardware_revision": null
+  },
+  "intended_use": "Mode-specific12V DC inversion to120V single-phase AC and AC-input charging with explicit shared-current, transfer/neutral and installed cooling constraints",
+  "sources": [
+    {
+      "id": "p15",
+      "url": "https://samlexamerica.com/products/2200-watt-pure-sine-inverter-charger-evo-2212/",
+      "publisher": "Samlex America",
+      "retrieved_at": "2026-10-13T05:05:19.702Z",
+      "content_digest": "sha256:62390ee827e7a7cba0a7a2e4ed539e0a6700ef3e2aca2b791f6e4cb063654655",
+      "document_revision": null,
+      "model": "EVO-2212",
+      "identity_locator": "EVO-2212 product title/specs; exclude EVO-2224/EVO-2212E siblings",
+      "rights": "metadata_and_limited_facts_only",
+      "redistribution_grant": "not_established"
+    },
+    {
+      "id": "p15-spec",
+      "url": "https://samlexamerica.com/wp-content/uploads/2021/11/Samlex-EVO-Features-Spec-Sheet-1121.pdf",
+      "publisher": "Samlex America",
+      "retrieved_at": "2026-10-14T05:01:05.454Z",
+      "content_digest": "sha256:71e314a57ad30e32cecb8a0926b9c5893837587ec1f1cb7ce1ef3dee2d87f02b",
+      "document_revision": "12025-EVO-2212-3012-2224-4024-1121",
+      "model": "EVO-2212",
+      "identity_locator": "PDF p2 exact EVO-2212 first column and notes",
+      "rights": "metadata_and_limited_facts_only",
+      "redistribution_grant": "not_established"
+    },
+    {
+      "id": "p15-manual",
+      "url": "https://samlexamerica.com/wp-content/uploads/2025/02/11025-EVO-2212-3012-2224-4024-0326-Lrez.pdf",
+      "publisher": "Samlex America",
+      "retrieved_at": "2026-10-14T05:01:05.253Z",
+      "content_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "document_revision": "11025-EVO-2212-3012-2224-4024-0326; firmware Rev0.82",
+      "model": "EVO-2212",
+      "identity_locator": "PDF cover model; p127/128 exact EVO-2212 column",
+      "rights": "metadata_and_limited_facts_only",
+      "redistribution_grant": "not_established"
+    }
+  ],
+  "facts": [
+    {
+      "id": "draft.p15.input_voltage_range.0",
+      "quantity": "input_voltage_range",
+      "basis": "operating",
+      "mode": "inverting",
+      "direction": "input",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "{\"min\":9.1,\"max\":17}",
+        "unit": "V",
+        "presentation": "source_value_reconstruction"
+      },
+      "normalized": { "value": { "min": 9.1, "max": 17 }, "unit": "V" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p127 exact EVO-2212 column / Input battery voltage range",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "typed_consumer"
+    },
+    {
+      "id": "draft.p15.output_voltage_nominal.1",
+      "quantity": "output_voltage_nominal",
+      "basis": "nominal",
+      "mode": "inverting",
+      "direction": "output",
+      "electrical_domain": "ac",
+      "original": { "value": "120", "unit": "V", "presentation": "source_literal" },
+      "normalized": { "value": 120, "unit": "V" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p127 exact EVO-2212 column / Nominal AC output",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.output_voltage_tolerance.2",
+      "quantity": "output_voltage_tolerance",
+      "basis": "operating",
+      "mode": "inverting",
+      "direction": "output",
+      "electrical_domain": "ac",
+      "original": { "value": "5", "unit": "%", "presentation": "source_literal" },
+      "normalized": { "value": 5, "unit": "%" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p127 exact EVO-2212 column / Nominal AC output tolerance",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.ac_phase.3",
+      "quantity": "ac_phase",
+      "basis": "operating",
+      "mode": "inverting",
+      "direction": "output",
+      "electrical_domain": "ac",
+      "original": { "value": "single_phase", "unit": "text", "presentation": "authored_summary" },
+      "normalized": { "value": "single_phase", "unit": "text" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p127 exact EVO-2212 column / Single Phase",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "typed_consumer"
+    },
+    {
+      "id": "draft.p15.output_apparent_power.4",
+      "quantity": "output_apparent_power",
+      "basis": "continuous",
+      "mode": "inverting",
+      "direction": "output",
+      "electrical_domain": "ac",
+      "original": { "value": "2200", "unit": "VA", "presentation": "source_literal" },
+      "normalized": { "value": 2200, "unit": "VA" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p127 exact EVO-2212 column / Continuous Output Power and p129 notes",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [
+        { "key": "ambient_temperature_c", "value": 25, "unit": "degC" },
+        { "key": "power_factor", "value": 0.95, "unit": "fraction" }
+      ],
+      "unresolved_conditions": [],
+      "disposition": "typed_consumer"
+    },
+    {
+      "id": "draft.p15.output_current.5",
+      "quantity": "output_current",
+      "basis": "continuous",
+      "mode": "inverting",
+      "direction": "output",
+      "electrical_domain": "ac",
+      "original": { "value": "18", "unit": "A", "presentation": "source_literal" },
+      "normalized": { "value": 18, "unit": "A" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p127 exact EVO-2212 column / Continuous AC current",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [
+        { "key": "ambient_temperature_c", "value": 25, "unit": "degC" },
+        { "key": "power_factor", "value": 0.95, "unit": "fraction" }
+      ],
+      "unresolved_conditions": [],
+      "disposition": "typed_consumer"
+    },
+    {
+      "id": "draft.p15.output_power.6",
+      "quantity": "output_power",
+      "basis": "continuous",
+      "mode": "inverting",
+      "direction": "output",
+      "electrical_domain": "ac",
+      "original": { "value": "2200", "unit": "W", "presentation": "source_literal" },
+      "normalized": { "value": 2200, "unit": "W" },
+      "normalization": "identity",
+      "source_id": "p15",
+      "locator": "Product Specifications / Watts",
+      "context_digest": "sha256:62390ee827e7a7cba0a7a2e4ed539e0a6700ef3e2aca2b791f6e4cb063654655",
+      "conditions": [],
+      "unresolved_conditions": [
+        "Website W label versus manual VA basis requires reconciliation; no substitution/conversion accepted"
+      ],
+      "disposition": "evidence_ambiguity"
+    },
+    {
+      "id": "draft.p15.surge_apparent_power.7",
+      "quantity": "surge_apparent_power",
+      "basis": "peak",
+      "mode": "inverting",
+      "direction": "output",
+      "electrical_domain": "ac",
+      "original": { "value": "6600", "unit": "VA", "presentation": "source_literal" },
+      "normalized": { "value": 6600, "unit": "VA" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p127 exact EVO-2212 column / Surge Power 0.001sec",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [
+        { "key": "ambient_temperature_c", "value": 25, "unit": "degC" },
+        { "key": "power_factor", "value": 0.95, "unit": "fraction" },
+        { "key": "duration_s", "value": { "min": 0, "max": 0.001 }, "unit": "s" }
+      ],
+      "unresolved_conditions": ["Duty/recovery and transient load evidence required"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.surge_current.8",
+      "quantity": "surge_current",
+      "basis": "peak",
+      "mode": "inverting",
+      "direction": "output",
+      "electrical_domain": "ac",
+      "original": { "value": "54", "unit": "A", "presentation": "source_literal" },
+      "normalized": { "value": 54, "unit": "A" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p127 exact EVO-2212 column / Surge Power 0.001sec",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [
+        { "key": "ambient_temperature_c", "value": 25, "unit": "degC" },
+        { "key": "power_factor", "value": 0.95, "unit": "fraction" },
+        { "key": "duration_s", "value": { "min": 0, "max": 0.001 }, "unit": "s" }
+      ],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.surge_apparent_power.9",
+      "quantity": "surge_apparent_power",
+      "basis": "peak",
+      "mode": "inverting",
+      "direction": "output",
+      "electrical_domain": "ac",
+      "original": { "value": "4400", "unit": "VA", "presentation": "source_literal" },
+      "normalized": { "value": 4400, "unit": "VA" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p127 exact EVO-2212 column / Surge Power 0.1sec",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [
+        { "key": "ambient_temperature_c", "value": 25, "unit": "degC" },
+        { "key": "power_factor", "value": 0.95, "unit": "fraction" },
+        { "key": "duration_s", "value": { "min": 0, "max": 0.1 }, "unit": "s" }
+      ],
+      "unresolved_conditions": ["Duty/recovery and transient load evidence required"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.surge_current.10",
+      "quantity": "surge_current",
+      "basis": "peak",
+      "mode": "inverting",
+      "direction": "output",
+      "electrical_domain": "ac",
+      "original": { "value": "36", "unit": "A", "presentation": "source_literal" },
+      "normalized": { "value": 36, "unit": "A" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p127 exact EVO-2212 column / Surge Power 0.1sec",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [
+        { "key": "ambient_temperature_c", "value": 25, "unit": "degC" },
+        { "key": "power_factor", "value": 0.95, "unit": "fraction" },
+        { "key": "duration_s", "value": { "min": 0, "max": 0.1 }, "unit": "s" }
+      ],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.output_power.11",
+      "quantity": "output_power",
+      "basis": "peak",
+      "mode": "inverting_boost",
+      "direction": "output",
+      "electrical_domain": "ac",
+      "original": { "value": "3300", "unit": "W", "presentation": "source_literal" },
+      "normalized": { "value": 3300, "unit": "W" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p127 exact EVO-2212 column / Power Boost 5sec",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [
+        { "key": "ambient_temperature_c", "value": 25, "unit": "degC" },
+        { "key": "power_factor", "value": 0.95, "unit": "fraction" },
+        { "key": "duration_s", "value": { "min": 0, "max": 5 }, "unit": "s" }
+      ],
+      "unresolved_conditions": [
+        "No combining overlapping envelopes or assuming peak repetition/recovery"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.output_power.12",
+      "quantity": "output_power",
+      "basis": "peak",
+      "mode": "inverting_boost",
+      "direction": "output",
+      "electrical_domain": "ac",
+      "original": { "value": "3080", "unit": "W", "presentation": "source_literal" },
+      "normalized": { "value": 3080, "unit": "W" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p127 exact EVO-2212 column / Power Boost 30sec",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [
+        { "key": "ambient_temperature_c", "value": 25, "unit": "degC" },
+        { "key": "power_factor", "value": 0.95, "unit": "fraction" },
+        { "key": "duration_s", "value": { "min": 0, "max": 30 }, "unit": "s" }
+      ],
+      "unresolved_conditions": [
+        "No combining overlapping envelopes or assuming peak repetition/recovery"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.output_power.13",
+      "quantity": "output_power",
+      "basis": "peak",
+      "mode": "inverting_boost",
+      "direction": "output",
+      "electrical_domain": "ac",
+      "original": { "value": "2640", "unit": "W", "presentation": "source_literal" },
+      "normalized": { "value": 2640, "unit": "W" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p127 exact EVO-2212 column / Power Boost 300sec",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [
+        { "key": "ambient_temperature_c", "value": 25, "unit": "degC" },
+        { "key": "power_factor", "value": 0.95, "unit": "fraction" },
+        { "key": "duration_s", "value": { "min": 0, "max": 300 }, "unit": "s" }
+      ],
+      "unresolved_conditions": [
+        "No combining overlapping envelopes or assuming peak repetition/recovery"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.output_power.14",
+      "quantity": "output_power",
+      "basis": "peak",
+      "mode": "inverting_boost",
+      "direction": "output",
+      "electrical_domain": "ac",
+      "original": { "value": "2420", "unit": "W", "presentation": "source_literal" },
+      "normalized": { "value": 2420, "unit": "W" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p127 exact EVO-2212 column / Power Boost 1800sec",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [
+        { "key": "ambient_temperature_c", "value": 25, "unit": "degC" },
+        { "key": "power_factor", "value": 0.95, "unit": "fraction" },
+        { "key": "duration_s", "value": { "min": 0, "max": 1800 }, "unit": "s" }
+      ],
+      "unresolved_conditions": [
+        "No combining overlapping envelopes or assuming peak repetition/recovery"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.input_current_max.15",
+      "quantity": "input_current_max",
+      "basis": "continuous",
+      "mode": "inverting",
+      "direction": "input",
+      "electrical_domain": "dc",
+      "original": { "value": "266", "unit": "A", "presentation": "source_literal" },
+      "normalized": { "value": 266, "unit": "A" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p127 exact EVO-2212 column / Maximum continuous DC current",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [
+        { "key": "ambient_temperature_c", "value": 25, "unit": "degC" },
+        { "key": "power_factor", "value": 0.95, "unit": "fraction" }
+      ],
+      "unresolved_conditions": [],
+      "disposition": "typed_consumer"
+    },
+    {
+      "id": "draft.p15.efficiency.16",
+      "quantity": "efficiency",
+      "basis": "typical",
+      "mode": "inverting",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": { "value": "90", "unit": "%", "presentation": "source_literal" },
+      "normalized": { "value": 90, "unit": "%" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p127 exact EVO-2212 column / Inverter efficiency peak",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.output_frequency.17",
+      "quantity": "output_frequency",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "60/50Hz ±0.1Hz; default60Hz",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": { "value": "60/50Hz ±0.1Hz; default60Hz", "unit": "text" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p127 exact EVO-2212 column / Output frequency",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.waveform_thd_less_than.18",
+      "quantity": "waveform_thd_less_than",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": { "value": "5", "unit": "%", "presentation": "source_literal" },
+      "normalized": { "value": 5, "unit": "%" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p127 exact EVO-2212 column / THD",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.waveform.19",
+      "quantity": "waveform",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": { "value": "pure sine", "unit": "text", "presentation": "authored_summary" },
+      "normalized": { "value": "pure sine", "unit": "text" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p127 exact EVO-2212 column / Output waveform",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.idle_power.20",
+      "quantity": "idle_power",
+      "basis": "typical",
+      "mode": "normal",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": { "value": "30", "unit": "W", "presentation": "source_literal" },
+      "normalized": { "value": 30, "unit": "W" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p127 exact EVO-2212 column / No load power normal",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [{ "key": "output_voltage_v", "value": 120, "unit": "V" }],
+      "unresolved_conditions": ["Typical, not maximum; p129 reference conditions apply"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.idle_power.21",
+      "quantity": "idle_power",
+      "basis": "typical",
+      "mode": "standby",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": { "value": "5", "unit": "W", "presentation": "source_literal" },
+      "normalized": { "value": 5, "unit": "W" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p127 exact EVO-2212 column / No load power standby",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": ["Source is less-than bound, not equal consumption"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.idle_power.22",
+      "quantity": "idle_power",
+      "basis": "typical",
+      "mode": "power_saving",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": { "value": "8", "unit": "W", "presentation": "source_literal" },
+      "normalized": { "value": 8, "unit": "W" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p127 exact EVO-2212 column / No load power power_saving",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": ["Source is less-than bound, not equal consumption"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.input_voltage_range.23",
+      "quantity": "input_voltage_range",
+      "basis": "operating",
+      "mode": "ac_input",
+      "direction": "input",
+      "electrical_domain": "ac",
+      "original": {
+        "value": "{\"min\":60,\"max\":140}",
+        "unit": "V",
+        "presentation": "source_value_reconstruction"
+      },
+      "normalized": { "value": { "min": 60, "max": 140 }, "unit": "V" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p127 exact EVO-2212 column / AC input voltage selectable",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": [
+        "Selectable acceptance range ±5%; actual programmed window must be proven"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.input_frequency_range.24",
+      "quantity": "input_frequency_range",
+      "basis": "operating",
+      "mode": "ac_input",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "{\"min\":40,\"max\":70}",
+        "unit": "Hz",
+        "presentation": "source_value_reconstruction"
+      },
+      "normalized": { "value": { "min": 40, "max": 70 }, "unit": "Hz" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p127 exact EVO-2212 column / AC input frequency selectable",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.input_current_max.25",
+      "quantity": "input_current_max",
+      "basis": "absolute",
+      "mode": "ac_input",
+      "direction": "input",
+      "electrical_domain": "ac",
+      "original": { "value": "40", "unit": "A", "presentation": "source_literal" },
+      "normalized": { "value": 40, "unit": "A" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p127 exact EVO-2212 column / Maximum programmable AC input current",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": [
+        "Actual setpoint default30A and external breaker/source rating apply"
+      ],
+      "disposition": "typed_consumer"
+    },
+    {
+      "id": "draft.p15.transfer_capacity.26",
+      "quantity": "transfer_capacity",
+      "basis": "absolute",
+      "mode": "bypass",
+      "direction": "output",
+      "electrical_domain": "ac",
+      "original": { "value": "40", "unit": "A", "presentation": "source_literal" },
+      "normalized": { "value": 40, "unit": "A" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p127 exact EVO-2212 column / Transfer relay",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.transfer_topology.27",
+      "quantity": "transfer_topology",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": { "value": "SPDT", "unit": "text", "presentation": "authored_summary" },
+      "normalized": { "value": "SPDT", "unit": "text" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p127 exact EVO-2212 column / Transfer relay type",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.transfer_time_less_than.28",
+      "quantity": "transfer_time_less_than",
+      "basis": "descriptive",
+      "mode": "inverter_to_ac",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": { "value": "1", "unit": "ms", "presentation": "source_literal" },
+      "normalized": { "value": 1, "unit": "ms" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p127 exact EVO-2212 column / Transfer inverter to input",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [{ "key": "synchronized_zero_crossing", "value": true, "unit": "text" }],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.transfer_time_max.29",
+      "quantity": "transfer_time_max",
+      "basis": "descriptive",
+      "mode": "ac_to_inverter",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": { "value": "16", "unit": "ms", "presentation": "source_literal" },
+      "normalized": { "value": 16, "unit": "ms" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p127 exact EVO-2212 column / Transfer input to inverter",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [{ "key": "synchronized_zero_crossing", "value": true, "unit": "text" }],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.charger_ac_input_current.30",
+      "quantity": "charger_ac_input_current",
+      "basis": "continuous",
+      "mode": "charging",
+      "direction": "input",
+      "electrical_domain": "ac",
+      "original": { "value": "15", "unit": "A", "presentation": "source_literal" },
+      "normalized": { "value": 15, "unit": "A" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p128 exact EVO-2212 column / Rated continuous charger AC input current",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [{ "key": "ambient_temperature_c", "value": 25, "unit": "degC" }],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.charge_current.31",
+      "quantity": "charge_current",
+      "basis": "absolute",
+      "mode": "charging",
+      "direction": "output",
+      "electrical_domain": "dc",
+      "original": { "value": "100", "unit": "A", "presentation": "source_literal" },
+      "normalized": { "value": 100, "unit": "A" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p128 exact EVO-2212 column / Programmable bulk charging current",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [{ "key": "ambient_temperature_c", "value": 25, "unit": "degC" }],
+      "unresolved_conditions": [
+        "Setpoint, BMS acceptance and shared AC demand may lower charging current"
+      ],
+      "disposition": "typed_consumer"
+    },
+    {
+      "id": "draft.p15.output_voltage_range.32",
+      "quantity": "output_voltage_range",
+      "basis": "operating",
+      "mode": "charging",
+      "direction": "output",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "{\"min\":12,\"max\":16.5}",
+        "unit": "V",
+        "presentation": "source_value_reconstruction"
+      },
+      "normalized": { "value": { "min": 12, "max": 16.5 }, "unit": "V" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p128 exact EVO-2212 column / Programmable bulk charging voltage",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "typed_consumer"
+    },
+    {
+      "id": "draft.p15.efficiency.33",
+      "quantity": "efficiency",
+      "basis": "typical",
+      "mode": "charging",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": { "value": "75", "unit": "%", "presentation": "source_literal" },
+      "normalized": { "value": 75, "unit": "%" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p128 exact EVO-2212 column / Charger efficiency",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.input_power_factor_greater_than.34",
+      "quantity": "input_power_factor_greater_than",
+      "basis": "descriptive",
+      "mode": "charging",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": { "value": "0.95", "unit": "fraction", "presentation": "source_literal" },
+      "normalized": { "value": 0.95, "unit": "fraction" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p128 exact EVO-2212 column / Input power factor",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.charging_profiles.35",
+      "quantity": "charging_profiles",
+      "basis": "descriptive",
+      "mode": "charging",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "seven lead-acid/lithium/nickel-zinc profiles; programmable",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "seven lead-acid/lithium/nickel-zinc profiles; programmable",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p128 exact EVO-2212 column / Charging profiles",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.battery_temperature_compensation_range.36",
+      "quantity": "battery_temperature_compensation_range",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "{\"min\":-20,\"max\":60}",
+        "unit": "degC",
+        "presentation": "source_value_reconstruction"
+      },
+      "normalized": { "value": { "min": -20, "max": 60 }, "unit": "degC" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p128 exact EVO-2212 column / Battery temp compensation",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": ["Sensor compensation span is not battery temperature permission"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.external_charger_voltage_range.37",
+      "quantity": "external_charger_voltage_range",
+      "basis": "descriptive",
+      "mode": "external_charger",
+      "direction": "input",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "{\"min\":13,\"max\":16.5}",
+        "unit": "V",
+        "presentation": "source_value_reconstruction"
+      },
+      "normalized": { "value": { "min": 13, "max": 16.5 }, "unit": "V" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p128 exact EVO-2212 column / External charger voltage",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.external_port_current_max.38",
+      "quantity": "external_port_current_max",
+      "basis": "absolute",
+      "mode": "external_charger",
+      "direction": "bidirectional",
+      "electrical_domain": "dc",
+      "original": { "value": "50", "unit": "A", "presentation": "source_literal" },
+      "normalized": { "value": 50, "unit": "A" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p128 exact EVO-2212 column / Maximum flowing current; p90 firmware0.82",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [{ "key": "firmware_version", "value": "0.82", "unit": "text" }],
+      "unresolved_conditions": [
+        "Direction behavior changes atfirmware0.82; actual firmware/routing must match"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.operating_modes.39",
+      "quantity": "operating_modes",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "grid priority, battery priority, charger-only",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": { "value": "grid priority, battery priority, charger-only", "unit": "text" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p128 exact EVO-2212 column / Operating modes",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": ["Charger-only excludes inverting; no combined independent ratings"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.ac_shared_current_rule.40",
+      "quantity": "ac_shared_current_rule",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "charger AC equivalent plus bypass load constrained by programmed grid/gen maximum",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "charger AC equivalent plus bypass load constrained by programmed grid/gen maximum",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p88 §5.2",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": [
+        "Actual setpoint, source selection, dynamics and thermal derating unproven"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.charge_thermal_reduction.41",
+      "quantity": "charge_thermal_reduction",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "EVO-2212:4A/10s reduction attransformer>130C or heatsink>65C",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "EVO-2212:4A/10s reduction attransformer>130C or heatsink>65C",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p90 §5.3",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": ["Stateful control retained; no invented ambient derating curve"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.external_dc_compensation.42",
+      "quantity": "external_dc_compensation",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "internal charge setpoint subtracts incoming solar/adds external DC load, hardware limited",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "internal charge setpoint subtracts incoming solar/adds external DC load, hardware limited",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p90/91 §5.4 firmware0.82",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": [
+        "Actual firmware/configuration, flow and simultaneous state required"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.neutral_bond_inverting.43",
+      "quantity": "neutral_bond_inverting",
+      "basis": "descriptive",
+      "mode": "inverting",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "output neutral connected to chassis by default relay",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "output neutral connected to chassis by default relay",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p51 §3.6.1 and p62 §3.14.3",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": [
+        "Bond-disable connection may change behavior; actual setting required"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.neutral_bond_charging.44",
+      "quantity": "neutral_bond_charging",
+      "basis": "descriptive",
+      "mode": "charging",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "internal output neutral-chassis bond opens",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": { "value": "internal output neutral-chassis bond opens", "unit": "text" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p51 §3.6.1 and p62 §3.14.3",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": ["External bond and source/transfer wiring required"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.ac_output_parallel_permission.45",
+      "quantity": "ac_output_parallel_permission",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": { "value": "false", "unit": "boolean", "presentation": "authored_summary" },
+      "normalized": { "value": false, "unit": "boolean" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p52 §3.6.3/3.6.4",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": ["No split-phase output or parallel permission from AC input alone"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.bms_control_interface.46",
+      "quantity": "bms_control_interface",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "Battery Temp RJ45 repurposed for potential-free stop-charge/stop-invert contacts in lithium setting",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "Battery Temp RJ45 repurposed for potential-free stop-charge/stop-invert contacts in lithium setting",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p112/113 §5.11",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": ["Connector existence is not Epoch BMS control compatibility"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.cooling.47",
+      "quantity": "cooling",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "two variable-speed temperature-controlled fans",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": { "value": "two variable-speed temperature-controlled fans", "unit": "text" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p128 Cooling",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.ambient_temperature_range.48",
+      "quantity": "ambient_temperature_range",
+      "basis": "operating",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "{\"min\":-20,\"max\":60}",
+        "unit": "degC",
+        "presentation": "source_value_reconstruction"
+      },
+      "normalized": { "value": { "min": -20, "max": 60 }, "unit": "degC" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p129 Environment",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": ["Not full power across entire range"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.storage_temperature_range.49",
+      "quantity": "storage_temperature_range",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "{\"min\":-40,\"max\":70}",
+        "unit": "degC",
+        "presentation": "source_value_reconstruction"
+      },
+      "normalized": { "value": { "min": -40, "max": 70 }, "unit": "degC" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p129 Environment",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.humidity_max.50",
+      "quantity": "humidity_max",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": { "value": "95", "unit": "%", "presentation": "source_literal" },
+      "normalized": { "value": 95, "unit": "%" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p129 Operating humidity",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [{ "key": "condensation", "value": false, "unit": "text" }],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.body_size.51",
+      "quantity": "body_size",
+      "basis": "body",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "{\"x\":325,\"y\":426,\"z\":207}",
+        "unit": "mm",
+        "presentation": "source_value_reconstruction"
+      },
+      "normalized": { "value": { "x": 325, "y": 426, "z": 207 }, "unit": "mm" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p129 Dimensions W D H",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": ["p39 gives207.2mm height; rounding/context retained"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.mass.52",
+      "quantity": "mass",
+      "basis": "body",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": { "value": "27", "unit": "kg", "presentation": "source_literal" },
+      "normalized": { "value": 27, "unit": "kg" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p129 EVO-2212 Weight",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.clearance_surrounding_greater_than.53",
+      "quantity": "clearance_surrounding_greater_than",
+      "basis": "installation",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": { "value": "200", "unit": "mm", "presentation": "source_literal" },
+      "normalized": { "value": 200, "unit": "mm" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p40 Cooling",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": ["Strictly over200mm; no equality acceptance or body-only envelope"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.mounting_support_mass_min.54",
+      "quantity": "mounting_support_mass_min",
+      "basis": "installation",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": { "value": "60", "unit": "kg", "presentation": "source_literal" },
+      "normalized": { "value": 60, "unit": "kg" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p39 Mounting",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.mounting_constraints.55",
+      "quantity": "mounting_constraints",
+      "basis": "installation",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "noncombustible support;4 M6/quarter-inch bolts; allowed fan-axis orientations; marine drip shield",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "noncombustible support;4 M6/quarter-inch bolts; allowed fan-axis orientations; marine drip shield",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p39/40/41 Mounting",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.compliance_claims.56",
+      "quantity": "compliance_claims",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "manufacturer claims; marine supplement conditional on drip shield",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "manufacturer claims; marine supplement conditional on drip shield",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p129 Compliance and marine footnote",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": [
+        "Not installed ABYC/UL/grounding proof; no standards table imported"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.battery_positive_external_protection.57",
+      "quantity": "battery_positive_external_protection",
+      "basis": "installation",
+      "mode": "installation",
+      "direction": "input",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "External battery-positive fuse required close to battery; fast-acting current-limiting UL Class T or equivalent; model-specific sizing remains separately reviewed",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "External battery-positive fuse required close to battery; fast-acting current-limiting UL Class T or equivalent; model-specific sizing remains separately reviewed",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p50 / 3.5.6 notes 4 / 3.5.7",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": [
+        "Sizing depends on manufacturer table and referenced standards/context; no imported standards table or installation compliance decision"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.battery_fuse_distance_max.58",
+      "quantity": "battery_fuse_distance_max",
+      "basis": "installation",
+      "mode": "installation",
+      "direction": "input",
+      "electrical_domain": "dc",
+      "original": { "value": "7", "unit": "in", "presentation": "source_literal" },
+      "normalized": { "value": 7, "unit": "in" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p50 / external battery-positive fuse placement",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.battery_terminal_torque.59",
+      "quantity": "battery_terminal_torque",
+      "basis": "installation",
+      "mode": "installation",
+      "direction": "input",
+      "electrical_domain": "dc",
+      "original": { "value": "70", "unit": "kgf.cm", "presentation": "source_literal" },
+      "normalized": { "value": 70, "unit": "kgf.cm" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p54 / 3.7.2 Tightening Torques / Battery Input Connectors",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.external_charger_terminal_torque.60",
+      "quantity": "external_charger_terminal_torque",
+      "basis": "installation",
+      "mode": "installation",
+      "direction": "bidirectional",
+      "electrical_domain": "dc",
+      "original": { "value": "35", "unit": "kgf.cm", "presentation": "source_literal" },
+      "normalized": { "value": 35, "unit": "kgf.cm" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p54 / 3.7.2 / External Charger Input Connectors",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": [
+        "Direction/configuration/firmware applicability must be reviewed independently of physical torque"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.ac_terminal_torque.61",
+      "quantity": "ac_terminal_torque",
+      "basis": "installation",
+      "mode": "installation",
+      "direction": "bidirectional",
+      "electrical_domain": "ac",
+      "original": {
+        "value": "{\"min\":7,\"max\":12}",
+        "unit": "kgf.cm",
+        "presentation": "source_value_reconstruction"
+      },
+      "normalized": { "value": { "min": 7, "max": 12 }, "unit": "kgf.cm" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p54 / 3.7.2 / AC Input and Output Connectors",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.ac_terminal_wire_size.62",
+      "quantity": "ac_terminal_wire_size",
+      "basis": "installation",
+      "mode": "installation",
+      "direction": "bidirectional",
+      "electrical_domain": "ac",
+      "original": {
+        "value": "{\"min\":6,\"max\":20}",
+        "unit": "AWG",
+        "presentation": "source_value_reconstruction"
+      },
+      "normalized": { "value": { "min": 6, "max": 20 }, "unit": "AWG" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p54 / 3.7.1 terminal block conductor size",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": [
+        "Conductor fit is not installed ampacity, material, temperature or protection eligibility"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.ac_terminal_entry_diameter.63",
+      "quantity": "ac_terminal_entry_diameter",
+      "basis": "installation",
+      "mode": "installation",
+      "direction": "bidirectional",
+      "electrical_domain": "ac",
+      "original": { "value": "6", "unit": "mm", "presentation": "source_literal" },
+      "normalized": { "value": 6, "unit": "mm" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p54 / 3.7.1 terminal block hole size",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.ac_terminal_set_screw.64",
+      "quantity": "ac_terminal_set_screw",
+      "basis": "installation",
+      "mode": "installation",
+      "direction": "bidirectional",
+      "electrical_domain": "ac",
+      "original": { "value": "M4", "unit": "text", "presentation": "authored_summary" },
+      "normalized": { "value": "M4", "unit": "text" },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p54 / 3.7.1 terminal block screw size",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.ac_source_output_fault_guard.65",
+      "quantity": "ac_source_output_fault_guard",
+      "basis": "protection",
+      "mode": "installation",
+      "direction": "input",
+      "electrical_domain": "ac",
+      "original": {
+        "value": "Source connects to AC input, never AC output. Misconnection check applies only during power-on from OFF; it is not continuous protection",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "Source connects to AC input, never AC output. Misconnection check applies only during power-on from OFF; it is not continuous protection",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p53 / 3.6 wiring WARNING",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [{ "key": "initial_device_state", "value": "off", "unit": "text" }],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.battery_cable_termination_routing.66",
+      "quantity": "battery_cable_termination_routing",
+      "basis": "installation",
+      "mode": "installation",
+      "direction": "input",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "Correct stud/wire-sized termination required; paired positive/negative routing reduces inductive effects and must preserve ventilation and installation access",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "Correct stud/wire-sized termination required; paired positive/negative routing reduces inductive effects and must preserve ventilation and installation access",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p50 / 3.5.7–3.5.9",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.dc_fault_grounding_scope.67",
+      "quantity": "dc_fault_grounding_scope",
+      "basis": "protection",
+      "mode": "installation",
+      "direction": "none",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "DC chassis/panel/battery-negative bonding is separate from AC protective grounding; conductor sizing and actual fault return path require installation/code review",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "DC chassis/panel/battery-negative bonding is separate from AC protective grounding; conductor sizing and actual fault return path require installation/code review",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p60–61 / 3.13",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": [
+        "No numerical standards sizing table imported; local installation and fault topology unproven"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.ac_protective_ground_connections.68",
+      "quantity": "ac_protective_ground_connections",
+      "basis": "protection",
+      "mode": "installation",
+      "direction": "none",
+      "electrical_domain": "ac",
+      "original": {
+        "value": "GEN GND, GRID GND and OUTPUT GND are internally chassis bonded; this equipment-grounding relationship is distinct from switched output neutral bonding",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "GEN GND, GRID GND and OUTPUT GND are internally chassis bonded; this equipment-grounding relationship is distinct from switched output neutral bonding",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p61 / 3.14.1 first bullet",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.transfer_neutral_conductor.69",
+      "quantity": "transfer_neutral_conductor",
+      "basis": "operating",
+      "mode": "transfer",
+      "direction": "bidirectional",
+      "electrical_domain": "ac",
+      "original": {
+        "value": "Transfer relay does not transfer Grid/Generator neutral; external neutral/bonding configuration must match installation mode",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "Transfer relay does not transfer Grid/Generator neutral; external neutral/bonding configuration must match installation mode",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p62 / 3.14.2.1",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": [
+        "Actual external source neutral and device bond-setting/firmware proof required"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.battery_temperature_sensor_accessory.70",
+      "quantity": "battery_temperature_sensor_accessory",
+      "basis": "descriptive",
+      "mode": "battery_temperature",
+      "direction": "input",
+      "electrical_domain": "unknown",
+      "original": {
+        "value": "EVO-BCTS uses 5m cable; sensor head mounts at battery positive or negative stud and its NTC terminals use RJ45 pins4/5",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "EVO-BCTS uses 5m cable; sensor head mounts at battery positive or negative stud and its NTC terminals use RJ45 pins4/5",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p63 / 3.15.2",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": [
+        "Stud/electrolyte observation is not assumed to equal a lithium cell-temperature measurement"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.bms_control_positive_pin_group.71",
+      "quantity": "bms_control_positive_pin_group",
+      "basis": "descriptive",
+      "mode": "lithium_bms_control",
+      "direction": "input",
+      "electrical_domain": "unknown",
+      "original": {
+        "value": "Pins1/2/3/4 internally common for BMS control positive",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "Pins1/2/3/4 internally common for BMS control positive",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p64 / 3.16 / Fig3.13",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [{ "key": "battery_type_setting", "value": "lithium", "unit": "text" }],
+      "unresolved_conditions": [
+        "No Epoch protocol/electrical compatibility, actual firmware or wiring proof"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.bms_control_negative_pin_group.72",
+      "quantity": "bms_control_negative_pin_group",
+      "basis": "descriptive",
+      "mode": "lithium_bms_control",
+      "direction": "input",
+      "electrical_domain": "unknown",
+      "original": {
+        "value": "Pins5/6/7/8 internally common for BMS control negative",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "Pins5/6/7/8 internally common for BMS control negative",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p64 / 3.16 / Fig3.13",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [{ "key": "battery_type_setting", "value": "lithium", "unit": "text" }],
+      "unresolved_conditions": [
+        "No Epoch protocol/electrical compatibility, actual firmware or wiring proof"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.bms_control_configuration.73",
+      "quantity": "bms_control_configuration",
+      "basis": "operating",
+      "mode": "lithium_bms_control",
+      "direction": "input",
+      "electrical_domain": "unknown",
+      "original": {
+        "value": "Battery Temp Sensor RJ45 is repurposed for potential-free optoisolated BMS control when lithium battery type is selected; temperature-sensor use and this control role are distinct",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "Battery Temp Sensor RJ45 is repurposed for potential-free optoisolated BMS control when lithium battery type is selected; temperature-sensor use and this control role are distinct",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p64 / 3.16",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [{ "key": "battery_type_setting", "value": "lithium", "unit": "text" }],
+      "unresolved_conditions": [
+        "External BMS signal semantics/configuration and actual compatibility require review"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p15.ac_external_breakers.74",
+      "quantity": "ac_external_breakers",
+      "basis": "installation",
+      "mode": "ac_installation",
+      "direction": "none",
+      "electrical_domain": "ac",
+      "original": {
+        "value": "AC input circuit breakers are not supplied internally; installer provides external protection, with applicable national/local requirements controlling the installation",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "AC input circuit breakers are not supplied internally; installer provides external protection, with applicable national/local requirements controlling the installation",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p15-manual",
+      "locator": "PDF p54 / 3.8 WARNING",
+      "context_digest": "sha256:23df0d2727e9f35278efcb9ffbc0e9f60e6d2169c3698a2bfe3fab08d15bd95d",
+      "conditions": [],
+      "unresolved_conditions": [
+        "No standards sizing table imported; actual breaker/wire/source/fault coordination requires separate evidence"
+      ],
+      "disposition": "retained_source_fact"
+    }
+  ],
+  "holds": [
+    "Exact installed hardware revision not established; capture/document revision is distinct",
+    "All authored source meanings require independent human review; no source decision or product authority",
+    "Published W/VA labels require human reconciliation; no unity power factor or split-phase assumption",
+    "Actual firmware/revision, BMS interfaces, neutral-ground setting, AC source limits, protection, shared-current dynamics and cooling remain holds"
+  ]
+}

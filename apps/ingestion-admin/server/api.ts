@@ -50,6 +50,7 @@ export type OperatorService = Pick<
       | 'finalizeJob'
       | 'engineeringVerificationPreview'
       | 'verifyEngineering'
+      | 'authoredSourceBytes'
     >
   > &
   Partial<Pick<IngestionBatchService, 'createBatch' | 'getBatch' | 'listBatches' | 'prepareBatch'>>;
@@ -383,6 +384,33 @@ export function createOperatorApi(
           return send(res, 201, batchDetail(await service.createBatch(batches)));
         }
         throw new RequestError(405, 'Method not allowed.');
+      }
+      const authoredSourceMatch =
+        /^\/api\/ingestion\/jobs\/([^/]+)\/authored-source\/([^/]+)\/([^/]+)$/.exec(pathname);
+      if (authoredSourceMatch) {
+        if (req.method !== 'GET') throw new RequestError(405, 'Method not allowed.');
+        if (!validId.test(authoredSourceMatch[1]!))
+          throw new RequestError(400, 'Malformed ingestion job ID.');
+        if (!service.authoredSourceBytes)
+          throw new RequestError(409, 'Authored source browsing unavailable.');
+        const source = await service.authoredSourceBytes(
+          authoredSourceMatch[1]!,
+          decodeURIComponent(authoredSourceMatch[2]!),
+          decodeURIComponent(authoredSourceMatch[3]!),
+        );
+        // Download only: publisher HTML must never execute in the operator origin.
+        res.writeHead(200, {
+          'content-type': 'application/octet-stream',
+          'content-disposition':
+            source.media_type === 'application/pdf'
+              ? 'attachment; filename="retained-manufacturer-source.pdf"'
+              : 'attachment; filename="retained-manufacturer-source.txt"',
+          'x-content-type-options': 'nosniff',
+          'cache-control': 'no-store',
+          'content-length': source.bytes.length,
+        });
+        res.end(source.bytes);
+        return;
       }
       const jobMatch =
         /^\/api\/ingestion\/jobs\/([^/]+)(\/engineering-verification|\/prepare|\/preparation\/reopen|\/review\/(?:approve|reject|defer|resume|semantic-decisions|human-adjudication|human-preview|human-evidence|human-properties)|\/review\/semantic-proposals\/([^/]+)\/(?:targets|preview)|\/finalize|\/source-resolution\/(?:candidates|accept|reject|reopen))?$/.exec(

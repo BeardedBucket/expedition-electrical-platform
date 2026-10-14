@@ -313,7 +313,7 @@ export const jobDetail = (job: IngestionJob) => {
   const p = job.preparation;
   const r = p?.status === 'review_ready' ? p : undefined;
   const profileSuggestions = r
-    ? suggestEngineeringProfileSources(r.intake, r.document_extractions)
+    ? suggestEngineeringProfileSources(r.intake, r.document_extractions, r.qualified_facts)
     : [];
   const candidate = r?.bridge.candidate;
   const pkg = r?.review_package;
@@ -524,6 +524,28 @@ export const jobDetail = (job: IngestionJob) => {
       : undefined;
   return {
     summary: jobSummary(job),
+    authored_drafts: (job.authored_draft_imports ?? []).map((entry, index) => ({
+      proposal_digest: entry.proposal_digest,
+      current_preparation: p ? entry.preparation_digest === artifactDigest(p) : false,
+      authority: entry.authority,
+      recorded_at: entry.recorded_at,
+      draft: entry.proposal.draft,
+      facts: entry.proposal.draft.facts.map((f) => ({
+        ...f,
+        change: !job.authored_draft_imports?.[index - 1]?.proposal.draft.facts.some(
+          (old) => old.id === f.id,
+        )
+          ? ('new_proposal' as const)
+          : artifactDigest(f) ===
+              artifactDigest(
+                job.authored_draft_imports[index - 1]!.proposal.draft.facts.find(
+                  (old) => old.id === f.id,
+                )!,
+              )
+            ? ('retained' as const)
+            : ('changed_proposal' as const),
+      })),
+    })),
     ...(r
       ? {
           product_review_lifecycle: {
@@ -907,11 +929,11 @@ export const jobDetail = (job: IngestionJob) => {
 export type OperatorJobSummary = ReturnType<typeof jobSummary>;
 export type OperatorJobDetail = Omit<
   ReturnType<typeof jobDetail>,
-  'product_review' | 'approval' | 'finalization' | 'pipeline_summary'
+  'product_review' | 'approval' | 'finalization' | 'pipeline_summary' | 'authored_drafts'
 > &
   Partial<
     Pick<
       ReturnType<typeof jobDetail>,
-      'product_review' | 'approval' | 'finalization' | 'pipeline_summary'
+      'product_review' | 'approval' | 'finalization' | 'pipeline_summary' | 'authored_drafts'
     >
   >;

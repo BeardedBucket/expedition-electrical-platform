@@ -1826,6 +1826,13 @@ export const validateComponentLibraryRecord = (
   if (record.engineering_profile) {
     semanticErrors.push(...engineeringProfileErrors(record.engineering_profile));
     if (
+      record.engineering_profile.source_specification?.product.manufacturer !== undefined &&
+      record.engineering_profile.source_specification.product.manufacturer !== record.manufacturer
+    )
+      semanticErrors.push(
+        'engineering_profile: source draft manufacturer must match the component owner',
+      );
+    if (
       record.engineering_profile.component_id !== record.id ||
       record.engineering_profile.model !== record.model ||
       record.engineering_profile.manufacturer_revision !== (record.manufacturer_revision ?? null)

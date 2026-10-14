@@ -1,0 +1,885 @@
+{
+  "version": "source-grounded-draft.v1",
+  "authority": "codex_prepared_unreviewed",
+  "product": {
+    "id": "draft.p25",
+    "manufacturer": "Newpowa",
+    "model": "NPA200S-12J",
+    "manufacturer_part_number": "NPA200S-12J",
+    "hardware_revision": null
+  },
+  "intended_use": "PV module STC/reference, physical and source-limited operating data for an explicit installed PV design; cold/hot design and connection proof remain held",
+  "sources": [
+    {
+      "id": "p25",
+      "url": "https://www.newpowa.com/new-200w-12v-monocrystalline-solar-panel/",
+      "publisher": "Newpowa",
+      "retrieved_at": "2026-10-13T05:05:22.620Z",
+      "content_digest": "sha256:f3a9c3cc318375e471e40985efce465930a22494f778bde619263d98345901a4",
+      "document_revision": null,
+      "model": "NPA200S-12J",
+      "identity_locator": "Product Code row and product SKU JSON",
+      "rights": "metadata_and_limited_facts_only",
+      "redistribution_grant": "not_established"
+    },
+    {
+      "id": "p25-datasheet",
+      "url": "https://drive.usercontent.google.com/download?id=1yT8sPQbFYYelvBh11GVK-J6JNUusNvak&export=download",
+      "publisher": "Newpowa",
+      "retrieved_at": "2026-10-14T05:06:59.238Z",
+      "content_digest": "sha256:8b864f2734eaf346ed4bf337f5994d1ef63aa51313ba8804a98992c72d3e04b7",
+      "document_revision": null,
+      "model": "NPA200S-12J",
+      "identity_locator": "PDF p1 model title; p2 Type NPA200S-12J (200041235A)",
+      "rights": "metadata_and_limited_facts_only",
+      "redistribution_grant": "not_established"
+    }
+  ],
+  "facts": [
+    {
+      "id": "draft.p25.pv_pmax.0",
+      "quantity": "pv_pmax",
+      "basis": "nominal",
+      "mode": "pv_reference",
+      "direction": "output",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "200",
+        "unit": "W",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 200,
+        "unit": "W"
+      },
+      "normalization": "identity",
+      "source_id": "p25-datasheet",
+      "locator": "PDF p2 ELECTRICAL CHARACTERISTICS / NPA200S-12J / Power Output",
+      "context_digest": "sha256:8b864f2734eaf346ed4bf337f5994d1ef63aa51313ba8804a98992c72d3e04b7",
+      "conditions": [
+        {
+          "key": "module_temperature_c",
+          "value": 25,
+          "unit": "degC"
+        },
+        {
+          "key": "irradiance_w_m2",
+          "value": 1000,
+          "unit": "W/m2"
+        },
+        {
+          "key": "spectrum",
+          "value": "AM1.5g",
+          "unit": "text"
+        }
+      ],
+      "unresolved_conditions": [],
+      "disposition": "typed_consumer"
+    },
+    {
+      "id": "draft.p25.pv_vmp.1",
+      "quantity": "pv_vmp",
+      "basis": "nominal",
+      "mode": "pv_reference",
+      "direction": "output",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "20.74",
+        "unit": "V",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 20.74,
+        "unit": "V"
+      },
+      "normalization": "identity",
+      "source_id": "p25-datasheet",
+      "locator": "PDF p2 ELECTRICAL CHARACTERISTICS / NPA200S-12J / Voltage MPP Vmp",
+      "context_digest": "sha256:8b864f2734eaf346ed4bf337f5994d1ef63aa51313ba8804a98992c72d3e04b7",
+      "conditions": [
+        {
+          "key": "module_temperature_c",
+          "value": 25,
+          "unit": "degC"
+        },
+        {
+          "key": "irradiance_w_m2",
+          "value": 1000,
+          "unit": "W/m2"
+        },
+        {
+          "key": "spectrum",
+          "value": "AM1.5g",
+          "unit": "text"
+        }
+      ],
+      "unresolved_conditions": [],
+      "disposition": "typed_consumer"
+    },
+    {
+      "id": "draft.p25.pv_imp.2",
+      "quantity": "pv_imp",
+      "basis": "nominal",
+      "mode": "pv_reference",
+      "direction": "output",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "9.68",
+        "unit": "A",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 9.68,
+        "unit": "A"
+      },
+      "normalization": "identity",
+      "source_id": "p25-datasheet",
+      "locator": "PDF p2 ELECTRICAL CHARACTERISTICS / NPA200S-12J / Current MPP Imp",
+      "context_digest": "sha256:8b864f2734eaf346ed4bf337f5994d1ef63aa51313ba8804a98992c72d3e04b7",
+      "conditions": [
+        {
+          "key": "module_temperature_c",
+          "value": 25,
+          "unit": "degC"
+        },
+        {
+          "key": "irradiance_w_m2",
+          "value": 1000,
+          "unit": "W/m2"
+        },
+        {
+          "key": "spectrum",
+          "value": "AM1.5g",
+          "unit": "text"
+        }
+      ],
+      "unresolved_conditions": [],
+      "disposition": "typed_consumer"
+    },
+    {
+      "id": "draft.p25.pv_voc.3",
+      "quantity": "pv_voc",
+      "basis": "nominal",
+      "mode": "pv_reference",
+      "direction": "output",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "24.34",
+        "unit": "V",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 24.34,
+        "unit": "V"
+      },
+      "normalization": "identity",
+      "source_id": "p25-datasheet",
+      "locator": "PDF p2 ELECTRICAL CHARACTERISTICS / NPA200S-12J / Voltage Open Circuit Voc",
+      "context_digest": "sha256:8b864f2734eaf346ed4bf337f5994d1ef63aa51313ba8804a98992c72d3e04b7",
+      "conditions": [
+        {
+          "key": "module_temperature_c",
+          "value": 25,
+          "unit": "degC"
+        },
+        {
+          "key": "irradiance_w_m2",
+          "value": 1000,
+          "unit": "W/m2"
+        },
+        {
+          "key": "spectrum",
+          "value": "AM1.5g",
+          "unit": "text"
+        }
+      ],
+      "unresolved_conditions": [],
+      "disposition": "typed_consumer"
+    },
+    {
+      "id": "draft.p25.pv_isc.4",
+      "quantity": "pv_isc",
+      "basis": "nominal",
+      "mode": "pv_reference",
+      "direction": "output",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "10.31",
+        "unit": "A",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 10.31,
+        "unit": "A"
+      },
+      "normalization": "identity",
+      "source_id": "p25-datasheet",
+      "locator": "PDF p2 ELECTRICAL CHARACTERISTICS / NPA200S-12J / Short Circuit Current Isc",
+      "context_digest": "sha256:8b864f2734eaf346ed4bf337f5994d1ef63aa51313ba8804a98992c72d3e04b7",
+      "conditions": [
+        {
+          "key": "module_temperature_c",
+          "value": 25,
+          "unit": "degC"
+        },
+        {
+          "key": "irradiance_w_m2",
+          "value": 1000,
+          "unit": "W/m2"
+        },
+        {
+          "key": "spectrum",
+          "value": "AM1.5g",
+          "unit": "text"
+        }
+      ],
+      "unresolved_conditions": [],
+      "disposition": "typed_consumer"
+    },
+    {
+      "id": "draft.p25.reference_module_temperature.5",
+      "quantity": "reference_module_temperature",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "25",
+        "unit": "degC",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 25,
+        "unit": "degC"
+      },
+      "normalization": "identity",
+      "source_id": "p25-datasheet",
+      "locator": "PDF p2 STC footnote",
+      "context_digest": "sha256:8b864f2734eaf346ed4bf337f5994d1ef63aa51313ba8804a98992c72d3e04b7",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p25.reference_irradiance.6",
+      "quantity": "reference_irradiance",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "1000",
+        "unit": "W/m2",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 1000,
+        "unit": "W/m2"
+      },
+      "normalization": "identity",
+      "source_id": "p25-datasheet",
+      "locator": "PDF p2 STC footnote",
+      "context_digest": "sha256:8b864f2734eaf346ed4bf337f5994d1ef63aa51313ba8804a98992c72d3e04b7",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p25.reference_spectrum.7",
+      "quantity": "reference_spectrum",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "AM1.5g",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "AM1.5g",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p25-datasheet",
+      "locator": "PDF p2 STC footnote",
+      "context_digest": "sha256:8b864f2734eaf346ed4bf337f5994d1ef63aa51313ba8804a98992c72d3e04b7",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p25.beta_voc.8",
+      "quantity": "beta_voc",
+      "basis": "operating",
+      "mode": "pv_coefficient",
+      "direction": "output",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "-0.36",
+        "unit": "%/K",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": -0.36,
+        "unit": "%/K"
+      },
+      "normalization": "identity",
+      "source_id": "p25-datasheet",
+      "locator": "PDF p2 / Temperature Coefficient Of Voc",
+      "context_digest": "sha256:8b864f2734eaf346ed4bf337f5994d1ef63aa51313ba8804a98992c72d3e04b7",
+      "conditions": [],
+      "unresolved_conditions": [
+        "Explicit coefficient validity domain not established; plotted temperatures do not grant general coefficient permission"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p25.alpha_isc.9",
+      "quantity": "alpha_isc",
+      "basis": "operating",
+      "mode": "pv_coefficient",
+      "direction": "output",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "0.07",
+        "unit": "%/K",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 0.07,
+        "unit": "%/K"
+      },
+      "normalization": "identity",
+      "source_id": "p25-datasheet",
+      "locator": "PDF p2 / Temperature Coefficient Of Isc",
+      "context_digest": "sha256:8b864f2734eaf346ed4bf337f5994d1ef63aa51313ba8804a98992c72d3e04b7",
+      "conditions": [],
+      "unresolved_conditions": [
+        "Explicit coefficient validity domain not established; plotted temperatures do not grant general coefficient permission"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p25.gamma_pmax.10",
+      "quantity": "gamma_pmax",
+      "basis": "operating",
+      "mode": "pv_coefficient",
+      "direction": "output",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "-0.38",
+        "unit": "%/K",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": -0.38,
+        "unit": "%/K"
+      },
+      "normalization": "identity",
+      "source_id": "p25-datasheet",
+      "locator": "PDF p2 / Temperature Coefficient Of Power",
+      "context_digest": "sha256:8b864f2734eaf346ed4bf337f5994d1ef63aa51313ba8804a98992c72d3e04b7",
+      "conditions": [],
+      "unresolved_conditions": [
+        "Explicit coefficient validity domain not established; plotted temperatures do not grant general coefficient permission"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p25.noct.11",
+      "quantity": "noct",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "45 ± 2",
+        "unit": "degC",
+        "presentation": "source_value_reconstruction"
+      },
+      "normalized": {
+        "value": {
+          "min": 43,
+          "max": 47
+        },
+        "unit": "degC"
+      },
+      "normalization": "symmetric_range",
+      "source_id": "p25-datasheet",
+      "locator": "PDF p2 NOCT row",
+      "context_digest": "sha256:8b864f2734eaf346ed4bf337f5994d1ef63aa51313ba8804a98992c72d3e04b7",
+      "conditions": [
+        {
+          "key": "ambient_temperature_c",
+          "value": 20,
+          "unit": "degC"
+        },
+        {
+          "key": "irradiance_w_m2",
+          "value": 800,
+          "unit": "W/m2"
+        },
+        {
+          "key": "wind_speed_m_s",
+          "value": 1,
+          "unit": "m/s"
+        }
+      ],
+      "unresolved_conditions": [
+        "NOCT reference test is not a universal ambient-to-cell conversion"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p25.cell_count.12",
+      "quantity": "cell_count",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "36",
+        "unit": "count",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 36,
+        "unit": "count"
+      },
+      "normalization": "identity",
+      "source_id": "p25-datasheet",
+      "locator": "PDF p1 model description",
+      "context_digest": "sha256:8b864f2734eaf346ed4bf337f5994d1ef63aa51313ba8804a98992c72d3e04b7",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p25.printed_type_identifier.13",
+      "quantity": "printed_type_identifier",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "200041235A",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "200041235A",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p25-datasheet",
+      "locator": "PDF p2 Type row",
+      "context_digest": "sha256:8b864f2734eaf346ed4bf337f5994d1ef63aa51313ba8804a98992c72d3e04b7",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p25.body_size.14",
+      "quantity": "body_size",
+      "basis": "body",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "{\"x\":1330,\"y\":765,\"z\":35}",
+        "unit": "mm",
+        "presentation": "source_value_reconstruction"
+      },
+      "normalized": {
+        "value": {
+          "x": 1330,
+          "y": 765,
+          "z": 35
+        },
+        "unit": "mm"
+      },
+      "normalization": "identity",
+      "source_id": "p25-datasheet",
+      "locator": "PDF p2 Mechanical / Module Dimension and drawing",
+      "context_digest": "sha256:8b864f2734eaf346ed4bf337f5994d1ef63aa51313ba8804a98992c72d3e04b7",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p25.mass.15",
+      "quantity": "mass",
+      "basis": "body",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "11.19",
+        "unit": "kg",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 11.19,
+        "unit": "kg"
+      },
+      "normalization": "identity",
+      "source_id": "p25-datasheet",
+      "locator": "PDF p2 Mechanical / Weight kg",
+      "context_digest": "sha256:8b864f2734eaf346ed4bf337f5994d1ef63aa51313ba8804a98992c72d3e04b7",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p25.cell_technology.16",
+      "quantity": "cell_technology",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "monocrystalline silicon",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "monocrystalline silicon",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p25-datasheet",
+      "locator": "PDF p2 Mechanical / Cells",
+      "context_digest": "sha256:8b864f2734eaf346ed4bf337f5994d1ef63aa51313ba8804a98992c72d3e04b7",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p25.cell_grade.17",
+      "quantity": "cell_grade",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "Class A",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "Class A",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p25-datasheet",
+      "locator": "PDF p2 Mechanical / Solar Cells Grade",
+      "context_digest": "sha256:8b864f2734eaf346ed4bf337f5994d1ef63aa51313ba8804a98992c72d3e04b7",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p25.operating_temperature_range.18",
+      "quantity": "operating_temperature_range",
+      "basis": "operating",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "{\"min\":-40,\"max\":85}",
+        "unit": "degC",
+        "presentation": "source_value_reconstruction"
+      },
+      "normalized": {
+        "value": {
+          "min": -40,
+          "max": 85
+        },
+        "unit": "degC"
+      },
+      "normalization": "identity",
+      "source_id": "p25",
+      "locator": "Specs / Operating Temperature",
+      "context_digest": "sha256:f3a9c3cc318375e471e40985efce465930a22494f778bde619263d98345901a4",
+      "conditions": [],
+      "unresolved_conditions": ["Measurement point is not identified by this row"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p25.max_system_voltage.19",
+      "quantity": "max_system_voltage",
+      "basis": "absolute",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "1000",
+        "unit": "V",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 1000,
+        "unit": "V"
+      },
+      "normalization": "identity",
+      "source_id": "p25",
+      "locator": "Specs / Max System Voltage",
+      "context_digest": "sha256:f3a9c3cc318375e471e40985efce465930a22494f778bde619263d98345901a4",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p25.pmax_tolerance.20",
+      "quantity": "pmax_tolerance",
+      "basis": "nominal",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "{\"min\":0,\"max\":3}",
+        "unit": "%",
+        "presentation": "source_value_reconstruction"
+      },
+      "normalized": {
+        "value": {
+          "min": 0,
+          "max": 3
+        },
+        "unit": "%"
+      },
+      "normalization": "identity",
+      "source_id": "p25",
+      "locator": "Specs / Positive Power Tolerance",
+      "context_digest": "sha256:f3a9c3cc318375e471e40985efce465930a22494f778bde619263d98345901a4",
+      "conditions": [],
+      "unresolved_conditions": ["Pmax tolerance is not Voc, Vmp, Isc or Imp uncertainty"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p25.attached_lead_length.21",
+      "quantity": "attached_lead_length",
+      "basis": "body",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "3",
+        "unit": "ft",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 3,
+        "unit": "ft"
+      },
+      "normalization": "identity",
+      "source_id": "p25",
+      "locator": "Key Features / leads",
+      "context_digest": "sha256:f3a9c3cc318375e471e40985efce465930a22494f778bde619263d98345901a4",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p25.connector_presence.22",
+      "quantity": "connector_presence",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "male/female connectors",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "male/female connectors",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p25",
+      "locator": "Key Features / connectors",
+      "context_digest": "sha256:f3a9c3cc318375e471e40985efce465930a22494f778bde619263d98345901a4",
+      "conditions": [],
+      "unresolved_conditions": [
+        "Connector series, certification, current rating and mating compatibility unidentified"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p25.bypass_diodes.23",
+      "quantity": "bypass_diodes",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "factory installed in junction box",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "factory installed in junction box",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p25",
+      "locator": "Key Features / bypass diodes",
+      "context_digest": "sha256:f3a9c3cc318375e471e40985efce465930a22494f778bde619263d98345901a4",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p25.mounting.24",
+      "quantity": "mounting",
+      "basis": "installation",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "anodized frame with pre-drilled holes",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "anodized frame with pre-drilled holes",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p25",
+      "locator": "Key Features / frame",
+      "context_digest": "sha256:f3a9c3cc318375e471e40985efce465930a22494f778bde619263d98345901a4",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p25.mounting_slot_dimensions.25",
+      "quantity": "mounting_slot_dimensions",
+      "basis": "body",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "8 slots; R3.5 mm x12 mm",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "8 slots; R3.5 mm x12 mm",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p25-datasheet",
+      "locator": "PDF p2 drawing / mounting holes",
+      "context_digest": "sha256:8b864f2734eaf346ed4bf337f5994d1ef63aa51313ba8804a98992c72d3e04b7",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p25.grounding_hole_diameter.26",
+      "quantity": "grounding_hole_diameter",
+      "basis": "body",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "5",
+        "unit": "mm",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 5,
+        "unit": "mm"
+      },
+      "normalization": "identity",
+      "source_id": "p25-datasheet",
+      "locator": "PDF p2 drawing / grounding holes",
+      "context_digest": "sha256:8b864f2734eaf346ed4bf337f5994d1ef63aa51313ba8804a98992c72d3e04b7",
+      "conditions": [],
+      "unresolved_conditions": ["Hole existence does not establish installed grounding design"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p25.front_load.27",
+      "quantity": "front_load",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "5400",
+        "unit": "Pa",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 5400,
+        "unit": "Pa"
+      },
+      "normalization": "identity",
+      "source_id": "p25-datasheet",
+      "locator": "PDF p1 mechanical load feature",
+      "context_digest": "sha256:8b864f2734eaf346ed4bf337f5994d1ef63aa51313ba8804a98992c72d3e04b7",
+      "conditions": [],
+      "unresolved_conditions": ["Manufacturer load/test claim; not vehicle mounting certification"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p25.rear_load.28",
+      "quantity": "rear_load",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "2400",
+        "unit": "Pa",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 2400,
+        "unit": "Pa"
+      },
+      "normalization": "identity",
+      "source_id": "p25-datasheet",
+      "locator": "PDF p1 mechanical load feature",
+      "context_digest": "sha256:8b864f2734eaf346ed4bf337f5994d1ef63aa51313ba8804a98992c72d3e04b7",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p25.iv_curve_conditions.29",
+      "quantity": "iv_curve_conditions",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "AM1.5; 1000 W/m2; 25/50/75 degC",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "AM1.5; 1000 W/m2; 25/50/75 degC",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p25-datasheet",
+      "locator": "PDF p2 I-V curve caption",
+      "context_digest": "sha256:8b864f2734eaf346ed4bf337f5994d1ef63aa51313ba8804a98992c72d3e04b7",
+      "conditions": [],
+      "unresolved_conditions": ["No digitized interpolation or inferred beta-Vmp"],
+      "disposition": "retained_source_fact"
+    }
+  ],
+  "holds": [
+    "Exact installed hardware revision not established; capture/document revision is distinct",
+    "All authored source meanings require independent human review; no source decision or product authority",
+    "Explicit beta-Vmp or coefficient validity domain not established in examined sources; hot Vmp remains unknown",
+    "Fuse, connector series/ratings, exact ports, installed series/parallel routing, protection and mixed-string behavior remain unproven"
+  ]
+}

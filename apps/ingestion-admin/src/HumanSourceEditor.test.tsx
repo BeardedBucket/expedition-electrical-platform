@@ -10,7 +10,7 @@ afterEach(cleanup);
 const target = 'electrical.continuous_input_current_a';
 const descriptor = productionSemanticFieldDescriptors().find((t) => t.canonical_field === target)!;
 const source = 'Example Model continuous input current 500 mA';
-function show(overrides: Partial<OperatorApi> = {}, existing = false) {
+function show(overrides: Partial<OperatorApi> = {}, existing = false, withSuggestion = false) {
   const controller = createDemoController(demoScenarios.find((s) => s.id === 'scalar')!);
   const job = {
     ...controller.current(),
@@ -25,6 +25,42 @@ function show(overrides: Partial<OperatorApi> = {}, existing = false) {
         },
       ],
       history: [],
+      ...(withSuggestion
+        ? {
+            profile_suggestions: [
+              {
+                authority: 'unreviewed_source_suggestion',
+                missing: ['human_source_decision'],
+                replaces_fact_ids: ['existing.fact'],
+                statement: {
+                  label: 'Open-Circuit Voltage (Voc)',
+                  value: '26V',
+                  wording: 'Open-Circuit Voltage (Voc) 26V',
+                  citations: [
+                    {
+                      document_id: 'document.test',
+                      block_id: 'owned.row',
+                      quote: 'Complete invented source-owned row with context',
+                    },
+                  ],
+                  applicability: {
+                    relationship: 'source_record',
+                    citation: {
+                      document_id: 'document.test',
+                      block_id: 'owned.row',
+                      quote: 'Complete invented source-owned row with context',
+                    },
+                  },
+                  mapping: {
+                    kind: 'engineering_profile_fact',
+                    target: 'engineering_profile',
+                    quantity: 'voc_v',
+                  },
+                },
+              },
+            ],
+          }
+        : {}),
       archived_history: undefined,
       original_observations: existing
         ? [
@@ -137,6 +173,25 @@ async function fill() {
   await screen.findByRole('option', { name: 'Continuous input current · A' });
 }
 describe('human source correction workflow', () => {
+  it('loads a complete unreviewed suggestion as an explicit correction without saving or discarding its source relationship', async () => {
+    const { client } = show({}, false, true);
+    fireEvent.click(screen.getByRole('button', { name: 'Use source suggestion for a correction' }));
+    expect(screen.getByLabelText('Exact source value (required)')).toHaveValue('26V');
+    expect(screen.getByLabelText('Model relationship (required)')).toHaveValue('source_record');
+    expect(screen.getByLabelText('What needs correcting?')).toHaveValue('source');
+    expect(client.humanAdjudication).not.toHaveBeenCalled();
+    await waitFor(() => expect(client.humanProperties).toHaveBeenCalled());
+    const request = vi.mocked(client.humanProperties).mock.calls.at(-1)![1];
+    expect(request.intent.action).toBe('correct');
+    expect(request.intent.replaces_fact_ids).toEqual(['existing.fact']);
+    expect(request.intent.statements[0].citations[0].quote).toContain('with context');
+    fireEvent.change(screen.getByLabelText('What needs correcting?'), { target: { value: 'add' } });
+    expect(screen.getByLabelText('Exact source value (required)')).toHaveValue('');
+    fireEvent.change(screen.getByLabelText('What needs correcting?'), {
+      target: { value: 'source' },
+    });
+    expect(screen.getByLabelText('Exact source value (required)')).toHaveValue('26V');
+  });
   it('requires an explicit profile quantity and reuses server source eligibility without a default target', async () => {
     const { client } = show();
     await fill();
