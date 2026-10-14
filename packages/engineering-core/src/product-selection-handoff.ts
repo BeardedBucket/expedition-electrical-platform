@@ -1,5 +1,13 @@
 import type { ComponentLibraryRecord } from './component-library.js';
+import {
+  bindInstalledSourceDrafts,
+  type InstalledSourceDraftScenario,
+} from './installed-source-draft-bridge.js';
 import { bindInstalledPv, type InstalledPvScenario } from './installed-pv-bridge.js';
+import {
+  bindInstalledOperating,
+  type InstalledOperatingScenario,
+} from './installed-operating-bridge.js';
 import type {
   WholeSystemEvaluationInput,
   InstalledSystemRequirements,
@@ -57,6 +65,8 @@ export const bindProductSelection = (
   choices: readonly SelectedRoleBinding[],
   options: {
     readonly installed_pv?: InstalledPvScenario;
+    readonly installed_operating?: InstalledOperatingScenario;
+    readonly installed_source_drafts?: InstalledSourceDraftScenario;
     /** Solar source models are installation evidence, not new Phase 4 roles.
      * Each explicit module port is associated with an existing source endpoint;
      * no missing port, source capacity or manufacturer permission is inferred. */
@@ -79,6 +89,8 @@ export const bindProductSelection = (
   catalog: readonly ComponentLibraryRecord[];
   selection_digest: string;
   pv_binding?: ReturnType<typeof bindInstalledPv>;
+  operating_binding?: ReturnType<typeof bindInstalledOperating>;
+  source_draft_binding?: ReturnType<typeof bindInstalledSourceDrafts>;
 } => {
   const result = parseProductSelection(serializePassportValue(selection));
   const candidate = result.input.generation.candidates.find(
@@ -338,11 +350,26 @@ export const bindProductSelection = (
   const pvBinding = options.installed_pv
     ? bindInstalledPv(input, catalog, options.installed_pv)
     : undefined;
+  // Preserve every earlier architecture/selection/PV hold before applying the
+  // exact operating requirement gate. This adds no ports, wiring or chosen roles.
+  const operatingBinding = options.installed_operating
+    ? bindInstalledOperating(pvBinding?.bound_input ?? input, catalog, options.installed_operating)
+    : undefined;
+  const sourceDraftBinding = options.installed_source_drafts
+    ? bindInstalledSourceDrafts(
+        operatingBinding?.input ?? pvBinding?.bound_input ?? input,
+        catalog,
+        options.installed_source_drafts,
+      )
+    : undefined;
   return JSON.parse(
     serializePassportValue({
-      input: pvBinding?.bound_input ?? input,
+      input:
+        sourceDraftBinding?.input ?? operatingBinding?.input ?? pvBinding?.bound_input ?? input,
       catalog,
       ...(pvBinding ? { pv_binding: pvBinding } : {}),
+      ...(operatingBinding ? { operating_binding: operatingBinding } : {}),
+      ...(sourceDraftBinding ? { source_draft_binding: sourceDraftBinding } : {}),
       selection_digest: result.result_digest,
     }),
   ) as {
@@ -350,5 +377,7 @@ export const bindProductSelection = (
     catalog: readonly ComponentLibraryRecord[];
     selection_digest: string;
     pv_binding?: ReturnType<typeof bindInstalledPv>;
+    operating_binding?: ReturnType<typeof bindInstalledOperating>;
+    source_draft_binding?: ReturnType<typeof bindInstalledSourceDrafts>;
   };
 };

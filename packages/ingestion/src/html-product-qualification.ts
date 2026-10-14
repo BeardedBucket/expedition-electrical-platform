@@ -17,6 +17,7 @@ import {
   type ApplicabilityBinding,
 } from './production-contracts.js';
 import type { CapturedSource, ExtractedBlock } from './capture-types.js';
+import type { SourceOwnedSpecification } from './source-owned-specification.js';
 
 type Node = DefaultTreeAdapterTypes.ChildNode;
 type Element = DefaultTreeAdapterTypes.Element;
@@ -201,6 +202,7 @@ export const qualifyHtmlProduct = (input: {
     applicability?: ApplicabilityBinding;
     identity_path?: string;
     identity?: string;
+    containing_context?: string;
   }[] = [];
   // PropertyValue owns its literal name/value pair. Unknown sibling metadata
   // could contain conditions: do not erase it to obtain a simpler assertion.
@@ -324,7 +326,16 @@ export const qualifyHtmlProduct = (input: {
         pending.length = 0;
         break;
       }
-      pending.push({ label, value, path: rowEntry.path, label_path: rowEntry.path, context: [] });
+      pending.push({
+        label,
+        value,
+        path: rowEntry.path,
+        label_path: rowEntry.path,
+        context: [],
+        ...(explicitGroup
+          ? { containing_context: groupLists.map(content).map(clean).join('\n') }
+          : {}),
+      });
     }
     pairs.push(...pending);
   }
@@ -419,6 +430,7 @@ export const qualifyHtmlProduct = (input: {
               path: `${row.path}/cell[2]`,
               label_path: `${row.path}/cell[1]`,
               context: sectionContext,
+              containing_context: clean(content(parent)),
             });
         }
         if (!unsupported) pairs.push(...pending);
@@ -444,6 +456,7 @@ export const qualifyHtmlProduct = (input: {
             path: entry.path,
             label_path: entry.path,
             context,
+            containing_context: clean(content(parent)),
           });
           seen.add(entry.path);
         }
@@ -478,6 +491,7 @@ export const qualifyHtmlProduct = (input: {
                 path: valueEntry.path,
                 label_path: labelEntry.path,
                 context,
+                containing_context: clean(content(parent)),
               });
           }
         }
@@ -490,7 +504,7 @@ export const qualifyHtmlProduct = (input: {
   if (
     distinct.length * 2 > DEFAULT_DOCUMENT_EXTRACTION_LIMITS.max_items ||
     distinct.some((p) =>
-      [p.label, p.value, ...p.context].some(
+      [p.label, p.value, ...p.context, p.containing_context ?? ''].some(
         (s) => s.length > DEFAULT_DOCUMENT_EXTRACTION_LIMITS.max_text_length,
       ),
     )
@@ -499,10 +513,32 @@ export const qualifyHtmlProduct = (input: {
   const blocks: ExtractedBlock[] = distinct.map((p) => ({
     id: `product-html.${artifactDigest(p).slice(7, 31)}`,
     kind: 'structured',
-    text: JSON.stringify(p),
+    // Only independently product-owned native regions receive this correction
+    // read-model. Other old observations retain their diagnostic representation.
+    text: JSON.stringify(
+      p.containing_context && !group && identityMatches
+        ? ({
+            version: 'source-owned-specification.v1',
+            label: p.label,
+            value: p.value,
+            statement: `${p.label} ${p.value}`,
+            identity: observedIdentity,
+            identity_kind: exactPart ? 'exact_mpn_or_sku' : 'exact_product',
+            label_locator: p.label_path,
+            value_locator: p.path,
+            identity_locator: product.path,
+            containing_context: p.containing_context,
+            unresolved_context: [],
+          } satisfies SourceOwnedSpecification)
+        : p,
+    ),
     locator: { fragment: p.path, path: p.path },
     source_location: { kind: 'html', path: p.path },
   }));
+  if (
+    blocks.some((b) => (b.text?.length ?? 0) > DEFAULT_DOCUMENT_EXTRACTION_LIMITS.max_text_length)
+  )
+    return undefined;
   const document = buildDocumentExtractionArtifact(
     {
       source,
@@ -510,7 +546,7 @@ export const qualifyHtmlProduct = (input: {
       blocks,
       warnings: [],
       extractor: 'source-product-html',
-      extractor_version: '2.0.0',
+      extractor_version: '3.0.0',
     },
     captureRef,
     {

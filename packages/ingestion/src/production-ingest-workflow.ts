@@ -32,6 +32,7 @@ import {
 import { buildProductionReviewPackage } from './production-review-package.js';
 import { prepareProfileQualifiedEvidence } from './profile-qualified-evidence.js';
 import { qualifyHtmlProduct } from './html-product-qualification.js';
+import { prepareNativeModelReview } from './native-model-review.js';
 
 export interface ProductionIngestWorkflowRequest {
   readonly intake: ProductIntake;
@@ -151,6 +152,23 @@ export const prepareProductionIngestReview = async (
     });
     qualifications.push(qualification);
     qualified_facts.push(...qualification.facts);
+    // Keep native correction records even when ordinary qualification produced
+    // observations. Add native facts only for an otherwise empty qualification:
+    // two independent producers must not double-count the same source rows.
+    {
+      const nativeReview = prepareNativeModelReview({
+        source: item.capture.source,
+        capture: item.capture.artifact,
+        acquisition: acquisition.artifact,
+        document: extraction,
+        intake: request.intake,
+      });
+      if (nativeReview) {
+        document_extractions.push(nativeReview.document);
+        qualifications.push(nativeReview.qualification);
+        if (!qualification.facts.length) qualified_facts.push(...nativeReview.qualification.facts);
+      }
+    }
     const sourceOwned = qualifyHtmlProduct({
       source: item.capture.source,
       capture: item.capture.artifact,

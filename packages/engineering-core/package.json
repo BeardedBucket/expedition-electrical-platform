@@ -6,6 +6,10 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
+    "./source-grounded-draft": {
+      "types": "./dist/source-grounded-draft.d.ts",
+      "import": "./dist/source-grounded-draft.js"
+    },
     "./engineering-profile": {
       "types": "./dist/engineering-profile.d.ts",
       "import": "./dist/engineering-profile.js"

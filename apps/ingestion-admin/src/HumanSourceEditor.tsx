@@ -92,6 +92,8 @@ export function HumanSourceEditor({
     );
   const [group] = useState(() => prior?.intent.group_id ?? `source-group.${crypto.randomUUID()}`);
   const [addGroup] = useState(() => `source-group.${crypto.randomUUID()}`);
+  const [suggestionGroup] = useState(() => `source-group.${crypto.randomUUID()}`);
+  const [selectedSuggestion, setSelectedSuggestion] = useState(false);
   const [previous, setPrevious] = useState(prior?.id);
   const [snapshot, setSnapshot] = useState(job.semantic_review!.expected_review_snapshot);
   const [boundFactIds, setBoundFactIds] = useState(factIds);
@@ -111,7 +113,8 @@ export function HumanSourceEditor({
   );
   const [additions, setAdditions] = useState<HumanSourceStatement[]>([blank()]);
   const [index, setIndex] = useState(0);
-  const addingSeparate = mode === 'add' && factIds.length > 0;
+  const addingSeparate =
+    mode === 'add' && (factIds.length > 0 || (selectedSuggestion && boundFactIds.length > 0));
   const rows = addingSeparate ? additions : regular;
   const setRows = addingSeparate ? setAdditions : setRegular;
   const s = rows[index] ?? rows[0];
@@ -147,16 +150,21 @@ export function HumanSourceEditor({
     onDirty(true);
     setError('');
   };
-  const activeAction =
-    addingSeparate || !factIds.length
-      ? 'add'
-      : mode === 'combined'
-        ? action
-        : rows.length > 1
-          ? 'split'
-          : boundFactIds.length > 1
-            ? 'group'
-            : 'correct';
+  const activeAction = addingSeparate
+    ? 'add'
+    : selectedSuggestion
+      ? boundFactIds.length
+        ? 'correct'
+        : 'add'
+      : !factIds.length
+        ? 'add'
+        : mode === 'combined'
+          ? action
+          : rows.length > 1
+            ? 'split'
+            : boundFactIds.length > 1
+              ? 'group'
+              : 'correct';
   const activeRows = rows.map((row, i) => ({
     ...row,
     mapping:
@@ -177,7 +185,7 @@ export function HumanSourceEditor({
       );
   const intent: HumanAdjudicationIntent = {
     version: 'human-adjudication.v1',
-    group_id: addingSeparate ? addGroup : group,
+    group_id: addingSeparate ? addGroup : selectedSuggestion ? suggestionGroup : group,
     ...(!addingSeparate && previous ? { previous_event_id: previous } : {}),
     replaces_fact_ids: activeAction === 'add' ? [] : boundFactIds,
     action: activeAction,
@@ -602,6 +610,7 @@ export function HumanSourceEditor({
           <option value="table_row">Exact model cell in this specification row</option>
           <option value="table_column">Exact model header owning this specification column</option>
           <option value="shared_statement">Explicit shared statement naming this model</option>
+          <option value="source_record">Complete source-owned specification row</option>
         </select>
       </label>
       {s.applicability.citation ? (
@@ -632,7 +641,7 @@ export function HumanSourceEditor({
       <CorrectionRecord job={currentJob} item={effectiveItem} factIds={boundFactIds} />
       {data.profile_suggestions?.length ? (
         <details>
-          <summary>Proposed PV/controller source facts ({data.profile_suggestions.length})</summary>
+          <summary>Proposed engineering source facts ({data.profile_suggestions.length})</summary>
           <p>
             Unreviewed suggestions. Add or correct the statement with the source editor; missing
             revision, temperature and installation context remain unknown.
@@ -643,7 +652,38 @@ export function HumanSourceEditor({
                 {p.statement.label}: {p.statement.value} {p.statement.unit}
               </strong>
               <p>{p.statement.wording}</p>
+              {p.source_context ? (
+                <details>
+                  <summary>Complete containing source context</summary>
+                  <p>
+                    This statement joins a native label and value. Review the complete region and
+                    model ownership before saving a correction.
+                  </p>
+                  <div style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+                    {p.source_context}
+                  </div>
+                </details>
+              ) : null}
               <p>Missing: {p.missing.join(', ')}</p>
+              <button
+                type="button"
+                disabled={busy || stale || !data.editable}
+                onClick={() => {
+                  setMode('source');
+                  setSelectedSuggestion(true);
+                  setPrevious(undefined);
+                  setBoundFactIds(p.replaces_fact_ids ?? []);
+                  setRegular([structuredClone(p.statement)]);
+                  setIndex(0);
+                  setMappingWanted((old) => ({ ...old, 'existing:0': true }));
+                  setRepresentations((old) => ({ ...old, 'existing:0': meaningMode(p.statement) }));
+                  onDirty(true);
+                  setPreview(undefined);
+                  setError('');
+                }}
+              >
+                Use source suggestion for a correction
+              </button>
             </div>
           ))}
         </details>
@@ -670,7 +710,7 @@ export function HumanSourceEditor({
             >
               <option value="">Choose a correction type</option>
               {(Object.keys(modeNames) as Exclude<CorrectionType, ''>[])
-                .filter((choice) => factIds.length || choice === 'add')
+                .filter((choice) => factIds.length || selectedSuggestion || choice === 'add')
                 .map((choice) => (
                   <option key={choice} value={choice}>
                     {modeNames[choice]}
@@ -881,7 +921,7 @@ export function HumanSourceEditor({
                       <option value="scalar">Direct value — no material conditions</option>
                       <option value="source_rating">Rating with source conditions</option>
                       <option value="engineering_profile_fact">
-                        PV or controller profile fact — source-bound atomic review
+                        Engineering profile fact — source-bound atomic review
                       </option>
                       <option value="source_observation">
                         Supported range, body dimensions or operating consumption
@@ -958,6 +998,13 @@ export function HumanSourceEditor({
                           'max_system_v',
                           'pv_absolute_voc_v',
                           'pv_max_isc_a',
+                          'battery_cell_charge_range_c',
+                          'battery_discharge_range_c',
+                          'battery_series_max_count',
+                          'battery_parallel_max_count',
+                          'instrument_current_accuracy_percent',
+                          'instrument_voltage_accuracy_percent',
+                          'instrument_shunt_rating',
                         ].map((q) => (
                           <option key={q} value={q}>
                             {q.replaceAll('_', ' ')}

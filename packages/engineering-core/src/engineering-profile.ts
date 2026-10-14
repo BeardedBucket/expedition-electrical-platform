@@ -1,4 +1,5 @@
 import Ajv2020 from 'ajv/dist/2020.js';
+import { parseSourceGroundedDraft, type SourceGroundedDraft } from './source-grounded-draft.js';
 import addFormats from 'ajv-formats';
 import schema from '../../../data/schemas/engineering-profile.schema.json' with { type: 'json' };
 
@@ -19,11 +20,12 @@ export interface EngineeringEvidence {
   origin: 'source_stated' | 'synthetic';
   rights: 'metadata_and_limited_facts_only' | 'project_authored';
   human_interpretation?: {
-    version: 'engineering-profile-adjudication.v1';
+    version: 'engineering-profile-adjudication.v1' | 'engineering-profile-adjudication.v2';
     event_id: string;
     fact_id: string;
     source_document_revision: string | null;
     source_unit: string;
+    quantity?: string;
   };
 }
 /** Values stay in published units. Coefficient conversion belongs to a traced
@@ -132,6 +134,67 @@ export interface EngineeringProfile {
   shared_capacity_inventory?: { mode: string; group_ids: string[]; evidence_ids: string[] }[];
   ac_modes?: AcMode[];
   assembly?: AssemblyRequirement[];
+  battery_operating?: BatteryOperating;
+  instrumentation?: Instrumentation;
+  source_specification?: SourceGroundedDraft;
+}
+
+/** Allowed operating ranges are not BMS trip/recovery thresholds. Unknown
+ * temperature location and heater state are explicit, never inferred from the
+ * product family or the caller's ambient temperature. No curve interpolation. */
+export interface BatteryOperating {
+  version: 'battery-operating.v1';
+  charge_range?: BatteryTemperatureRange;
+  discharge_range?: BatteryTemperatureRange;
+  series_permission?: BankPermission;
+  parallel_permission?: BankPermission;
+  bms_cutoffs?: {
+    operation: 'charge' | 'discharge';
+    threshold_c: number;
+    recovery_c?: number;
+    measurement_point: 'battery_cell' | 'ambient' | 'unknown';
+    evidence_ids: string[];
+  }[];
+}
+export interface BatteryTemperatureRange {
+  min_c: number;
+  max_c: number;
+  unit: 'degC';
+  measurement_point: 'battery_cell' | 'ambient' | 'unknown';
+  prerequisite: 'after_heating' | 'none' | 'unknown';
+  evidence_ids: string[];
+}
+export interface BankPermission {
+  max_count: number;
+  requires_matched_bank: boolean | null;
+  evidence_ids: string[];
+  unmodeled_conditions?: string[];
+}
+/** A published percentage with no denominator stays unknown. Shunt transfer and
+ * instrument supply/throughput are separate contracts; neither is protection. */
+export interface Instrumentation {
+  version: 'instrumentation.v1';
+  accuracy?: {
+    quantity: 'current' | 'voltage';
+    electrical_domain: 'dc' | 'ac' | 'unknown';
+    domain_evidence_ids?: string[];
+    percent: number;
+    basis: 'reading' | 'full_scale' | 'unknown';
+    required_shunt_a?: number;
+    required_shunt_drop_mv?: number;
+    range?: { min: number; max: number };
+    temperature_c?: { min: number; max: number };
+    evidence_ids: string[];
+  }[];
+  shunt?: {
+    nominal_current_a: number;
+    nominal_drop_mv: number;
+    electrical_domain: 'dc' | 'ac' | 'unknown';
+    domain_evidence_ids?: string[];
+    /** Nominal A/mV transfer does not establish this separate measurement limit. */
+    max_measurement_current_a?: EngineeringValue<'A'>;
+    evidence_ids: string[];
+  };
 }
 
 const Ajv = Ajv2020 as unknown as new (options: object) => {
@@ -145,6 +208,19 @@ export function engineeringProfileErrors(input: unknown): string[] {
   if (!validate(input)) return [JSON.stringify(validate.errors)];
   const p = input as EngineeringProfile;
   const errors: string[] = [];
+  if (p.source_specification) {
+    try {
+      const d = parseSourceGroundedDraft(p.source_specification);
+      if (
+        d.product.id !== p.component_id ||
+        d.product.model !== p.model ||
+        d.product.hardware_revision !== p.manufacturer_revision
+      )
+        errors.push('Foreign source specification owner');
+    } catch (error) {
+      errors.push((error as Error).message);
+    }
+  }
   const evidence = new Map(p.evidence.map((e) => [e.id, e]));
   if (evidence.size !== p.evidence.length) errors.push('Duplicate evidence identity');
   for (const e of p.evidence) {
@@ -206,6 +282,13 @@ export function engineeringProfileErrors(input: unknown): string[] {
   }
   for (const u of Object.values(p.pv?.uncertainty_fraction ?? {}))
     if (u && u.value >= 1) errors.push('Fractional uncertainty must be below one');
+  for (const r of [p.battery_operating?.charge_range, p.battery_operating?.discharge_range])
+    if (r && r.min_c > r.max_c) errors.push('Reversed battery temperature range');
+  if (
+    new Set(p.instrumentation?.accuracy?.map((a) => a.quantity)).size !==
+    (p.instrumentation?.accuracy?.length ?? 0)
+  )
+    errors.push('Competing instrumentation accuracy quantities');
   for (const q of [
     p.pv?.voc_v,
     p.pv?.vmp_v,

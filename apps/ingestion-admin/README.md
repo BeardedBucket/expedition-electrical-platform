@@ -1,5 +1,15 @@
 # Local ingestion admin
 
+Codex-prepared authored drafts also appear in the ordinary job overview, with
+field changes, original units and exact registered private source downloads.
+They remain unreviewed attachments, separate from the pending automatic candidate.
+See [direct source authoring](../../docs/WAVE2_DIRECT_PRODUCT_AUTHORING.md).
+
+Wave 2 source-owned suggestions can populate the existing source correction
+editor without saving a decision. It supports conditional battery and instrument
+profile members as well as PV quantities; complete source context and CAS/history
+remain mandatory. See [the Wave 2 workflow and authority boundary](../../docs/REAL_PRODUCT_READINESS_WAVE2.md).
+
 The optional Engineering profiles route previews versioned provisional PV,
 tracker, shared-capacity, AC-mode and assembly facts, source evidence and explicit
 installed scenarios. Edits clear stale previews; validation grants no source or

@@ -1,0 +1,203 @@
+{
+  "schema_version": "wave2-required-assertions.v1",
+  "frozen_at": "2026-10-13T22:00:18.326Z",
+  "starting_head": "726f5838d2c2c971131a1447814d5dfee1830903",
+  "authority": "independent_reporting_oracle_never_extractor_input",
+  "scope": "eight exact investigations from unchanged 47-ID horizon",
+  "products": [
+    {
+      "id": "p25",
+      "manufacturer": "Newpowa",
+      "model": "NPA200S-12J",
+      "manufacturer_revision": null,
+      "intended_use": "Provisional homogeneous PV string electrical-envelope diagnostic; installation remains unresolved",
+      "required_assertions": [
+        "exact_identity_revision",
+        "pmax_w",
+        "voc_v",
+        "vmp_v",
+        "isc_a",
+        "imp_a",
+        "reference_cell_temperature",
+        "reference_irradiance_spectrum",
+        "quantity_coefficients_domains",
+        "uncertainty",
+        "system_voltage_series_fuse",
+        "connectors_installation"
+      ],
+      "identity_notes": "NPA200S-12J",
+      "source_urls": [
+        "https://www.newpowa.com/new-200w-12v-monocrystalline-solar-panel/"
+      ],
+      "selection_reason": "Diverse existing exact-source backlog; preserve full required inventory and unknowns"
+    },
+    {
+      "id": "p26",
+      "manufacturer": "Newpowa",
+      "model": "NPA200S-24J",
+      "manufacturer_revision": null,
+      "intended_use": "Provisional homogeneous PV string electrical-envelope diagnostic; installation remains unresolved",
+      "required_assertions": [
+        "exact_identity_revision",
+        "pmax_w",
+        "voc_v",
+        "vmp_v",
+        "isc_a",
+        "imp_a",
+        "reference_cell_temperature",
+        "reference_irradiance_spectrum",
+        "quantity_coefficients_domains",
+        "uncertainty",
+        "system_voltage_series_fuse",
+        "connectors_installation"
+      ],
+      "identity_notes": "NPA200S-24J",
+      "source_urls": [
+        "https://www.newpowa.com/new-200w-24v-monocrystalline-solar-panel/"
+      ],
+      "selection_reason": "Diverse existing exact-source backlog; preserve full required inventory and unknowns"
+    },
+    {
+      "id": "p07",
+      "manufacturer": "Victron Energy",
+      "model": "SmartSolar MPPT 150/45",
+      "manufacturer_revision": null,
+      "intended_use": "Provisional exact input-limit comparison with a PV string, no retail variant or wiring certification",
+      "required_assertions": [
+        "exact_identity_revision",
+        "tracker_terminal_membership",
+        "absolute_pv_voc",
+        "operating_start_restart_voltage",
+        "pv_isc_imp",
+        "battery_voltage_charge_current",
+        "conditional_pv_power_clipping",
+        "input_sharing",
+        "connectors_protection",
+        "thermal_mounting"
+      ],
+      "identity_notes": "Exact retail MPN unresolved; use 150/45 table column",
+      "source_urls": [
+        "https://www.victronenergy.com/media/pg/Manual_SmartSolar_MPPT_150-35__150-45/en/technical-specifications.html"
+      ],
+      "selection_reason": "Diverse existing exact-source backlog; preserve full required inventory and unknowns"
+    },
+    {
+      "id": "p22",
+      "manufacturer": "MEAN WELL",
+      "model": "DDR-120B-12",
+      "manufacturer_revision": null,
+      "intended_use": "Provisional directional DC conversion at explicit input/output/load/temperature conditions",
+      "required_assertions": [
+        "exact_identity_revision",
+        "direction_input_output",
+        "input_range",
+        "output_voltage_current_power",
+        "peak_duration_conditions",
+        "isolation_scope",
+        "lockout_recovery",
+        "thermal_derating",
+        "terminals_protection_mounting"
+      ],
+      "identity_notes": "DDR-120B-12",
+      "source_urls": [
+        "https://www.meanwell.com/Upload/PDF/DDR-120/DDR-120-SPEC.PDF"
+      ],
+      "selection_reason": "Diverse existing exact-source backlog; preserve full required inventory and unknowns"
+    },
+    {
+      "id": "p23",
+      "manufacturer": "MEAN WELL",
+      "model": "DDR-120C-12",
+      "manufacturer_revision": null,
+      "intended_use": "Provisional directional DC conversion at explicit input/output/load/temperature conditions",
+      "required_assertions": [
+        "exact_identity_revision",
+        "direction_input_output",
+        "input_range",
+        "output_voltage_current_power",
+        "peak_duration_conditions",
+        "isolation_scope",
+        "lockout_recovery",
+        "thermal_derating",
+        "terminals_protection_mounting"
+      ],
+      "identity_notes": "DDR-120C-12",
+      "source_urls": [
+        "https://www.meanwell.com/Upload/PDF/DDR-120/DDR-120-SPEC.PDF"
+      ],
+      "selection_reason": "Diverse existing exact-source backlog; preserve full required inventory and unknowns"
+    },
+    {
+      "id": "p24",
+      "manufacturer": "Epoch Batteries",
+      "model": "B24100A-C",
+      "manufacturer_revision": null,
+      "intended_use": "Provisional charge/discharge temperature and series/parallel permissions at explicit battery/cell conditions",
+      "required_assertions": [
+        "exact_identity_revision",
+        "nominal_v_ah_wh",
+        "charge_voltage_current",
+        "discharge_continuous_peak_duration",
+        "bms_cutoff_recovery",
+        "temperature_heater_policy",
+        "series_parallel_permission",
+        "terminals_fusing",
+        "installation_envelope"
+      ],
+      "identity_notes": "B24100A-C",
+      "source_urls": [
+        "https://www.epochbatteries.com/products/24v-100ah-marine-lithium-battery",
+        "https://www.epochbatteries.com/resources"
+      ],
+      "selection_reason": "Diverse existing exact-source backlog; preserve full required inventory and unknowns"
+    },
+    {
+      "id": "p15",
+      "manufacturer": "Samlex America",
+      "model": "EVO-2212",
+      "manufacturer_revision": null,
+      "intended_use": "Provisional inversion/charging mode output-envelope diagnostic, no bonding or transfer certification",
+      "required_assertions": [
+        "exact_identity_revision",
+        "directional_ports_paths",
+        "battery_envelope",
+        "pv_tracker_limits",
+        "mode_specific_ac_conductors",
+        "w_va_pf_surge_duration",
+        "shared_capacity_exclusions",
+        "assembly_revision_counts",
+        "protocol_dependencies",
+        "ground_neutral_transfer",
+        "idle_thermal_installation"
+      ],
+      "identity_notes": "EVO-2212",
+      "source_urls": [
+        "https://samlexamerica.com/products/2200-watt-pure-sine-inverter-charger-evo-2212/",
+        "https://samlexamerica.com/wp-content/uploads/2021/11/Samlex-EVO-Features-Spec-Sheet-1121.pdf"
+      ],
+      "selection_reason": "Diverse existing exact-source backlog; preserve full required inventory and unknowns"
+    },
+    {
+      "id": "p10",
+      "manufacturer": "Victron Energy",
+      "model": "BMV-712 Smart",
+      "manufacturer_revision": null,
+      "intended_use": "Provisional DC current/voltage measurement suitability; accuracy and shunt capacity remain separate",
+      "required_assertions": [
+        "exact_identity_revision",
+        "supply_consumption",
+        "measurement_participants",
+        "accuracy_denominator_conditions",
+        "shunt_a_mv_transfer",
+        "included_optional_accessories",
+        "protocol_pinout_termination",
+        "installation"
+      ],
+      "identity_notes": "BMV-712 Smart (ordering code not established here)",
+      "source_urls": [
+        "https://www.victronenergy.com/upload/documents/Datasheet-BMV-712-Smart-EN.pdf"
+      ],
+      "selection_reason": "Diverse existing exact-source backlog; preserve full required inventory and unknowns"
+    }
+  ]
+}

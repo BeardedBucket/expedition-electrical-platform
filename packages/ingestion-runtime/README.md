@@ -1,5 +1,15 @@
 # Ingestion job runtime
 
+`previewAuthoredDraft` and `importAuthoredDraft` attach source-backed, unreviewed
+proposals to retained jobs using exact versions and append-only history. They do
+not make source decisions or approve the ordinary extracted candidate. See
+[the authoring contract](../../docs/WAVE2_DIRECT_PRODUCT_AUTHORING.md).
+
+Wave 2 prepares genuine captures in this same durable service/store and exposes
+read-only source-owned correction previews. A preview persists no human decision;
+a deliberate save still owns CAS, append-only history and atomic candidate replay.
+See [Wave 2 acceptance and private artifact ownership](../../docs/REAL_PRODUCT_READINESS_WAVE2.md).
+
 This Node-only package persists the production preparation result in a versioned job record. The record includes the full result, including captured source bytes and diagnostics. Runtime adapters, manufacturer profiles, capture policy, and clocks are supplied through `IngestionRuntimeDependencies`; they are not saved in a job. The ingestion-admin API uses `IngestionJobService` for the ordinary lifecycle and `IngestionBatchService` as a facade for child-job operations, semantic target discovery/preview, and semantic decisions.
 
 `FileIngestionJobStore` takes an explicit storage root. Each record is checksum-checked and replaced through a temporary file and rename. Saves use an exclusive per-job lock around version comparison and replacement; the lock is not an operation lease. Finalization passes the stored review-ready result and submitted approval to the existing finalizer. The caller must still supply the canonical write request, including `write: true` for a write.

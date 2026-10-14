@@ -17,6 +17,10 @@ export interface NativeModelGridObservation {
   model_end_byte: number;
   table_start_byte: number;
   table_end_byte: number;
+  label_start_byte: number;
+  label_end_byte: number;
+  source_row: number;
+  value_dom_column: number;
   source_conditions: string[];
 }
 
@@ -64,6 +68,19 @@ export function nativeModelGridObservations(
     new Set(header.map(text)).size !== header.length
   )
     throw new Error('Unsupported source header axis');
+  // A paired header must name the device itself, not a supported accessory or
+  // compatible neighbor. Keep the ordinary model-header-pair device vocabulary
+  // intentionally coupled here; prefix resemblance cannot confer ownership.
+  const firstLabel = text(header[0]!);
+  if (
+    header.length === 2
+      ? !/^(?:model|product|(?:battery )?monitor|inverter(?:[ /-]charger)?|(?:solar )?charge controller|charger|converter|battery|power station)$/i.test(
+          firstLabel,
+        )
+      : firstLabel !== '' &&
+        !/^(?:models?|sku|variants?|parameters?|specifications?)$/i.test(firstLabel)
+  )
+    throw new Error('Non-owning or unsupported model header class');
   const index = header.findIndex((c) => text(c) === exactSourceModel);
   if (index < 1) throw new Error('Model must own a value column');
   const model = header[index]!,
@@ -107,7 +124,8 @@ export function nativeModelGridObservations(
     if (cells.length === 1) continue;
     if (!selected || selected === cells[0]) throw new Error('No independent value ownership');
     const loc = selected.sourceCodeLocation;
-    if (!loc) throw new Error('Missing value offsets');
+    const labelLoc = cells[0]!.sourceCodeLocation;
+    if (!loc || !labelLoc) throw new Error('Missing value/label offsets');
     observations.push({
       label,
       value: text(selected),
@@ -119,6 +137,10 @@ export function nativeModelGridObservations(
       model_end_byte: byte(modelLoc.endOffset),
       table_start_byte: byte(tableLoc.startOffset),
       table_end_byte: byte(tableLoc.endOffset),
+      label_start_byte: byte(labelLoc.startOffset),
+      label_end_byte: byte(labelLoc.endOffset),
+      source_row: rows.indexOf(row) + 1,
+      value_dom_column: cells.indexOf(selected) + 1,
       source_conditions: [
         'Full containing table, section headings and footnotes require independent human qualification',
       ],

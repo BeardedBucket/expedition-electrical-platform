@@ -16,6 +16,7 @@ import { convertUnit, parseExactUnitValue, resolveUnit } from './units.js';
 import { genericSemanticRules, type SourceRatingQualifiers } from './semantic-rules.js';
 import { isCanonicalQualifiedValue, parseSourceObservations } from './qualified-values.js';
 import { profileMemberValue, type ProfileQuantity } from './engineering-profile-adjudication.js';
+import { readSourceOwnedSpecification } from './source-owned-specification.js';
 
 export const HUMAN_ADJUDICATION_VERSION = 'human-adjudication.v1';
 export interface HumanCitation {
@@ -55,6 +56,7 @@ export interface HumanSourceStatement {
       | 'table_column'
       | 'table_row'
       | 'shared_statement'
+      | 'source_record'
       | 'unresolved';
     readonly citation?: HumanCitation;
   };
@@ -144,6 +146,27 @@ export function humanSourceContext(
   statement: HumanSourceStatement,
   documents: readonly DocumentExtractionArtifact[],
 ) {
+  if (statement.applicability.relationship === 'source_record') {
+    if (statement.citations.length !== 1)
+      fail('A source record requires its complete single retained record');
+    const citation = statement.citations[0];
+    const row = readSourceOwnedSpecification(citation, documents);
+    if (statement.wording !== row.statement || statement.value !== row.value)
+      fail('Use the complete native label/value reconstruction; cropped values are refused');
+    return {
+      entries: [
+        // The evidence citation addresses the complete encoded record. Decoded
+        // context can contain JSON escapes and must not invent a substring locator.
+        {
+          citation,
+          text: citation.quote,
+          boundary: 'complete retained native label/value and containing context',
+        },
+      ],
+      text: `${row.statement}\n${row.containing_context}`,
+      uncertain: row.unresolved_context.length > 0,
+    };
+  }
   const entries: { citation: HumanCitation; text: string; boundary: string }[] = [];
   let uncertain = false;
   for (const citation of statement.citations) {
@@ -352,7 +375,20 @@ export function validateHumanSourceStatement(
   );
   if (!identities.some((id) => containsIdentity(scope.citation!.quote, id)))
     fail('Model evidence does not name the requested product; sibling borrowing is refused.');
-  if (scope.relationship === 'table_column') {
+  if (scope.relationship === 'source_record') {
+    const row = readSourceOwnedSpecification(scope.citation, documents);
+    if (
+      !identities.includes(row.identity) ||
+      scope.citation.document_id !== statement.citations[0].document_id ||
+      scope.citation.block_id !== statement.citations[0].block_id ||
+      scope.citation.quote !== statement.citations[0].quote
+    )
+      fail('Source-owned row identity does not exactly match this intake and statement');
+    // Native ownership retains the entire context but does not interpret it.
+    // Scalar/rating projection cannot discard neighboring conditional source text.
+    if (statement.mapping && statement.mapping.kind !== 'engineering_profile_fact')
+      fail('Source-record meaning currently requires a context-retaining engineering profile');
+  } else if (scope.relationship === 'table_column') {
     if (
       !model.cell ||
       model.cell.kind !== 'header' ||
@@ -578,7 +614,15 @@ export function previewHumanMapping(
   if (intent.kind === 'engineering_profile_fact')
     return {
       target,
-      normalized_value: profileMemberValue(intent.quantity, s.value, s.unit, s.wording),
+      normalized_value: profileMemberValue(
+        intent.quantity,
+        s.value,
+        s.unit,
+        s.wording,
+        statement.applicability.relationship === 'source_record'
+          ? readSourceOwnedSpecification(statement.citations[0], fact.human_source.documents).label
+          : undefined,
+      ),
       normalized_unit: 'structured',
     };
   // A manual label can repair parser terminology, but it cannot establish a

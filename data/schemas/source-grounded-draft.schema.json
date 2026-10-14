@@ -1,0 +1,249 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:expedition:source-grounded-draft:v1",
+  "type": "object",
+  "properties": {
+    "version": { "const": "source-grounded-draft.v1" },
+    "authority": { "const": "codex_prepared_unreviewed" },
+    "product": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "manufacturer": { "type": "string", "minLength": 1 },
+        "model": { "type": "string", "minLength": 1 },
+        "manufacturer_part_number": { "type": ["string", "null"] },
+        "hardware_revision": { "type": ["string", "null"] }
+      },
+      "required": ["id", "manufacturer", "model", "manufacturer_part_number", "hardware_revision"],
+      "additionalProperties": false
+    },
+    "intended_use": { "type": "string", "minLength": 1 },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "url": { "type": "string", "minLength": 1 },
+          "publisher": { "type": "string", "minLength": 1 },
+          "retrieved_at": { "type": "string", "minLength": 1 },
+          "content_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+          "document_revision": { "type": ["string", "null"] },
+          "model": { "type": "string", "minLength": 1 },
+          "identity_locator": { "type": "string", "minLength": 1 },
+          "rights": { "const": "metadata_and_limited_facts_only" },
+          "redistribution_grant": { "const": "not_established" }
+        },
+        "required": [
+          "id",
+          "url",
+          "publisher",
+          "retrieved_at",
+          "content_digest",
+          "document_revision",
+          "model",
+          "identity_locator",
+          "rights",
+          "redistribution_grant"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "facts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "quantity": { "type": "string", "minLength": 1 },
+          "basis": {
+            "enum": [
+              "nominal",
+              "absolute",
+              "operating",
+              "continuous",
+              "peak",
+              "typical",
+              "recommended",
+              "measurement",
+              "body",
+              "installation",
+              "descriptive",
+              "protection"
+            ]
+          },
+          "mode": { "type": "string", "minLength": 1 },
+          "direction": { "enum": ["input", "output", "bidirectional", "none", "unknown"] },
+          "electrical_domain": { "enum": ["dc", "ac", "none", "unknown"] },
+          "original": {
+            "type": "object",
+            "properties": {
+              "value": { "type": "string", "minLength": 1 },
+              "unit": { "type": "string", "minLength": 1 },
+              "presentation": {
+                "enum": ["source_literal", "source_value_reconstruction", "authored_summary"]
+              }
+            },
+            "required": ["value", "unit", "presentation"],
+            "additionalProperties": false
+          },
+          "normalized": {
+            "type": "object",
+            "properties": {
+              "value": {
+                "anyOf": [
+                  { "type": "number" },
+                  { "type": "string", "minLength": 1 },
+                  { "type": "boolean" },
+                  {
+                    "type": "object",
+                    "properties": { "min": { "type": "number" }, "max": { "type": "number" } },
+                    "required": ["min", "max"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "x": { "type": "number" },
+                      "y": { "type": "number" },
+                      "z": { "type": "number" }
+                    },
+                    "required": ["x", "y", "z"],
+                    "additionalProperties": false
+                  }
+                ]
+              },
+              "unit": { "type": "string", "minLength": 1 }
+            },
+            "required": ["value", "unit"],
+            "additionalProperties": false
+          },
+          "normalization": {
+            "enum": [
+              "identity",
+              "symmetric_range",
+              "cm_to_mm",
+              "kvdc_to_vdc",
+              "in_to_mm",
+              "lb_to_kg",
+              "kwh_to_wh",
+              "ma_to_a",
+              "percent_to_fraction",
+              "minutes_to_seconds"
+            ]
+          },
+          "source_id": { "type": "string", "minLength": 1 },
+          "locator": { "type": "string", "minLength": 1 },
+          "context_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+          "conditions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": { "type": "string", "minLength": 1 },
+                "value": {
+                  "anyOf": [
+                    { "type": "number" },
+                    { "type": "string", "minLength": 1 },
+                    { "type": "boolean" },
+                    {
+                      "type": "object",
+                      "properties": { "min": { "type": "number" }, "max": { "type": "number" } },
+                      "required": ["min", "max"],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "x": { "type": "number" },
+                        "y": { "type": "number" },
+                        "z": { "type": "number" }
+                      },
+                      "required": ["x", "y", "z"],
+                      "additionalProperties": false
+                    }
+                  ]
+                },
+                "unit": { "type": "string", "minLength": 1 }
+              },
+              "required": ["key", "value", "unit"],
+              "additionalProperties": false
+            }
+          },
+          "unresolved_conditions": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "disposition": {
+            "enum": ["typed_consumer", "retained_source_fact", "evidence_ambiguity"]
+          }
+        },
+        "required": [
+          "id",
+          "quantity",
+          "basis",
+          "mode",
+          "direction",
+          "electrical_domain",
+          "original",
+          "normalized",
+          "normalization",
+          "source_id",
+          "locator",
+          "context_digest",
+          "conditions",
+          "unresolved_conditions",
+          "disposition"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "holds": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "ports": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "label": { "type": "string", "minLength": 1 },
+          "domain": { "enum": ["dc", "ac"] },
+          "direction": { "enum": ["input", "output", "bidirectional"] },
+          "voltage_v": {
+            "anyOf": [
+              { "type": "number" },
+              {
+                "type": "object",
+                "properties": { "min": { "type": "number" }, "max": { "type": "number" } },
+                "required": ["min", "max"],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "source_fact_ids": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+        },
+        "required": ["id", "label", "domain", "direction", "voltage_v", "source_fact_ids"],
+        "additionalProperties": false
+      }
+    },
+    "power_paths": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "from_port": { "type": "string", "minLength": 1 },
+          "to_port": { "type": "string", "minLength": 1 },
+          "source_fact_ids": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+        },
+        "required": ["id", "from_port", "to_port", "source_fact_ids"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["version", "authority", "product", "intended_use", "sources", "facts", "holds"],
+  "additionalProperties": false
+}

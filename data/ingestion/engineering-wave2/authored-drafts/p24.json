@@ -1,0 +1,966 @@
+{
+  "version": "source-grounded-draft.v1",
+  "authority": "codex_prepared_unreviewed",
+  "product": {
+    "id": "draft.p24",
+    "manufacturer": "Epoch Batteries",
+    "model": "B24100A-C",
+    "manufacturer_part_number": "B24100A-C",
+    "hardware_revision": null
+  },
+  "intended_use": "24 V class house storage with explicit voltage, current-duration, cell/heater and bank matching constraints",
+  "sources": [
+    {
+      "id": "p24",
+      "url": "https://www.epochbatteries.com/products/24v-100ah-marine-lithium-battery",
+      "publisher": "Epoch Batteries",
+      "retrieved_at": "2026-10-13T05:13:24.875Z",
+      "content_digest": "sha256:14bdb4593f47477ab398b7da5153ee91f9390b89d366ba5b79ac4b7163ce4b53",
+      "document_revision": null,
+      "model": "B24100A-C",
+      "identity_locator": "Technical Specifications & Dimensions / Model SKU B24100A-C",
+      "rights": "metadata_and_limited_facts_only",
+      "redistribution_grant": "not_established"
+    }
+  ],
+  "facts": [
+    {
+      "id": "draft.p24.nominal_voltage.0",
+      "quantity": "nominal_voltage",
+      "basis": "nominal",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "25.6",
+        "unit": "V",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 25.6,
+        "unit": "V"
+      },
+      "normalization": "identity",
+      "source_id": "p24",
+      "locator": "HTML Technical Specifications & Dimensions / Nominal voltage",
+      "context_digest": "sha256:14bdb4593f47477ab398b7da5153ee91f9390b89d366ba5b79ac4b7163ce4b53",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p24.system_voltage_class.1",
+      "quantity": "system_voltage_class",
+      "basis": "nominal",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "24",
+        "unit": "V",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 24,
+        "unit": "V"
+      },
+      "normalization": "identity",
+      "source_id": "p24",
+      "locator": "HTML Technical Specifications & Dimensions / Nominal voltage",
+      "context_digest": "sha256:14bdb4593f47477ab398b7da5153ee91f9390b89d366ba5b79ac4b7163ce4b53",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p24.capacity.2",
+      "quantity": "capacity",
+      "basis": "nominal",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "100",
+        "unit": "Ah",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 100,
+        "unit": "Ah"
+      },
+      "normalization": "identity",
+      "source_id": "p24",
+      "locator": "HTML Technical Specifications & Dimensions / Nominal capacity",
+      "context_digest": "sha256:14bdb4593f47477ab398b7da5153ee91f9390b89d366ba5b79ac4b7163ce4b53",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p24.energy.3",
+      "quantity": "energy",
+      "basis": "nominal",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "2.56",
+        "unit": "kWh",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 2560,
+        "unit": "Wh"
+      },
+      "normalization": "kwh_to_wh",
+      "source_id": "p24",
+      "locator": "HTML Technical Specifications & Dimensions / Energy stored",
+      "context_digest": "sha256:14bdb4593f47477ab398b7da5153ee91f9390b89d366ba5b79ac4b7163ce4b53",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p24.chemistry.4",
+      "quantity": "chemistry",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "LiFePO4",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "LiFePO4",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p24",
+      "locator": "HTML Technical Specifications & Dimensions / Chemistry",
+      "context_digest": "sha256:14bdb4593f47477ab398b7da5153ee91f9390b89d366ba5b79ac4b7163ce4b53",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p24.cell_configuration.5",
+      "quantity": "cell_configuration",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "8S",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "8S",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p24",
+      "locator": "HTML Technical Specifications & Dimensions / Cell configuration",
+      "context_digest": "sha256:14bdb4593f47477ab398b7da5153ee91f9390b89d366ba5b79ac4b7163ce4b53",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p24.operating_voltage_range.6",
+      "quantity": "operating_voltage_range",
+      "basis": "operating",
+      "mode": "battery",
+      "direction": "bidirectional",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "{\"min\":20,\"max\":29.2}",
+        "unit": "V",
+        "presentation": "source_value_reconstruction"
+      },
+      "normalized": {
+        "value": {
+          "min": 20,
+          "max": 29.2
+        },
+        "unit": "V"
+      },
+      "normalization": "identity",
+      "source_id": "p24",
+      "locator": "HTML Technical Specifications & Dimensions / Operating voltage range",
+      "context_digest": "sha256:14bdb4593f47477ab398b7da5153ee91f9390b89d366ba5b79ac4b7163ce4b53",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "typed_consumer"
+    },
+    {
+      "id": "draft.p24.charge_voltage_max.7",
+      "quantity": "charge_voltage_max",
+      "basis": "absolute",
+      "mode": "charge",
+      "direction": "input",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "29.2",
+        "unit": "V",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 29.2,
+        "unit": "V"
+      },
+      "normalization": "identity",
+      "source_id": "p24",
+      "locator": "HTML Technical Specifications & Dimensions / Maximum charge voltage",
+      "context_digest": "sha256:14bdb4593f47477ab398b7da5153ee91f9390b89d366ba5b79ac4b7163ce4b53",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "typed_consumer"
+    },
+    {
+      "id": "draft.p24.discharge_current.8",
+      "quantity": "discharge_current",
+      "basis": "continuous",
+      "mode": "discharge",
+      "direction": "output",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "120",
+        "unit": "A",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 120,
+        "unit": "A"
+      },
+      "normalization": "identity",
+      "source_id": "p24",
+      "locator": "HTML Technical Specifications & Dimensions / Max continuous discharge",
+      "context_digest": "sha256:14bdb4593f47477ab398b7da5153ee91f9390b89d366ba5b79ac4b7163ce4b53",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "typed_consumer"
+    },
+    {
+      "id": "draft.p24.recommended_charge_current.9",
+      "quantity": "recommended_charge_current",
+      "basis": "recommended",
+      "mode": "charge",
+      "direction": "input",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "50",
+        "unit": "A",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 50,
+        "unit": "A"
+      },
+      "normalization": "identity",
+      "source_id": "p24",
+      "locator": "HTML Technical Specifications & Dimensions / Continuous charge current",
+      "context_digest": "sha256:14bdb4593f47477ab398b7da5153ee91f9390b89d366ba5b79ac4b7163ce4b53",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p24.charge_current.10",
+      "quantity": "charge_current",
+      "basis": "peak",
+      "mode": "charge_peak",
+      "direction": "input",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "150",
+        "unit": "A",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 150,
+        "unit": "A"
+      },
+      "normalization": "identity",
+      "source_id": "p24",
+      "locator": "HTML Technical Specifications & Dimensions / Max charge current",
+      "context_digest": "sha256:14bdb4593f47477ab398b7da5153ee91f9390b89d366ba5b79ac4b7163ce4b53",
+      "conditions": [
+        {
+          "key": "duration_s",
+          "value": {
+            "min": 0,
+            "max": 10
+          },
+          "unit": "s"
+        }
+      ],
+      "unresolved_conditions": [
+        "Peak reset/repetition duty and current/thermal prerequisites unproven"
+      ],
+      "disposition": "typed_consumer"
+    },
+    {
+      "id": "draft.p24.discharge_current.11",
+      "quantity": "discharge_current",
+      "basis": "peak",
+      "mode": "discharge_peak",
+      "direction": "output",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "200",
+        "unit": "A",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 200,
+        "unit": "A"
+      },
+      "normalization": "identity",
+      "source_id": "p24",
+      "locator": "HTML Technical Specifications & Dimensions / Max discharge peak current",
+      "context_digest": "sha256:14bdb4593f47477ab398b7da5153ee91f9390b89d366ba5b79ac4b7163ce4b53",
+      "conditions": [
+        {
+          "key": "duration_s",
+          "value": {
+            "min": 0,
+            "max": 60
+          },
+          "unit": "s"
+        }
+      ],
+      "unresolved_conditions": ["Duty/recovery and BMS trip not established by peak allowance"],
+      "disposition": "typed_consumer"
+    },
+    {
+      "id": "draft.p24.series_count_max.12",
+      "quantity": "series_count_max",
+      "basis": "operating",
+      "mode": "series_bank",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "2",
+        "unit": "count",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 2,
+        "unit": "count"
+      },
+      "normalization": "identity",
+      "source_id": "p24",
+      "locator": "HTML Technical Specifications & Dimensions / Series connections",
+      "context_digest": "sha256:14bdb4593f47477ab398b7da5153ee91f9390b89d366ba5b79ac4b7163ce4b53",
+      "conditions": [
+        {
+          "key": "matched_bank",
+          "value": true,
+          "unit": "text"
+        }
+      ],
+      "unresolved_conditions": [
+        "Up to48V source qualifier; actual nominal sum differs from system class; installed membership required"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p24.parallel_count_max.13",
+      "quantity": "parallel_count_max",
+      "basis": "operating",
+      "mode": "parallel_bank",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "4",
+        "unit": "count",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 4,
+        "unit": "count"
+      },
+      "normalization": "identity",
+      "source_id": "p24",
+      "locator": "HTML Technical Specifications & Dimensions / Parallel connections",
+      "context_digest": "sha256:14bdb4593f47477ab398b7da5153ee91f9390b89d366ba5b79ac4b7163ce4b53",
+      "conditions": [
+        {
+          "key": "matched_bank",
+          "value": true,
+          "unit": "text"
+        }
+      ],
+      "unresolved_conditions": [
+        "Up to400Ah at24V; membership, balanced wiring and protection required"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p24.bank_matching.14",
+      "quantity": "bank_matching",
+      "basis": "installation",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "same model, age, capacity and state of charge",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "same model, age, capacity and state of charge",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p24",
+      "locator": "HTML Technical Specifications & Dimensions / Bank matching",
+      "context_digest": "sha256:14bdb4593f47477ab398b7da5153ee91f9390b89d366ba5b79ac4b7163ce4b53",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p24.battery_cell_charge_range.15",
+      "quantity": "battery_cell_charge_range",
+      "basis": "operating",
+      "mode": "charge",
+      "direction": "input",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "{\"min\":0,\"max\":55}",
+        "unit": "degC",
+        "presentation": "source_value_reconstruction"
+      },
+      "normalized": {
+        "value": {
+          "min": 0,
+          "max": 55
+        },
+        "unit": "degC"
+      },
+      "normalization": "identity",
+      "source_id": "p24",
+      "locator": "HTML Technical Specifications & Dimensions / Battery / cell charge range",
+      "context_digest": "sha256:14bdb4593f47477ab398b7da5153ee91f9390b89d366ba5b79ac4b7163ce4b53",
+      "conditions": [
+        {
+          "key": "measurement_point",
+          "value": "battery_cell",
+          "unit": "text"
+        },
+        {
+          "key": "heater_state",
+          "value": "after_heating",
+          "unit": "text"
+        }
+      ],
+      "unresolved_conditions": [],
+      "disposition": "typed_consumer"
+    },
+    {
+      "id": "draft.p24.charge_temperature_range_with_heating.16",
+      "quantity": "charge_temperature_range_with_heating",
+      "basis": "operating",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "{\"min\":-20,\"max\":55}",
+        "unit": "degC",
+        "presentation": "source_value_reconstruction"
+      },
+      "normalized": {
+        "value": {
+          "min": -20,
+          "max": 55
+        },
+        "unit": "degC"
+      },
+      "normalization": "identity",
+      "source_id": "p24",
+      "locator": "HTML Technical Specifications & Dimensions / Charge temperature range",
+      "context_digest": "sha256:14bdb4593f47477ab398b7da5153ee91f9390b89d366ba5b79ac4b7163ce4b53",
+      "conditions": [],
+      "unresolved_conditions": [
+        "Temperature location/heating sequence cannot collapse to cell-charge range"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p24.discharge_temperature_range.17",
+      "quantity": "discharge_temperature_range",
+      "basis": "operating",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "{\"min\":-20,\"max\":60}",
+        "unit": "degC",
+        "presentation": "source_value_reconstruction"
+      },
+      "normalized": {
+        "value": {
+          "min": -20,
+          "max": 60
+        },
+        "unit": "degC"
+      },
+      "normalization": "identity",
+      "source_id": "p24",
+      "locator": "HTML Technical Specifications & Dimensions / Discharge temperature range",
+      "context_digest": "sha256:14bdb4593f47477ab398b7da5153ee91f9390b89d366ba5b79ac4b7163ce4b53",
+      "conditions": [],
+      "unresolved_conditions": ["Measurement location unspecified in native table"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p24.storage_temperature.18",
+      "quantity": "storage_temperature",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "{\"min\":0,\"max\":35}",
+        "unit": "degC",
+        "presentation": "source_value_reconstruction"
+      },
+      "normalized": {
+        "value": {
+          "min": 0,
+          "max": 35
+        },
+        "unit": "degC"
+      },
+      "normalization": "identity",
+      "source_id": "p24",
+      "locator": "HTML Technical Specifications & Dimensions / Storage temperature",
+      "context_digest": "sha256:14bdb4593f47477ab398b7da5153ee91f9390b89d366ba5b79ac4b7163ce4b53",
+      "conditions": [
+        {
+          "key": "storage_duration_months",
+          "value": {
+            "min": 0,
+            "max": 12
+          },
+          "unit": "months"
+        }
+      ],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p24.internal_heater.19",
+      "quantity": "internal_heater",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "true",
+        "unit": "boolean",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": true,
+        "unit": "boolean"
+      },
+      "normalization": "identity",
+      "source_id": "p24",
+      "locator": "HTML Technical Specifications & Dimensions / Internal heating",
+      "context_digest": "sha256:14bdb4593f47477ab398b7da5153ee91f9390b89d366ba5b79ac4b7163ce4b53",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p24.bms_functions.20",
+      "quantity": "bms_functions",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "overcharge, over-discharge, overcurrent, short circuit, temperature disconnects",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "overcharge, over-discharge, overcurrent, short circuit, temperature disconnects",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p24",
+      "locator": "HTML Technical Specifications & Dimensions / Smart BMS",
+      "context_digest": "sha256:14bdb4593f47477ab398b7da5153ee91f9390b89d366ba5b79ac4b7163ce4b53",
+      "conditions": [],
+      "unresolved_conditions": ["Numeric trip/recovery/delay/hysteresis and BMS ports unproven"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p24.bulk_absorption_range.21",
+      "quantity": "bulk_absorption_range",
+      "basis": "recommended",
+      "mode": "charge",
+      "direction": "input",
+      "electrical_domain": "dc",
+      "original": {
+        "value": "{\"min\":28.4,\"max\":29.2}",
+        "unit": "V",
+        "presentation": "source_value_reconstruction"
+      },
+      "normalized": {
+        "value": {
+          "min": 28.4,
+          "max": 29.2
+        },
+        "unit": "V"
+      },
+      "normalization": "identity",
+      "source_id": "p24",
+      "locator": "HTML Technical Specifications & Dimensions / Bulk absorption",
+      "context_digest": "sha256:14bdb4593f47477ab398b7da5153ee91f9390b89d366ba5b79ac4b7163ce4b53",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p24.absorption_time.22",
+      "quantity": "absorption_time",
+      "basis": "recommended",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "30",
+        "unit": "min",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 30,
+        "unit": "min"
+      },
+      "normalization": "identity",
+      "source_id": "p24",
+      "locator": "HTML Recommended Charging Settings / Absorption Time",
+      "context_digest": "sha256:14bdb4593f47477ab398b7da5153ee91f9390b89d366ba5b79ac4b7163ce4b53",
+      "conditions": [
+        {
+          "key": "parallel_batteries",
+          "value": 2,
+          "unit": "count"
+        },
+        {
+          "key": "bank_capacity_ah",
+          "value": 200,
+          "unit": "Ah"
+        }
+      ],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p24.float_voltage_range.23",
+      "quantity": "float_voltage_range",
+      "basis": "recommended",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "{\"min\":26.8,\"max\":27.6}",
+        "unit": "V",
+        "presentation": "source_value_reconstruction"
+      },
+      "normalized": {
+        "value": {
+          "min": 26.8,
+          "max": 27.6
+        },
+        "unit": "V"
+      },
+      "normalization": "identity",
+      "source_id": "p24",
+      "locator": "HTML Recommended Charging Settings / Float",
+      "context_digest": "sha256:14bdb4593f47477ab398b7da5153ee91f9390b89d366ba5b79ac4b7163ce4b53",
+      "conditions": [],
+      "unresolved_conditions": [
+        "Native table says compatible float or disabled depending on charger; not mandatory float"
+      ],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p24.equalization.24",
+      "quantity": "equalization",
+      "basis": "recommended",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "disabled",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "disabled",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p24",
+      "locator": "HTML Technical Specifications & Dimensions / Equalization",
+      "context_digest": "sha256:14bdb4593f47477ab398b7da5153ee91f9390b89d366ba5b79ac4b7163ce4b53",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p24.charge_temperature_compensation.25",
+      "quantity": "charge_temperature_compensation",
+      "basis": "recommended",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "disabled /0",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "disabled /0",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p24",
+      "locator": "HTML Technical Specifications & Dimensions / Temperature compensation",
+      "context_digest": "sha256:14bdb4593f47477ab398b7da5153ee91f9390b89d366ba5b79ac4b7163ce4b53",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p24.charger_type.26",
+      "quantity": "charger_type",
+      "basis": "installation",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "24V LiFePO4-compatible and programmable",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "24V LiFePO4-compatible and programmable",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p24",
+      "locator": "HTML Technical Specifications & Dimensions / Required charger type",
+      "context_digest": "sha256:14bdb4593f47477ab398b7da5153ee91f9390b89d366ba5b79ac4b7163ce4b53",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p24.body_length.27",
+      "quantity": "body_length",
+      "basis": "body",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "13",
+        "unit": "in",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 330.2,
+        "unit": "mm"
+      },
+      "normalization": "in_to_mm",
+      "source_id": "p24",
+      "locator": "HTML Technical Specifications & Dimensions / body_length",
+      "context_digest": "sha256:14bdb4593f47477ab398b7da5153ee91f9390b89d366ba5b79ac4b7163ce4b53",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p24.body_width.28",
+      "quantity": "body_width",
+      "basis": "body",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "10.25",
+        "unit": "in",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 260.34999999999997,
+        "unit": "mm"
+      },
+      "normalization": "in_to_mm",
+      "source_id": "p24",
+      "locator": "HTML Technical Specifications & Dimensions / body_width",
+      "context_digest": "sha256:14bdb4593f47477ab398b7da5153ee91f9390b89d366ba5b79ac4b7163ce4b53",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p24.body_height.29",
+      "quantity": "body_height",
+      "basis": "body",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "11",
+        "unit": "in",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 279.4,
+        "unit": "mm"
+      },
+      "normalization": "in_to_mm",
+      "source_id": "p24",
+      "locator": "HTML Technical Specifications & Dimensions / body_height",
+      "context_digest": "sha256:14bdb4593f47477ab398b7da5153ee91f9390b89d366ba5b79ac4b7163ce4b53",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p24.mass.30",
+      "quantity": "mass",
+      "basis": "body",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "48.5",
+        "unit": "lb",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 21.999229945,
+        "unit": "kg"
+      },
+      "normalization": "lb_to_kg",
+      "source_id": "p24",
+      "locator": "HTML Technical Specifications & Dimensions / Weight",
+      "context_digest": "sha256:14bdb4593f47477ab398b7da5153ee91f9390b89d366ba5b79ac4b7163ce4b53",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p24.enclosure_protection.31",
+      "quantity": "enclosure_protection",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "IP67",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "IP67",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p24",
+      "locator": "HTML Technical Specifications & Dimensions / IP rating",
+      "context_digest": "sha256:14bdb4593f47477ab398b7da5153ee91f9390b89d366ba5b79ac4b7163ce4b53",
+      "conditions": [],
+      "unresolved_conditions": ["Not installed mounting/terminal watertightness proof"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p24.communication.32",
+      "quantity": "communication",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "Bluetooth with Epoch Li-Ion app",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "Bluetooth with Epoch Li-Ion app",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p24",
+      "locator": "HTML Technical Specifications & Dimensions / Bluetooth",
+      "context_digest": "sha256:14bdb4593f47477ab398b7da5153ee91f9390b89d366ba5b79ac4b7163ce4b53",
+      "conditions": [],
+      "unresolved_conditions": ["No BMS interoperability inferred"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p24.cycle_life_claim.33",
+      "quantity": "cycle_life_claim",
+      "basis": "descriptive",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "3500",
+        "unit": "cycles",
+        "presentation": "source_literal"
+      },
+      "normalized": {
+        "value": 3500,
+        "unit": "cycles"
+      },
+      "normalization": "identity",
+      "source_id": "p24",
+      "locator": "HTML Technical Specifications & Dimensions / Cycle life",
+      "context_digest": "sha256:14bdb4593f47477ab398b7da5153ee91f9390b89d366ba5b79ac4b7163ce4b53",
+      "conditions": [],
+      "unresolved_conditions": ["Cycle depth/test conditions unproven"],
+      "disposition": "retained_source_fact"
+    },
+    {
+      "id": "draft.p24.installation_constraints.34",
+      "quantity": "installation_constraints",
+      "basis": "installation",
+      "mode": "all",
+      "direction": "none",
+      "electrical_domain": "none",
+      "original": {
+        "value": "matched banks, balanced wiring, bay/terminal access and correctly sized protection",
+        "unit": "text",
+        "presentation": "authored_summary"
+      },
+      "normalized": {
+        "value": "matched banks, balanced wiring, bay/terminal access and correctly sized protection",
+        "unit": "text"
+      },
+      "normalization": "identity",
+      "source_id": "p24",
+      "locator": "HTML Fitment and installation note",
+      "context_digest": "sha256:14bdb4593f47477ab398b7da5153ee91f9390b89d366ba5b79ac4b7163ce4b53",
+      "conditions": [],
+      "unresolved_conditions": [],
+      "disposition": "retained_source_fact"
+    }
+  ],
+  "holds": [
+    "Exact installed hardware revision not established; capture/document revision is distinct",
+    "All authored source meanings require independent human review; no source decision or product authority",
+    "Linked2022 manual names B24100B and other models, not B24100A-C; no4S/heater/current/BMS values transferred",
+    "BMS cutoffs/recovery, installed thermal state, terminal ratings/torque and bank members remain unknown"
+  ]
+}

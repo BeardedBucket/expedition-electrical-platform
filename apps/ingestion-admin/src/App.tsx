@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useState, type FormEvent } from 'react';
+import { AuthoredDraftView } from './AuthoredDraftView.js';
 import { ProductReview, SourceLink } from './ProductReview.js';
 import {
   api,
@@ -100,6 +101,7 @@ export function Review({
             <p>Preparation failed. Inspect the diagnostics below.</p>
           )}
           <h2>Overview</h2>
+          <AuthoredDraftView job={job} />
           <dl>
             <dt>Manufacturer</dt>
             <dd>{s.manufacturer}</dd>

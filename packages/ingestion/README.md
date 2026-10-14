@@ -1,5 +1,14 @@
 # Ingestion contracts
 
+Direct source-grounded authoring is an explicitly unreviewed alternative to
+automatic extraction, with the same durable evidence and human authority boundary.
+See [the authoring contract](../../docs/WAVE2_DIRECT_PRODUCT_AUTHORING.md).
+
+Wave 2 adds source-owned native review records and optional conditional battery/
+instrument profile members to the ordinary production path. Complete containing
+context, exact model ownership and separate human decisions remain required.
+See [the Wave 2 contract and version boundaries](../../docs/REAL_PRODUCT_READINESS_WAVE2.md).
+
 Wave-1 engineering preparation adds private evidence-bound profile authoring and
 strict replay, separate from production semantic decisions and admission. See
 [the versioned contract](../../docs/ENGINEERING_CORPUS_WAVE1.md) and
